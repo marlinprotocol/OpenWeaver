@@ -7,6 +7,8 @@ namespace beacon {
 
 Beacon::Beacon(const net::SocketAddress &_addr) : addr(_addr), localSocket() {
 	localSocket.bind(addr);
+
+	protocol::DiscoveryProtocol<Beacon>::setup(*this);
 }
 
 void Beacon::start_listening() {
@@ -39,11 +41,11 @@ void Beacon::add_or_update_receipt_time(const net::SocketAddress &addr) {
 	std::list<Peer>::iterator iter = std::find(peers.begin(), peers.end(), addr);
 	if(iter == peers.end()) {
 		iter = peers.insert(iter, Peer(addr, std::time(NULL)));
-		spdlog::info("New peer: ", addr.to_string());
+		spdlog::info("New peer: {}", addr.to_string());
 	}
 	else {
 		iter->last_receipt_time = std::time(NULL);
-		spdlog::debug("Old peer: ", addr.to_string());
+		spdlog::debug("Old peer: {}", addr.to_string());
 	}
 }
 
