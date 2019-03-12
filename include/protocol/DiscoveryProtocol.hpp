@@ -36,41 +36,26 @@ public:
 	static void send_HEARTBEAT(NodeType &node, const net::SocketAddress &addr);
 
 protected:
-	static std::map<uv_timer_t *, NodeType *> registry;
-
-	static void register_node(uv_timer_t *handle, NodeType *cb) {
-		registry[handle] = cb;
-	}
-	static void deregister_node(uv_timer_t *handle) {
-		registry.erase(handle);
-	}
-
 	static void timer_cb(uv_timer_t *handle) {
-		auto iter = registry.find(handle);
-		if (iter == registry.end())
-			return;
+		auto node = (NodeType *)handle->data;
 
 		auto cur_time = std::time(NULL);
 
 		// Remove stale peers if inactive for a minute
-		iter->second->peers.remove_if([cur_time](const auto &p) {
+		node->peers.remove_if([cur_time](const auto &p) {
 			return std::difftime(cur_time, p.last_receipt_time) > 60;
 		});
 
 		// Send heartbeat
 		std::for_each(
-			iter->second->peers.begin(),
-			iter->second->peers.end(),
-			[iter](const auto &p) {
-				DiscoveryProtocol<NodeType>::send_HEARTBEAT(*iter->second, p.addr);
+			node->peers.begin(),
+			node->peers.end(),
+			[node](const auto &p) {
+				DiscoveryProtocol<NodeType>::send_HEARTBEAT(*node, p.addr);
 			}
 		);
 	}
 };
-
-template<typename NodeType>
-std::map<uv_timer_t *, NodeType *> DiscoveryProtocol<NodeType>::registry = std::map<uv_timer_t *, NodeType *>();
-
 
 // Impl
 
@@ -83,8 +68,8 @@ void DiscoveryProtocol<NodeType>::setup(
 	node.peers.clear();
 
 	uv_timer_init(uv_default_loop(), &node.timer);
-
-	DiscoveryProtocol<NodeType>::register_node(&node.timer, &node);
+	// Store node for callback later
+	node.timer.data = (void *)&node;
 
 	uv_timer_start(&node.timer, &DiscoveryProtocol<NodeType>::timer_cb, 10000, 10000);
 }
