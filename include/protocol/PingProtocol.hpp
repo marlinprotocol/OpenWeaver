@@ -5,7 +5,7 @@
 #include <marlin/net/SocketAddress.hpp>
 
 namespace marlin {
-namespace protocol {
+namespace beacon {
 
 template<typename NodeType>
 class PingProtocol {
@@ -116,7 +116,7 @@ void PingProtocol<NodeType>::did_receive_PONG(NodeType &node, const net::SocketA
 	spdlog::info("PONG <<< {}", addr.to_string());
 }
 
-} // namespace protocol
+} // namespace beacon
 } // namespace marlin
 
 #endif // MARLIN_BEACON_PINGPROTOCOL_HPP

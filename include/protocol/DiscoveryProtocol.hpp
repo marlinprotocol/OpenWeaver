@@ -7,7 +7,7 @@
 #include <spdlog/spdlog.h>
 
 namespace marlin {
-namespace protocol {
+namespace beacon {
 
 template<typename NodeType>
 class DiscoveryProtocol {
@@ -181,7 +181,7 @@ void DiscoveryProtocol<NodeType>::did_receive_HEARTBEAT(NodeType &node, const ne
 	spdlog::info("HEARTBEAT <<< {}", addr.to_string());
 }
 
-} // namespace protocol
+} // namespace beacon
 } // namespace marlin
 
 #endif // MARLIN_BEACON_DISCOVERYPROTOCOL_HPP
