@@ -62,4 +62,11 @@ add_executable(testnode EXCLUDE_FROM_ALL
 	examples/main.cpp
 )
 
+target_include_directories(testnode
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
+
 target_link_libraries(testnode PUBLIC beacon)

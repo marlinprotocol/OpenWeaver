@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include <marlin/beacon/Beacon.hpp>
+#include "Beacon.hpp"
 #include <uv.h>
 #include <cstring>
 
