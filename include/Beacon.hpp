@@ -2,32 +2,19 @@
 #define MARLIN_BEACON_BEACON_HPP
 
 #include <marlin/net/Socket.hpp>
+#include <marlin/net/Node.hpp>
 #include <list>
 #include "Peer.hpp"
+#include "protocol/DiscoveryProtocol.hpp"
 
 namespace marlin {
 namespace beacon {
 
-class Beacon {
+class Beacon : public net::Node<Beacon, DiscoveryProtocol> {
 public:
-	net::SocketAddress addr;
-	net::Socket localSocket;
+	Beacon(const net::SocketAddress &addr);
 
-	Beacon(const net::SocketAddress &_addr);
-
-	void start_listening();
-
-	void did_receive_packet(
-		net::Packet &&p,
-		const net::SocketAddress &addr
-	);
-
-	void send(net::Packet &&p, const net::SocketAddress &addr);
-
-	void did_send_packet(
-		net::Packet &&p,
-		const net::SocketAddress &addr
-	);
+	void start_discovery(const net::SocketAddress &addr);
 
 	// DiscoveryProtocol
 	std::list<Peer> peers;
@@ -35,8 +22,6 @@ public:
 	void add_or_update_receipt_time(const net::SocketAddress &addr);
 
 	uv_timer_t timer;
-
-	void start_discovery(const net::SocketAddress &addr);
 };
 
 } // namespace beacon
