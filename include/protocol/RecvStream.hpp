@@ -46,7 +46,7 @@ struct RecvPacketInfo {
 
 template<typename RecvDelegate>
 struct RecvStream {
-	uint8_t stream_id;
+	uint16_t stream_id;
 	RecvDelegate &delegate;
 
 	enum class State {
@@ -59,7 +59,7 @@ struct RecvStream {
 
 	uint64_t size = 0;
 
-	RecvStream(uint8_t stream_id, RecvDelegate &_delegate) : delegate(_delegate) {
+	RecvStream(uint16_t stream_id, RecvDelegate &_delegate) : delegate(_delegate) {
 		this->stream_id = stream_id;
 		this->state = State::Recv;
 	}
