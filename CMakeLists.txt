@@ -5,44 +5,44 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-# add_library(weave SHARED
-# 	src/node/Beacon.cpp
-# 	src/node/Node.cpp
+# add_library(stream STATIC
+
 # )
 
-# target_include_directories(weave
+# target_include_directories(stream
 # 	PUBLIC
-# 		$<INSTALL_INTERFACE:include>/node
-# 		$<INSTALL_INTERFACE:include>/protocol
-# 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>/node
-# 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>/protocol
+# 		$<INSTALL_INTERFACE:include/marlin/stream>
+# 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 # 	PRIVATE
 # 		${CMAKE_CURRENT_SOURCE_DIR}/src
 # )
 
-# set_target_properties(weave PROPERTIES
-# 	OUTPUT_NAME "marlin-weave"
+# set_target_properties(stream PROPERTIES
+# 	OUTPUT_NAME "marlin-stream"
 # )
 
-# find_package(MarlinFiber CONFIG REQUIRED COMPONENTS fiber
-# 	NAMES "Marlin" CONFIGS "MarlinFiberConfig.cmake")
+# find_package(MarlinTest CONFIG REQUIRED COMPONENTS test
+# 	NAMES "Marlin" CONFIGS "MarlinTestConfig.cmake")
 
-# target_link_libraries(weave PUBLIC Marlin::fiber)
+# target_link_libraries(stream PUBLIC Marlin::test)
 
-# install(TARGETS weave
-# 	EXPORT marlin-weave-export
+# find_package(spdlog REQUIRED)
+
+# install(TARGETS stream
+# 	EXPORT marlin-stream-export
 # 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 # )
 
-# install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/weave)
+# install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/stream)
 
 ##########################################################
 # Export
 ##########################################################
 
-# install(EXPORT marlin-weave-export
+# install(EXPORT marlin-stream-export
 #   FILE
-# 	MarlinWeaveTargets.cmake
+# 	MarlinStreamTargets.cmake
 #   NAMESPACE
 # 	Marlin::
 #   DESTINATION
@@ -50,8 +50,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 # )
 
 # install(FILES
-#     ${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinWeaveConfig.cmake
-#     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+# 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinStreamConfig.cmake
+# 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 # )
 
 ##########################################################
@@ -62,7 +62,14 @@ add_executable(testnode EXCLUDE_FROM_ALL
 	examples/main.cpp
 )
 
-find_package(MarlinWeave CONFIG REQUIRED COMPONENTS weave
-	NAMES "Marlin" CONFIGS "MarlinWeaveConfig.cmake")
+target_include_directories(testnode
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
 
-target_link_libraries(testnode PUBLIC Marlin::weave)
+find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
+	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
+
+target_link_libraries(testnode PUBLIC Marlin::net)

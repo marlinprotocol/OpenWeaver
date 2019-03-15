@@ -1,34 +1,32 @@
 #include <spdlog/spdlog.h>
-#include <marlin/weave/node/Beacon.hpp>
 #include <uv.h>
 #include <cstring>
 #include <algorithm>
-#include "../include/protocol/StreamProtocol.hpp"
+#include <marlin/net/Node.hpp>
+#include "protocol/StreamProtocol.hpp"
 
 
-using namespace fiber;
-using namespace weave;
-using namespace stream;
+using namespace marlin::net;
+using namespace marlin::stream;
 using namespace std;
 
 
-class TestNode: public Beacon {
+class TestNode: public Node<TestNode, StreamProtocol> {
 public:
 	StreamStorage<TestNode> stream_storage;
-	TestNode(SocketAddress &_addr): Beacon(_addr) {
-		this->register_protocol_cb(
-			4,
-			[this](fiber::Packet &&p, const SocketAddress &addr) {
-				StreamProtocol<TestNode>::did_receive_packet(*this, std::move(p), addr);
-			},
-			[this](fiber::Packet &&p, const SocketAddress &addr) {
-				StreamProtocol<TestNode>::did_send_packet(*this, std::move(p), addr);
-			}
-		);
-	}
+	TestNode(SocketAddress &_addr): Node(_addr) {}
 
 	void did_receive_message(unique_ptr<char[]> message, size_t size) {
-		spdlog::debug("Message Received");
+		spdlog::info("Message Received: {} bytes", size);
+
+		for (int i=0; i<size; i++) {
+			if(message.get()[i] != 'B') {
+				spdlog::error("Message Error");
+				return;
+			}
+		}
+
+		spdlog::info("Message Verified");
 	}
 };
 
@@ -36,7 +34,7 @@ public:
 using NodeType = TestNode;
 
 int main() {
-	spdlog::default_logger()->set_level(spdlog::level::debug);
+	spdlog::default_logger()->set_level(spdlog::level::info);
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 	auto b = new NodeType(addr);
@@ -46,10 +44,10 @@ int main() {
 	auto b2 = new NodeType(addr2);
 	b2->start_listening();
 
-	#define SIZE 2000
+	#define SIZE 90000
 
 	std::unique_ptr<char[]> data(new char[SIZE]);
-	fill(data.get(), data.get()+SIZE, 'A');
+	fill(data.get(), data.get()+SIZE, 'B');
 
 	StreamProtocol<NodeType>::send_data(*b, std::move(data), SIZE, addr2);
 

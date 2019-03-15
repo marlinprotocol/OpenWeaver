@@ -1,33 +1,36 @@
-#ifndef STREAM_RECEIVE_STREAM_HPP
-#define STREAM_RECEIVE_STREAM_HPP
+#ifndef MARLIN_STREAM_RECVSTREAM_HPP
+#define MARLIN_STREAM_RECVSTREAM_HPP
+
+#include <marlin/net/Packet.hpp>
 
 #include <ctime>
 #include <memory>
 
+namespace marlin {
 namespace stream {
 
 struct RecvPacketInfo {
 	std::time_t recv_time;
 	uint64_t offset;
 	uint16_t length;
-	std::unique_ptr<char[]> data;
+	net::Packet packet;
 
 	RecvPacketInfo(
 		std::time_t recv_time,
 		uint64_t offset,
 		uint64_t length,
-		std::unique_ptr<char[]> &&_data
-	) : data(std::move(_data)) {
+		net::Packet &&_packet
+	) : packet(std::move(_packet)) {
 		this->recv_time = recv_time;
 		this->offset = offset;
 		this->length = length;
 	}
 
-	RecvPacketInfo() {}
+	RecvPacketInfo() : packet(nullptr, 0) {}
 
 	RecvPacketInfo(const RecvPacketInfo &) = delete;
 
-	RecvPacketInfo(RecvPacketInfo &&info) : data(std::move(info.data)) {
+	RecvPacketInfo(RecvPacketInfo &&info) : packet(std::move(info.packet)) {
 		this->recv_time = info.recv_time;
 		this->offset = info.offset;
 		this->length = info.length;
@@ -37,7 +40,7 @@ struct RecvPacketInfo {
 		this->recv_time = info.recv_time;
 		this->offset = info.offset;
 		this->length = info.length;
-		this->data = std::move(info.data);
+		this->packet = std::move(info.packet);
 	};
 };
 
@@ -87,5 +90,6 @@ struct RecvStream {
 };
 
 } // namespace stream
+} // namespace marlin
 
-#endif // STREAM_RECEIVE_STREAM_HPP
+#endif // MARLIN_STREAM_RECVSTREAM_HPP

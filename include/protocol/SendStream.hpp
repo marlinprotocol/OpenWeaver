@@ -1,8 +1,9 @@
-#ifndef STREAM_SEND_STREAM_HPP
-#define STREAM_SEND_STREAM_HPP
+#ifndef MARLIN_STREAM_SENDSTREAM_HPP
+#define MARLIN_STREAM_SENDSTREAM_HPP
 
 #include <memory>
 
+namespace marlin {
 namespace stream {
 
 struct SentPacketInfo {
@@ -20,7 +21,7 @@ struct SentPacketInfo {
 };
 
 struct SendStream {
-	uint8_t stream_id;
+	uint16_t stream_id;
 
 	enum class State {
 		Ready,
@@ -33,7 +34,7 @@ struct SendStream {
 	std::unique_ptr<char[]> data;
 	size_t size;
 
-	SendStream(uint8_t stream_id, std::unique_ptr<char[]> &&data, size_t size) {
+	SendStream(uint16_t stream_id, std::unique_ptr<char[]> &&data, size_t size) {
 		this->stream_id = stream_id;
 		this->data = std::move(data);
 		this->size = size;
@@ -46,5 +47,6 @@ struct SendStream {
 };
 
 } // namespace stream
+} // namespace marlin
 
-#endif // STREAM_SEND_STREAM_HPP
+#endif // MARLIN_STREAM_SENDSTREAM_HPP

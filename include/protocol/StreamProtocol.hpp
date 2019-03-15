@@ -1,11 +1,11 @@
-#ifndef STREAM_STREAM_PROTOCOL_HPP
-#define STREAM_STREAM_PROTOCOL_HPP
+#ifndef MARLIN_STREAM_STREAMPROTOCOL_HPP
+#define MARLIN_STREAM_STREAMPROTOCOL_HPP
 
-#include <marlin/fiber/Packet.hpp>
-#include <marlin/fiber/SocketAddress.hpp>
+#include <marlin/net/SocketAddress.hpp>
 #include "StreamPacket.hpp"
 #include "SendStream.hpp"
 #include "RecvStream.hpp"
+#include "Connection.hpp"
 
 #include <cstring>
 #include <algorithm>
@@ -14,37 +14,27 @@
 
 #include <iostream>
 
+namespace marlin {
 namespace stream {
 
 template<typename NodeType>
-struct PerPeerStreamStorage {
-	std::map<uint8_t, SendStream> send_streams;
-	std::map<uint8_t, RecvStream<NodeType>> recv_streams;
-
-	// TODO: Better resolve id collisions
-	uint8_t next_stream_id = 0;
-};
-
-template<typename NodeType>
-using StreamStorage = std::map<fiber::SocketAddress, PerPeerStreamStorage<NodeType>>;
+using StreamStorage = std::map<net::SocketAddress, Connection<NodeType>>;
 
 template<typename NodeType>
 class StreamProtocol {
 public:
-	// static void setup(NodeType &node);
+	static void setup(NodeType &node) {}
 
 	static void did_receive_packet(
 		NodeType &node,
-		fiber::Packet &&p,
-		const fiber::SocketAddress &addr
+		net::Packet &&p,
+		const net::SocketAddress &addr
 	) {
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
 			// DATA
-			case 0: did_receive_DATA(node, addr, std::move(*pp));
-			break;
-			// FIN
-			case 1: did_receive_FIN(node, addr, std::move(*pp));
+			case 0:
+			case 1: did_receive_DATA(node, addr, std::move(*pp));
 			break;
 			// ACK
 			case 2: did_receive_ACK(node, addr, std::move(*pp));
@@ -57,16 +47,16 @@ public:
 
 	static void did_send_packet(
 		NodeType &node,
-		fiber::Packet &&p,
-		const fiber::SocketAddress &addr
+		net::Packet &&p,
+		const net::SocketAddress &addr
 	) {
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
 			// DATA
 			case 0: spdlog::info("DATA >>> {}", addr.to_string());;
 			break;
-			// FIN
-			case 1: spdlog::info("FIN >>> {}", addr.to_string());;
+			// DATA + FIN
+			case 1: spdlog::info("DATA + FIN >>> {}", addr.to_string());;
 			break;
 			// ACK
 			case 2: spdlog::info("ACK >>> {}", addr.to_string());;
@@ -77,18 +67,24 @@ public:
 		}
 	}
 
-	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, size_t size, const fiber::SocketAddress &addr) {
-		auto &storage = node.stream_storage[addr];
+	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, size_t size, const net::SocketAddress &addr) {
+		auto &conn = node.stream_storage[addr];
 
-		SendStream &stream = storage.send_streams.insert({
-			storage.next_stream_id,
-			std::move(SendStream(storage.next_stream_id, std::move(data), size))
+		SendStream &stream = conn.send_streams.insert({
+			conn.next_stream_id,
+			std::move(SendStream(conn.next_stream_id, std::move(data), size))
 		}).first->second;
-		storage.next_stream_id++;
+
+		conn.next_stream_id += 2;
 		stream.state = SendStream::State::Send;
 
 		for(uint64_t i = 0; i < stream.size; i+=1000) {
-			char *pdata = new char[1100] {4, 0, 0, (char)stream.stream_id};
+			bool is_fin = (i + 1000 >= stream.size);
+
+			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
+
+			uint16_t n_stream_id = htons(stream.stream_id);
+			std::memcpy(pdata+2, &n_stream_id, 2);
 
 			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
 			std::memcpy(pdata+4, &n_packet_number, 8);
@@ -96,7 +92,7 @@ public:
 			uint64_t n_offset = htonll(i);
 			std::memcpy(pdata+12, &n_offset, 8);
 
-			uint16_t dsize = std::min<size_t>(stream.size - i, 1000);
+			uint16_t dsize = is_fin ? stream.size - i : 1000;
 			uint16_t n_length = htons(dsize);
 			std::memcpy(pdata+20, &n_length, 2);
 
@@ -105,39 +101,39 @@ public:
 			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(NULL), i, dsize);
 			stream.last_sent_packet++;
 
-			fiber::Packet p(pdata, dsize+22);
+			net::Packet p(pdata, dsize+22);
 			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
 		}
 
 		stream.state = SendStream::State::Sent;
-		StreamProtocol<NodeType>::send_FIN(node, addr, stream);
 	}
 
-	static void did_receive_DATA(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p);
-	static void send_DATA(NodeType &node, const fiber::SocketAddress &addr, fiber::Packet &&p);
+	static void did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
+	static void send_DATA(NodeType &node, const net::SocketAddress &addr, net::Packet &&p);
 
-	static void did_receive_FIN(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p);
-	static void send_FIN(NodeType &node, const fiber::SocketAddress &addr, SendStream &stream);
-
-	static void did_receive_ACK(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p);
-	static void send_ACK(NodeType &node, const fiber::SocketAddress &addr, uint8_t stream_id, uint64_t packet_number);
+	static void did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
+	static void send_ACK(NodeType &node, const net::SocketAddress &addr, uint16_t stream_id, uint64_t packet_number);
 };
 
 template<typename NodeType>
-void StreamProtocol<NodeType>::send_DATA(NodeType &node, const fiber::SocketAddress &addr, fiber::Packet &&p) {
+void StreamProtocol<NodeType>::send_DATA(NodeType &node, const net::SocketAddress &addr, net::Packet &&p) {
 	node.send(std::move(p), addr);
 }
 
 template<typename NodeType>
-void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p) {
+void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
 	spdlog::info("DATA <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
+	if(storage.next_stream_id == 0) {
+		storage.next_stream_id = 1;
+	}
+
 	// Create stream if it does not exist
 	auto iter = storage.recv_streams.find(p.stream_id());
 	if (iter == storage.recv_streams.end()) {
-		spdlog::debug("New stream: {}", (int)p.stream_id());
+		spdlog::debug("New stream: {}", p.stream_id());
 		iter = storage.recv_streams.insert({
 			p.stream_id(),
 			std::move(RecvStream<NodeType>(p.stream_id(), node))
@@ -146,12 +142,20 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const fiber::Soc
 
 	auto &stream = iter->second;
 
+	if(p.is_fin_set() && stream.state == RecvStream<NodeType>::State::Recv) {
+		stream.size = p.offset() + p.length();
+		stream.state = RecvStream<NodeType>::State::SizeKnown;
+	}
+
 	auto stream_id = p.stream_id();
 	auto offset = p.offset();
 	auto length = p.length();
 	auto packet_number = p.packet_number();
 
-	stream.recv_packets[offset] = std::move(RecvPacketInfo(std::time(NULL), offset, length, std::move(p._data)));
+	// Cover header
+	p.cover(22);
+
+	stream.recv_packets[offset] = std::move(RecvPacketInfo(std::time(NULL), offset, length, std::move(p)));
 
 	StreamProtocol<NodeType>::send_ACK(node, addr, stream_id, packet_number);
 
@@ -159,7 +163,7 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const fiber::Soc
 		std::unique_ptr<char[]> message(new char[stream.size]);
 		for (auto iter = stream.recv_packets.begin(); iter != stream.recv_packets.end(); iter++) {
 			if (iter->second.length == 0) continue;
-			memcpy(message.get()+iter->second.offset, iter->second.data.get(), iter->second.length);
+			memcpy(message.get()+iter->second.offset, iter->second.packet.data(), iter->second.length);
 		}
 
 		stream.delegate.did_receive_message(std::move(message), stream.size);
@@ -167,76 +171,28 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const fiber::Soc
 }
 
 template<typename NodeType>
-void StreamProtocol<NodeType>::send_FIN(NodeType &node, const fiber::SocketAddress &addr, SendStream &stream) {
-	char *pdata = new char[20] {4, 0, 1, (char)stream.stream_id};
+void StreamProtocol<NodeType>::send_ACK(NodeType &node, const net::SocketAddress &addr, uint16_t stream_id, uint64_t packet_number) {
+	char *pdata = new char[12] {0, 2};
 
-	uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
-	std::memcpy(pdata+4, &n_packet_number, 8);
-
-	uint64_t n_offset = htonll(stream.size);
-	std::memcpy(pdata+12, &n_offset, 8);
-
-	stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(NULL), stream.size, 0);
-	stream.last_sent_packet++;
-	fiber::Packet p(pdata, 20);
-	node.send(std::move(p), addr);
-}
-
-template<typename NodeType>
-void StreamProtocol<NodeType>::did_receive_FIN(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p) {
-	spdlog::info("FIN <<< {}", addr.to_string());
-
-	auto &storage = node.stream_storage[addr];
-
-	auto iter = storage.recv_streams.find(p.stream_id());
-	if (iter == storage.recv_streams.end()) {
-		iter = storage.recv_streams.insert({
-			p.stream_id(),
-			std::move(RecvStream<NodeType>(p.stream_id(), node))
-		}).first;
-	}
-
-	auto &stream = iter->second;
-
-	stream.recv_packets[p.offset()] = RecvPacketInfo(std::time(NULL), p.offset(), 0, nullptr);
-	stream.size = p.offset();
-	if (stream.state == RecvStream<NodeType>::State::Recv) {
-		stream.state = RecvStream<NodeType>::State::SizeKnown;
-	}
-
-	StreamProtocol<NodeType>::send_ACK(node, addr, p.stream_id(), p.packet_number());
-
-	if (stream.check_finish()) {
-		std::unique_ptr<char[]> message(new char[stream.size]);
-		for (auto iter = stream.recv_packets.begin(); iter != stream.recv_packets.end(); iter++) {
-			if (iter->second.length == 0) continue;
-			memcpy(message.get()+iter->second.offset, iter->second.data.get(), iter->second.length);
-		}
-
-		stream.delegate.did_receive_message(std::move(message), stream.size);
-	}
-}
-
-template<typename NodeType>
-void StreamProtocol<NodeType>::send_ACK(NodeType &node, const fiber::SocketAddress &addr, uint8_t stream_id, uint64_t packet_number) {
-	char *pdata = new char[12] {4, 0, 2, (char)stream_id};
+	uint16_t n_stream_id = htons(stream_id);
+	std::memcpy(pdata+2, &n_stream_id, 2);
 
 	uint64_t n_packet_number = htonll(packet_number);
 	std::memcpy(pdata+4, &n_packet_number, 8);
 
-	fiber::Packet p(pdata, 12);
+	net::Packet p(pdata, 12);
 	node.send(std::move(p), addr);
 }
 
 template<typename NodeType>
-void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const fiber::SocketAddress &addr, StreamPacket &&p) {
+void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
 	spdlog::info("ACK <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
 	auto iter = storage.send_streams.find(p.stream_id());
 	if (iter == storage.send_streams.end()) {
-		spdlog::debug("Not found: {}", (int)p.stream_id());
+		spdlog::debug("Not found: {}", p.stream_id());
 		return;
 	}
 	auto &stream = iter->second;
@@ -247,12 +203,13 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const fiber::Sock
 		stream.state = SendStream::State::Acked;
 
 		// TODO: Call delegate to inform
-		spdlog::debug("Acked: {}", (int)p.stream_id());
+		spdlog::debug("Acked: {}", p.stream_id());
 	}
 }
 
 // Impl
 
 } // namespace stream
+} // namespace marlin
 
-#endif // STREAM_STREAM_PROTOCOL_HPP
+#endif // MARLIN_STREAM_STREAMPROTOCOL_HPP
