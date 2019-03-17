@@ -2,6 +2,7 @@
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
 #include <memory>
+#include <uv.h>
 
 namespace marlin {
 namespace stream {
@@ -40,10 +41,15 @@ struct SendStream {
 		this->size = size;
 
 		this->state = State::Ready;
+		this->last_sent_packet = 0;
+
+		uv_timer_init(uv_default_loop(), &this->timer);
 	}
 
-	uint64_t last_sent_packet = -1;
+	uint64_t last_sent_packet = 0;
 	std::map<uint64_t, SentPacketInfo> sent_packets;
+
+	uv_timer_t timer;
 };
 
 } // namespace stream

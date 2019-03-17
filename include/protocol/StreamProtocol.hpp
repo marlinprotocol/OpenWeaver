@@ -106,6 +106,9 @@ public:
 		}
 
 		stream.state = SendStream::State::Sent;
+
+		stream.timer.data = new std::tuple<net::SocketAddress, NodeType &, SendStream &>(addr, node, stream);
+		uv_timer_start(&stream.timer, &StreamProtocol<NodeType>::timer_cb, 25, 25);
 	}
 
 	static void did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
@@ -113,6 +116,53 @@ public:
 
 	static void did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
 	static void send_ACK(NodeType &node, const net::SocketAddress &addr, uint16_t stream_id, uint64_t packet_number);
+
+	static void timer_cb(uv_timer_t *handle) {
+		spdlog::debug("Timer Begin");
+
+		auto &tuple = *(std::tuple<net::SocketAddress, NodeType &, SendStream &> *)handle->data;
+		auto &node = std::get<1>(tuple);
+		auto addr = std::get<0>(tuple);
+		auto &stream = std::get<2>(tuple);
+
+		auto sent_iter = stream.sent_packets.cbegin();
+		auto num = stream.sent_packets.size();
+		auto now = std::time(nullptr);
+
+		for(int i = 0; i < num; i++) {
+			spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
+
+			auto &sent_packet = sent_iter->second;
+
+			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
+
+			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
+
+			uint16_t n_stream_id = htons(stream.stream_id);
+			std::memcpy(pdata+2, &n_stream_id, 2);
+
+			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
+			std::memcpy(pdata+4, &n_packet_number, 8);
+
+			uint64_t n_offset = htonll(sent_packet.offset);
+			std::memcpy(pdata+12, &n_offset, 8);
+
+			uint16_t n_length = htons(sent_packet.length);
+			std::memcpy(pdata+20, &n_length, 2);
+
+			std::memcpy(pdata+22, stream.data.get()+sent_packet.offset, sent_packet.length);
+
+			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(now, sent_packet.offset, sent_packet.length);
+			stream.last_sent_packet++;
+
+			net::Packet p(pdata, sent_packet.length+22);
+			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+
+			sent_iter = stream.sent_packets.erase(sent_iter);
+		}
+
+		spdlog::debug("Timer End");
+	}
 };
 
 template<typename NodeType>
@@ -202,9 +252,52 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	if (stream.sent_packets.size() == 0 && stream.state == SendStream::State::Sent) {
 		stream.state = SendStream::State::Acked;
 
+		uv_timer_stop(&stream.timer);
+		delete (std::pair<net::SocketAddress, NodeType &> *)stream.timer.data;
+
 		// TODO: Call delegate to inform
-		spdlog::debug("Acked: {}", p.stream_id());
+		spdlog::info("Acked: {}", p.stream_id());
+
+		return;
 	}
+
+	auto sent_iter = stream.sent_packets.cbegin();
+	auto now = std::time(nullptr);
+	while(sent_iter != stream.sent_packets.cend()) {
+		if (sent_iter->first + 3 < p.packet_number() || std::difftime(now, sent_iter->second.sent_time) > 0.025) {
+			auto &sent_packet = sent_iter->second;
+
+			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
+
+			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
+
+			uint16_t n_stream_id = htons(stream.stream_id);
+			std::memcpy(pdata+2, &n_stream_id, 2);
+
+			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
+			std::memcpy(pdata+4, &n_packet_number, 8);
+
+			uint64_t n_offset = htonll(sent_packet.offset);
+			std::memcpy(pdata+12, &n_offset, 8);
+
+			uint16_t n_length = htons(sent_packet.length);
+			std::memcpy(pdata+20, &n_length, 2);
+
+			std::memcpy(pdata+22, stream.data.get()+sent_packet.offset, sent_packet.length);
+
+			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(now, sent_packet.offset, sent_packet.length);
+			stream.last_sent_packet++;
+
+			net::Packet p(pdata, sent_packet.length+22);
+			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+
+			sent_iter = stream.sent_packets.erase(sent_iter);
+		} else {
+			break;
+		}
+	}
+
+	uv_timer_again(&stream.timer);
 }
 
 // Impl

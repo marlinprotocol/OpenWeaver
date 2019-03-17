@@ -14,7 +14,10 @@ using namespace std;
 class TestNode: public Node<TestNode, StreamProtocol> {
 public:
 	StreamStorage<TestNode> stream_storage;
-	TestNode(SocketAddress &_addr): Node(_addr) {}
+
+	TestNode(SocketAddress &_addr): Node(_addr) {
+		StreamProtocol<TestNode>::setup(*this);
+	}
 
 	void did_receive_message(unique_ptr<char[]> message, size_t size) {
 		spdlog::info("Message Received: {} bytes", size);
@@ -34,7 +37,7 @@ public:
 using NodeType = TestNode;
 
 int main() {
-	spdlog::default_logger()->set_level(spdlog::level::info);
+	spdlog::default_logger()->set_level(spdlog::level::debug);
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 	auto b = new NodeType(addr);
@@ -44,7 +47,7 @@ int main() {
 	auto b2 = new NodeType(addr2);
 	b2->start_listening();
 
-	#define SIZE 90000
+	#define SIZE 200000
 
 	std::unique_ptr<char[]> data(new char[SIZE]);
 	fill(data.get(), data.get()+SIZE, 'B');
