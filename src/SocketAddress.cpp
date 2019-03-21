@@ -97,7 +97,7 @@ std::vector<unsigned char> SocketAddress::serialize() const {
 	char *start = (char *)&(reinterpret_cast<const sockaddr_in *>(this)->sin_addr);
 	uint16_t port = reinterpret_cast<const sockaddr_in *>(this)->sin_port;
 
-	std::vector<unsigned char> bytes({family >> 8, family & 0xff});
+	std::vector<unsigned char> bytes({static_cast<unsigned char>(family >> 8), static_cast<unsigned char>(family & 0xff)});
 	bytes.insert(bytes.end(), start, start+4);
 	bytes.push_back(port >> 8);
 	bytes.push_back(port & 0xff);
