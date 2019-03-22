@@ -40,7 +40,7 @@ public:
 			case 2: did_receive_ACK(node, addr, std::move(*pp));
 			break;
 			// UNKNOWN
-			default: spdlog::info("UNKNOWN <<< {}", addr.to_string());
+			default: spdlog::debug("UNKNOWN <<< {}", addr.to_string());
 			break;
 		}
 	}
@@ -53,21 +53,21 @@ public:
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
 			// DATA
-			case 0: spdlog::info("DATA >>> {}", addr.to_string());;
+			case 0: spdlog::debug("DATA >>> {}", addr.to_string());;
 			break;
 			// DATA + FIN
-			case 1: spdlog::info("DATA + FIN >>> {}", addr.to_string());;
+			case 1: spdlog::debug("DATA + FIN >>> {}", addr.to_string());;
 			break;
 			// ACK
-			case 2: spdlog::info("ACK >>> {}", addr.to_string());;
+			case 2: spdlog::debug("ACK >>> {}", addr.to_string());;
 			break;
 			// UNKNOWN
-			default: spdlog::info("UNKNOWN >>> {}", addr.to_string());
+			default: spdlog::debug("UNKNOWN >>> {}", addr.to_string());
 			break;
 		}
 	}
 
-	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, size_t size, const net::SocketAddress &addr) {
+	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, uint64_t size, const net::SocketAddress &addr) {
 		auto &conn = node.stream_storage[addr];
 
 		SendStream &stream = conn.send_streams.insert({
@@ -80,32 +80,15 @@ public:
 
 		for(uint64_t i = 0; i < stream.size; i+=1000) {
 			bool is_fin = (i + 1000 >= stream.size);
-
-			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
-
-			uint16_t n_stream_id = htons(stream.stream_id);
-			std::memcpy(pdata+2, &n_stream_id, 2);
-
-			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
-			std::memcpy(pdata+4, &n_packet_number, 8);
-
-			uint64_t n_offset = htonll(i);
-			std::memcpy(pdata+12, &n_offset, 8);
-
 			uint16_t dsize = is_fin ? stream.size - i : 1000;
-			uint16_t n_length = htons(dsize);
-			std::memcpy(pdata+20, &n_length, 2);
 
-			std::memcpy(pdata+22, stream.data.get()+i, dsize);
+			if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
 
-			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(NULL), i, dsize);
-			stream.last_sent_packet++;
+			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
 
-			net::Packet p(pdata, dsize+22);
-			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+			stream.bytes_in_flight += dsize;
+			stream.max_sent_byte = i + dsize;
 		}
-
-		stream.state = SendStream::State::Sent;
 
 		stream.timer.data = new std::tuple<net::SocketAddress, NodeType &, SendStream &>(addr, node, stream);
 		uv_timer_start(&stream.timer, &StreamProtocol<NodeType>::timer_cb, 25, 25);
@@ -118,8 +101,6 @@ public:
 	static void send_ACK(NodeType &node, const net::SocketAddress &addr, uint16_t stream_id, uint64_t packet_number);
 
 	static void timer_cb(uv_timer_t *handle) {
-		spdlog::debug("Timer Begin");
-
 		auto &tuple = *(std::tuple<net::SocketAddress, NodeType &, SendStream &> *)handle->data;
 		auto &node = std::get<1>(tuple);
 		auto addr = std::get<0>(tuple);
@@ -127,41 +108,72 @@ public:
 
 		auto sent_iter = stream.sent_packets.cbegin();
 		auto num = stream.sent_packets.size();
-		auto now = std::time(nullptr);
 
+		// Retry lost packets
 		for(int i = 0; i < num; i++) {
-			spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
+			// spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
 
 			auto &sent_packet = sent_iter->second;
 
 			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
+			uint16_t dsize = is_fin ? stream.size - sent_packet.offset : 1000;
 
-			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
-
-			uint16_t n_stream_id = htons(stream.stream_id);
-			std::memcpy(pdata+2, &n_stream_id, 2);
-
-			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
-			std::memcpy(pdata+4, &n_packet_number, 8);
-
-			uint64_t n_offset = htonll(sent_packet.offset);
-			std::memcpy(pdata+12, &n_offset, 8);
-
-			uint16_t n_length = htons(sent_packet.length);
-			std::memcpy(pdata+20, &n_length, 2);
-
-			std::memcpy(pdata+22, stream.data.get()+sent_packet.offset, sent_packet.length);
-
-			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(now, sent_packet.offset, sent_packet.length);
-			stream.last_sent_packet++;
-
-			net::Packet p(pdata, sent_packet.length+22);
-			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
 
 			sent_iter = stream.sent_packets.erase(sent_iter);
 		}
 
+		// New packets
+		for(uint64_t i = stream.max_sent_byte; i < stream.size; i+=1000) {
+			bool is_fin = (i + 1000 >= stream.size);
+			uint16_t dsize = is_fin ? stream.size - i : 1000;
+
+			if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
+
+			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
+
+			stream.bytes_in_flight += dsize;
+			stream.max_sent_byte = i + dsize;
+		}
+
 		spdlog::debug("Timer End");
+	}
+
+private:
+	static void send_data_partial(
+		NodeType &node,
+		const net::SocketAddress &addr,
+		SendStream &stream,
+		uint64_t offset,
+		uint16_t length
+	) {
+		bool is_fin = (offset + length >= stream.size);
+
+		char *pdata = new char[1100] {0, is_fin ? 1 : 0};
+
+		uint16_t n_stream_id = htons(stream.stream_id);
+		std::memcpy(pdata+2, &n_stream_id, 2);
+
+		uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
+		std::memcpy(pdata+4, &n_packet_number, 8);
+
+		uint64_t n_offset = htonll(offset);
+		std::memcpy(pdata+12, &n_offset, 8);
+
+		uint16_t n_length = htons(length);
+		std::memcpy(pdata+20, &n_length, 2);
+
+		std::memcpy(pdata+22, stream.data.get()+offset, length);
+
+		stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(nullptr), offset, length);
+		stream.last_sent_packet++;
+
+		net::Packet p(pdata, length+22);
+		StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+
+		if(is_fin && stream.state != SendStream::State::Acked) {
+			stream.state = SendStream::State::Sent;
+		}
 	}
 };
 
@@ -172,7 +184,7 @@ void StreamProtocol<NodeType>::send_DATA(NodeType &node, const net::SocketAddres
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	spdlog::info("DATA <<< {}", addr.to_string());
+	spdlog::debug("DATA <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
@@ -236,7 +248,7 @@ void StreamProtocol<NodeType>::send_ACK(NodeType &node, const net::SocketAddress
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	spdlog::info("ACK <<< {}", addr.to_string());
+	spdlog::debug("ACK <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
@@ -247,6 +259,7 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	}
 	auto &stream = iter->second;
 
+	stream.bytes_in_flight -= stream.sent_packets[p.packet_number()].length;
 	stream.sent_packets.erase(p.packet_number());
 
 	if (stream.sent_packets.size() == 0 && stream.state == SendStream::State::Sent) {
@@ -265,37 +278,33 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	auto now = std::time(nullptr);
 	while(sent_iter != stream.sent_packets.cend()) {
 		if (sent_iter->first + 3 < p.packet_number() || std::difftime(now, sent_iter->second.sent_time) > 0.025) {
+			// Retry lost packets
 			auto &sent_packet = sent_iter->second;
 
 			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
+			uint16_t dsize = is_fin ? stream.size - sent_packet.offset : 1000;
 
-			char *pdata = new char[1100] {0, is_fin ? 1 : 0};
-
-			uint16_t n_stream_id = htons(stream.stream_id);
-			std::memcpy(pdata+2, &n_stream_id, 2);
-
-			uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
-			std::memcpy(pdata+4, &n_packet_number, 8);
-
-			uint64_t n_offset = htonll(sent_packet.offset);
-			std::memcpy(pdata+12, &n_offset, 8);
-
-			uint16_t n_length = htons(sent_packet.length);
-			std::memcpy(pdata+20, &n_length, 2);
-
-			std::memcpy(pdata+22, stream.data.get()+sent_packet.offset, sent_packet.length);
-
-			stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(now, sent_packet.offset, sent_packet.length);
-			stream.last_sent_packet++;
-
-			net::Packet p(pdata, sent_packet.length+22);
-			StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
+			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
 
 			sent_iter = stream.sent_packets.erase(sent_iter);
 		} else {
 			break;
 		}
 	}
+
+	// New packets
+	for(uint64_t i = stream.max_sent_byte; i < stream.size; i+=1000) {
+		bool is_fin = (i + 1000 >= stream.size);
+		uint16_t dsize = is_fin ? stream.size - i : 1000;
+
+		if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
+
+		StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
+
+		stream.bytes_in_flight += dsize;
+		stream.max_sent_byte = i + dsize;
+	}
+
 
 	uv_timer_again(&stream.timer);
 }
