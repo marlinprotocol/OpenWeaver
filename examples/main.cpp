@@ -22,14 +22,14 @@ public:
 	void did_receive_message(unique_ptr<char[]> message, size_t size) {
 		spdlog::info("Message Received: {} bytes", size);
 
-		for (int i=0; i<size; i++) {
-			if(message.get()[i] != 'B') {
-				spdlog::error("Message Error");
-				return;
-			}
-		}
+		// for (int i=0; i<size; i++) {
+		// 	if(message.get()[i] != 'B') {
+		// 		spdlog::error("Message Error");
+		// 		return;
+		// 	}
+		// }
 
-		spdlog::info("Message Verified");
+		// spdlog::info("Message Verified");
 	}
 };
 
@@ -37,7 +37,7 @@ public:
 using NodeType = TestNode;
 
 int main() {
-	spdlog::default_logger()->set_level(spdlog::level::debug);
+	spdlog::default_logger()->set_level(spdlog::level::info);
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 	auto b = new NodeType(addr);
@@ -47,10 +47,12 @@ int main() {
 	auto b2 = new NodeType(addr2);
 	b2->start_listening();
 
-	#define SIZE 200000
+	#define SIZE 12500000
 
 	std::unique_ptr<char[]> data(new char[SIZE]);
 	fill(data.get(), data.get()+SIZE, 'B');
+
+	spdlog::info("Start");
 
 	StreamProtocol<NodeType>::send_data(*b, std::move(data), SIZE, addr2);
 
