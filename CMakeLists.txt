@@ -53,6 +53,7 @@ install(EXPORT marlin-net-export
 )
 
 install(FILES
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibUV.cmake
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinNetConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 )
