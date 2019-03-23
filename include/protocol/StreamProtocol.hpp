@@ -149,7 +149,7 @@ private:
 	) {
 		bool is_fin = (offset + length >= stream.size);
 
-		char *pdata = new char[1100] {0, is_fin ? 1 : 0};
+		char *pdata = new char[1100] {0, static_cast<char>(is_fin)};
 
 		uint16_t n_stream_id = htons(stream.stream_id);
 		std::memcpy(pdata+2, &n_stream_id, 2);
@@ -204,6 +204,9 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 
 	auto &stream = iter->second;
 
+	// Short circuit once stream has been received fully.
+	if(stream.state == RecvStream<NodeType>::State::AllRecv || stream.state == RecvStream<NodeType>::State::Read) return;
+
 	if(p.is_fin_set() && stream.state == RecvStream<NodeType>::State::Recv) {
 		stream.size = p.offset() + p.length();
 		stream.state = RecvStream<NodeType>::State::SizeKnown;
@@ -222,6 +225,8 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 	StreamProtocol<NodeType>::send_ACK(node, addr, stream_id, packet_number);
 
 	if (stream.check_finish()) {
+		stream.state = RecvStream<NodeType>::State::AllRecv;
+
 		std::unique_ptr<char[]> message(new char[stream.size]);
 		for (auto iter = stream.recv_packets.begin(); iter != stream.recv_packets.end(); iter++) {
 			if (iter->second.length == 0) continue;
@@ -229,6 +234,8 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 		}
 
 		stream.delegate.did_receive_message(std::move(message), stream.size);
+
+		stream.state = RecvStream<NodeType>::State::Read;
 	}
 }
 
@@ -258,6 +265,11 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 		return;
 	}
 	auto &stream = iter->second;
+
+	// Short circuit if packet not found in sent.
+	// Usually due to repeated ACKs. Malicious actors could use
+	// spoofed ACKs to DDoS.
+	if(stream.sent_packets.find(p.packet_number()) == stream.sent_packets.end()) return;
 
 	stream.bytes_in_flight -= stream.sent_packets[p.packet_number()].length;
 	stream.sent_packets.erase(p.packet_number());
