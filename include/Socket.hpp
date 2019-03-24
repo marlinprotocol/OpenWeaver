@@ -40,7 +40,7 @@ public:
 // Impl
 // TODO - Proper error handling and return codes
 
-static void naive_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
+static void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
 	buf->base = new char[suggested_size];
  	buf->len = suggested_size;
 }
