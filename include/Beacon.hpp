@@ -4,7 +4,7 @@
 #include <marlin/net/Socket.hpp>
 #include <marlin/net/Node.hpp>
 #include <list>
-#include "Peer.hpp"
+#include "protocol/Peer.hpp"
 #include "protocol/DiscoveryProtocol.hpp"
 
 namespace marlin {
