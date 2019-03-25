@@ -70,7 +70,7 @@ void PingProtocol<NodeType>::did_receive_packet(
 
 template<typename NodeType>
 void PingProtocol<NodeType>::did_send_packet(
-	NodeType &node,
+	NodeType &,
 	const net::Packet &&p,
 	const net::SocketAddress &addr
 ) {
@@ -112,7 +112,7 @@ void PingProtocol<NodeType>::send_PONG(NodeType &node, const net::SocketAddress 
 }
 
 template<typename NodeType>
-void PingProtocol<NodeType>::did_receive_PONG(NodeType &node, const net::SocketAddress &addr) {
+void PingProtocol<NodeType>::did_receive_PONG(NodeType &, const net::SocketAddress &addr) {
 	spdlog::info("PONG <<< {}", addr.to_string());
 }
 
