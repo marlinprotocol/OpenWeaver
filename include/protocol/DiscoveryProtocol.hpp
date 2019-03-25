@@ -2,6 +2,7 @@
 #define MARLIN_BEACON_DISCOVERYPROTOCOL_HPP
 
 #include "PingProtocol.hpp"
+#include "Peer.hpp"
 #include <ctime>
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -42,7 +43,7 @@ protected:
 		auto cur_time = std::time(NULL);
 
 		// Remove stale peers if inactive for a minute
-		node->peers.remove_if([cur_time](const auto &p) {
+		node->peers.remove_if([cur_time](const Peer &p) {
 			return std::difftime(cur_time, p.last_receipt_time) > 60;
 		});
 
@@ -50,7 +51,7 @@ protected:
 		std::for_each(
 			node->peers.begin(),
 			node->peers.end(),
-			[node](const auto &p) {
+			[node](const Peer &p) {
 				DiscoveryProtocol<NodeType>::send_HEARTBEAT(*node, p.addr);
 			}
 		);
@@ -177,7 +178,7 @@ void DiscoveryProtocol<NodeType>::send_HEARTBEAT(NodeType &node, const net::Sock
 }
 
 template<typename NodeType>
-void DiscoveryProtocol<NodeType>::did_receive_HEARTBEAT(NodeType &node, const net::SocketAddress &addr) {
+void DiscoveryProtocol<NodeType>::did_receive_HEARTBEAT(NodeType &, const net::SocketAddress &addr) {
 	spdlog::info("HEARTBEAT <<< {}", addr.to_string());
 }
 
