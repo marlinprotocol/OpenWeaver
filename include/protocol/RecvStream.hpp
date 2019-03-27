@@ -41,6 +41,8 @@ struct RecvPacketInfo {
 		this->offset = info.offset;
 		this->length = info.length;
 		this->packet = std::move(info.packet);
+
+		return *this;
 	};
 };
 
