@@ -23,7 +23,7 @@ using StreamStorage = std::map<net::SocketAddress, Connection<NodeType>>;
 template<typename NodeType>
 class StreamProtocol {
 public:
-	static void setup(NodeType &node) {}
+	static void setup(NodeType &) {}
 
 	static void did_receive_packet(
 		NodeType &node,
@@ -46,7 +46,7 @@ public:
 	}
 
 	static void did_send_packet(
-		NodeType &node,
+		NodeType &,
 		net::Packet &&p,
 		const net::SocketAddress &addr
 	) {
@@ -110,13 +110,10 @@ public:
 		auto num = stream.sent_packets.size();
 
 		// Retry lost packets
-		for(int i = 0; i < num; i++) {
+		for(size_t i = 0; i < num; i++) {
 			// spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
 
 			auto &sent_packet = sent_iter->second;
-
-			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
-			uint16_t dsize = is_fin ? stream.size - sent_packet.offset : 1000;
 
 			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
 
@@ -292,9 +289,6 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 		if (sent_iter->first + 3 < p.packet_number() || std::difftime(now, sent_iter->second.sent_time) > 0.025) {
 			// Retry lost packets
 			auto &sent_packet = sent_iter->second;
-
-			bool is_fin = (sent_packet.offset + sent_packet.length >= stream.size);
-			uint16_t dsize = is_fin ? stream.size - sent_packet.offset : 1000;
 
 			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
 

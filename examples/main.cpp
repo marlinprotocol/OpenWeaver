@@ -19,7 +19,7 @@ public:
 		StreamProtocol<TestNode>::setup(*this);
 	}
 
-	void did_receive_message(unique_ptr<char[]> message, size_t size) {
+	void did_receive_message(unique_ptr<char[]>, size_t size) {
 		spdlog::info("Message Received: {} bytes", size);
 
 		// for (int i=0; i<size; i++) {
