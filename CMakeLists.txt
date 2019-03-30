@@ -52,10 +52,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 # 	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 # )
 
-# install(FILES
-# 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinStreamConfig.cmake
-# 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
-# )
+install(FILES
+	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinStreamConfig.cmake
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+)
 
 ##########################################################
 # Build examples

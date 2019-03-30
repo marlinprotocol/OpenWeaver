@@ -32,7 +32,7 @@ public:
 	) {
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
-			// DATA
+			// DATA, DATA + FIN
 			case 0:
 			case 1: did_receive_DATA(node, addr, std::move(*pp));
 			break;
@@ -67,31 +67,54 @@ public:
 		}
 	}
 
+	// New stream
 	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, uint64_t size, const net::SocketAddress &addr) {
 		auto &conn = node.stream_storage[addr];
 
-		SendStream &stream = conn.send_streams.insert({
-			conn.next_stream_id,
-			std::move(SendStream(conn.next_stream_id, std::move(data), size))
-		}).first->second;
+		send_data(node, conn.next_stream_id, std::move(data), size, addr);
 
 		conn.next_stream_id += 2;
-		stream.state = SendStream::State::Send;
+	}
 
-		for(uint64_t i = 0; i < stream.size; i+=1000) {
-			bool is_fin = (i + 1000 >= stream.size);
-			uint16_t dsize = is_fin ? stream.size - i : 1000;
+	// Explicit stream id. Stream created if not found.
+	static void send_data(NodeType &node, uint16_t stream_id, std::unique_ptr<char[]> &&data, uint64_t size, const net::SocketAddress &addr) {
+		auto &conn = node.stream_storage[addr];
 
-			if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
+		auto stream_iter = conn.send_streams.find(stream_id);
+		if(stream_iter == conn.send_streams.end()) {
+			// Create stream
+			stream_iter = conn.send_streams.emplace(
+				std::piecewise_construct,
+				std::forward_as_tuple(stream_id),
+				std::forward_as_tuple(stream_id)
+			).first;
 
-			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
+			auto &stream = stream_iter->second;
+			stream.state = SendStream::State::Send;
 
-			stream.bytes_in_flight += dsize;
-			stream.max_sent_byte = i + dsize;
+			// Set tail loss recovery timer
+			stream.timer.data = new std::tuple<net::SocketAddress, NodeType &, SendStream &>(addr, node, stream);
+			uv_timer_start(&stream.timer, &StreamProtocol<NodeType>::timer_cb, 25, 25);
 		}
 
-		stream.timer.data = new std::tuple<net::SocketAddress, NodeType &, SendStream &>(addr, node, stream);
-		uv_timer_start(&stream.timer, &StreamProtocol<NodeType>::timer_cb, 25, 25);
+		auto &stream = stream_iter->second;
+
+		// Add data to send queue
+		auto new_iter = stream.data_queue.insert(
+			stream.data_queue.end(),
+			std::move(DataItem(std::move(data), size, stream.queue_offset))
+		);
+
+		stream.queue_offset += size;
+
+		// Handle idle stream
+		if(stream.next_item_iterator == stream.data_queue.end()) {
+			stream.next_item_iterator = new_iter;
+			_send_data(node, addr, stream);
+		}
+
+		// Note: Don't need to explicitly call _send_data if stream is not idle.
+		// It should eventually be called from elsewhere(timer, ack, etc)
 	}
 
 	static void did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
@@ -110,41 +133,60 @@ public:
 		auto num = stream.sent_packets.size();
 
 		// Retry lost packets
+		// No condition necessary, all packets considered lost
+		// if tail probe fails
 		for(size_t i = 0; i < num; i++) {
 			// spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
 
 			auto &sent_packet = sent_iter->second;
 
-			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
+			StreamProtocol<NodeType>::send_data_packet(node, addr, stream, *(sent_packet.data_item), sent_packet.offset, sent_packet.length);
 
 			sent_iter = stream.sent_packets.erase(sent_iter);
 		}
 
 		// New packets
-		for(uint64_t i = stream.max_sent_byte; i < stream.size; i+=1000) {
-			bool is_fin = (i + 1000 >= stream.size);
-			uint16_t dsize = is_fin ? stream.size - i : 1000;
-
-			if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
-
-			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
-
-			stream.bytes_in_flight += dsize;
-			stream.max_sent_byte = i + dsize;
-		}
+		_send_data(node, addr, stream);
 
 		spdlog::debug("Timer End");
 	}
 
 private:
-	static void send_data_partial(
+	// Create and send packets till congestion control limit
+	static void _send_data(
+		NodeType &node,
+		const net::SocketAddress &addr,
+		SendStream &stream
+	) {
+		for(; stream.next_item_iterator != stream.data_queue.end(); stream.next_item_iterator++) {
+
+			DataItem &data_item = *stream.next_item_iterator;
+
+			for(uint64_t i = data_item.sent_offset; i < data_item.size; i+=1000) {
+				bool is_fin = (data_item.sent_offset + 1000 >= data_item.size);
+				uint16_t dsize = is_fin ? data_item.size - data_item.sent_offset : 1000;
+
+				if(stream.bytes_in_flight > stream.congestion_window - dsize)
+					return;
+
+				StreamProtocol<NodeType>::send_data_packet(node, addr, stream, data_item, i, dsize);
+
+				stream.bytes_in_flight += dsize;
+				stream.sent_offset += dsize;
+				data_item.sent_offset += dsize;
+			}
+		}
+	}
+
+	static void send_data_packet(
 		NodeType &node,
 		const net::SocketAddress &addr,
 		SendStream &stream,
+		DataItem &data_item,
 		uint64_t offset,
 		uint16_t length
 	) {
-		bool is_fin = (offset + length >= stream.size);
+		bool is_fin = (stream.done_queueing && data_item.stream_offset + offset + length >= stream.queue_offset);
 
 		char *pdata = new char[1100] {0, static_cast<char>(is_fin)};
 
@@ -154,15 +196,15 @@ private:
 		uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
 		std::memcpy(pdata+4, &n_packet_number, 8);
 
-		uint64_t n_offset = htonll(offset);
+		uint64_t n_offset = htonll(data_item.stream_offset + offset);
 		std::memcpy(pdata+12, &n_offset, 8);
 
 		uint16_t n_length = htons(length);
 		std::memcpy(pdata+20, &n_length, 2);
 
-		std::memcpy(pdata+22, stream.data.get()+offset, length);
+		std::memcpy(pdata+22, data_item.data.get()+offset, length);
 
-		stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(nullptr), offset, length);
+		stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(nullptr), &data_item, offset, length);
 		stream.last_sent_packet++;
 
 		net::Packet p(pdata, length+22);
@@ -217,22 +259,57 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 	// Cover header
 	p.cover(22);
 
-	stream.recv_packets[offset] = std::move(RecvPacketInfo(std::time(NULL), offset, length, std::move(p)));
-
 	StreamProtocol<NodeType>::send_ACK(node, addr, stream_id, packet_number);
 
-	if (stream.check_finish()) {
-		stream.state = RecvStream<NodeType>::State::AllRecv;
+	// Short circuit on no new data
+	if(offset + length <= stream.read_offset) {
+		return;
+	}
 
-		std::unique_ptr<char[]> message(new char[stream.size]);
-		for (auto iter = stream.recv_packets.begin(); iter != stream.recv_packets.end(); iter++) {
-			if (iter->second.length == 0) continue;
-			memcpy(message.get()+iter->second.offset, iter->second.packet.data(), iter->second.length);
+	// Check if data can be read immediately
+	if(offset <= stream.read_offset) {
+		// Cover bytes which have already been read
+		p.cover(stream.read_offset - offset);
+		node.did_receive_bytes(std::move(p), stream.stream_id, addr);
+
+		stream.read_offset = offset + length;
+
+		// Read any out of order data
+		auto iter = stream.recv_packets.begin();
+		while(iter != stream.recv_packets.end()) {
+			auto &packet = iter->second.packet;
+
+			// Short circuit if data can't be read immediately
+			if(iter->second.offset > stream.read_offset) {
+				break;
+			}
+
+			// Check new data
+			if(iter->second.offset + iter->second.length > stream.read_offset) {
+				// Cover bytes which have already been read
+				packet.cover(stream.read_offset - iter->second.offset);
+				node.did_receive_bytes(std::move(packet), stream.stream_id, addr);
+
+				stream.read_offset = iter->second.offset + iter->second.length;
+			}
+
+			// Next iter
+			iter = stream.recv_packets.erase(iter);
 		}
 
-		stream.delegate.did_receive_message(std::move(message), stream.size);
+		// Check all data read
+		if(stream.check_read()) {
+			stream.state = RecvStream<NodeType>::State::Read;
+			spdlog::info("Read: {}", node.num_bytes);
+		}
+	} else {
+		// Queue packet for later processing
+		stream.recv_packets[offset] = std::move(RecvPacketInfo(std::time(NULL), offset, length, std::move(p)));
 
-		stream.state = RecvStream<NodeType>::State::Read;
+		// Check all data received
+		if (stream.check_finish()) {
+			stream.state = RecvStream<NodeType>::State::AllRecv;
+		}
 	}
 }
 
@@ -266,11 +343,15 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	// Short circuit if packet not found in sent.
 	// Usually due to repeated ACKs. Malicious actors could use
 	// spoofed ACKs to DDoS.
-	if(stream.sent_packets.find(p.packet_number()) == stream.sent_packets.end()) return;
+	if(stream.sent_packets.find(p.packet_number()) == stream.sent_packets.end())
+		return;
 
 	stream.bytes_in_flight -= stream.sent_packets[p.packet_number()].length;
 	stream.sent_packets.erase(p.packet_number());
 
+	// TODO: Check DataItem finish and discard
+
+	// Check stream finish
 	if (stream.sent_packets.size() == 0 && stream.state == SendStream::State::Sent) {
 		stream.state = SendStream::State::Acked;
 
@@ -286,11 +367,14 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	auto sent_iter = stream.sent_packets.cbegin();
 	auto now = std::time(nullptr);
 	while(sent_iter != stream.sent_packets.cend()) {
+		// Condition for packet in flight to be considered lost
+		// 1. more than 3 packets before
+		// 2. more than 25ms before
 		if (sent_iter->first + 3 < p.packet_number() || std::difftime(now, sent_iter->second.sent_time) > 0.025) {
 			// Retry lost packets
 			auto &sent_packet = sent_iter->second;
 
-			StreamProtocol<NodeType>::send_data_partial(node, addr, stream, sent_packet.offset, sent_packet.length);
+			StreamProtocol<NodeType>::send_data_packet(node, addr, stream, *(sent_packet.data_item), sent_packet.offset, sent_packet.length);
 
 			sent_iter = stream.sent_packets.erase(sent_iter);
 		} else {
@@ -299,18 +383,7 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	}
 
 	// New packets
-	for(uint64_t i = stream.max_sent_byte; i < stream.size; i+=1000) {
-		bool is_fin = (i + 1000 >= stream.size);
-		uint16_t dsize = is_fin ? stream.size - i : 1000;
-
-		if(stream.bytes_in_flight > stream.congestion_window - dsize) break;
-
-		StreamProtocol<NodeType>::send_data_partial(node, addr, stream, i, dsize);
-
-		stream.bytes_in_flight += dsize;
-		stream.max_sent_byte = i + dsize;
-	}
-
+	_send_data(node, addr, stream);
 
 	uv_timer_again(&stream.timer);
 }
