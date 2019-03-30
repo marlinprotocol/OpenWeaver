@@ -1,7 +1,7 @@
 #ifndef MARLIN_STREAM_RECVSTREAM_HPP
 #define MARLIN_STREAM_RECVSTREAM_HPP
 
-#include <marlin/net/Packet.hpp>
+#include "StreamPacket.hpp"
 
 #include <ctime>
 #include <memory>
@@ -76,7 +76,7 @@ struct RecvStream {
 			return true;
 		}
 
-		uint64_t offset = 0;  // Expected offset
+		uint64_t offset = read_offset;  // Expected offset
 		for (auto iter = this->recv_packets.begin(); iter != this->recv_packets.end(); iter++) {
 			// Packet should start at or before expected offset
 			if (offset < iter->second.offset) {
@@ -89,6 +89,17 @@ struct RecvStream {
 
 		return offset == this->size;
 	}
+
+	uint64_t read_offset = 0;
+
+	bool check_read() const {
+		if (this->state == State::Recv) {
+			return false;
+		}
+
+		return this->read_offset == this->size;
+	}
+
 };
 
 } // namespace stream

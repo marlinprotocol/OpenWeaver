@@ -19,17 +19,12 @@ public:
 		StreamProtocol<TestNode>::setup(*this);
 	}
 
-	void did_receive_message(unique_ptr<char[]>, size_t size) {
-		spdlog::info("Message Received: {} bytes", size);
+	uint64_t num_bytes = 0;
 
-		// for (int i=0; i<size; i++) {
-		// 	if(message.get()[i] != 'B') {
-		// 		spdlog::error("Message Error");
-		// 		return;
-		// 	}
-		// }
-
-		// spdlog::info("Message Verified");
+	void did_receive_bytes(Packet &&p, uint16_t stream_id, const SocketAddress &) {
+		num_bytes += p.size();
+		spdlog::debug("Message received from stream {}: {} bytes", stream_id, p.size());
+		spdlog::debug("Total: {} bytes", num_bytes);
 	}
 };
 
@@ -47,7 +42,7 @@ int main() {
 	auto b2 = new NodeType(addr2);
 	b2->start_listening();
 
-	#define SIZE 12500000
+	#define SIZE 12500
 
 	std::unique_ptr<char[]> data(new char[SIZE]);
 	fill(data.get(), data.get()+SIZE, 'B');
