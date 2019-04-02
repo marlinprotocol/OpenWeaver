@@ -300,7 +300,6 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 		// Check all data read
 		if(stream.check_read()) {
 			stream.state = RecvStream<NodeType>::State::Read;
-			spdlog::info("Read: {}", node.num_bytes);
 		}
 	} else {
 		// Queue packet for later processing
