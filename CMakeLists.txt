@@ -8,24 +8,18 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-add_library(pubsub STATIC
-	src/PubSubNode.cpp
-)
+add_library(pubsub INTERFACE)
 
 target_include_directories(pubsub
-	PUBLIC
+	INTERFACE
 		$<INSTALL_INTERFACE:include/marlin/pubsub>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-set_target_properties(pubsub PROPERTIES
-	OUTPUT_NAME "marlin-pubsub"
 )
 
 find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
 	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
+
+target_link_libraries(pubsub INTERFACE Marlin::stream)
 
 find_package(spdlog REQUIRED)
 
@@ -54,3 +48,20 @@ install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinPubsubConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 )
+
+##########################################################
+# Build examples
+##########################################################
+
+add_executable(testnode EXCLUDE_FROM_ALL
+	examples/main.cpp
+)
+
+target_include_directories(testnode
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
+
+target_link_libraries(testnode PUBLIC pubsub)
