@@ -4,6 +4,8 @@
 #include <memory>
 #include <uv.h>
 #include <list>
+#include <ctime>
+#include <map>
 
 namespace marlin {
 namespace stream {
