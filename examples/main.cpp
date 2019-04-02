@@ -23,8 +23,8 @@ public:
 
 	void did_receive_bytes(Packet &&p, uint16_t stream_id, const SocketAddress &) {
 		num_bytes += p.size();
-		spdlog::debug("Message received from stream {}: {} bytes", stream_id, p.size());
-		spdlog::debug("Total: {} bytes", num_bytes);
+		spdlog::info("Message received from stream {}: {} bytes", stream_id, p.size());
+		spdlog::info("Total: {} bytes", num_bytes);
 	}
 };
 
