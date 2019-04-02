@@ -9,7 +9,7 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(pubsub STATIC
-
+	src/PubSubNode.cpp
 )
 
 target_include_directories(pubsub
@@ -24,10 +24,8 @@ set_target_properties(pubsub PROPERTIES
 	OUTPUT_NAME "marlin-pubsub"
 )
 
-# find_package(MarlinTest CONFIG REQUIRED COMPONENTS test
-# 	NAMES "Marlin" CONFIGS "MarlinTestConfig.cmake")
-
-# target_link_libraries(pubsub PUBLIC Marlin::test)
+find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
+	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
 
 find_package(spdlog REQUIRED)
 
