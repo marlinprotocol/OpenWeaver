@@ -53,15 +53,15 @@ install(FILES
 # Build examples
 ##########################################################
 
-add_executable(testnode EXCLUDE_FROM_ALL
-	examples/main.cpp
+add_executable(testclient EXCLUDE_FROM_ALL
+	examples/client.cpp
 )
 
-target_include_directories(testnode
+target_include_directories(testclient
 	PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
 
-target_link_libraries(testnode PUBLIC pubsub)
+target_link_libraries(testclient PUBLIC pubsub)

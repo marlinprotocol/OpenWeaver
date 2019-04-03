@@ -19,8 +19,9 @@ public:
 	std::list<net::Packet> message_buffer;
 	uint64_t message_length = 0;
 	uint64_t bytes_remaining = 0;
+	std::string channel;
 
-	PubSubDelegate &delegate;
+	PubSubDelegate delegate;
 
 	void did_receive_bytes(net::Packet &&p, uint16_t stream_id, const net::SocketAddress &addr);
 
@@ -34,7 +35,7 @@ public:
 	void send_RESPONSE(const net::SocketAddress &);
 
 	void did_receive_MESSAGE(net::Packet &&p, uint16_t, const net::SocketAddress &);
-	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, char *data, uint64_t size);
+	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, const char *data, uint64_t size);
 };
 
 
@@ -150,7 +151,7 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t, 
 		if((uint16_t)p.size() < 10 + channel_length)
 			return;
 
-		std::string channel(p.data()+10, p.data()+10+channel_length);
+		this->channel = std::string(p.data()+10, p.data()+10+channel_length);
 
 		p.cover(10 + channel_length);
 	}
@@ -174,16 +175,17 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t, 
 		// Read only bytes_remaining bytes from final packet to prevent buffer overrun
 		std::memcpy(message.get() + offset, p.data(), bytes_remaining);
 
-		delegate.did_receive_message(std::move(message), message_length);
+		delegate.did_receive_message(std::move(message), message_length, this->channel);
 
 		// Reset state. Message buffer should already be empty.
 		bytes_remaining = 0;
 		message_length = 0;
+		channel.clear();
 	}
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, std::string channel, char *data, uint64_t size) {
+void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, std::string channel, const char *data, uint64_t size) {
 	char *message = new char[channel.size()+11+size];
 
 	message[0] = 3;
