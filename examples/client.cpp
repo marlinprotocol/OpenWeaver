@@ -44,7 +44,14 @@ int main() {
 
 	spdlog::info("Start");
 
-	b->send_MESSAGE(addr2, std::string("Test channel"), data.get(), SIZE);
+	// b->send_MESSAGE(addr2, std::string("Test channel"), data.get(), SIZE);
+
+	b->send_SUBSCRIBE(addr2, std::string("test_channel"));
+	b2->send_SUBSCRIBE(addr2, std::string("test_channel"));
+	
+	b->send_UNSUBSCRIBE(addr2, std::string("test_channel"));
+
+	b2->send_MESSAGE_on_channel(addr, std::string("test_channel"), data.get(), SIZE);
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
