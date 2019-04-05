@@ -48,10 +48,10 @@ int main() {
 
 	b->send_SUBSCRIBE(addr2, std::string("test_channel"));
 	b2->send_SUBSCRIBE(addr2, std::string("test_channel"));
-	
+
 	b->send_UNSUBSCRIBE(addr2, std::string("test_channel"));
 
-	b2->send_MESSAGE_on_channel(addr, std::string("test_channel"), data.get(), SIZE);
+	b2->send_message_on_channel(std::string("test_channel"), data.get(), SIZE);
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
