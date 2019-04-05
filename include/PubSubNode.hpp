@@ -46,7 +46,8 @@ public:
 
 	void did_receive_MESSAGE(net::Packet &&p, uint16_t, const net::SocketAddress &);
 	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, const char *data, uint64_t size);
-	void send_MESSAGE_on_channel(const net::SocketAddress &, std::string channel, const char *data, uint64_t size);
+
+	void send_message_on_channel(std::string channel, const char *data, uint64_t size);
 
 	private:
 	MapChannelToAddresses channel_subscription_map;
@@ -97,13 +98,12 @@ void PubSubNode<PubSubDelegate>::did_receive_bytes(net::Packet &&p, uint16_t str
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_receive_SUBSCRIBE(net::Packet &&p, uint16_t, const net::SocketAddress &addr) {
 	std::string channel(p.data(), p.data()+p.size());
-	
-	// TODO: Subscribe to channel
+
 	channel_subscription_map[channel].push_back(addr);
 
-	spdlog::info("received subscribe");
+	spdlog::info("Received subscribe on channel {} from {}", channel, addr.to_string());
 
-	// send response
+	// Send response
 	send_RESPONSE(true, "SUBCRIBED TO CHANNEL: " + channel, addr);
 }
 
@@ -115,8 +115,8 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(const net::SocketAddress &addr, 
 	std::memcpy(message + 1, channel.data(), channel.size());
 
 	std::unique_ptr<char[]> p(message);
-	
-	spdlog::info("sending subscribe");
+
+	spdlog::info("Sending subscribe on channel {}", channel);
 
 	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size() + 1, addr);
 }
@@ -125,12 +125,11 @@ template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_receive_UNSUBSCRIBE(net::Packet &&p, uint16_t, const net::SocketAddress &addr) {
 	std::string channel(p.data(), p.data()+p.size());
 
-	// TODO: Unsubscribe from channel
 	channel_subscription_map[channel].remove(addr);
 
-	spdlog::info("received unsubscribe");
+	spdlog::info("Received unsubscribe on channel {} from {}", channel, addr.to_string());
 
-	// send response
+	// Send response
 	send_RESPONSE(true, "UNSUBCRIBED FROM CHANNEL: " + channel, addr);
 }
 
@@ -143,31 +142,25 @@ void PubSubNode<PubSubDelegate>::send_UNSUBSCRIBE(const net::SocketAddress &addr
 
 	std::unique_ptr<char[]> p(message);
 
-	spdlog::info("sending unsubscribe");
+	spdlog::info("Sending unsubscribe on channel {}", channel);
 
 	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size() + 1, addr);
 }
 
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_receive_RESPONSE(net::Packet &&p, uint16_t, const net::SocketAddress &) {
-	// TODO: Handle OK or ERROR
-
 	bool success = p.data()[0];
+
 	// Hide success
 	p.cover(1);
 
 	// process rest of the message
-
 	std::string message(p.data(), p.data()+p.size());
-	spdlog::info("received response");
-	spdlog::info(success);
-	spdlog::info(message);
+	spdlog::info("Received {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message.data(), message.data()+message.size()));
 }
 
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::send_RESPONSE(bool success, std::string msg_string, const net::SocketAddress &addr) {
-	// TODO: Send OK or ERROR
-
 	// 0 for ERROR
 	// 1 for OK
 	uint64_t tot_msg_size = msg_string.size()+2;
@@ -179,14 +172,14 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(bool success, std::string msg_str
 		message[1] = 1;
 	}
 	else {
-		message[1] = 0;	
+		message[1] = 0;
 	}
 	std::memcpy(message + 2, msg_string.data(), msg_string.size());
 
 	std::unique_ptr<char[]> p(message);
 
-	spdlog::info("sending response");
-	
+	spdlog::info("Sending {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message, message + tot_msg_size));
+
 	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), tot_msg_size, addr);
 }
 
@@ -267,25 +260,10 @@ void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, st
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_MESSAGE_on_channel(const net::SocketAddress &, std::string channel, const char *data, uint64_t size) {
-	char *message = new char[channel.size()+11+size];
-
-	message[0] = 3;
-
-	uint64_t n_size = htonll(size);
-	std::memcpy(message + 1, &n_size, 8);
-
-	uint16_t n_channel_length = htons(channel.size());
-	std::memcpy(message + 9, &n_channel_length, 2);
-	std::memcpy(message + 11, channel.data(), channel.size());
-
-	std::memcpy(message + 11 + channel.size(), data, size);
-
-	std::unique_ptr<char[]> p(message);
-
+void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, const char *data, uint64_t size) {
 	for (ListSocketAddress::iterator it = channel_subscription_map[channel].begin(); it != channel_subscription_map[channel].end(); it++) {
-		spdlog::info("sending message on channel");
-		stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size()+11+size, *it);
+		spdlog::info("Sending message on channel {} to {}", channel, (*it).to_string());
+		send_MESSAGE(*it, channel, data, size);
 	}
 }
 
