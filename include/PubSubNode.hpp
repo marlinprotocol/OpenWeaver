@@ -10,9 +10,20 @@
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
+#include <random>
+#include <unordered_set>
+#include <uv.h>
 
 namespace marlin {
 namespace pubsub {
+
+struct ReadBuffer {
+	std::list<net::Packet> message_buffer;
+	uint64_t message_length = 0;
+	uint64_t bytes_remaining = 0;
+	std::string channel;
+	uint64_t message_id = 0;
+};
 
 typedef std::list<net::SocketAddress> ListSocketAddress;
 typedef std::map<std::string, ListSocketAddress > MapChannelToAddresses;
@@ -25,13 +36,11 @@ public:
 	stream::StreamStorage<PubSubNode> stream_storage;
 
 	PubSubNode(const net::SocketAddress &_addr);
+	~PubSubNode();
 
-	std::list<net::Packet> message_buffer;
-	uint64_t message_length = 0;
-	uint64_t bytes_remaining = 0;
-	std::string channel;
+	std::map<std::tuple<net::SocketAddress const, uint16_t const>, ReadBuffer *> read_buffers;
 
-	PubSubDelegate delegate;
+	PubSubDelegate *delegate;
 
 	void did_receive_bytes(net::Packet &&p, uint16_t stream_id, const net::SocketAddress &addr);
 
@@ -45,21 +54,66 @@ public:
 	void send_RESPONSE(bool success, std::string msg_string, const net::SocketAddress &);
 
 	void did_receive_MESSAGE(net::Packet &&p, uint16_t, const net::SocketAddress &);
-	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, const char *data, uint64_t size);
+	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, uint64_t message_id, const char *data, uint64_t size);
 
-	void send_message_on_channel(std::string channel, const char *data, uint64_t size);
+	void send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded = nullptr);
+	void send_message_on_channel(std::string channel, uint64_t message_id, const char *data, uint64_t size, net::SocketAddress const *excluded = nullptr);
 
-	private:
+private:
 	MapChannelToAddresses channel_subscription_map;
+
+	std::uniform_int_distribution<uint64_t> message_id_dist;
+	std::mt19937_64 message_id_gen;
+
+	// Message id history for deduplication
+	std::vector<std::vector<uint64_t>> message_id_events;
+	uint8_t message_id_idx = 0;
+	std::unordered_set<uint64_t> message_id_set;
+
+	uv_timer_t message_id_timer;
+
+	static void timer_cb(uv_timer_t *handle) {
+		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
+
+		// Overflow behaviour desirable
+		node.message_id_idx++;
+
+		for(
+			auto iter = node.message_id_events[node.message_id_idx].begin();
+			iter != node.message_id_events[node.message_id_idx].end();
+			iter = node.message_id_events[node.message_id_idx].erase(iter)
+		) {
+			node.message_id_set.erase(*iter);
+		}
+	}
 };
 
 
 // Impl
 
 template<typename PubSubDelegate>
-PubSubNode<PubSubDelegate>::PubSubNode(const net::SocketAddress &_addr) : BaseNode(_addr) {
+PubSubNode<PubSubDelegate>::PubSubNode(
+	const net::SocketAddress &_addr
+) : BaseNode(_addr),
+	message_id_gen(std::random_device()()),
+	message_id_events(256)
+{
 	stream::StreamProtocol<PubSubNode>::setup(*this);
-	spdlog::default_logger()->set_level(spdlog::level::info);
+
+	uv_timer_init(uv_default_loop(), &message_id_timer);
+	uv_timer_start(&message_id_timer, &PubSubNode<PubSubDelegate>::timer_cb, 10000, 10000);
+}
+
+template<typename PubSubDelegate>
+PubSubNode<PubSubDelegate>::~PubSubNode() {
+	// Cleanup allocated ReadBuffers
+	for(
+		auto iter = this->read_buffers.begin();
+		iter != this->read_buffers.end();
+		iter++
+	) {
+		delete iter->second;
+	}
 }
 
 template<typename PubSubDelegate>
@@ -68,9 +122,19 @@ void PubSubNode<PubSubDelegate>::did_receive_bytes(net::Packet &&p, uint16_t str
 	if(p.size() == 0)
 		return;
 
+	auto iter = read_buffers.find(std::make_tuple(addr, stream_id));
+	if(iter == read_buffers.end()) {
+		iter = read_buffers.emplace(
+			std::make_tuple(addr, stream_id),
+			new ReadBuffer()
+		).first;
+	}
+
+	auto &read_buffer = *iter->second;
+
 	// Check if it is part of previously incomplete message
-	if(bytes_remaining > 0) {
-		this-> did_receive_MESSAGE(std::move(p), stream_id, addr);
+	if(read_buffer.bytes_remaining > 0) {
+		this->did_receive_MESSAGE(std::move(p), stream_id, addr);
 		return;
 	}
 
@@ -104,7 +168,7 @@ void PubSubNode<PubSubDelegate>::did_receive_SUBSCRIBE(net::Packet &&p, uint16_t
 	spdlog::info("Received subscribe on channel {} from {}", channel, addr.to_string());
 
 	// Send response
-	send_RESPONSE(true, "SUBCRIBED TO CHANNEL: " + channel, addr);
+	send_RESPONSE(true, "SUBSCRIBED TO " + channel, addr);
 }
 
 template<typename PubSubDelegate>
@@ -118,7 +182,7 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(const net::SocketAddress &addr, 
 
 	spdlog::info("Sending subscribe on channel {}", channel);
 
-	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size() + 1, addr);
+	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size() + 1, addr);
 }
 
 template<typename PubSubDelegate>
@@ -130,7 +194,7 @@ void PubSubNode<PubSubDelegate>::did_receive_UNSUBSCRIBE(net::Packet &&p, uint16
 	spdlog::info("Received unsubscribe on channel {} from {}", channel, addr.to_string());
 
 	// Send response
-	send_RESPONSE(true, "UNSUBCRIBED FROM CHANNEL: " + channel, addr);
+	send_RESPONSE(true, "UNSUBSCRIBED FROM " + channel, addr);
 }
 
 template<typename PubSubDelegate>
@@ -144,7 +208,7 @@ void PubSubNode<PubSubDelegate>::send_UNSUBSCRIBE(const net::SocketAddress &addr
 
 	spdlog::info("Sending unsubscribe on channel {}", channel);
 
-	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size() + 1, addr);
+	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size() + 1, addr);
 }
 
 template<typename PubSubDelegate>
@@ -154,8 +218,16 @@ void PubSubNode<PubSubDelegate>::did_receive_RESPONSE(net::Packet &&p, uint16_t,
 	// Hide success
 	p.cover(1);
 
-	// process rest of the message
+	// Process rest of the message
 	std::string message(p.data(), p.data()+p.size());
+
+	// Check subscibe/unsubscribe response
+	if(message.rfind("UNSUBSCRIBED FROM ", 0) == 0) {
+		delegate->did_unsubscribe(*this, message.substr(18));
+	} else if(message.rfind("SUBSCRIBED TO ", 0) == 0) {
+		delegate->did_subscribe(*this, message.substr(14));
+	}
+
 	spdlog::info("Received {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message.data(), message.data()+message.size()));
 }
 
@@ -167,103 +239,163 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(bool success, std::string msg_str
 	char *message = new char[tot_msg_size];
 
 	message[0] = 2;
+	message[1] = success ? 1 : 0;
 
-	if (success) {
-		message[1] = 1;
-	}
-	else {
-		message[1] = 0;
-	}
 	std::memcpy(message + 2, msg_string.data(), msg_string.size());
 
 	std::unique_ptr<char[]> p(message);
 
-	spdlog::info("Sending {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message, message + tot_msg_size));
+	// send_message_on_channel(
+	// 	"test_channel",
+	// 	"Test message",
+	// 	12
+	// );
 
-	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), tot_msg_size, addr);
+	spdlog::info("Sending {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message, message + tot_msg_size));
+	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), tot_msg_size, addr);
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t, const net::SocketAddress &) {
-	if(bytes_remaining == 0) { // New message
+void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t stream_id, const net::SocketAddress &addr) {
+	auto iter = read_buffers.find(std::make_tuple(addr, stream_id));
+	if(iter == read_buffers.end()) {
+		iter = read_buffers.emplace(
+			std::make_tuple(addr, stream_id),
+			new ReadBuffer()
+		).first;
+	}
+
+	auto &read_buffer = *iter->second;
+
+	if(read_buffer.bytes_remaining == 0) { // New message
+		spdlog::debug("New message");
 		// Check overflow
 		if(p.size() < 8)
 			return;
 
 		uint64_t n_length;
 		std::memcpy(&n_length, p.data(), 8);
-		this->bytes_remaining = ntohll(n_length);
-		this->message_length = this->bytes_remaining;
+		read_buffer.bytes_remaining = ntohll(n_length);
+		read_buffer.message_length = read_buffer.bytes_remaining;
 
 		// Check overflow
-		if(p.size() < 10)
+		if(p.size() < 16)
+			return;
+
+		uint64_t n_message_id;
+		std::memcpy(&n_message_id, p.data()+8, 8);
+		read_buffer.message_id = ntohll(n_message_id);
+
+		// Check overflow
+		if(p.size() < 18)
 			return;
 
 		uint16_t n_channel_length;
-		std::memcpy(&n_channel_length, p.data()+8, 2);
+		std::memcpy(&n_channel_length, p.data()+16, 2);
 		uint16_t channel_length = ntohs(n_channel_length);
 
 		// Check overflow
-		if((uint16_t)p.size() < 10 + channel_length)
+		if((uint16_t)p.size() < 18 + channel_length)
 			return;
 
-		this->channel = std::string(p.data()+10, p.data()+10+channel_length);
+		read_buffer.channel = std::string(p.data()+18, p.data()+18+channel_length);
 
-		p.cover(10 + channel_length);
+		p.cover(18 + channel_length);
 	}
 
 	// Check if full message has been received
-	if(bytes_remaining > p.size()) { // Incomplete message
-		message_buffer.push_back(std::move(p));
-		bytes_remaining -= p.size();
+	if(read_buffer.bytes_remaining > p.size()) { // Incomplete message
+		spdlog::debug("Incomplete message");
+		read_buffer.message_buffer.push_back(std::move(p));
+		read_buffer.bytes_remaining -= p.size();
 	} else { // Full message
+		spdlog::debug("Full message");
 		// Assemble final message
-		std::unique_ptr<char[]> message(new char[message_length]);
+		std::unique_ptr<char[]> message(new char[read_buffer.message_length]);
 		uint64_t offset = 0;
 		for(
-			auto iter = message_buffer.begin();
-			iter != message_buffer.end();
-			iter = message_buffer.erase(iter)
+			auto iter = read_buffer.message_buffer.begin();
+			iter != read_buffer.message_buffer.end();
+			iter = read_buffer.message_buffer.erase(iter)
 		) {
 			std::memcpy(message.get() + offset, iter->data(), iter->size());
 			offset += iter->size();
 		}
 		// Read only bytes_remaining bytes from final packet to prevent buffer overrun
-		std::memcpy(message.get() + offset, p.data(), bytes_remaining);
+		std::memcpy(
+			message.get() + offset,
+			p.data(),
+			read_buffer.bytes_remaining
+		);
 
-		delegate.did_receive_message(std::move(message), message_length, this->channel);
+		// Send it onward
+		if(message_id_set.find(read_buffer.message_id) == message_id_set.end()) { // Deduplicate message
+			message_id_set.insert(read_buffer.message_id);
+			message_id_events[message_id_idx].push_back(read_buffer.message_id);
+			send_message_on_channel(
+				read_buffer.channel,
+				read_buffer.message_id,
+				message.get(),
+				read_buffer.message_length,
+				&addr
+			);
+
+			// Call delegate
+			delegate->did_receive_message(
+				*this,
+				std::move(message),
+				read_buffer.message_length,
+				read_buffer.channel,
+				read_buffer.message_id
+			);
+		}
 
 		// Reset state. Message buffer should already be empty.
-		bytes_remaining = 0;
-		message_length = 0;
-		channel.clear();
+		read_buffer.bytes_remaining = 0;
+		read_buffer.message_length = 0;
+		read_buffer.channel.clear();
 	}
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, std::string channel, const char *data, uint64_t size) {
-	char *message = new char[channel.size()+11+size];
+void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, std::string channel, uint64_t message_id, const char *data, uint64_t size) {
+	char *message = new char[channel.size()+19+size];
 
 	message[0] = 3;
 
 	uint64_t n_size = htonll(size);
 	std::memcpy(message + 1, &n_size, 8);
 
-	uint16_t n_channel_length = htons(channel.size());
-	std::memcpy(message + 9, &n_channel_length, 2);
-	std::memcpy(message + 11, channel.data(), channel.size());
+	uint64_t n_message_id = htonll(message_id);
+	std::memcpy(message + 9, &n_message_id, 8);
 
-	std::memcpy(message + 11 + channel.size(), data, size);
+	uint16_t n_channel_length = htons(channel.size());
+	std::memcpy(message + 17, &n_channel_length, 2);
+	std::memcpy(message + 19, channel.data(), channel.size());
+
+	std::memcpy(message + 19 + channel.size(), data, size);
 
 	std::unique_ptr<char[]> p(message);
-	stream::StreamProtocol<PubSubNode>::send_data(*this, std::move(p), channel.size()+11+size, addr);
+	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size()+19+size, addr);
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, const char *data, uint64_t size) {
-	for (ListSocketAddress::iterator it = channel_subscription_map[channel].begin(); it != channel_subscription_map[channel].end(); it++) {
-		spdlog::info("Sending message on channel {} to {}", channel, (*it).to_string());
-		send_MESSAGE(*it, channel, data, size);
+void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded) {
+	uint64_t message_id = this->message_id_dist(this->message_id_gen);
+	send_message_on_channel(channel, message_id, data, size, excluded);
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, uint64_t message_id, const char *data, uint64_t size, net::SocketAddress const *excluded) {
+	for (
+		ListSocketAddress::iterator it = channel_subscription_map[channel].begin();
+		it != channel_subscription_map[channel].end();
+		it++
+	) {
+		if(excluded != nullptr && *it == *excluded)
+			continue;
+		spdlog::info("Sending message {} on channel {} to {}", message_id, channel, (*it).to_string());
+		send_MESSAGE(*it, channel, message_id, data, size);
 	}
 }
 
