@@ -101,6 +101,7 @@ PubSubNode<PubSubDelegate>::PubSubNode(
 	stream::StreamProtocol<PubSubNode>::setup(*this);
 
 	uv_timer_init(uv_default_loop(), &message_id_timer);
+	this->message_id_timer.data = (void *)this;
 	uv_timer_start(&message_id_timer, &PubSubNode<PubSubDelegate>::timer_cb, 10000, 10000);
 }
 

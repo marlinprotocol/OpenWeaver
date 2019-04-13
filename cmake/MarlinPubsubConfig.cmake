@@ -3,8 +3,8 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${PUBSUB_CMAKE_DIR})
 
-# find_package(MarlinTest CONFIG REQUIRED COMPONENTS test
-# 	NAMES "Marlin" CONFIGS "MarlinTestConfig.cmake")
+find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
+	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
 
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
