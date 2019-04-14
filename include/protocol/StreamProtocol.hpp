@@ -40,7 +40,7 @@ public:
 			case 2: did_receive_ACK(node, addr, std::move(*pp));
 			break;
 			// UNKNOWN
-			default: spdlog::debug("UNKNOWN <<< {}", addr.to_string());
+			default: SPDLOG_DEBUG("UNKNOWN <<< {}", addr.to_string());
 			break;
 		}
 	}
@@ -48,21 +48,21 @@ public:
 	static void did_send_packet(
 		NodeType &,
 		net::Packet &&p,
-		const net::SocketAddress &addr
+		const net::SocketAddress &addr __attribute__((unused))
 	) {
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
 			// DATA
-			case 0: spdlog::debug("DATA >>> {}", addr.to_string());;
+			case 0: SPDLOG_DEBUG("DATA >>> {}", addr.to_string());
 			break;
 			// DATA + FIN
-			case 1: spdlog::debug("DATA + FIN >>> {}", addr.to_string());;
+			case 1: SPDLOG_DEBUG("DATA + FIN >>> {}", addr.to_string());
 			break;
 			// ACK
-			case 2: spdlog::debug("ACK >>> {}", addr.to_string());;
+			case 2: SPDLOG_DEBUG("ACK >>> {}", addr.to_string());
 			break;
 			// UNKNOWN
-			default: spdlog::debug("UNKNOWN >>> {}", addr.to_string());
+			default: SPDLOG_DEBUG("UNKNOWN >>> {}", addr.to_string());
 			break;
 		}
 	}
@@ -136,7 +136,7 @@ public:
 		// No condition necessary, all packets considered lost
 		// if tail probe fails
 		for(size_t i = 0; i < num; i++) {
-			// spdlog::debug("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
+			// SPDLOG_DEBUG("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
 
 			auto &sent_packet = sent_iter->second;
 
@@ -148,7 +148,7 @@ public:
 		// New packets
 		_send_data(node, addr, stream);
 
-		spdlog::debug("Timer End");
+		SPDLOG_DEBUG("Timer End");
 	}
 
 private:
@@ -223,7 +223,7 @@ void StreamProtocol<NodeType>::send_DATA(NodeType &node, const net::SocketAddres
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	spdlog::debug("DATA <<< {}", addr.to_string());
+	SPDLOG_DEBUG("DATA <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
@@ -234,7 +234,7 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 	// Create stream if it does not exist
 	auto iter = storage.recv_streams.find(p.stream_id());
 	if (iter == storage.recv_streams.end()) {
-		spdlog::debug("New stream: {}", p.stream_id());
+		SPDLOG_DEBUG("New stream: {}", p.stream_id());
 		iter = storage.recv_streams.insert({
 			p.stream_id(),
 			std::move(RecvStream<NodeType>(p.stream_id(), node))
@@ -328,13 +328,13 @@ void StreamProtocol<NodeType>::send_ACK(NodeType &node, const net::SocketAddress
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	spdlog::debug("ACK <<< {}", addr.to_string());
+	SPDLOG_DEBUG("ACK <<< {}", addr.to_string());
 
 	auto &storage = node.stream_storage[addr];
 
 	auto iter = storage.send_streams.find(p.stream_id());
 	if (iter == storage.send_streams.end()) {
-		spdlog::debug("Not found: {}", p.stream_id());
+		SPDLOG_DEBUG("Not found: {}", p.stream_id());
 		return;
 	}
 	auto &stream = iter->second;
@@ -358,7 +358,7 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 		delete (std::pair<net::SocketAddress, NodeType &> *)stream.timer.data;
 
 		// TODO: Call delegate to inform
-		spdlog::info("Acked: {}", p.stream_id());
+		SPDLOG_INFO("Acked: {}", p.stream_id());
 
 		return;
 	}
