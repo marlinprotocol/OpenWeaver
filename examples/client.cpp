@@ -16,15 +16,15 @@ using namespace std;
 class PubSubClient {
 public:
 	void did_unsubscribe(PubSubNode<PubSubClient> &, std::string channel) {
-		spdlog::info("Did unsubscribe: {}", channel);
+		SPDLOG_INFO("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(PubSubNode<PubSubClient> &, std::string channel) {
-		spdlog::info("Did subscribe: {}", channel);
+		SPDLOG_INFO("Did subscribe: {}", channel);
 	}
 
 	void did_receive_message(PubSubNode<PubSubClient> &, std::unique_ptr<char[]> &&message, uint64_t size, std::string &channel, uint64_t message_id) {
-		spdlog::info("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.get(), message.get() + size));
+		SPDLOG_INFO("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.get(), message.get() + size));
 	}
 };
 
@@ -45,7 +45,7 @@ int main() {
 	b2->delegate = &b2_del;
 	b2->start_listening();
 
-	spdlog::info("Start");
+	SPDLOG_INFO("Start");
 
 	// b->send_MESSAGE(addr2, std::string("Test channel"), data.get(), SIZE);
 

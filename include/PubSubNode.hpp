@@ -166,7 +166,7 @@ void PubSubNode<PubSubDelegate>::did_receive_SUBSCRIBE(net::Packet &&p, uint16_t
 
 	channel_subscription_map[channel].push_back(addr);
 
-	spdlog::info("Received subscribe on channel {} from {}", channel, addr.to_string());
+	SPDLOG_INFO("Received subscribe on channel {} from {}", channel, addr.to_string());
 
 	// Send response
 	send_RESPONSE(true, "SUBSCRIBED TO " + channel, addr);
@@ -181,7 +181,7 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(const net::SocketAddress &addr, 
 
 	std::unique_ptr<char[]> p(message);
 
-	spdlog::info("Sending subscribe on channel {}", channel);
+	SPDLOG_INFO("Sending subscribe on channel {}", channel);
 
 	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size() + 1, addr);
 }
@@ -192,7 +192,7 @@ void PubSubNode<PubSubDelegate>::did_receive_UNSUBSCRIBE(net::Packet &&p, uint16
 
 	channel_subscription_map[channel].remove(addr);
 
-	spdlog::info("Received unsubscribe on channel {} from {}", channel, addr.to_string());
+	SPDLOG_INFO("Received unsubscribe on channel {} from {}", channel, addr.to_string());
 
 	// Send response
 	send_RESPONSE(true, "UNSUBSCRIBED FROM " + channel, addr);
@@ -207,7 +207,7 @@ void PubSubNode<PubSubDelegate>::send_UNSUBSCRIBE(const net::SocketAddress &addr
 
 	std::unique_ptr<char[]> p(message);
 
-	spdlog::info("Sending unsubscribe on channel {}", channel);
+	SPDLOG_INFO("Sending unsubscribe on channel {}", channel);
 
 	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size() + 1, addr);
 }
@@ -229,7 +229,7 @@ void PubSubNode<PubSubDelegate>::did_receive_RESPONSE(net::Packet &&p, uint16_t,
 		delegate->did_subscribe(*this, message.substr(14));
 	}
 
-	spdlog::info("Received {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message.data(), message.data()+message.size()));
+	SPDLOG_INFO("Received {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message.data(), message.data()+message.size()));
 }
 
 template<typename PubSubDelegate>
@@ -246,13 +246,7 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(bool success, std::string msg_str
 
 	std::unique_ptr<char[]> p(message);
 
-	// send_message_on_channel(
-	// 	"test_channel",
-	// 	"Test message",
-	// 	12
-	// );
-
-	spdlog::info("Sending {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message, message + tot_msg_size));
+	SPDLOG_INFO("Sending {} response: {}", success == 0 ? "ERROR" : "OK", spdlog::to_hex(message, message + tot_msg_size));
 	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), tot_msg_size, addr);
 }
 
@@ -269,7 +263,7 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t s
 	auto &read_buffer = *iter->second;
 
 	if(read_buffer.bytes_remaining == 0) { // New message
-		spdlog::debug("New message");
+		SPDLOG_DEBUG("New message");
 		// Check overflow
 		if(p.size() < 8)
 			return;
@@ -306,11 +300,11 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t s
 
 	// Check if full message has been received
 	if(read_buffer.bytes_remaining > p.size()) { // Incomplete message
-		spdlog::debug("Incomplete message");
+		SPDLOG_DEBUG("Incomplete message");
 		read_buffer.message_buffer.push_back(std::move(p));
 		read_buffer.bytes_remaining -= p.size();
 	} else { // Full message
-		spdlog::debug("Full message");
+		SPDLOG_DEBUG("Full message");
 		// Assemble final message
 		std::unique_ptr<char[]> message(new char[read_buffer.message_length]);
 		uint64_t offset = 0;
@@ -395,7 +389,7 @@ void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, ui
 	) {
 		if(excluded != nullptr && *it == *excluded)
 			continue;
-		spdlog::info("Sending message {} on channel {} to {}", message_id, channel, (*it).to_string());
+		SPDLOG_INFO("Sending message {} on channel {} to {}", message_id, channel, (*it).to_string());
 		send_MESSAGE(*it, channel, message_id, data, size);
 	}
 }
