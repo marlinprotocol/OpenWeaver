@@ -13,13 +13,13 @@ int Socket::bind(const SocketAddress &addr) {
 
 	int res = uv_udp_init(loop, &_socket);
 	if (res < 0) {
-		spdlog::error("Fiber: Socket: Init error: {}", res);
+		SPDLOG_ERROR("Fiber: Socket: Init error: {}", res);
 		return res;
 	}
 
 	res = uv_udp_bind(&_socket, reinterpret_cast<const sockaddr *>(&this->addr), 0);
 	if (res < 0) {
-		spdlog::error("Fiber: Socket: Bind error: {}", res);
+		SPDLOG_ERROR("Fiber: Socket: Bind error: {}", res);
 		return res;
 	}
 

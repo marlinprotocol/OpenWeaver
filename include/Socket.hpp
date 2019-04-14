@@ -42,7 +42,7 @@ public:
 
 static void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
 	buf->base = new char[suggested_size];
- 	buf->len = suggested_size;
+	buf->len = suggested_size;
 }
 
 template<typename RecvDelegate>
@@ -77,7 +77,7 @@ int Socket::start_receive(RecvDelegate &delegate) {
 	_socket.data = (void *)(&delegate);
 	int res = uv_udp_recv_start(&_socket, &naive_alloc_cb, &recv_cb<RecvDelegate>);
 	if (res < 0) {
-		spdlog::error("Fiber: Socket: Start recv error: {}", res);
+		SPDLOG_ERROR("Fiber: Socket: Start recv error: {}", res);
 		return res;
 	}
 
@@ -95,7 +95,7 @@ struct SendReqData {
 
 template<typename SendDelegate>
 static void send_cb(uv_udp_send_t *req, int status) {
-	spdlog::debug("Fiber: Socket: Send status: {}", status);
+	SPDLOG_TRACE("Fiber: Socket: Send status: {}", status);
 
 	SendReqData<SendDelegate> *data = (SendReqData<SendDelegate> *)req->data;
 
@@ -118,7 +118,7 @@ int Socket::send(Packet &&p, const SocketAddress &addr, SendDelegate &delegate) 
 	int res = uv_udp_send(req, &_socket, &buf, 1, reinterpret_cast<const sockaddr *>(&addr), &send_cb<SendDelegate>);
 
 	if (res < 0) {
-		spdlog::error("Fiber: Socket: Send error: {}", res);
+		SPDLOG_ERROR("Fiber: Socket: Send error: {}", res);
 		return res;
 	}
 
