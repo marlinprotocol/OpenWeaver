@@ -4,30 +4,27 @@ project(beacon VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
 
+if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+else()
+	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+endif()
+
 include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-add_library(beacon STATIC
-	src/Beacon.cpp
-)
+add_library(beacon INTERFACE)
 
 target_include_directories(beacon
-	PUBLIC
+	INTERFACE
 		$<INSTALL_INTERFACE:include/marlin/beacon>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-set_target_properties(beacon PROPERTIES
-	OUTPUT_NAME "marlin-beacon"
 )
 
 find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-
-target_link_libraries(beacon PUBLIC Marlin::net)
+target_link_libraries(beacon INTERFACE Marlin::net)
 
 find_package(spdlog REQUIRED)
 

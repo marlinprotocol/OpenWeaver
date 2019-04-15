@@ -63,7 +63,7 @@ void PingProtocol<NodeType>::did_receive_packet(
 		case 1: did_receive_PONG(node, addr);
 		break;
 		// UNKNOWN
-		default: spdlog::info("UNKNOWN <<< {}", addr.to_string());
+		default: SPDLOG_DEBUG("UNKNOWN <<< {}", addr.to_string());
 		break;
 	}
 }
@@ -72,24 +72,27 @@ template<typename NodeType>
 void PingProtocol<NodeType>::did_send_packet(
 	NodeType &,
 	const net::Packet &&p,
-	const net::SocketAddress &addr
+	const net::SocketAddress &addr __attribute__((unused))
 ) {
 	auto pp = reinterpret_cast<const PingPacket *>(&p);
 	switch(pp->message()) {
 		// PING
-		case 0: spdlog::info("PING >>> {}", addr.to_string());
+		case 0: SPDLOG_DEBUG("PING >>> {}", addr.to_string());
 		break;
 		// PONG
-		case 1: spdlog::info("PONG >>> {}", addr.to_string());
+		case 1: SPDLOG_DEBUG("PONG >>> {}", addr.to_string());
 		break;
 		// UNKNOWN
-		default: spdlog::info("UNKNOWN >>> {}", addr.to_string());
+		default: SPDLOG_DEBUG("UNKNOWN >>> {}", addr.to_string());
 		break;
 	}
 }
 
 template<typename NodeType>
-void PingProtocol<NodeType>::send_PING(NodeType &node, const net::SocketAddress &addr) {
+void PingProtocol<NodeType>::send_PING(
+	NodeType &node,
+	const net::SocketAddress &addr
+) {
 	char *message = new char[10] {0, 0};
 
 	net::Packet p(message, 10);
@@ -97,14 +100,20 @@ void PingProtocol<NodeType>::send_PING(NodeType &node, const net::SocketAddress 
 }
 
 template<typename NodeType>
-void PingProtocol<NodeType>::did_receive_PING(NodeType &node, const net::SocketAddress &addr) {
-	spdlog::info("PING <<< {}", addr.to_string());
+void PingProtocol<NodeType>::did_receive_PING(
+	NodeType &node,
+	const net::SocketAddress &addr
+) {
+	SPDLOG_DEBUG("PING <<< {}", addr.to_string());
 
 	send_PONG(node, addr);
 }
 
 template<typename NodeType>
-void PingProtocol<NodeType>::send_PONG(NodeType &node, const net::SocketAddress &addr) {
+void PingProtocol<NodeType>::send_PONG(
+	NodeType &node,
+	const net::SocketAddress &addr
+) {
 	char *message = new char[10] {0, 1};
 
 	net::Packet p(message, 10);
@@ -112,8 +121,11 @@ void PingProtocol<NodeType>::send_PONG(NodeType &node, const net::SocketAddress 
 }
 
 template<typename NodeType>
-void PingProtocol<NodeType>::did_receive_PONG(NodeType &, const net::SocketAddress &addr) {
-	spdlog::info("PONG <<< {}", addr.to_string());
+void PingProtocol<NodeType>::did_receive_PONG(
+	NodeType &,
+	const net::SocketAddress &addr __attribute__((unused))
+) {
+	SPDLOG_DEBUG("PONG <<< {}", addr.to_string());
 }
 
 } // namespace beacon
