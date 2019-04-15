@@ -6,11 +6,21 @@
 
 using namespace marlin;
 
+class BeaconDelegate {
+public:
+	void handle_new_peer(const net::SocketAddress &addr) {
+		SPDLOG_INFO("New peer: {}", addr.to_string());
+	}
+};
+
 int main() {
 	auto addr = net::SocketAddress::from_string("127.0.0.1:8000");
 	auto baddr = net::SocketAddress::from_string("127.0.0.1:8000");
 
-	auto b = new beacon::Beacon(addr);
+	BeaconDelegate del;
+
+	auto b = new beacon::Beacon<BeaconDelegate>(addr);
+	b->delegate = &del;
 	b->start_listening();
 
 	b->start_discovery(baddr);

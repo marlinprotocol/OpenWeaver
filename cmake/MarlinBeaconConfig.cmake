@@ -3,8 +3,8 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${BEACON_CMAKE_DIR})
 
-# find_package(MarlinTest CONFIG REQUIRED COMPONENTS test
-# 	NAMES "Marlin" CONFIGS "MarlinTestConfig.cmake")
+find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
+	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
 
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
