@@ -11,6 +11,8 @@ using namespace marlin::stream;
 using namespace std;
 
 
+#define SIZE 125000000
+
 class TestNode: public Node<TestNode, StreamProtocol> {
 public:
 	StreamStorage<TestNode> stream_storage;
@@ -21,10 +23,19 @@ public:
 
 	uint64_t num_bytes = 0;
 
-	void did_receive_bytes(Packet &&p, uint16_t stream_id, const SocketAddress &) {
+	void did_receive_bytes(
+		Packet &&p,
+		uint16_t stream_id __attribute__((unused)),
+		const SocketAddress &
+	) {
 		num_bytes += p.size();
-		spdlog::info("Message received from stream {}: {} bytes", stream_id, p.size());
-		spdlog::info("Total: {} bytes", num_bytes);
+
+		SPDLOG_DEBUG("Message received from stream {}: {} bytes", stream_id, p.size());
+		SPDLOG_DEBUG("Total: {} bytes", num_bytes);
+
+		if(num_bytes == SIZE) {
+			SPDLOG_INFO("Finish");
+		}
 	}
 };
 
@@ -32,8 +43,6 @@ public:
 using NodeType = TestNode;
 
 int main() {
-	spdlog::default_logger()->set_level(spdlog::level::info);
-
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 	auto b = new NodeType(addr);
 	b->start_listening();
@@ -42,12 +51,10 @@ int main() {
 	auto b2 = new NodeType(addr2);
 	b2->start_listening();
 
-	#define SIZE 12500
-
 	std::unique_ptr<char[]> data(new char[SIZE]);
 	fill(data.get(), data.get()+SIZE, 'B');
 
-	spdlog::info("Start");
+	SPDLOG_INFO("Start");
 
 	StreamProtocol<NodeType>::send_data(*b, std::move(data), SIZE, addr2);
 
