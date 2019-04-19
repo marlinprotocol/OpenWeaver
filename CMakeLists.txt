@@ -16,7 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(net STATIC
 	src/CidrBlock.cpp
-	src/Packet.cpp
+	src/Buffer.cpp
 	src/Socket.cpp
 	src/SocketAddress.cpp
 )
