@@ -9,44 +9,44 @@ namespace marlin {
 namespace net {
 
 class Buffer {
-	std::unique_ptr<char[]> _data;
-	size_t _size;
-	size_t _start_index;
+	char *buf;
+	size_t capacity;
+	size_t start_index;
 
 public:
 	/// Construct from unique_ptr
-	Buffer(std::unique_ptr<char[]> &&data, const size_t size);
+	Buffer(std::unique_ptr<char[]> &&buf, size_t const size);
 
 	/// Construct from char array - unsafe if char * isn't obtained from new
-	Buffer(char *data, const size_t size);
+	Buffer(char *const buf, size_t const size);
 
 	/// Move contructor
-	Buffer(Buffer &&p);
+	Buffer(Buffer &&b);
 
 	/// Delete copy contructor
-	Buffer(const Buffer &p) = delete;
+	Buffer(Buffer const &b) = delete;
 
 	/// Move assign
-	Buffer &operator=(Buffer &&p);
+	Buffer &operator=(Buffer &&b);
 
 	/// Delete copy assign
-	Buffer &operator=(const Buffer &p) = delete;
+	Buffer &operator=(Buffer const &p) = delete;
 
-	/// Better alias for base
+	/// Start of buffer
 	inline char *data() const {
-		return _data.get() + _start_index;
+		return buf + start_index;
 	}
 
-	/// Better alias for len
+	/// Length of buffer
 	inline size_t size() const {
-		return _size - _start_index;
+		return capacity - start_index;
 	}
 
 	/// Moves start of buffer forward and covers given number of bytes
-	bool cover(const size_t num);
+	bool cover(size_t const num);
 
 	/// Moves start of buffer backward and uncovers given number of bytes
-	bool uncover(const size_t num);
+	bool uncover(size_t const num);
 };
 
 } // namespace net

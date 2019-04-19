@@ -3,45 +3,44 @@
 namespace marlin {
 namespace net {
 
-Buffer::Buffer(std::unique_ptr<char[]> &&data, const size_t size) : _data(std::move(data)) {
-	this->_size = size;
-	this->_start_index = 0;
+Buffer::Buffer(std::unique_ptr<char[]> &&_buf, size_t const size) :
+buf(_buf.release()), capacity(size), start_index(0) {}
+
+Buffer::Buffer(char *const _buf, size_t const size) :
+buf(_buf), capacity(size), start_index(0) {}
+
+Buffer::Buffer(Buffer &&b) :
+buf(b.buf), capacity(b.capacity), start_index(b.start_index) {
+	b.buf = nullptr;
 }
 
-Buffer::Buffer(char *data, const size_t size) : _data(data) {
-	this->_size = size;
-	this->_start_index = 0;
-}
+Buffer &Buffer::operator=(Buffer &&b) {
+	// Destroy old
+	delete[] buf;
 
-Buffer::Buffer(Buffer &&p) {
-	_data = std::move(p._data);
-	_size = p._size;
-	_start_index = p._start_index;
-}
-
-Buffer &Buffer::operator=(Buffer &&p) {
-	_data = std::move(p._data);
-	_size = p._size;
-	_start_index = p._start_index;
+	// Assign from new
+	buf = b.buf;
+	capacity = b.capacity;
+	start_index = b.start_index;
 
 	return *this;
 }
 
-bool Buffer::cover(const size_t num) {
+bool Buffer::cover(size_t const num) {
 	// Bounds checking
-	if (_start_index + num >= _size)
+	if (num >= capacity - start_index) // Condition specifically avoids overflow
 		return false;
 
-	_start_index += num;
+	start_index += num;
 	return true;
 }
 
-bool Buffer::uncover(const size_t num) {
+bool Buffer::uncover(size_t const num) {
 	// Bounds checking
-	if (_start_index < num)
+	if (start_index < num)
 		return false;
 
-	_start_index -= num;
+	start_index -= num;
 	return true;
 }
 
