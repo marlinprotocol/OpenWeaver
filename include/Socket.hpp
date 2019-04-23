@@ -40,13 +40,13 @@ public:
 // Impl
 // TODO - Proper error handling and return codes
 
-static void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
+void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
 	buf->base = new char[suggested_size];
 	buf->len = suggested_size;
 }
 
 template<typename RecvDelegate>
-static void recv_cb(
+void recv_cb(
 	uv_udp_t* handle,
 	ssize_t nread,
 	const uv_buf_t* buf,
@@ -94,7 +94,7 @@ struct SendReqData {
 };
 
 template<typename SendDelegate>
-static void send_cb(
+void send_cb(
 	uv_udp_send_t *req,
 	int status __attribute__((unused))
 ) {
