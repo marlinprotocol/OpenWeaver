@@ -26,5 +26,10 @@ int Socket::bind(const SocketAddress &addr) {
 	return 0;
 }
 
+void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
+	buf->base = new char[suggested_size];
+	buf->len = suggested_size;
+}
+
 } // namespace net
 } // namespace marlin
