@@ -36,14 +36,11 @@ public:
 	int send(Packet &&p, const SocketAddress &addr, SendDelegate &delegate);
 };
 
+void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf);
+
 
 // Impl
 // TODO - Proper error handling and return codes
-
-void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
-	buf->base = new char[suggested_size];
-	buf->len = suggested_size;
-}
 
 template<typename RecvDelegate>
 void recv_cb(
