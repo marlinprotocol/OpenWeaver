@@ -51,7 +51,7 @@ static void recv_cb(
 	ssize_t nread,
 	const uv_buf_t* buf,
 	const struct sockaddr* addr,
-	unsigned flags
+	unsigned
 ) {
 	// Error
 	if(nread < 0) {
@@ -94,7 +94,10 @@ struct SendReqData {
 };
 
 template<typename SendDelegate>
-static void send_cb(uv_udp_send_t *req, int status) {
+static void send_cb(
+	uv_udp_send_t *req,
+	int status __attribute__((unused))
+) {
 	SPDLOG_TRACE("Fiber: Socket: Send status: {}", status);
 
 	SendReqData<SendDelegate> *data = (SendReqData<SendDelegate> *)req->data;
