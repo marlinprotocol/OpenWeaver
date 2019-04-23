@@ -32,6 +32,8 @@ public:
 	/// Delete copy assign
 	Buffer &operator=(Buffer const &p) = delete;
 
+	~Buffer();
+
 	/// Start of buffer
 	inline char *data() const {
 		return buf + start_index;
