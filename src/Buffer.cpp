@@ -20,10 +20,15 @@ Buffer &Buffer::operator=(Buffer &&b) {
 
 	// Assign from new
 	buf = b.buf;
+	b.buf = nullptr;
 	capacity = b.capacity;
 	start_index = b.start_index;
 
 	return *this;
+}
+
+Buffer::~Buffer() {
+	delete[] buf;
 }
 
 bool Buffer::cover(size_t const num) {
