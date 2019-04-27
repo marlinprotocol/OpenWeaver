@@ -14,6 +14,18 @@
 #include <unordered_set>
 #include <uv.h>
 
+namespace std {
+
+	template <>
+	struct hash<marlin::net::SocketAddress>
+	{
+		size_t operator()(const marlin::net::SocketAddress &addr) const
+		{
+			return std::hash<std::string>()(addr.to_string());
+		}
+	};
+}
+
 namespace marlin {
 namespace pubsub {
 
@@ -25,7 +37,7 @@ struct ReadBuffer {
 	uint64_t message_id = 0;
 };
 
-typedef std::list<net::SocketAddress> ListSocketAddress;
+typedef std::unordered_set<net::SocketAddress> ListSocketAddress;
 typedef std::map<std::string, ListSocketAddress > MapChannelToAddresses;
 
 template<typename PubSubDelegate>
@@ -164,7 +176,7 @@ template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_receive_SUBSCRIBE(net::Packet &&p, uint16_t, const net::SocketAddress &addr) {
 	std::string channel(p.data(), p.data()+p.size());
 
-	channel_subscription_map[channel].push_back(addr);
+	channel_subscription_map[channel].insert(addr);
 
 	SPDLOG_INFO("Received subscribe on channel {} from {}", channel, addr.to_string());
 
@@ -181,7 +193,7 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(const net::SocketAddress &addr, 
 
 	std::unique_ptr<char[]> p(message);
 
-	SPDLOG_INFO("Sending subscribe on channel {}", channel);
+	SPDLOG_INFO("Sending subscribe on channel {} to {}", channel, addr.to_string());
 
 	stream::StreamProtocol<PubSubNode>::send_data(*this, 0, std::move(p), channel.size() + 1, addr);
 }
@@ -190,7 +202,7 @@ template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_receive_UNSUBSCRIBE(net::Packet &&p, uint16_t, const net::SocketAddress &addr) {
 	std::string channel(p.data(), p.data()+p.size());
 
-	channel_subscription_map[channel].remove(addr);
+	channel_subscription_map[channel].erase(addr);
 
 	SPDLOG_INFO("Received unsubscribe on channel {} from {}", channel, addr.to_string());
 
@@ -387,9 +399,10 @@ void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, ui
 		it != channel_subscription_map[channel].end();
 		it++
 	) {
+		// Exclude given address, usually sender tp prevent loops
 		if(excluded != nullptr && *it == *excluded)
 			continue;
-		SPDLOG_INFO("Sending message {} on channel {} to {}", message_id, channel, (*it).to_string());
+		SPDLOG_DEBUG("Sending message {} on channel {} to {}", message_id, channel, (*it).to_string());
 		send_MESSAGE(*it, channel, message_id, data, size);
 	}
 }
