@@ -12,6 +12,9 @@ using namespace std;
 
 
 #define SIZE 125000000
+// #define SIZE 125000
+// #define SIZE 12500
+// #define SIZE 125
 
 class TestNode: public Node<TestNode, StreamProtocol> {
 public:
@@ -35,6 +38,7 @@ public:
 
 		if(num_bytes == SIZE) {
 			SPDLOG_INFO("Finish");
+			exit(0);
 		}
 	}
 };

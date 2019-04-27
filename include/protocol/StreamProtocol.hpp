@@ -18,7 +18,7 @@ namespace marlin {
 namespace stream {
 
 template<typename NodeType>
-using StreamStorage = std::map<net::SocketAddress, Connection<NodeType>>;
+using StreamStorage = std::map<net::SocketAddress, Connection<NodeType, NodeType>>;
 
 template<typename NodeType>
 class StreamProtocol {
@@ -40,7 +40,7 @@ public:
 			case 2: did_receive_ACK(node, addr, std::move(*pp));
 			break;
 			// UNKNOWN
-			default: SPDLOG_DEBUG("UNKNOWN <<< {}", addr.to_string());
+			default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
 			break;
 		}
 	}
@@ -53,23 +53,32 @@ public:
 		auto pp = reinterpret_cast<StreamPacket *>(&p);
 		switch(pp->message()) {
 			// DATA
-			case 0: SPDLOG_DEBUG("DATA >>> {}", addr.to_string());
+			case 0: SPDLOG_TRACE("DATA >>> {}", addr.to_string());
 			break;
 			// DATA + FIN
-			case 1: SPDLOG_DEBUG("DATA + FIN >>> {}", addr.to_string());
+			case 1: SPDLOG_TRACE("DATA + FIN >>> {}", addr.to_string());
 			break;
 			// ACK
-			case 2: SPDLOG_DEBUG("ACK >>> {}", addr.to_string());
+			case 2: SPDLOG_TRACE("ACK >>> {}", addr.to_string());
 			break;
 			// UNKNOWN
-			default: SPDLOG_DEBUG("UNKNOWN >>> {}", addr.to_string());
+			default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
 			break;
 		}
 	}
 
 	// New stream
-	static void send_data(NodeType &node, std::unique_ptr<char[]> &&data, uint64_t size, const net::SocketAddress &addr) {
-		auto &conn = node.stream_storage[addr];
+	static void send_data(
+		NodeType &node,
+		std::unique_ptr<char[]> &&data,
+		uint64_t size,
+		const net::SocketAddress &addr
+	) {
+		auto &conn = node.stream_storage.try_emplace(
+			addr,
+			addr,
+			node
+		).first->second;
 
 		send_data(node, conn.next_stream_id, std::move(data), size, addr);
 
@@ -77,44 +86,47 @@ public:
 	}
 
 	// Explicit stream id. Stream created if not found.
-	static void send_data(NodeType &node, uint16_t stream_id, std::unique_ptr<char[]> &&data, uint64_t size, const net::SocketAddress &addr) {
-		auto &conn = node.stream_storage[addr];
+	static void send_data(
+		NodeType &node,
+		uint16_t stream_id,
+		std::unique_ptr<char[]> &&data,
+		uint64_t size,
+		const net::SocketAddress &addr
+	) {
+		auto &conn = node.stream_storage.try_emplace(
+			addr,
+			addr,
+			node
+		).first->second;
 
-		auto stream_iter = conn.send_streams.find(stream_id);
-		if(stream_iter == conn.send_streams.end()) {
-			// Create stream
-			stream_iter = conn.send_streams.emplace(
-				std::piecewise_construct,
-				std::forward_as_tuple(stream_id),
-				std::forward_as_tuple(stream_id)
-			).first;
+		auto &stream = conn.get_or_create_send_stream(stream_id);
 
-			auto &stream = stream_iter->second;
+		if(stream.state == SendStream::State::Ready) {
 			stream.state = SendStream::State::Send;
-
-			// Set tail loss recovery timer
-			stream.timer.data = new std::tuple<net::SocketAddress, NodeType &, SendStream &>(addr, node, stream);
-			uv_timer_start(&stream.timer, &StreamProtocol<NodeType>::timer_cb, 25, 25);
 		}
 
-		auto &stream = stream_iter->second;
-
 		// Add data to send queue
-		auto new_iter = stream.data_queue.insert(
-			stream.data_queue.end(),
-			std::move(DataItem(std::move(data), size, stream.queue_offset))
+		stream.data_queue.emplace_back(
+			std::move(data),
+			size,
+			stream.queue_offset
 		);
 
 		stream.queue_offset += size;
 
 		// Handle idle stream
 		if(stream.next_item_iterator == stream.data_queue.end()) {
-			stream.next_item_iterator = new_iter;
-			_send_data(node, addr, stream);
+			stream.next_item_iterator = std::prev(stream.data_queue.end());
 		}
 
-		// Note: Don't need to explicitly call _send_data if stream is not idle.
-		// It should eventually be called from elsewhere(timer, ack, etc)
+		// Handle idle connection
+		if(conn.sent_packets.size() == 0 && conn.send_queue.size() == 0) {
+			conn.timer_interval = DEFAULT_TLP_INTERVAL;
+			uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
+		}
+
+		conn.register_send_intent(stream);
+		conn.process_pending_data();
 	}
 
 	static void did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
@@ -124,95 +136,42 @@ public:
 	static void send_ACK(NodeType &node, const net::SocketAddress &addr, uint16_t stream_id, uint64_t packet_number);
 
 	static void timer_cb(uv_timer_t *handle) {
-		auto &tuple = *(std::tuple<net::SocketAddress, NodeType &, SendStream &> *)handle->data;
-		auto &node = std::get<1>(tuple);
-		auto addr = std::get<0>(tuple);
-		auto &stream = std::get<2>(tuple);
+		auto &conn = *(Connection<NodeType, NodeType> *)handle->data;
 
-		auto sent_iter = stream.sent_packets.cbegin();
-		auto num = stream.sent_packets.size();
+		if(conn.sent_packets.size() == 0 && conn.send_queue.size() == 0) {
+			// Idle connection, stop timer
+			uv_timer_stop(&conn.timer);
+			return;
+		}
+
+		auto sent_iter = conn.sent_packets.cbegin();
+		auto num = conn.sent_packets.size();
 
 		// Retry lost packets
-		// No condition necessary, all packets considered lost
-		// if tail probe fails
+		// No condition necessary, all are considered lost if tail probe fails
 		for(size_t i = 0; i < num; i++) {
 			// SPDLOG_DEBUG("{}, {}, {}", sent_iter->first, stream.sent_packets.size(), 0);
 
 			auto &sent_packet = sent_iter->second;
 
-			StreamProtocol<NodeType>::send_data_packet(node, addr, stream, *(sent_packet.data_item), sent_packet.offset, sent_packet.length);
+			conn._send_data_packet(
+				conn.addr,
+				*(sent_packet.stream),
+				*(sent_packet.data_item),
+				sent_packet.offset,
+				sent_packet.length
+			);
 
-			sent_iter = stream.sent_packets.erase(sent_iter);
+			sent_iter = conn.sent_packets.erase(sent_iter);
 		}
 
-		// New packets
-		_send_data(node, addr, stream);
+		// Next timer interval
+		// TODO: Abort on retrying too many times
+		if(conn.timer_interval < 25000)
+			conn.timer_interval *= 2;
+		uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
 
-		SPDLOG_DEBUG("Timer End");
-	}
-
-private:
-	// Create and send packets till congestion control limit
-	static void _send_data(
-		NodeType &node,
-		const net::SocketAddress &addr,
-		SendStream &stream
-	) {
-		for(; stream.next_item_iterator != stream.data_queue.end(); stream.next_item_iterator++) {
-
-			DataItem &data_item = *stream.next_item_iterator;
-
-			for(uint64_t i = data_item.sent_offset; i < data_item.size; i+=1000) {
-				bool is_fin = (data_item.sent_offset + 1000 >= data_item.size);
-				uint16_t dsize = is_fin ? data_item.size - data_item.sent_offset : 1000;
-
-				if(stream.bytes_in_flight > stream.congestion_window - dsize)
-					return;
-
-				StreamProtocol<NodeType>::send_data_packet(node, addr, stream, data_item, i, dsize);
-
-				stream.bytes_in_flight += dsize;
-				stream.sent_offset += dsize;
-				data_item.sent_offset += dsize;
-			}
-		}
-	}
-
-	static void send_data_packet(
-		NodeType &node,
-		const net::SocketAddress &addr,
-		SendStream &stream,
-		DataItem &data_item,
-		uint64_t offset,
-		uint16_t length
-	) {
-		bool is_fin = (stream.done_queueing && data_item.stream_offset + offset + length >= stream.queue_offset);
-
-		char *pdata = new char[1100] {0, static_cast<char>(is_fin)};
-
-		uint16_t n_stream_id = htons(stream.stream_id);
-		std::memcpy(pdata+2, &n_stream_id, 2);
-
-		uint64_t n_packet_number = htonll(stream.last_sent_packet+1);
-		std::memcpy(pdata+4, &n_packet_number, 8);
-
-		uint64_t n_offset = htonll(data_item.stream_offset + offset);
-		std::memcpy(pdata+12, &n_offset, 8);
-
-		uint16_t n_length = htons(length);
-		std::memcpy(pdata+20, &n_length, 2);
-
-		std::memcpy(pdata+22, data_item.data.get()+offset, length);
-
-		stream.sent_packets[stream.last_sent_packet+1] = SentPacketInfo(std::time(nullptr), &data_item, offset, length);
-		stream.last_sent_packet++;
-
-		net::Packet p(pdata, length+22);
-		StreamProtocol<NodeType>::send_DATA(node, addr, std::move(p));
-
-		if(is_fin && stream.state != SendStream::State::Acked) {
-			stream.state = SendStream::State::Sent;
-		}
+		SPDLOG_TRACE("Timer End");
 	}
 };
 
@@ -223,28 +182,25 @@ void StreamProtocol<NodeType>::send_DATA(NodeType &node, const net::SocketAddres
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	SPDLOG_DEBUG("DATA <<< {}", addr.to_string());
+	SPDLOG_TRACE("DATA <<< {}: {}, {}", addr.to_string(), p.offset(), p.length());
 
-	auto &storage = node.stream_storage[addr];
+	auto &storage = node.stream_storage.try_emplace(
+		addr,
+		addr,
+		node
+	).first->second;
 
 	if(storage.next_stream_id == 0) {
 		storage.next_stream_id = 1;
 	}
 
-	// Create stream if it does not exist
-	auto iter = storage.recv_streams.find(p.stream_id());
-	if (iter == storage.recv_streams.end()) {
-		SPDLOG_DEBUG("New stream: {}", p.stream_id());
-		iter = storage.recv_streams.insert({
-			p.stream_id(),
-			std::move(RecvStream<NodeType>(p.stream_id(), node))
-		}).first;
-	}
-
-	auto &stream = iter->second;
+	auto &stream = storage.get_or_create_recv_stream(p.stream_id(), node);
 
 	// Short circuit once stream has been received fully.
-	if(stream.state == RecvStream<NodeType>::State::AllRecv || stream.state == RecvStream<NodeType>::State::Read) return;
+	if(stream.state == RecvStream<NodeType>::State::AllRecv ||
+		stream.state == RecvStream<NodeType>::State::Read) {
+		return;
+	}
 
 	if(p.is_fin_set() && stream.state == RecvStream<NodeType>::State::Recv) {
 		stream.size = p.offset() + p.length();
@@ -300,6 +256,7 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 		// Check all data read
 		if(stream.check_read()) {
 			stream.state = RecvStream<NodeType>::State::Read;
+			storage.recv_streams.erase(stream.stream_id);
 		}
 	} else {
 		// Queue packet for later processing
@@ -328,66 +285,119 @@ void StreamProtocol<NodeType>::send_ACK(NodeType &node, const net::SocketAddress
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p) {
-	SPDLOG_DEBUG("ACK <<< {}", addr.to_string());
+	SPDLOG_TRACE("ACK <<< {}", addr.to_string());
 
-	auto &storage = node.stream_storage[addr];
-
-	auto iter = storage.send_streams.find(p.stream_id());
-	if (iter == storage.send_streams.end()) {
-		SPDLOG_DEBUG("Not found: {}", p.stream_id());
+	// Get stream
+	// Short circuit if connection or stream doesn't exist
+	auto citer = node.stream_storage.find(addr);
+	if(citer == node.stream_storage.end()) {
 		return;
 	}
-	auto &stream = iter->second;
+	auto &conn = citer->second;
+
+	auto siter = conn.send_streams.find(p.stream_id());
+	if(siter == conn.send_streams.end()) {
+		return;
+	}
+	auto &stream = siter->second;
 
 	// Short circuit if packet not found in sent.
-	// Usually due to repeated ACKs. Malicious actors could use
-	// spoofed ACKs to DDoS.
-	if(stream.sent_packets.find(p.packet_number()) == stream.sent_packets.end())
+	// Usually due to repeated ACKs.
+	auto piter = conn.sent_packets.find(p.packet_number());
+	if(piter == conn.sent_packets.end())
 		return;
+	auto &sent_packet = piter->second;
 
-	stream.bytes_in_flight -= stream.sent_packets[p.packet_number()].length;
-	stream.sent_packets.erase(p.packet_number());
+	if(stream.acked_offset < sent_packet.offset) {
+		// Out of order ack, store for later processing
+		stream.outstanding_acks[sent_packet.offset] = sent_packet.length;
+	} else {
+		// In order ack
+		stream.acked_offset = sent_packet.offset + sent_packet.length;
 
-	// TODO: Check DataItem finish and discard
+		// Process outstanding acks if possible
+		for(
+			auto iter = stream.outstanding_acks.begin();
+			iter != stream.outstanding_acks.end();
+			iter = stream.outstanding_acks.erase(iter)
+		) {
+			if(iter->first > stream.acked_offset) {
+				// Out of order, abort
+				break;
+			}
+
+			uint64_t new_acked_offset = iter->first + iter->second;
+			if(stream.acked_offset < new_acked_offset) {
+				stream.acked_offset = new_acked_offset;
+			}
+		}
+
+		// Cleanup acked data items
+		for(
+			auto iter = stream.data_queue.begin();
+			iter != stream.data_queue.end();
+			iter = stream.data_queue.erase(iter)
+		) {
+			if(stream.acked_offset < iter->stream_offset + iter->size) {
+				// Still not fully acked, skip erase and abort
+				break;
+			}
+
+			// TODO: Call delegate
+			SPDLOG_TRACE("Erase");
+		}
+	}
+
+	// Cleanup
+	stream.bytes_in_flight -= sent_packet.length;
+	conn.bytes_in_flight -= sent_packet.length;
+	conn.sent_packets.erase(p.packet_number());
 
 	// Check stream finish
-	if (stream.sent_packets.size() == 0 && stream.state == SendStream::State::Sent) {
+	if (stream.state == SendStream::State::Sent &&
+		stream.acked_offset == stream.queue_offset) {
 		stream.state = SendStream::State::Acked;
 
-		uv_timer_stop(&stream.timer);
-		delete (std::pair<net::SocketAddress, NodeType &> *)stream.timer.data;
-
 		// TODO: Call delegate to inform
-		SPDLOG_INFO("Acked: {}", p.stream_id());
+		SPDLOG_DEBUG("Acked: {}", p.stream_id());
+
+		// Remove stream
+		conn.send_streams.erase(stream.stream_id);
 
 		return;
 	}
 
-	auto sent_iter = stream.sent_packets.cbegin();
+	auto sent_iter = conn.sent_packets.cbegin();
 	auto now = std::time(nullptr);
-	while(sent_iter != stream.sent_packets.cend()) {
+	while(sent_iter != conn.sent_packets.cend()) {
 		// Condition for packet in flight to be considered lost
 		// 1. more than 3 packets before
 		// 2. more than 25ms before
-		if (sent_iter->first + 3 < p.packet_number() || std::difftime(now, sent_iter->second.sent_time) > 0.025) {
+		if (sent_iter->first + 3 < p.packet_number() ||
+			std::difftime(now, sent_iter->second.sent_time) > 0.025) {
 			// Retry lost packets
 			auto &sent_packet = sent_iter->second;
 
-			StreamProtocol<NodeType>::send_data_packet(node, addr, stream, *(sent_packet.data_item), sent_packet.offset, sent_packet.length);
+			conn._send_data_packet(
+				addr,
+				stream,
+				*(sent_packet.data_item),
+				sent_packet.offset,
+				sent_packet.length
+			);
 
-			sent_iter = stream.sent_packets.erase(sent_iter);
+			sent_iter = conn.sent_packets.erase(sent_iter);
 		} else {
 			break;
 		}
 	}
 
 	// New packets
-	_send_data(node, addr, stream);
+	conn.process_pending_data();
 
-	uv_timer_again(&stream.timer);
+	conn.timer_interval = DEFAULT_TLP_INTERVAL;
+	uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
 }
-
-// Impl
 
 } // namespace stream
 } // namespace marlin
