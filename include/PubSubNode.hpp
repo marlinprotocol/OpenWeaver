@@ -68,7 +68,7 @@ public:
 	void did_receive_MESSAGE(net::Packet &&p, uint16_t, const net::SocketAddress &);
 	void send_MESSAGE(const net::SocketAddress &addr, std::string channel, uint64_t message_id, const char *data, uint64_t size);
 
-	void send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded = nullptr);
+	uint64_t send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded = nullptr);
 	void send_message_on_channel(std::string channel, uint64_t message_id, const char *data, uint64_t size, net::SocketAddress const *excluded = nullptr);
 
 private:
@@ -387,9 +387,11 @@ void PubSubNode<PubSubDelegate>::send_MESSAGE(const net::SocketAddress &addr, st
 }
 
 template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded) {
+uint64_t PubSubNode<PubSubDelegate>::send_message_on_channel(std::string channel, const char *data, uint64_t size, net::SocketAddress const *excluded) {
 	uint64_t message_id = this->message_id_dist(this->message_id_gen);
 	send_message_on_channel(channel, message_id, data, size, excluded);
+
+	return message_id;
 }
 
 template<typename PubSubDelegate>
