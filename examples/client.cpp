@@ -34,11 +34,12 @@ public:
 	) {
 		num_bytes += p.size();
 
-		// SPDLOG_DEBUG("Message received from stream {}: {} bytes", stream_id, p.size());
-		// SPDLOG_INFO("Total: {} bytes", num_bytes);
+		SPDLOG_DEBUG("Message received from stream {}: {} bytes", stream_id, p.size());
+		SPDLOG_DEBUG("Total: {} bytes", num_bytes);
 
 		if(num_bytes == SIZE) {
 			SPDLOG_INFO("Finish");
+			num_bytes = 0;
 			exit(0);
 		}
 	}
@@ -48,20 +49,20 @@ public:
 using NodeType = TestNode;
 
 int main() {
-	auto addr = SocketAddress::from_string("127.0.0.1:8000");
-	auto b = new NodeType(addr);
-	b->start_listening();
+	// auto addr = SocketAddress::from_string("127.0.0.1:8000");
+	// auto b = new NodeType(addr);
+	// b->start_listening();
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	// auto b2 = new NodeType(addr2);
-	// b2->start_listening();
+	auto b2 = new NodeType(addr2);
+	b2->start_listening();
 
-	std::unique_ptr<char[]> data(new char[SIZE]);
-	fill(data.get(), data.get()+SIZE, 'B');
+	// std::unique_ptr<char[]> data(new char[SIZE]);
+	// fill(data.get(), data.get()+SIZE, 'B');
 
-	SPDLOG_INFO("Start");
+	// SPDLOG_INFO("Start");
 
-	StreamProtocol<NodeType>::send_data(*b, std::move(data), SIZE, addr2);
+	// StreamProtocol<NodeType>::send_data(*b, std::move(data), SIZE, addr2);
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

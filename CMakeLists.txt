@@ -78,3 +78,19 @@ target_include_directories(testnode
 # 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
 
 target_link_libraries(testnode PUBLIC stream)
+
+add_executable(testclient
+	examples/client.cpp
+)
+
+target_include_directories(testclient
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
+
+# find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
+# 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
+
+target_link_libraries(testclient PUBLIC stream)
