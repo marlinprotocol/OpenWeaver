@@ -52,11 +52,11 @@ void recv_cb(
 ) {
 	// Error
 	if(nread < 0) {
+		SPDLOG_ERROR("Fiber: Socket: Recv callback error: {}", nread);
 		delete[] buf->base;
 		return;
 	}
 
-	// Empty data. TODO: Works for now. Investigate why it occurs.
 	if(nread == 0) {
 		delete[] buf->base;
 		return;
@@ -93,16 +93,17 @@ struct SendReqData {
 template<typename SendDelegate>
 void send_cb(
 	uv_udp_send_t *req,
-	int status __attribute__((unused))
+	int status
 ) {
-	SPDLOG_TRACE("Fiber: Socket: Send status: {}", status);
-
 	SendReqData<SendDelegate> *data = (SendReqData<SendDelegate> *)req->data;
-
-	data->delegate->did_send_packet(
-		std::move(data->p),
-		*reinterpret_cast<const SocketAddress *>(&req->addr)
-	);
+	if(status < 0) {
+		SPDLOG_ERROR("Fiber: Socket: Send callback error: {}", status);
+	} else {
+		data->delegate->did_send_packet(
+			std::move(data->p),
+			*reinterpret_cast<const SocketAddress *>(&req->addr)
+		);
+	}
 
 	delete data;
 	delete req;
