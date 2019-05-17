@@ -35,39 +35,19 @@ struct StreamPacket: public net::Packet {
 	}
 
 	uint16_t stream_id() const {
-		// Protect against overflow
-		if(size() < 4)
-			return -1;
-		uint16_t ret;  // memcpy instead of typecast to avoid alignment issues
-		std::memcpy(&ret, data()+2, 2);
-		return ntohs(ret);
+		return extract_uint16(2);
 	}
 
 	uint64_t packet_number() const {
-		// Protect against overflow
-		if(size() < 12)
-			return -1;
-		uint64_t ret;  // memcpy instead of typecast to avoid alignment issues
-		std::memcpy(&ret, data()+4, 8);
-		return ntohll(ret);
+		return extract_uint64(4);
 	}
 
 	uint64_t offset() const {
-		// Protect against overflow
-		if(size() < 20)
-			return -1;
-		uint64_t ret;  // memcpy instead of typecast to avoid alignment issues
-		std::memcpy(&ret, data()+12, 8);
-		return ntohll(ret);
+		return extract_uint64(12);
 	}
 
 	uint16_t length() const {
-		// Protect against overflow
-		if(size() < 22)
-			return -1;
-		uint16_t ret;  // memcpy instead of typecast to avoid alignment issues
-		std::memcpy(&ret, data()+20, 2);
-		return ntohs(ret);
+		return extract_uint16(20);
 	}
 };
 

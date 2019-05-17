@@ -375,9 +375,7 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 		i < size;
 		i++, gap = !gap
 	) {
-		uint64_t n_range;
-		std::memcpy(&n_range, p.data() + i * 8, 8);
-		uint64_t range = ntohll(n_range);
+		uint64_t range = p.extract_uint64(i*8);
 
 		uint64_t low = high - range;
 
