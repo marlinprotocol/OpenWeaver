@@ -59,7 +59,7 @@ bool Buffer::uncover(size_t const num) {
 
 uint16_t Buffer::extract_uint16(size_t const pos) const {
 	// Bounds checking
-	if(size() < 2 || pos < size() - 2)
+	if(size() < 2 || size() - 2 < pos)
 		return -1;
 
 	uint16_t res;
@@ -70,7 +70,7 @@ uint16_t Buffer::extract_uint16(size_t const pos) const {
 
 uint32_t Buffer::extract_uint32(size_t const pos) const {
 	// Bounds checking
-	if(size() < 4 || pos < size() - 4)
+	if(size() < 4 || size() - 4 < pos)
 		return -1;
 
 	uint32_t res;
@@ -81,7 +81,7 @@ uint32_t Buffer::extract_uint32(size_t const pos) const {
 
 uint64_t Buffer::extract_uint64(size_t const pos) const {
 	// Bounds checking
-	if(size() < 8 || pos < size() - 8)
+	if(size() < 8 || size() - 8 < pos)
 		return -1;
 
 	uint64_t res;
