@@ -2,7 +2,7 @@
 #define MARLIN_BEACON_PEER_HPP
 
 #include <ctime>
-#include <marlin/fiber/SocketAddress.hpp>
+#include <marlin/net/SocketAddress.hpp>
 
 namespace marlin {
 namespace beacon {
