@@ -26,14 +26,14 @@ struct DataItem {
 struct SendStream;
 
 struct SentPacketInfo {
-	std::time_t sent_time;
+	uint64_t sent_time;
 	SendStream *stream;
 	DataItem *data_item;
 	uint64_t offset;
 	uint16_t length;
 
 	SentPacketInfo(
-		std::time_t sent_time,
+		uint64_t sent_time,
 		SendStream *stream,
 		DataItem *data_item,
 		uint64_t offset,
@@ -74,8 +74,6 @@ struct SendStream {
 	std::list<DataItem>::iterator next_item_iterator;
 
 	uint64_t bytes_in_flight = 0;
-	uint64_t congestion_window = 10000;
-	// uint64_t ssthresh = -1;
 
 	bool done_queueing = false;
 

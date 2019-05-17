@@ -3,6 +3,7 @@
 
 #include "SendStream.hpp"
 #include "RecvStream.hpp"
+#include "AckRanges.hpp"
 
 #include <unordered_set>
 
@@ -12,7 +13,7 @@ namespace stream {
 template<typename NodeType>
 class StreamProtocol;
 
-constexpr uint32_t const DEFAULT_TLP_INTERVAL = 25;
+#define DEFAULT_TLP_INTERVAL 1000
 
 template<typename Transport, typename RecvDelegate>
 class Connection {
@@ -46,15 +47,25 @@ public:
 	std::map<uint64_t, SentPacketInfo> sent_packets;
 
 	// Congestion, flow control
+	std::map<uint64_t, SentPacketInfo> lost_packets;
 	uint64_t bytes_in_flight = 0;
-	uint64_t congestion_window = 80000;
+	uint64_t k = 0;
+	uint64_t w_max = 0;
+	uint64_t congestion_window = 12000;
+	uint64_t ssthresh = -1;
+	uint64_t congestion_start;
 
 	void process_pending_data();
-	int process_pending_data(SendStream &stream);
+	int process_pending_data(SendStream &stream, uint64_t initial_bytes_in_flight);
+
+	uv_timer_t pacing_timer;
+	bool is_pacing_timer_active = false;
+
+	static void pacing_timer_cb(uv_timer_t *handle);
 
 	// Tail loss timer
 	uv_timer_t timer;
-	uint32_t timer_interval = DEFAULT_TLP_INTERVAL;
+	uint64_t timer_interval = DEFAULT_TLP_INTERVAL;
 
 	void _send_data_packet(
 		const net::SocketAddress &addr,
@@ -63,6 +74,14 @@ public:
 		uint64_t offset,
 		uint16_t length
 	);
+
+	// ACKs
+	AckRanges ack_ranges;
+	uv_timer_t ack_timer;
+	bool ack_timer_active = false;
+
+	uint64_t largest_acked = 0;
+	uint64_t largest_sent_time = 0;
 };
 
 
@@ -74,8 +93,15 @@ Connection<Transport, RecvDelegate>::Connection(
 	Transport &_transport
 ) : addr(_addr), transport(_transport) {
 	uv_timer_init(uv_default_loop(), &this->timer);
-
 	this->timer.data = this;
+
+	uv_timer_init(uv_default_loop(), &this->ack_timer);
+	this->ack_timer.data = this;
+
+	uv_timer_init(uv_default_loop(), &this->pacing_timer);
+	this->pacing_timer.data = this;
+
+	congestion_start = 0;
 }
 
 template<typename Transport, typename RecvDelegate>
@@ -115,28 +141,14 @@ constexpr uint16_t const DEFAULT_FRAGMENT_SIZE = 1000;
 
 template<typename Transport, typename RecvDelegate>
 void Connection<Transport, RecvDelegate>::process_pending_data() {
-	// TODO: Better scheduler
-	for(
-		auto iter = send_queue.begin();
-		iter != send_queue.end();
-		// Empty
-	) {
-		auto &stream = **iter;
-
-		int res = process_pending_data(stream);
-		if(res == 0) { // Idle stream, move to next stream
-			send_queue_ids.erase(stream.stream_id);
-			iter = send_queue.erase(iter);
-		} else if(res == -1) { // Stream window exhausted, move to next stream
-			iter++;
-		} else { // Connection window exhausted, break
-			break;
-		}
+	if(is_pacing_timer_active == false) {
+		is_pacing_timer_active = true;
+		uv_timer_start(&pacing_timer, &pacing_timer_cb, 0, 0);
 	}
 }
 
 template<typename Transport, typename RecvDelegate>
-int Connection<Transport, RecvDelegate>::process_pending_data(SendStream &stream) {
+int Connection<Transport, RecvDelegate>::process_pending_data(SendStream &stream, uint64_t initial_bytes_in_flight) {
 	for(
 		;
 		stream.next_item_iterator != stream.data_queue.end();
@@ -152,8 +164,6 @@ int Connection<Transport, RecvDelegate>::process_pending_data(SendStream &stream
 			auto remaining_bytes = data_item.size - data_item.sent_offset;
 			uint16_t dsize = remaining_bytes > DEFAULT_FRAGMENT_SIZE ? DEFAULT_FRAGMENT_SIZE : remaining_bytes;
 
-			if(stream.bytes_in_flight > stream.congestion_window - dsize)
-				return -1;
 			if(this->bytes_in_flight > this->congestion_window - dsize)
 				return -2;
 
@@ -163,12 +173,76 @@ int Connection<Transport, RecvDelegate>::process_pending_data(SendStream &stream
 			stream.sent_offset += dsize;
 			this->bytes_in_flight += dsize;
 			data_item.sent_offset += dsize;
+
+			if(this->bytes_in_flight - initial_bytes_in_flight >= 20000) {
+				return -1;
+			}
 		}
 	}
 
 	return 0;
 }
 
+template<typename Transport, typename RecvDelegate>
+void Connection<Transport, RecvDelegate>::pacing_timer_cb(uv_timer_t *handle) {
+	auto &conn = *(Connection<Transport, RecvDelegate> *)handle->data;
+	conn.is_pacing_timer_active = false;
+
+	auto initial_bytes_in_flight = conn.bytes_in_flight;
+
+	// Empty lost queue first
+	for(
+		auto iter = conn.lost_packets.begin();
+		iter != conn.lost_packets.end();
+		iter = conn.lost_packets.erase(iter)
+	) {
+		if(conn.bytes_in_flight - initial_bytes_in_flight >= 20000) {
+			// Pacing limit hit, reschedule timer
+			conn.is_pacing_timer_active = true;
+			uv_timer_start(handle, &Connection<Transport, RecvDelegate>::pacing_timer_cb, 1, 0);
+			return;
+		}
+
+		auto &sent_packet = iter->second;
+		if(conn.bytes_in_flight > conn.congestion_window - sent_packet.length)
+			return;
+
+		conn._send_data_packet(
+			conn.addr,
+			*sent_packet.stream,
+			*sent_packet.data_item,
+			sent_packet.offset,
+			sent_packet.length
+		);
+
+		sent_packet.stream->bytes_in_flight += sent_packet.length;
+		conn.bytes_in_flight += sent_packet.length;
+
+		SPDLOG_DEBUG("Lost packet sent: {}, {}", sent_packet.offset, conn.last_sent_packet);
+	}
+
+	// New packets
+	for(
+		auto iter = conn.send_queue.begin();
+		iter != conn.send_queue.end();
+		// Empty
+	) {
+		auto &stream = **iter;
+
+		int res = conn.process_pending_data(stream, initial_bytes_in_flight);
+		if(res == 0) { // Idle stream, move to next stream
+			conn.send_queue_ids.erase(stream.stream_id);
+			iter = conn.send_queue.erase(iter);
+		} else if(res == -1) { // Pacing limit hit, reschedule timer
+			// Pacing limit hit, reschedule timer
+			conn.is_pacing_timer_active = true;
+			uv_timer_start(handle, &Connection<Transport, RecvDelegate>::pacing_timer_cb, 1, 0);
+			return;
+		} else { // Connection window exhausted, break
+			return;
+		}
+	}
+}
 
 template<typename Transport, typename RecvDelegate>
 void Connection<Transport, RecvDelegate>::_send_data_packet(
@@ -201,7 +275,7 @@ void Connection<Transport, RecvDelegate>::_send_data_packet(
 		std::piecewise_construct,
 		std::forward_as_tuple(this->last_sent_packet),
 		std::forward_as_tuple(
-			std::time(nullptr),
+			uv_now(uv_default_loop()),
 			&stream,
 			&data_item,
 			offset,
