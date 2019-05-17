@@ -46,6 +46,9 @@ public:
 	uint64_t last_sent_packet = -1;
 	std::map<uint64_t, SentPacketInfo> sent_packets;
 
+	// RTT estimate of connection
+	double rtt = -1;
+
 	// Congestion, flow control
 	std::map<uint64_t, SentPacketInfo> lost_packets;
 	uint64_t bytes_in_flight = 0;

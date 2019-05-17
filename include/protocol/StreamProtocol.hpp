@@ -303,7 +303,7 @@ void StreamProtocol<NodeType>::did_receive_DATA(NodeType &node, const net::Socke
 		}
 	} else {
 		// Queue packet for later processing
-		stream.recv_packets[offset] = std::move(RecvPacketInfo(std::time(NULL), offset, length, std::move(p)));
+		stream.recv_packets[offset] = std::move(RecvPacketInfo(uv_now(uv_default_loop()), offset, length, std::move(p)));
 
 		// Check all data received
 		if (stream.check_finish()) {
@@ -351,14 +351,28 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	}
 	auto &conn = citer->second;
 
+	auto now = uv_now(uv_default_loop());
+
 	// TODO: Better method names
 	uint16_t size = p.stream_id();
 	uint64_t largest = p.packet_number();
 
-	// Update details of largest acked packet
+	// New largest acked packet
 	if(largest > conn.largest_acked && conn.sent_packets.find(largest) != conn.sent_packets.end()) {
+		auto &sent_packet = conn.sent_packets[largest];
+
+		// Update largest packet details
 		conn.largest_acked = largest;
-		conn.largest_sent_time = conn.sent_packets[largest].sent_time;
+		conn.largest_sent_time = sent_packet.sent_time;
+
+		// Update RTT estimate
+		if(conn.rtt < 0) {
+			conn.rtt = now - sent_packet.sent_time;
+		} else {
+			conn.rtt = 0.875 * conn.rtt + 0.125 * (now - sent_packet.sent_time);
+		}
+
+		// SPDLOG_INFO("RTT: {}", conn.rtt);
 	}
 
 	// Cover till range list
@@ -367,8 +381,6 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	uint64_t high = largest;
 	bool gap = false;
 	bool is_app_limited = (conn.bytes_in_flight < 0.8 * conn.congestion_window);
-
-	auto now = uv_now(uv_default_loop());
 
 	for(
 		uint16_t i = 0;

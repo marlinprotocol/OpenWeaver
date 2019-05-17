@@ -10,13 +10,13 @@ namespace marlin {
 namespace stream {
 
 struct RecvPacketInfo {
-	std::time_t recv_time;
+	uint64_t recv_time;
 	uint64_t offset;
 	uint16_t length;
 	net::Packet packet;
 
 	RecvPacketInfo(
-		std::time_t recv_time,
+		uint64_t recv_time,
 		uint64_t offset,
 		uint64_t length,
 		net::Packet &&_packet
