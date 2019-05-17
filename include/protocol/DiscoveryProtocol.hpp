@@ -57,6 +57,8 @@ protected:
 		);
 
 		// Discover any new nodes
+		if(node->beacon_addr == net::SocketAddress())
+			return;
 		DiscoveryProtocol<NodeType>::send_DISCOVER(*node, node->beacon_addr);
 	}
 };
@@ -153,9 +155,12 @@ void DiscoveryProtocol<NodeType>::send_PEERLIST(
 ) {
 	char *message = new char[1100] {0, 3};
 
-	size_t size = 3;
+	size_t size = 2;
+
 	// TODO - Handle overflow
 	for(auto iter = node.peers.begin(); iter != node.peers.end() && size < 1100; iter++) {
+		if(iter->addr == addr) continue;
+
 		auto bytes = iter->addr.serialize();
 		std::memcpy(message+size, bytes.data(), 8);
 		size += 8;
@@ -173,7 +178,7 @@ void DiscoveryProtocol<NodeType>::did_receive_PEERLIST(
 ) {
 	SPDLOG_DEBUG("PEERLIST <<< {}", addr.to_string());
 
-	std::vector<unsigned char> bytes(p.data()+3, p.data()+p.size());
+	std::vector<unsigned char> bytes(p.data()+2, p.data()+p.size());
 
 	// TODO - Handle overflow
 	for(auto iter = bytes.begin(); iter != bytes.end(); iter+=8) {

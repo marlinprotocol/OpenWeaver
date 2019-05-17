@@ -14,8 +14,8 @@ public:
 };
 
 int main() {
-	auto addr = net::SocketAddress::from_string("127.0.0.1:8000");
-	auto baddr = net::SocketAddress::from_string("127.0.0.1:8000");
+	auto addr = net::SocketAddress::from_string("0.0.0.0:8002");
+	// auto baddr = net::SocketAddress::from_string("127.0.0.1:8000");
 
 	BeaconDelegate del;
 
@@ -23,7 +23,7 @@ int main() {
 	b->delegate = &del;
 	b->start_listening();
 
-	b->start_discovery(baddr);
+	// b->start_discovery(baddr);
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
