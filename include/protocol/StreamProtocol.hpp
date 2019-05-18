@@ -105,6 +105,10 @@ public:
 			stream.state = SendStream::State::Send;
 		}
 
+		// Abort if data queue is too big
+		if(stream.queue_offset - stream.acked_offset > 20000000)
+			return;
+
 		// Add data to send queue
 		stream.data_queue.emplace_back(
 			std::move(data),
