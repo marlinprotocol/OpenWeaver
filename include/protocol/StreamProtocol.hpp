@@ -188,8 +188,8 @@ public:
 					conn.congestion_window *= 0.75;
 				}
 
-				if(conn.congestion_window < 2500) {
-					conn.congestion_window = 2500;
+				if(conn.congestion_window < 10000) {
+					conn.congestion_window = 10000;
 				}
 
 				conn.ssthresh = conn.congestion_window;
@@ -472,9 +472,16 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 					conn.congestion_window += sent_packet.length;
 				} else {
 					// Congestion avoidance, CUBIC
-					auto k = conn.k;
-					auto t = now - conn.congestion_start;
-					conn.congestion_window = conn.w_max + 4 * std::pow(0.001 * (t - k), 3);
+					// auto k = conn.k;
+					// auto t = now - conn.congestion_start;
+					// conn.congestion_window = conn.w_max + 4 * std::pow(0.001 * (t - k), 3);
+
+					// if(conn.congestion_window < 10000) {
+					// 	conn.congestion_window = 10000;
+					// }
+
+					// Congestion avoidance, NEW RENO
+					conn.congestion_window += 1200 * sent_packet.length / conn.congestion_window;
 				}
 			}
 
@@ -534,11 +541,11 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 				conn.congestion_window *= 0.6;
 			} else {
 				conn.w_max = conn.congestion_window;
+				conn.congestion_window *= 0.75;
 			}
 
-			conn.congestion_window *= 0.75;
-			if(conn.congestion_window < 2500) {
-				conn.congestion_window = 2500;
+			if(conn.congestion_window < 10000) {
+				conn.congestion_window = 10000;
 			}
 			conn.ssthresh = conn.congestion_window;
 			conn.k = std::cbrt(conn.w_max / 16)*1000;
