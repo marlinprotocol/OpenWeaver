@@ -57,6 +57,14 @@ bool Buffer::uncover(size_t const num) {
 	return true;
 }
 
+uint8_t Buffer::extract_uint8(size_t const pos) const {
+	// Bounds checking
+	if(size() < 1 || size() - 1 < pos)
+		return -1;
+
+	return data()[pos];
+}
+
 uint16_t Buffer::extract_uint16(size_t const pos) const {
 	// Bounds checking
 	if(size() < 2 || size() - 2 < pos)
