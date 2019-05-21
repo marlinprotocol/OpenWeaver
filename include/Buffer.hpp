@@ -50,13 +50,16 @@ public:
 	/// Moves start of buffer backward and uncovers given number of bytes
 	bool uncover(size_t const num);
 
+	/// Extract uint8_t starting at given byte adjusting for endianness
+	uint8_t extract_uint8(size_t const pos) const;
+
 	/// Extract uint16_t starting at given byte adjusting for endianness
 	uint16_t extract_uint16(size_t const pos) const;
 
-	/// Extract uint16_t starting at given byte adjusting for endianness
+	/// Extract uint32_t starting at given byte adjusting for endianness
 	uint32_t extract_uint32(size_t const pos) const;
 
-	/// Extract uint16_t starting at given byte adjusting for endianness
+	/// Extract uint64_t starting at given byte adjusting for endianness
 	uint64_t extract_uint64(size_t const pos) const;
 };
 

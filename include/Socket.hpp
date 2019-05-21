@@ -52,7 +52,16 @@ void recv_cb(
 ) {
 	// Error
 	if(nread < 0) {
-		SPDLOG_ERROR("Fiber: Socket: Recv callback error: {}", nread);
+		struct sockaddr saddr;
+		int len;
+
+		uv_udp_getsockname(handle, &saddr, &len);
+
+		SPDLOG_ERROR(
+			"Net: Socket {}: Recv callback error: {}",
+			reinterpret_cast<const SocketAddress *>(&saddr)->to_string(),
+			nread
+		);
 		delete[] buf->base;
 		return;
 	}
@@ -74,7 +83,11 @@ int Socket::start_receive(RecvDelegate &delegate) {
 	_socket.data = (void *)(&delegate);
 	int res = uv_udp_recv_start(&_socket, &naive_alloc_cb, &recv_cb<RecvDelegate>);
 	if (res < 0) {
-		SPDLOG_ERROR("Fiber: Socket: Start recv error: {}", res);
+		SPDLOG_ERROR(
+			"Net: Socket {}: Start recv error: {}",
+			this->addr.to_string(),
+			res
+		);
 		return res;
 	}
 
@@ -96,12 +109,18 @@ void send_cb(
 	int status
 ) {
 	SendReqData<SendDelegate> *data = (SendReqData<SendDelegate> *)req->data;
+	auto &addr = *reinterpret_cast<const SocketAddress *>(&req->addr);
+
 	if(status < 0) {
-		SPDLOG_ERROR("Fiber: Socket: Send callback error: {}", status);
+		SPDLOG_ERROR(
+			"Net: Socket {}: Send callback error: {}",
+			addr.to_string(),
+			status
+		);
 	} else {
 		data->delegate->did_send_packet(
 			std::move(data->p),
-			*reinterpret_cast<const SocketAddress *>(&req->addr)
+			addr
 		);
 	}
 
@@ -119,7 +138,12 @@ int Socket::send(Packet &&p, const SocketAddress &addr, SendDelegate &delegate) 
 	int res = uv_udp_send(req, &_socket, &buf, 1, reinterpret_cast<const sockaddr *>(&addr), &send_cb<SendDelegate>);
 
 	if (res < 0) {
-		SPDLOG_ERROR("Fiber: Socket: Send error: {}", res);
+		SPDLOG_ERROR(
+			"Net: Socket {}: Send error: {}, To: {}",
+			this->addr.to_string(),
+			res,
+			addr.to_string()
+		);
 		return res;
 	}
 
