@@ -77,7 +77,7 @@ std::string SocketAddress::to_string() const {
 }
 
 SocketAddress SocketAddress::loopback_ipv4(const uint16_t port) {
-	return from_string(std::string("0.0.0.0").append(std::to_string(port)));
+	return from_string(std::string("127.0.0.1:").append(std::to_string(port)));
 }
 
 // TODO - Temporary hack - previously used to memcmp bytes directly which wasn't working
