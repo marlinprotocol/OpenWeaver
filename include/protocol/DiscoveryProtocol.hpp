@@ -6,13 +6,27 @@
 #include <ctime>
 #include <cstring>
 #include <spdlog/spdlog.h>
+#include <list>
 
 namespace marlin {
 namespace beacon {
 
+template<typename Delegate>
+struct DiscoveryStorage {
+	Delegate *delegate;
+
+	std::list<Peer> peers;
+	net::SocketAddress beacon_addr;
+
+	uv_timer_t timer;
+};
+
+
 template<typename NodeType>
 class DiscoveryProtocol {
 public:
+	using Storage = DiscoveryStorage<NodeType>;
+
 	static void setup(NodeType &node);
 
 	static void did_receive_packet(
@@ -37,30 +51,7 @@ public:
 	static void send_HEARTBEAT(NodeType &node, const net::SocketAddress &addr);
 
 protected:
-	static void timer_cb(uv_timer_t *handle) {
-		auto node = (NodeType *)handle->data;
-
-		auto cur_time = std::time(NULL);
-
-		// Remove stale peers if inactive for a minute
-		node->peers.remove_if([cur_time](const Peer &p) {
-			return std::difftime(cur_time, p.last_receipt_time) > 60;
-		});
-
-		// Send heartbeat
-		std::for_each(
-			node->peers.begin(),
-			node->peers.end(),
-			[node](const Peer &p) {
-				DiscoveryProtocol<NodeType>::send_HEARTBEAT(*node, p.addr);
-			}
-		);
-
-		// Discover any new nodes
-		if(node->beacon_addr == net::SocketAddress())
-			return;
-		DiscoveryProtocol<NodeType>::send_DISCOVER(*node, node->beacon_addr);
-	}
+	static void timer_cb(uv_timer_t *handle);
 };
 
 // Impl
@@ -71,13 +62,18 @@ template<typename NodeType>
 void DiscoveryProtocol<NodeType>::setup(
 	NodeType &node
 ) {
-	node.peers.clear();
+	node.protocol_storage.peers.clear();
 
-	uv_timer_init(uv_default_loop(), &node.timer);
+	uv_timer_init(uv_default_loop(), &node.protocol_storage.timer);
 	// Store node for callback later
-	node.timer.data = (void *)&node;
+	node.protocol_storage.timer.data = (void *)&node;
 
-	uv_timer_start(&node.timer, &DiscoveryProtocol<NodeType>::timer_cb, 10000, 10000);
+	uv_timer_start(
+		&node.protocol_storage.timer,
+		&DiscoveryProtocol<NodeType>::timer_cb,
+		10000,
+		10000
+	);
 }
 
 
@@ -102,7 +98,21 @@ void DiscoveryProtocol<NodeType>::did_receive_packet(
 		break;
 	}
 
-	node.add_or_update_receipt_time(addr);
+	// Update receipt time
+	std::list<Peer>::iterator iter = std::find(
+		node.protocol_storage.peers.begin(),
+		node.protocol_storage.peers.end(),
+		addr
+	);
+	if(iter == node.protocol_storage.peers.end()) {
+		iter = node.protocol_storage.peers.insert(iter, Peer(addr, std::time(NULL)));
+		SPDLOG_DEBUG("New peer: {}", addr.to_string());
+
+		node.protocol_storage.delegate->handle_new_peer(addr);
+	} else {
+		iter->last_receipt_time = std::time(NULL);
+		SPDLOG_DEBUG("Old peer: {}", addr.to_string());
+	}
 }
 
 template<typename NodeType>
@@ -158,7 +168,11 @@ void DiscoveryProtocol<NodeType>::send_PEERLIST(
 	size_t size = 2;
 
 	// TODO - Handle overflow
-	for(auto iter = node.peers.begin(); iter != node.peers.end() && size < 1100; iter++) {
+	for(
+		auto iter = node.protocol_storage.peers.begin();
+		iter != node.protocol_storage.peers.end() && size < 1100;
+		iter++
+	) {
 		if(iter->addr == addr) continue;
 
 		auto bytes = iter->addr.serialize();
@@ -207,6 +221,35 @@ void DiscoveryProtocol<NodeType>::did_receive_HEARTBEAT(
 	const net::SocketAddress &addr __attribute__((unused))
 ) {
 	SPDLOG_DEBUG("HEARTBEAT <<< {}", addr.to_string());
+}
+
+template<typename NodeType>
+void DiscoveryProtocol<NodeType>::timer_cb(uv_timer_t *handle) {
+	auto node = (NodeType *)handle->data;
+
+	auto cur_time = std::time(NULL);
+
+	// Remove stale peers if inactive for a minute
+	node->protocol_storage.peers.remove_if([cur_time](const Peer &p) {
+		return std::difftime(cur_time, p.last_receipt_time) > 60;
+	});
+
+	// Send heartbeat
+	std::for_each(
+		node->protocol_storage.peers.begin(),
+		node->protocol_storage.peers.end(),
+		[node](const Peer &p) {
+			DiscoveryProtocol<NodeType>::send_HEARTBEAT(*node, p.addr);
+		}
+	);
+
+	// Discover any new nodes
+	if(node->protocol_storage.beacon_addr == net::SocketAddress())
+		return;
+	DiscoveryProtocol<NodeType>::send_DISCOVER(
+		*node,
+		node->protocol_storage.beacon_addr
+	);
 }
 
 } // namespace beacon

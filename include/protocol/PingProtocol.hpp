@@ -4,8 +4,12 @@
 #include <marlin/net/Packet.hpp>
 #include <marlin/net/SocketAddress.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace marlin {
 namespace beacon {
+
+struct PingStorage {};
 
 template<typename NodeType>
 class PingProtocol {
@@ -34,17 +38,11 @@ public:
 
 struct PingPacket: public net::Packet {
 	uint8_t version() const {
-		// Protect against overflow
-		if(size() < 1)
-			return -1;
-		return data()[0];
+		return extract_uint8(0);
 	}
 
 	uint8_t message() const {
-		// Protect against overflow
-		if(size() < 2)
-			return -1;
-		return data()[1];
+		return extract_uint8(1);
 	}
 };
 

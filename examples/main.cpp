@@ -20,7 +20,7 @@ int main() {
 	BeaconDelegate del;
 
 	auto b = new beacon::Beacon<BeaconDelegate>(addr);
-	b->delegate = &del;
+	b->protocol_storage.delegate = &del;
 	b->start_listening();
 
 	// b->start_discovery(baddr);
