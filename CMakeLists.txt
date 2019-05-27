@@ -64,3 +64,24 @@ install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinNetConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 )
+
+
+##########################################################
+# Tests
+##########################################################
+
+enable_testing()
+find_package(GTest REQUIRED)
+
+set(TEST_SOURCES
+	test/testBuffer.cpp
+	test/testSocketAddress.cpp
+	test/testSocket.cpp
+)
+
+foreach(TEST_SOURCE ${TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main net)
+	add_test(${TEST_NAME} ${TEST_NAME})
+endforeach(TEST_SOURCE)
