@@ -40,6 +40,21 @@ TEST(DiscoveryProtocolTest, CanSendPEERLIST) {
 	);
 }
 
+TEST(DiscoveryProtocolTest, CanSendHEARTBEAT) {
+	MockTransport<DiscoveryProtocol, DiscoveryStorage<MockDelegate>> transport;
+	transport.send = [](Packet &&p, const SocketAddress &addr) {
+		EXPECT_EQ(addr, SocketAddress::from_string("192.168.0.1:8000"));
+
+		EXPECT_EQ(p.data()[0], 0);
+		EXPECT_EQ(p.data()[1], 4);
+	};
+
+	DiscoveryProtocol<MockTransport<DiscoveryProtocol, DiscoveryStorage<MockDelegate>>>::send_HEARTBEAT(
+		transport,
+		SocketAddress::from_string("192.168.0.1:8000")
+	);
+}
+
 TEST(DiscoveryProtocolTest, DoesSendPEERLISTOnDISCOVER) {
 	MockTransport<DiscoveryProtocol, DiscoveryStorage<MockDelegate>> transport;
 	transport.send = [](Packet &&p, const SocketAddress &addr) {

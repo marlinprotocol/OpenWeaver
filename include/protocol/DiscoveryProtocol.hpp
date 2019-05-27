@@ -25,8 +25,6 @@ struct DiscoveryStorage {
 template<typename NodeType>
 class DiscoveryProtocol {
 public:
-	using Storage = DiscoveryStorage<NodeType>;
-
 	static void setup(NodeType &node);
 
 	static void did_receive_packet(
