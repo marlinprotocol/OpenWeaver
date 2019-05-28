@@ -59,6 +59,31 @@ install(FILES
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 )
 
+
+##########################################################
+# Tests
+##########################################################
+
+enable_testing()
+find_package(GTest REQUIRED)
+
+set(TEST_SOURCES
+	test/testStreamProtocol.cpp
+	test/testAckRanges.cpp
+)
+
+foreach(TEST_SOURCE ${TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main Marlin::net stream)
+	target_include_directories(${TEST_NAME}
+		PUBLIC
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+	)
+	add_test(${TEST_NAME} ${TEST_NAME})
+endforeach(TEST_SOURCE)
+
+
 ##########################################################
 # Build examples
 ##########################################################
@@ -74,9 +99,6 @@ target_include_directories(testnode
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
 
-# find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-# 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-
 target_link_libraries(testnode PUBLIC stream)
 
 add_executable(testclient
@@ -89,8 +111,5 @@ target_include_directories(testclient
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-
-# find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-# 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
 
 target_link_libraries(testclient PUBLIC stream)

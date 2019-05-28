@@ -1,6 +1,8 @@
 #ifndef MARLIN_STREAM_ACK_RANGES_HPP
 #define MARLIN_STREAM_ACK_RANGES_HPP
 
+#include <list>
+
 namespace marlin {
 namespace stream {
 

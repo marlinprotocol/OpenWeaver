@@ -11,8 +11,8 @@ using namespace marlin::stream;
 using namespace std;
 
 
-#define SIZE 125000000
-// #define SIZE 1000000
+// #define SIZE 125000000
+#define SIZE 1000000
 // #define SIZE 125000
 // #define SIZE 12500
 // #define SIZE 125
