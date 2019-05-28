@@ -15,7 +15,6 @@
 #include <uv.h>
 
 namespace std {
-
 	template <>
 	struct hash<marlin::net::SocketAddress>
 	{
@@ -38,7 +37,7 @@ struct ReadBuffer {
 };
 
 typedef std::unordered_set<net::SocketAddress> ListSocketAddress;
-typedef std::map<std::string, ListSocketAddress > MapChannelToAddresses;
+typedef std::map<std::string, ListSocketAddress> MapChannelToAddresses;
 
 template<typename PubSubDelegate>
 class PubSubNode : public net::Node<PubSubNode<PubSubDelegate>, stream::StreamProtocol> {
@@ -280,26 +279,20 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t s
 		if(p.size() < 8)
 			return;
 
-		uint64_t n_length;
-		std::memcpy(&n_length, p.data(), 8);
-		read_buffer.bytes_remaining = ntohll(n_length);
+		read_buffer.bytes_remaining = p.extract_uint64(0);
 		read_buffer.message_length = read_buffer.bytes_remaining;
 
 		// Check overflow
 		if(p.size() < 16)
 			return;
 
-		uint64_t n_message_id;
-		std::memcpy(&n_message_id, p.data()+8, 8);
-		read_buffer.message_id = ntohll(n_message_id);
+		read_buffer.message_id = p.extract_uint64(8);
 
 		// Check overflow
 		if(p.size() < 18)
 			return;
 
-		uint16_t n_channel_length;
-		std::memcpy(&n_channel_length, p.data()+16, 2);
-		uint16_t channel_length = ntohs(n_channel_length);
+		uint16_t channel_length = p.extract_uint16(16);
 
 		// Check overflow
 		if((uint16_t)p.size() < 18 + channel_length)
