@@ -29,43 +29,13 @@ public:
 		NodeType &node,
 		net::Packet &&p,
 		const net::SocketAddress &addr
-	) {
-		auto pp = reinterpret_cast<StreamPacket *>(&p);
-		switch(pp->message()) {
-			// DATA, DATA + FIN
-			case 0:
-			case 1: did_receive_DATA(node, addr, std::move(*pp));
-			break;
-			// ACK
-			case 2: did_receive_ACK(node, addr, std::move(*pp));
-			break;
-			// UNKNOWN
-			default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
-			break;
-		}
-	}
+	);
 
 	static void did_send_packet(
 		NodeType &,
 		net::Packet &&p,
 		const net::SocketAddress &addr __attribute__((unused))
-	) {
-		auto pp = reinterpret_cast<StreamPacket *>(&p);
-		switch(pp->message()) {
-			// DATA
-			case 0: SPDLOG_TRACE("DATA >>> {}", addr.to_string());
-			break;
-			// DATA + FIN
-			case 1: SPDLOG_TRACE("DATA + FIN >>> {}", addr.to_string());
-			break;
-			// ACK
-			case 2: SPDLOG_TRACE("ACK >>> {}", addr.to_string());
-			break;
-			// UNKNOWN
-			default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
-			break;
-		}
-	}
+	);
 
 	// New stream
 	static void send_data(
@@ -73,17 +43,7 @@ public:
 		std::unique_ptr<char[]> &&data,
 		uint64_t size,
 		const net::SocketAddress &addr
-	) {
-		auto &conn = node.stream_storage.try_emplace(
-			addr,
-			addr,
-			node
-		).first->second;
-
-		send_data(node, conn.next_stream_id, std::move(data), size, addr);
-
-		conn.next_stream_id += 2;
-	}
+	);
 
 	// Explicit stream id. Stream created if not found.
 	static void send_data(
@@ -92,45 +52,7 @@ public:
 		std::unique_ptr<char[]> &&data,
 		uint64_t size,
 		const net::SocketAddress &addr
-	) {
-		auto &conn = node.stream_storage.try_emplace(
-			addr,
-			addr,
-			node
-		).first->second;
-
-		auto &stream = conn.get_or_create_send_stream(stream_id);
-
-		if(stream.state == SendStream::State::Ready) {
-			stream.state = SendStream::State::Send;
-		}
-
-		// Abort if data queue is too big
-		if(stream.queue_offset - stream.acked_offset > 20000000)
-			return;
-
-		// Add data to send queue
-		stream.data_queue.emplace_back(
-			std::move(data),
-			size,
-			stream.queue_offset
-		);
-
-		stream.queue_offset += size;
-
-		// Handle idle stream
-		if(stream.next_item_iterator == stream.data_queue.end()) {
-			stream.next_item_iterator = std::prev(stream.data_queue.end());
-		}
-
-		// Handle idle connection
-		if(conn.sent_packets.size() == 0 && conn.lost_packets.size() == 0 && conn.send_queue.size() == 0) {
-			uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
-		}
-
-		conn.register_send_intent(stream);
-		conn.process_pending_data();
-	}
+	);
 
 	static void did_receive_DATA(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
 	static void send_DATA(NodeType &node, const net::SocketAddress &addr, net::Packet &&p);
@@ -138,79 +60,122 @@ public:
 	static void did_receive_ACK(NodeType &node, const net::SocketAddress &addr, StreamPacket &&p);
 	static void send_ACK(NodeType &node, const net::SocketAddress &addr, const AckRanges &ack_ranges);
 
-	static void ack_timer_cb(uv_timer_t *handle) {
-		auto &conn = *(Connection<NodeType, NodeType> *)handle->data;
+	static void ack_timer_cb(uv_timer_t *handle);
+	static void timer_cb(uv_timer_t *handle);
+};
 
-		StreamProtocol<NodeType>::send_ACK(conn.transport, conn.addr, conn.ack_ranges);
 
-		conn.ack_timer_active = false;
+// Impl
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::did_receive_packet(
+	NodeType &node,
+	net::Packet &&p,
+	const net::SocketAddress &addr
+) {
+	auto pp = reinterpret_cast<StreamPacket *>(&p);
+	switch(pp->message()) {
+		// DATA, DATA + FIN
+		case 0:
+		case 1: did_receive_DATA(node, addr, std::move(*pp));
+		break;
+		// ACK
+		case 2: did_receive_ACK(node, addr, std::move(*pp));
+		break;
+		// UNKNOWN
+		default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
+		break;
+	}
+}
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::did_send_packet(
+	NodeType &,
+	net::Packet &&p,
+	const net::SocketAddress &addr __attribute__((unused))
+) {
+	auto pp = reinterpret_cast<StreamPacket *>(&p);
+	switch(pp->message()) {
+		// DATA
+		case 0: SPDLOG_TRACE("DATA >>> {}", addr.to_string());
+		break;
+		// DATA + FIN
+		case 1: SPDLOG_TRACE("DATA + FIN >>> {}", addr.to_string());
+		break;
+		// ACK
+		case 2: SPDLOG_TRACE("ACK >>> {}", addr.to_string());
+		break;
+		// UNKNOWN
+		default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
+		break;
+	}
+}
+
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::send_data(
+	NodeType &node,
+	std::unique_ptr<char[]> &&data,
+	uint64_t size,
+	const net::SocketAddress &addr
+) {
+	auto &conn = node.stream_storage.try_emplace(
+		addr,
+		addr,
+		node
+	).first->second;
+
+	send_data(node, conn.next_stream_id, std::move(data), size, addr);
+
+	conn.next_stream_id += 2;
+}
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::send_data(
+	NodeType &node,
+	uint16_t stream_id,
+	std::unique_ptr<char[]> &&data,
+	uint64_t size,
+	const net::SocketAddress &addr
+) {
+	auto &conn = node.stream_storage.try_emplace(
+		addr,
+		addr,
+		node
+	).first->second;
+
+	auto &stream = conn.get_or_create_send_stream(stream_id);
+
+	if(stream.state == SendStream::State::Ready) {
+		stream.state = SendStream::State::Send;
 	}
 
-	static void timer_cb(uv_timer_t *handle) {
-		auto &conn = *(Connection<NodeType, NodeType> *)handle->data;
+	// Abort if data queue is too big
+	if(stream.queue_offset - stream.acked_offset > 20000000)
+		return;
 
-		if(conn.sent_packets.size() == 0 && conn.lost_packets.size() == 0 && conn.send_queue.size() == 0) {
-			// Idle connection, stop timer
-			uv_timer_stop(&conn.timer);
-			conn.timer_interval = DEFAULT_TLP_INTERVAL;
-			return;
-		}
+	// Add data to send queue
+	stream.data_queue.emplace_back(
+		std::move(data),
+		size,
+		stream.queue_offset
+	);
 
-		auto sent_iter = conn.sent_packets.cbegin();
+	stream.queue_offset += size;
 
-		// Retry lost packets
-		// No condition necessary, all are considered lost if tail probe fails
-		while(sent_iter != conn.sent_packets.cend()) {
-			conn.bytes_in_flight -= sent_iter->second.length;
-			sent_iter->second.stream->bytes_in_flight -= sent_iter->second.length;
-			conn.lost_packets[sent_iter->first] = sent_iter->second;
+	// Handle idle stream
+	if(stream.next_item_iterator == stream.data_queue.end()) {
+		stream.next_item_iterator = std::prev(stream.data_queue.end());
+	}
 
-			sent_iter++;
-		}
-
-		if(sent_iter == conn.sent_packets.cbegin()) {
-			// No lost packets, ignore
-		} else {
-			// Lost packets, congestion event
-			auto last_iter = std::prev(sent_iter);
-			auto &sent_packet = last_iter->second;
-			if(sent_packet.sent_time > conn.congestion_start) {
-				// New congestion event
-				SPDLOG_ERROR("Timer congestion event: {}", conn.congestion_window);
-				conn.congestion_start = uv_now(uv_default_loop());
-
-				if(conn.congestion_window < conn.w_max) {
-					// Fast convergence
-					conn.w_max = conn.congestion_window;
-					conn.congestion_window *= 0.6;
-				} else {
-					conn.w_max = conn.congestion_window;
-					conn.congestion_window *= 0.75;
-				}
-
-				if(conn.congestion_window < 10000) {
-					conn.congestion_window = 10000;
-				}
-
-				conn.ssthresh = conn.congestion_window;
-
-				conn.k = std::cbrt(conn.w_max / 16)*1000;
-			}
-
-			// Pop lost packets from sent
-			conn.sent_packets.erase(conn.sent_packets.cbegin(), sent_iter);
-		}
-
-		// New packets
-		conn.process_pending_data();
-
-		// Next timer interval
-		// TODO: Abort on retrying too many times
-		if(conn.timer_interval < 25000)
-			conn.timer_interval *= 2;
+	// Handle idle connection
+	if(conn.sent_packets.size() == 0 && conn.lost_packets.size() == 0 && conn.send_queue.size() == 0) {
 		uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
 	}
-};
+
+	conn.register_send_intent(stream);
+	conn.process_pending_data();
+}
 
 template<typename NodeType>
 void StreamProtocol<NodeType>::send_DATA(NodeType &node, const net::SocketAddress &addr, net::Packet &&p) {
@@ -559,6 +524,81 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 	conn.process_pending_data();
 
 	conn.timer_interval = DEFAULT_TLP_INTERVAL;
+	uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
+}
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::ack_timer_cb(uv_timer_t *handle) {
+	auto &conn = *(Connection<NodeType, NodeType> *)handle->data;
+
+	StreamProtocol<NodeType>::send_ACK(conn.transport, conn.addr, conn.ack_ranges);
+
+	conn.ack_timer_active = false;
+}
+
+template<typename NodeType>
+void StreamProtocol<NodeType>::timer_cb(uv_timer_t *handle) {
+	auto &conn = *(Connection<NodeType, NodeType> *)handle->data;
+
+	if(conn.sent_packets.size() == 0 && conn.lost_packets.size() == 0 && conn.send_queue.size() == 0) {
+		// Idle connection, stop timer
+		uv_timer_stop(&conn.timer);
+		conn.timer_interval = DEFAULT_TLP_INTERVAL;
+		return;
+	}
+
+	auto sent_iter = conn.sent_packets.cbegin();
+
+	// Retry lost packets
+	// No condition necessary, all are considered lost if tail probe fails
+	while(sent_iter != conn.sent_packets.cend()) {
+		conn.bytes_in_flight -= sent_iter->second.length;
+		sent_iter->second.stream->bytes_in_flight -= sent_iter->second.length;
+		conn.lost_packets[sent_iter->first] = sent_iter->second;
+
+		sent_iter++;
+	}
+
+	if(sent_iter == conn.sent_packets.cbegin()) {
+		// No lost packets, ignore
+	} else {
+		// Lost packets, congestion event
+		auto last_iter = std::prev(sent_iter);
+		auto &sent_packet = last_iter->second;
+		if(sent_packet.sent_time > conn.congestion_start) {
+			// New congestion event
+			SPDLOG_ERROR("Timer congestion event: {}", conn.congestion_window);
+			conn.congestion_start = uv_now(uv_default_loop());
+
+			if(conn.congestion_window < conn.w_max) {
+				// Fast convergence
+				conn.w_max = conn.congestion_window;
+				conn.congestion_window *= 0.6;
+			} else {
+				conn.w_max = conn.congestion_window;
+				conn.congestion_window *= 0.75;
+			}
+
+			if(conn.congestion_window < 10000) {
+				conn.congestion_window = 10000;
+			}
+
+			conn.ssthresh = conn.congestion_window;
+
+			conn.k = std::cbrt(conn.w_max / 16)*1000;
+		}
+
+		// Pop lost packets from sent
+		conn.sent_packets.erase(conn.sent_packets.cbegin(), sent_iter);
+	}
+
+	// New packets
+	conn.process_pending_data();
+
+	// Next timer interval
+	// TODO: Abort on retrying too many times
+	if(conn.timer_interval < 25000)
+		conn.timer_interval *= 2;
 	uv_timer_start(&conn.timer, &StreamProtocol<NodeType>::timer_cb, conn.timer_interval, 0);
 }
 

@@ -40,7 +40,7 @@ public:
 		if(num_bytes == SIZE) {
 			SPDLOG_INFO("Finish");
 			num_bytes = 0;
-			exit(0);
+			// exit(0);
 		}
 	}
 };

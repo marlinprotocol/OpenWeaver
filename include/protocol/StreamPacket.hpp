@@ -17,17 +17,11 @@ namespace stream {
 
 struct StreamPacket: public net::Packet {
 	uint8_t version() const {
-		// Protect against overflow
-		if(size() < 1)
-			return -1;
-		return data()[0];
+		return extract_uint8(0);
 	}
 
 	uint8_t message() const {
-		// Protect against overflow
-		if(size() < 2)
-			return -1;
-		return data()[1];
+		return extract_uint8(1);
 	}
 
 	bool is_fin_set() const {
