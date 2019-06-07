@@ -50,17 +50,53 @@ public:
 	/// Moves start of buffer backward and uncovers given number of bytes
 	bool uncover(size_t const num);
 
-	/// Extract uint8_t starting at given byte adjusting for endianness
-	uint8_t extract_uint8(size_t const pos) const;
+	/// Read uint8_t starting at given byte
+	uint8_t read_uint8(size_t const pos) const;
 
-	/// Extract uint16_t starting at given byte adjusting for endianness
-	uint16_t extract_uint16(size_t const pos) const;
+	/// Read uint16_t starting at given byte
+	uint16_t read_uint16(size_t const pos) const;
+	/// Read uint16_t starting at given byte, converting from LE to host endian
+	uint16_t read_uint16_le(size_t const pos) const;
+	/// Read uint16_t starting at given byte, converting from BE to host endian
+	uint16_t read_uint16_be(size_t const pos) const;
 
-	/// Extract uint32_t starting at given byte adjusting for endianness
-	uint32_t extract_uint32(size_t const pos) const;
+	/// Read uint32_t starting at given byte
+	uint32_t read_uint32(size_t const pos) const;
+	/// Read uint32_t starting at given byte, converting from LE to host endian
+	uint32_t read_uint32_le(size_t const pos) const;
+	/// Read uint32_t starting at given byte, converting from BE to host endian
+	uint32_t read_uint32_be(size_t const pos) const;
 
-	/// Extract uint64_t starting at given byte adjusting for endianness
-	uint64_t extract_uint64(size_t const pos) const;
+	/// Read uint64_t starting at given byte
+	uint64_t read_uint64(size_t const pos) const;
+	/// Read uint64_t starting at given byte, converting from LE to host endian
+	uint64_t read_uint64_le(size_t const pos) const;
+	/// Read uint64_t starting at given byte, converting from BE to host endian
+	uint64_t read_uint64_be(size_t const pos) const;
+
+	/// Write uint8_t starting at given byte
+	bool write_uint8(size_t const pos, uint8_t const num);
+
+	/// Write uint16_t starting at given byte
+	bool write_uint16(size_t const pos, uint16_t const num);
+	/// Write uint16_t starting at given byte, converting from host endian to LE
+	bool write_uint16_le(size_t const pos, uint16_t const num);
+	/// Write uint16_t starting at given byte, converting from host endian to BE
+	bool write_uint16_be(size_t const pos, uint16_t const num);
+
+	/// Write uint32_t starting at given byte
+	bool write_uint32(size_t const pos, uint32_t const num);
+	/// Write uint32_t starting at given byte, converting from host endian to LE
+	bool write_uint32_le(size_t const pos, uint32_t const num);
+	/// Write uint32_t starting at given byte, converting from host endian to BE
+	bool write_uint32_be(size_t const pos, uint32_t const num);
+
+	/// Write uint64_t starting at given byte
+	bool write_uint64(size_t const pos, uint64_t const num);
+	/// Write uint64_t starting at given byte, converting from host endian to LE
+	bool write_uint64_le(size_t const pos, uint64_t const num);
+	/// Write uint64_t starting at given byte, converting from host endian to BE
+	bool write_uint64_be(size_t const pos, uint64_t const num);
 };
 
 } // namespace net

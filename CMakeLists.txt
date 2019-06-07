@@ -75,6 +75,7 @@ find_package(GTest REQUIRED)
 
 set(TEST_SOURCES
 	test/testBuffer.cpp
+	test/testEndian.cpp
 	test/testSocketAddress.cpp
 	test/testSocket.cpp
 )
