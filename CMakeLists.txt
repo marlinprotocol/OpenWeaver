@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 project(net VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
@@ -78,6 +78,7 @@ set(TEST_SOURCES
 	test/testEndian.cpp
 	test/testSocketAddress.cpp
 	test/testSocket.cpp
+	test/testUdp.cpp
 )
 
 foreach(TEST_SOURCE ${TEST_SOURCES})
@@ -86,3 +87,34 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main net)
 	add_test(${TEST_NAME} ${TEST_NAME})
 endforeach(TEST_SOURCE)
+
+
+##########################################################
+# Examples
+##########################################################
+
+add_executable(udp_example
+	examples/udp.cpp
+)
+
+target_include_directories(udp_example
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(udp_example PUBLIC net)
+
+add_executable(tcp_example
+	examples/tcp.cpp
+)
+
+target_include_directories(tcp_example
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(tcp_example PUBLIC net)

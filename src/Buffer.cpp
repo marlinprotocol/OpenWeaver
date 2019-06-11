@@ -244,7 +244,5 @@ bool Buffer::write_uint64_le(size_t const pos, uint64_t const num) {
 
 #endif
 
-
-
 } // namespace net
 } // namespace marlin
