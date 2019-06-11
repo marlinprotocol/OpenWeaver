@@ -6,8 +6,6 @@
 #include <map>
 #include <spdlog/spdlog.h>
 
-#include <functional>
-
 namespace marlin {
 namespace net {
 
@@ -53,7 +51,7 @@ void recv_cb(
 	// Error
 	if(nread < 0) {
 		struct sockaddr saddr;
-		int len;
+		int len = sizeof(sockaddr);
 
 		uv_udp_getsockname(handle, &saddr, &len);
 

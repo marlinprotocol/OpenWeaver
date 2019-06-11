@@ -65,4 +65,15 @@ public:
 } // namespace net
 } // namespace marlin
 
+namespace std {
+	template <>
+	struct hash<marlin::net::SocketAddress>
+	{
+		size_t operator()(const marlin::net::SocketAddress &addr) const
+		{
+			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr);
+		}
+	};
+}
+
 #endif // MARLIN_NET_SOCKETADDRESS_HPP
