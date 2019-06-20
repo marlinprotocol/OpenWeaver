@@ -180,7 +180,7 @@ int Connection<Transport, RecvDelegate>::process_pending_data(SendStream &stream
 			this->bytes_in_flight += dsize;
 			data_item.sent_offset += dsize;
 
-			if(this->bytes_in_flight - initial_bytes_in_flight >= 50000) {
+			if(this->bytes_in_flight - initial_bytes_in_flight >= 20000) {
 				return -1;
 			}
 		}
@@ -202,7 +202,7 @@ void Connection<Transport, RecvDelegate>::pacing_timer_cb(uv_timer_t *handle) {
 		iter != conn.lost_packets.end();
 		iter = conn.lost_packets.erase(iter)
 	) {
-		if(conn.bytes_in_flight - initial_bytes_in_flight >= 50000) {
+		if(conn.bytes_in_flight - initial_bytes_in_flight >= 20000) {
 			// Pacing limit hit, reschedule timer
 			conn.is_pacing_timer_active = true;
 			uv_timer_start(handle, &Connection<Transport, RecvDelegate>::pacing_timer_cb, 1, 0);

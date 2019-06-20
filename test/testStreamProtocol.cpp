@@ -31,11 +31,11 @@ TEST(StreamProtocolTest, CanSendACK) {
 
 		EXPECT_EQ(p.data()[0], 0);
 		EXPECT_EQ(p.data()[1], 2);
-		EXPECT_EQ(p.extract_uint16(2), 3);
-		EXPECT_EQ(p.extract_uint64(4), 10);
-		EXPECT_EQ(p.extract_uint64(12), 1);
-		EXPECT_EQ(p.extract_uint64(20), 5);
-		EXPECT_EQ(p.extract_uint64(28), 5);
+		EXPECT_EQ(p.read_uint16_be(2), 3);
+		EXPECT_EQ(p.read_uint64_be(4), 10);
+		EXPECT_EQ(p.read_uint64_be(12), 1);
+		EXPECT_EQ(p.read_uint64_be(20), 5);
+		EXPECT_EQ(p.read_uint64_be(28), 5);
 	};
 
 	AckRanges ranges;

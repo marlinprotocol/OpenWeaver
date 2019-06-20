@@ -29,19 +29,19 @@ struct StreamPacket: public net::Packet {
 	}
 
 	uint16_t stream_id() const {
-		return extract_uint16(2);
+		return read_uint16_be(2);
 	}
 
 	uint64_t packet_number() const {
-		return extract_uint64(4);
+		return read_uint64_be(4);
 	}
 
 	uint64_t offset() const {
-		return extract_uint64(12);
+		return read_uint64_be(12);
 	}
 
 	uint16_t length() const {
-		return extract_uint16(20);
+		return read_uint16_be(20);
 	}
 };
 

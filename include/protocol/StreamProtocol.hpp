@@ -356,7 +356,7 @@ void StreamProtocol<NodeType>::did_receive_ACK(NodeType &node, const net::Socket
 		i < size;
 		i++, gap = !gap
 	) {
-		uint64_t range = p.extract_uint64(i*8);
+		uint64_t range = p.read_uint64_be(i*8);
 
 		uint64_t low = high - range;
 

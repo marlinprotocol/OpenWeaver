@@ -90,6 +90,10 @@ public:
 			ranges.push_back(high - num);
 			ranges.push_back(1);
 		}
+
+		if(ranges.size() > 100) {
+			ranges.resize(100);
+		}
 	}
 };
 
