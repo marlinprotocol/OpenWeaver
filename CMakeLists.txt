@@ -88,6 +88,19 @@ endforeach(TEST_SOURCE)
 # Build examples
 ##########################################################
 
+add_executable(stream_example
+	examples/stream.cpp
+)
+
+target_include_directories(stream_example
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
+
+target_link_libraries(stream_example PUBLIC stream)
+
 add_executable(testnode
 	examples/main.cpp
 )

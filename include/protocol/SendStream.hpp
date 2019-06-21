@@ -21,6 +21,12 @@ struct DataItem {
 		uint64_t _size,
 		uint64_t _stream_offset
 	) : data(std::move(_data)), size(_size), stream_offset(_stream_offset) {}
+
+	DataItem(
+		net::Buffer &&_data,
+		uint64_t _size,
+		uint64_t _stream_offset
+	) : data(_data.release()), size(_size), stream_offset(_stream_offset) {}
 };
 
 struct SendStream;

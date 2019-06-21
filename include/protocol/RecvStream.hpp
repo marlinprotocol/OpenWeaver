@@ -13,13 +13,13 @@ struct RecvPacketInfo {
 	uint64_t recv_time;
 	uint64_t offset;
 	uint16_t length;
-	net::Packet packet;
+	net::Buffer packet;
 
 	RecvPacketInfo(
 		uint64_t recv_time,
 		uint64_t offset,
 		uint64_t length,
-		net::Packet &&_packet
+		net::Buffer &&_packet
 	) : packet(std::move(_packet)) {
 		this->recv_time = recv_time;
 		this->offset = offset;
@@ -46,10 +46,8 @@ struct RecvPacketInfo {
 	};
 };
 
-template<typename RecvDelegate>
 struct RecvStream {
 	uint16_t stream_id;
-	RecvDelegate &delegate;
 
 	enum class State {
 		Recv,
@@ -61,7 +59,7 @@ struct RecvStream {
 
 	uint64_t size = 0;
 
-	RecvStream(uint16_t stream_id, RecvDelegate &_delegate) : delegate(_delegate) {
+	RecvStream(uint16_t stream_id) {
 		this->stream_id = stream_id;
 		this->state = State::Recv;
 	}

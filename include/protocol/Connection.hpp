@@ -35,7 +35,7 @@ public:
 	// Streams
 	uint16_t next_stream_id = 0;
 	std::unordered_map<uint16_t, SendStream> send_streams;
-	std::unordered_map<uint16_t, RecvStream<RecvDelegate>> recv_streams;
+	std::unordered_map<uint16_t, RecvStream> recv_streams;
 
 	SendStream &get_or_create_send_stream(uint16_t const stream_id);
 	RecvStream<RecvDelegate> &get_or_create_recv_stream(uint16_t const stream_id, RecvDelegate &delegate);
