@@ -23,6 +23,16 @@ namespace std {
 			return std::hash<std::string>()(addr.to_string());
 		}
 	};
+
+	template <>
+	struct hash<std::tuple<marlin::net::SocketAddress const, uint16_t const>>
+	{
+		size_t operator()(const std::tuple<marlin::net::SocketAddress const, uint16_t const> &tup) const
+		{
+			return std::hash<std::string>()(std::get<0>(tup).to_string()) &
+					std::hash<std::uint16_t>()(std::get<1>(tup));
+		}
+	};
 }
 
 namespace marlin {
@@ -49,7 +59,7 @@ public:
 	PubSubNode(const net::SocketAddress &_addr);
 	~PubSubNode();
 
-	std::map<std::tuple<net::SocketAddress const, uint16_t const>, ReadBuffer *> read_buffers;
+	std::unordered_map<std::tuple<net::SocketAddress const, uint16_t const>, ReadBuffer *> read_buffers;
 
 	PubSubDelegate *delegate;
 
@@ -275,24 +285,11 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t s
 
 	if(read_buffer.bytes_remaining == 0) { // New message
 		SPDLOG_DEBUG("New message");
-		// Check overflow
-		if(p.size() < 8)
-			return;
 
-		read_buffer.bytes_remaining = p.extract_uint64(0);
+		read_buffer.bytes_remaining = p.read_uint64_be(0);
 		read_buffer.message_length = read_buffer.bytes_remaining;
-
-		// Check overflow
-		if(p.size() < 16)
-			return;
-
-		read_buffer.message_id = p.extract_uint64(8);
-
-		// Check overflow
-		if(p.size() < 18)
-			return;
-
-		uint16_t channel_length = p.extract_uint16(16);
+		read_buffer.message_id = p.read_uint64_be(8);
+		uint16_t channel_length = p.read_uint16_be(16);
 
 		// Check overflow
 		if((uint16_t)p.size() < 18 + channel_length)
@@ -306,8 +303,8 @@ void PubSubNode<PubSubDelegate>::did_receive_MESSAGE(net::Packet &&p, uint16_t s
 	// Check if full message has been received
 	if(read_buffer.bytes_remaining > p.size()) { // Incomplete message
 		SPDLOG_DEBUG("Incomplete message");
-		read_buffer.message_buffer.push_back(std::move(p));
 		read_buffer.bytes_remaining -= p.size();
+		read_buffer.message_buffer.push_back(std::move(p));
 	} else { // Full message
 		SPDLOG_DEBUG("Full message");
 		// Assemble final message
