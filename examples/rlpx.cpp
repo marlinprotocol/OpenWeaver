@@ -13,15 +13,7 @@ struct Delegate {
 			message.size()
 		);
 
-		if(message.data()[0] == 0x02) { // p2p Ping
-			auto pong = RlpItem::from_list({});
-
-			Buffer res(new char[pong.enc_size + 1], pong.enc_size + 1);
-			res.data()[0] = 0x03;
-			pong.encode((uint8_t *)res.data() + 1);
-
-			transport.send(std::move(res));
-		} else if(message.data()[0] == 0x10) { // eth63 Status
+		if(message.data()[0] == 0x10) { // eth63 Status
 			transport.send(std::move(message));
 		} else if(message.data()[0] == 0x13) { // eth63 GetBlockHeaders
 			transport.send(Buffer(new char[2]{0x14, (char)0xc0}, 2));

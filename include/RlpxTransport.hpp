@@ -3,11 +3,12 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
+#include <snappy.h>
 
 #include <marlin/net/tcp/TcpTransport.hpp>
 
 #include "RlpxCrypto.hpp"
-#include <snappy.h>
+#include "RlpItem.hpp"
 
 namespace marlin {
 namespace rlpx {
@@ -200,7 +201,17 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 
 				SPDLOG_INFO("Message: {} bytes: {}", ulen, spdlog::to_hex(ubuf, ubuf + ulen + 1));
 
-				delegate->did_recv_message(*this, std::move(message));
+				if(message.data()[0] == 0x02) { // p2p Ping
+					auto pong = RlpItem::from_list({});
+
+					net::Buffer res(new char[pong.enc_size + 1], pong.enc_size + 1);
+					res.data()[0] = 0x03;
+					pong.encode((uint8_t *)res.data() + 1);
+
+					this->send(std::move(res));
+				} else {
+					delegate->did_recv_message(*this, std::move(message));
+				}
 
 				bytes_remaining = 32;
 				buf_size = 0;
