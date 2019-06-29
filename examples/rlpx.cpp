@@ -1,5 +1,4 @@
 #include "RlpxTransportFactory.hpp"
-#include "RlpItem.hpp"
 
 using namespace marlin::rlpx;
 using namespace marlin::net;
