@@ -101,28 +101,28 @@ target_include_directories(stream_example
 
 target_link_libraries(stream_example PUBLIC stream)
 
-add_executable(testnode
-	examples/main.cpp
-)
+# add_executable(testnode
+# 	examples/main.cpp
+# )
 
-target_include_directories(testnode
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/examples
-)
+# target_include_directories(testnode
+# 	PUBLIC
+# 		${CMAKE_CURRENT_SOURCE_DIR}/include
+# 	PRIVATE
+# 		${CMAKE_CURRENT_SOURCE_DIR}/examples
+# )
 
-target_link_libraries(testnode PUBLIC stream)
+# target_link_libraries(testnode PUBLIC stream)
 
-add_executable(testclient
-	examples/client.cpp
-)
+# add_executable(testclient
+# 	examples/client.cpp
+# )
 
-target_include_directories(testclient
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/examples
-)
+# target_include_directories(testclient
+# 	PUBLIC
+# 		${CMAKE_CURRENT_SOURCE_DIR}/include
+# 	PRIVATE
+# 		${CMAKE_CURRENT_SOURCE_DIR}/examples
+# )
 
-target_link_libraries(testclient PUBLIC stream)
+# target_link_libraries(testclient PUBLIC stream)

@@ -45,7 +45,7 @@ private:
 	uint64_t bytes_in_flight = 0;
 	uint64_t k = 0;
 	uint64_t w_max = 0;
-	uint64_t congestion_window = 12000;
+	uint64_t congestion_window = 15000;
 	uint64_t ssthresh = -1;
 	uint64_t congestion_start = 0;
 	uint64_t largest_acked = 0;
@@ -691,7 +691,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 					// }
 
 					// Congestion avoidance, NEW RENO
-					congestion_window += 1200 * sent_packet.length / congestion_window;
+					congestion_window += 1500 * sent_packet.length / congestion_window;
 				}
 			}
 
