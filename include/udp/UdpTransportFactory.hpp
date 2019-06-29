@@ -40,6 +40,9 @@ public:
 	int bind(SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 	int dial(SocketAddress const &addr, ListenDelegate &delegate);
+	UdpTransport<TransportDelegate> *get_transport(
+		SocketAddress const &addr
+	);
 };
 
 
@@ -52,23 +55,33 @@ struct RecvPayload {
 };
 
 template<typename ListenDelegate, typename TransportDelegate>
-UdpTransportFactory<ListenDelegate, TransportDelegate>::UdpTransportFactory() {
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+UdpTransportFactory() {
 	socket = new uv_udp_t();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
 static inline void close_cb(uv_handle_t *handle) {
-	delete static_cast<RecvPayload<ListenDelegate, TransportDelegate> *>(handle->data);
+	delete static_cast<
+		RecvPayload<ListenDelegate, TransportDelegate> *
+	>(handle->data);
 	delete handle;
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-UdpTransportFactory<ListenDelegate, TransportDelegate>::~UdpTransportFactory() {
-	uv_close((uv_handle_t *)socket, close_cb<ListenDelegate, TransportDelegate>);
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+~UdpTransportFactory() {
+	uv_close(
+		(uv_handle_t *)socket,
+		close_cb<ListenDelegate,
+		TransportDelegate>
+	);
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int UdpTransportFactory<ListenDelegate, TransportDelegate>::bind(SocketAddress const &addr) {
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+bind(SocketAddress const &addr) {
 	this->addr = addr;
 
 	uv_loop_t *loop = uv_default_loop();
@@ -83,7 +96,11 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::bind(SocketAddress c
 		return res;
 	}
 
-	res = uv_udp_bind(socket, reinterpret_cast<sockaddr const *>(&this->addr), 0);
+	res = uv_udp_bind(
+		socket,
+		reinterpret_cast<sockaddr const *>(&this->addr),
+		0
+	);
 	if (res < 0) {
 		SPDLOG_ERROR(
 			"Net: Socket {}: Bind error: {}",
@@ -96,7 +113,11 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::bind(SocketAddress c
 	return 0;
 }
 
-static inline void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
+static inline void naive_alloc_cb(
+	uv_handle_t *,
+	size_t suggested_size,
+	uv_buf_t *buf
+) {
 	buf->base = new char[suggested_size];
 	buf->len = suggested_size;
 }
@@ -161,10 +182,21 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int UdpTransportFactory<ListenDelegate, TransportDelegate>::listen(ListenDelegate &delegate) {
-	delete static_cast<RecvPayload<ListenDelegate, TransportDelegate> *>(socket->data);
-	socket->data = new RecvPayload<ListenDelegate, TransportDelegate>{this, &delegate};
-	int res = uv_udp_recv_start(socket, naive_alloc_cb, UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb);
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+listen(ListenDelegate &delegate) {
+	delete static_cast<
+		RecvPayload<ListenDelegate, TransportDelegate> *
+	>(socket->data);
+	socket->data = new RecvPayload<ListenDelegate, TransportDelegate> {
+		this,
+		&delegate
+	};
+	int res = uv_udp_recv_start(
+		socket,
+		naive_alloc_cb,
+		recv_cb
+	);
 	if (res < 0) {
 		SPDLOG_ERROR(
 			"Net: Socket {}: Start recv error: {}",
@@ -180,7 +212,9 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::listen(ListenDelegat
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int UdpTransportFactory<ListenDelegate, TransportDelegate>::dial(SocketAddress const &addr, ListenDelegate &delegate) {
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+dial(SocketAddress const &addr, ListenDelegate &delegate) {
 	auto res = this->transport_map.try_emplace(
 		addr,
 		this->addr,
@@ -204,6 +238,20 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::dial(SocketAddress c
 	transport.delegate->did_dial(transport);
 
 	return 0;
+}
+
+template<typename ListenDelegate, typename TransportDelegate>
+UdpTransport<TransportDelegate> *
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+get_transport(
+	SocketAddress const &addr
+) {
+	auto iter = transport_map.find(addr);
+	if(iter == transport_map.end()) {
+		return nullptr;
+	}
+
+	return &iter->second;
 }
 
 } // namespace net

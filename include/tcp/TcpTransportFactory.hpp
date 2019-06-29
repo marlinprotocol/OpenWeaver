@@ -33,6 +33,9 @@ public:
 	int bind(SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 	int dial(SocketAddress const &addr, ListenDelegate &delegate);
+	TcpTransport<TransportDelegate> *get_transport(
+		SocketAddress const &addr
+	);
 };
 
 
@@ -45,23 +48,33 @@ struct ConnPayload {
 };
 
 template<typename ListenDelegate, typename TransportDelegate>
-TcpTransportFactory<ListenDelegate, TransportDelegate>::TcpTransportFactory() {
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+TcpTransportFactory() {
 	socket = new uv_tcp_t();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
 static inline void close_cb(uv_handle_t *handle) {
-	delete static_cast<ConnPayload<ListenDelegate, TransportDelegate> *>(handle->data);
+	delete static_cast<
+		ConnPayload<ListenDelegate, TransportDelegate> *
+	>(handle->data);
 	delete handle;
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-TcpTransportFactory<ListenDelegate, TransportDelegate>::~TcpTransportFactory() {
-	uv_close((uv_handle_t *)socket, close_cb<ListenDelegate, TransportDelegate>);
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+~TcpTransportFactory() {
+	uv_close(
+		(uv_handle_t *)socket,
+		close_cb<ListenDelegate,
+		TransportDelegate>
+	);
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int TcpTransportFactory<ListenDelegate, TransportDelegate>::bind(SocketAddress const &addr) {
+int
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+bind(SocketAddress const &addr) {
 	this->addr = addr;
 
 	uv_loop_t *loop = uv_default_loop();
@@ -76,7 +89,11 @@ int TcpTransportFactory<ListenDelegate, TransportDelegate>::bind(SocketAddress c
 		return res;
 	}
 
-	res = uv_tcp_bind(socket, reinterpret_cast<sockaddr const *>(&this->addr), 0);
+	res = uv_tcp_bind(
+		socket,
+		reinterpret_cast<sockaddr const *>(&this->addr),
+		0
+	);
 	if (res < 0) {
 		SPDLOG_ERROR(
 			"Net: Socket {}: Bind error: {}",
@@ -94,8 +111,12 @@ static inline void client_close_cb(uv_handle_t *handle) {
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-void TcpTransportFactory<ListenDelegate, TransportDelegate>::connection_cb(uv_stream_t *handle, int status) {
-	auto payload = (ConnPayload<ListenDelegate, TransportDelegate> *)handle->data;
+void
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+connection_cb(uv_stream_t *handle, int status) {
+	auto payload = static_cast<
+		ConnPayload<ListenDelegate, TransportDelegate> *
+	>(handle->data);
 
 	auto &factory = *(payload->factory);
 	auto &delegate = *static_cast<ListenDelegate *>(payload->delegate);
@@ -169,9 +190,16 @@ void TcpTransportFactory<ListenDelegate, TransportDelegate>::connection_cb(uv_st
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int TcpTransportFactory<ListenDelegate, TransportDelegate>::listen(ListenDelegate &delegate) {
-	delete static_cast<ConnPayload<ListenDelegate, TransportDelegate> *>(socket->data);
-	socket->data = new ConnPayload<ListenDelegate, TransportDelegate>{this, &delegate};
+int
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+listen(ListenDelegate &delegate) {
+	delete static_cast<
+		ConnPayload<ListenDelegate, TransportDelegate> *
+	>(socket->data);
+	socket->data = new ConnPayload<ListenDelegate, TransportDelegate> {
+		this,
+		&delegate
+	};
 
 	int res = uv_listen((uv_stream_t *)socket, 100, connection_cb);
 	if (res < 0) {
@@ -194,7 +222,9 @@ struct DialPayload {
 };
 
 template<typename ListenDelegate, typename TransportDelegate>
-void TcpTransportFactory<ListenDelegate, TransportDelegate>::dial_cb(uv_connect_t *req, int status) {
+void
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+dial_cb(uv_connect_t *req, int status) {
 	auto payload = (DialPayload<ListenDelegate, TransportDelegate> *)req->data;
 
 	auto &factory = *(payload->factory);
@@ -231,9 +261,15 @@ void TcpTransportFactory<ListenDelegate, TransportDelegate>::dial_cb(uv_connect_
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-int TcpTransportFactory<ListenDelegate, TransportDelegate>::dial(SocketAddress const &addr, ListenDelegate &delegate) {
+int
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+dial(SocketAddress const &addr, ListenDelegate &delegate) {
 	auto *req = new uv_connect_t();
-	req->data = new DialPayload<ListenDelegate, TransportDelegate>{this, &delegate, addr};
+	req->data = new DialPayload<ListenDelegate, TransportDelegate> {
+		this,
+		&delegate,
+		addr
+	};
 
 	uv_tcp_connect(
 		req,
@@ -243,6 +279,20 @@ int TcpTransportFactory<ListenDelegate, TransportDelegate>::dial(SocketAddress c
 	);
 
 	return 0;
+}
+
+template<typename ListenDelegate, typename TransportDelegate>
+TcpTransport<TransportDelegate> *
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+get_transport(
+	SocketAddress const &addr
+) {
+	auto iter = transport_map.find(addr);
+	if(iter == transport_map.end()) {
+		return nullptr;
+	}
+
+	return &iter->second;
 }
 
 } // namespace net
