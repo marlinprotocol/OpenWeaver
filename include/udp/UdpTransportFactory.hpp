@@ -29,6 +29,8 @@ private:
 		sockaddr const *addr,
 		unsigned flags
 	);
+
+	bool is_listening;
 public:
 	SocketAddress addr;
 
@@ -172,6 +174,8 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::listen(ListenDelegat
 		return res;
 	}
 
+	is_listening = true;
+
 	return 0;
 }
 
@@ -188,6 +192,13 @@ int UdpTransportFactory<ListenDelegate, TransportDelegate>::dial(SocketAddress c
 
 	if(res.second) {
 		delegate.did_create_transport(transport);
+	}
+
+	if(!is_listening) {
+		auto status = listen(delegate);
+		if(status < 0) {
+			return status;
+		}
 	}
 
 	transport.delegate->did_dial(transport);
