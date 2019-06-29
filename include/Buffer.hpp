@@ -34,6 +34,16 @@ public:
 
 	~Buffer();
 
+	inline char *release() {
+		char *_buf = buf;
+
+		buf = nullptr;
+		capacity = 0;
+		start_index = 0;
+
+		return _buf;
+	}
+
 	/// Start of buffer
 	inline char *data() const {
 		return buf + start_index;
