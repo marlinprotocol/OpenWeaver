@@ -580,8 +580,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		} else {
 			rtt = 0.875 * rtt + 0.125 * (now - sent_packet.sent_time);
 		}
-
-		// SPDLOG_INFO("RTT: {}", rtt);
 	}
 
 	// Cover till range list

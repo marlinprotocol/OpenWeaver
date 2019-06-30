@@ -31,12 +31,13 @@ private:
 	BaseTransportFactory f;
 
 	ListenDelegate *delegate;
-	std::list<
+	std::unordered_map<
+		net::SocketAddress,
 		StreamTransport<
 			TransportDelegate,
 			DatagramTransport
 		>
-	> transport_list;
+	> transport_map;
 
 public:
 	bool should_accept(net::SocketAddress const &addr);
@@ -54,6 +55,9 @@ public:
 	int bind(net::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 	int dial(net::SocketAddress const &addr, ListenDelegate &delegate);
+	StreamTransport<TransportDelegate, DatagramTransport> *get_transport(
+		net::SocketAddress const &addr
+	);
 };
 
 
@@ -93,11 +97,12 @@ void StreamTransportFactory<
 		>
 	> &transport
 ) {
-	auto &stream_transport = transport_list.emplace_back(
+	auto &stream_transport = transport_map.try_emplace(
+		transport.dst_addr,
 		transport.src_addr,
 		transport.dst_addr,
 		transport
-	);
+	).first->second;
 	delegate->did_create_transport(stream_transport);
 }
 
@@ -147,6 +152,29 @@ int StreamTransportFactory<
 >::dial(net::SocketAddress const &addr, ListenDelegate &delegate) {
 	this->delegate = &delegate;
 	return f.dial(addr, *this);
+}
+
+template<
+	typename ListenDelegate,
+	typename TransportDelegate,
+	template<typename, typename> class DatagramTransportFactory,
+	template<typename> class DatagramTransport
+>
+StreamTransport<TransportDelegate, DatagramTransport> *
+StreamTransportFactory<
+	ListenDelegate,
+	TransportDelegate,
+	DatagramTransportFactory,
+	DatagramTransport
+>::get_transport(
+	net::SocketAddress const &addr
+) {
+	auto iter = transport_map.find(addr);
+	if(iter == transport_map.end()) {
+		return nullptr;
+	}
+
+	return &iter->second;
 }
 
 } // namespace stream

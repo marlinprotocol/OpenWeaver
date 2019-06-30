@@ -12,8 +12,6 @@ using TransportType = StreamTransport<Delegate, UdpTransport>;
 
 #define SIZE 100000000
 
-auto buf = Buffer(new char[SIZE], SIZE);
-
 struct Delegate {
 	void did_recv_bytes(
 		TransportType &transport __attribute__((unused)),
@@ -37,6 +35,8 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType &transport) {
+		auto buf = Buffer(new char[SIZE], SIZE);
+
 		SPDLOG_INFO("Did dial");
 
 		transport.send(std::move(buf));
@@ -58,14 +58,14 @@ int main() {
 		UdpTransportFactory,
 		UdpTransport
 	> s, c;
-	s.bind(SocketAddress::loopback_ipv4(8000));
-
 	Delegate d;
 
+	s.bind(SocketAddress::loopback_ipv4(8000));
 	s.listen(d);
-
 	c.bind(SocketAddress::loopback_ipv4(0));
 	c.dial(SocketAddress::loopback_ipv4(8000), d);
+
+	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
