@@ -22,8 +22,22 @@ private:
 		TcpTransport<TransportDelegate>
 	> transport_map;
 
+	static void close_cb(uv_handle_t *handle);
+	static void client_close_cb(uv_handle_t *handle);
+
 	static void connection_cb(uv_stream_t *handle, int status);
 	static void dial_cb(uv_connect_t *req, int status);
+
+	struct ConnPayload {
+		TcpTransportFactory<ListenDelegate, TransportDelegate> *factory;
+		ListenDelegate *delegate;
+	};
+
+	struct DialPayload {
+		TcpTransportFactory<ListenDelegate, TransportDelegate> *factory;
+		ListenDelegate *delegate;
+		SocketAddress addr;
+	};
 public:
 	SocketAddress addr;
 
@@ -42,21 +56,17 @@ public:
 // Impl
 
 template<typename ListenDelegate, typename TransportDelegate>
-struct ConnPayload {
-	TcpTransportFactory<ListenDelegate, TransportDelegate> *factory;
-	ListenDelegate *delegate;
-};
-
-template<typename ListenDelegate, typename TransportDelegate>
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 TcpTransportFactory() {
 	socket = new uv_tcp_t();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-static inline void close_cb(uv_handle_t *handle) {
+void
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+close_cb(uv_handle_t *handle) {
 	delete static_cast<
-		ConnPayload<ListenDelegate, TransportDelegate> *
+		ConnPayload *
 	>(handle->data);
 	delete handle;
 }
@@ -66,8 +76,7 @@ TcpTransportFactory<ListenDelegate, TransportDelegate>::
 ~TcpTransportFactory() {
 	uv_close(
 		(uv_handle_t *)socket,
-		close_cb<ListenDelegate,
-		TransportDelegate>
+		close_cb
 	);
 }
 
@@ -106,7 +115,10 @@ bind(SocketAddress const &addr) {
 	return 0;
 }
 
-static inline void client_close_cb(uv_handle_t *handle) {
+template<typename ListenDelegate, typename TransportDelegate>
+void
+TcpTransportFactory<ListenDelegate, TransportDelegate>::
+client_close_cb(uv_handle_t *handle) {
 	delete handle;
 }
 
@@ -115,7 +127,7 @@ void
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 connection_cb(uv_stream_t *handle, int status) {
 	auto payload = static_cast<
-		ConnPayload<ListenDelegate, TransportDelegate> *
+		ConnPayload *
 	>(handle->data);
 
 	auto &factory = *(payload->factory);
@@ -194,9 +206,9 @@ int
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 listen(ListenDelegate &delegate) {
 	delete static_cast<
-		ConnPayload<ListenDelegate, TransportDelegate> *
+		ConnPayload *
 	>(socket->data);
-	socket->data = new ConnPayload<ListenDelegate, TransportDelegate> {
+	socket->data = new ConnPayload {
 		this,
 		&delegate
 	};
@@ -215,17 +227,10 @@ listen(ListenDelegate &delegate) {
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-struct DialPayload {
-	TcpTransportFactory<ListenDelegate, TransportDelegate> *factory;
-	ListenDelegate *delegate;
-	SocketAddress addr;
-};
-
-template<typename ListenDelegate, typename TransportDelegate>
 void
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 dial_cb(uv_connect_t *req, int status) {
-	auto payload = (DialPayload<ListenDelegate, TransportDelegate> *)req->data;
+	auto payload = (DialPayload *)req->data;
 
 	auto &factory = *(payload->factory);
 
@@ -236,7 +241,7 @@ dial_cb(uv_connect_t *req, int status) {
 			status
 		);
 
-		delete (DialPayload<ListenDelegate, TransportDelegate> *)req->data;
+		delete (DialPayload *)req->data;
 		delete req;
 
 		return;
@@ -265,7 +270,7 @@ int
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 dial(SocketAddress const &addr, ListenDelegate &delegate) {
 	auto *req = new uv_connect_t();
-	req->data = new DialPayload<ListenDelegate, TransportDelegate> {
+	req->data = new DialPayload {
 		this,
 		&delegate,
 		addr

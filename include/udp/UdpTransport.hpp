@@ -13,10 +13,15 @@ class UdpTransport {
 private:
 	uv_udp_t *socket;
 
-	static inline void send_cb(
+	static void send_cb(
 		uv_udp_send_t *req,
 		int status
 	);
+
+	struct SendPayload {
+		Buffer packet;
+		UdpTransport<DelegateType> &transport;
+	};
 public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
@@ -55,17 +60,11 @@ void UdpTransport<DelegateType>::did_recv_packet(Buffer &&packet) {
 }
 
 template<typename DelegateType>
-struct SendPayload {
-	Buffer packet;
-	UdpTransport<DelegateType> &transport;
-};
-
-template<typename DelegateType>
 void UdpTransport<DelegateType>::send_cb(
 	uv_udp_send_t *req,
 	int status
 ) {
-	auto *data = (SendPayload<DelegateType> *)req->data;
+	auto *data = (SendPayload *)req->data;
 
 	if(status < 0) {
 		SPDLOG_ERROR(
@@ -87,7 +86,7 @@ void UdpTransport<DelegateType>::send_cb(
 template<typename DelegateType>
 int UdpTransport<DelegateType>::send(Buffer &&packet) {
 	uv_udp_send_t *req = new uv_udp_send_t();
-	auto req_data = new SendPayload<DelegateType>{std::move(packet), *this};
+	auto req_data = new SendPayload{std::move(packet), *this};
 	req->data = req_data;
 
 	auto buf = uv_buf_init(req_data->packet.data(), req_data->packet.size());
