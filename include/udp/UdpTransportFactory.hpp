@@ -30,7 +30,7 @@ private:
 		unsigned flags
 	);
 
-	bool is_listening;
+	bool is_listening = false;
 public:
 	SocketAddress addr;
 
