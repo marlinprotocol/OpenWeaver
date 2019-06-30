@@ -22,6 +22,14 @@ private:
 		UdpTransport<TransportDelegate>
 	> transport_map;
 
+	static void naive_alloc_cb(
+		uv_handle_t *,
+		size_t suggested_size,
+		uv_buf_t *buf
+	);
+
+	static void close_cb(uv_handle_t *handle);
+
 	static void recv_cb(
 		uv_udp_t *handle,
 		ssize_t nread,
@@ -31,6 +39,11 @@ private:
 	);
 
 	bool is_listening = false;
+
+	struct RecvPayload {
+		UdpTransportFactory<ListenDelegate, TransportDelegate> *factory;
+		ListenDelegate *delegate;
+	};
 public:
 	SocketAddress addr;
 
@@ -49,21 +62,17 @@ public:
 // Impl
 
 template<typename ListenDelegate, typename TransportDelegate>
-struct RecvPayload {
-	UdpTransportFactory<ListenDelegate, TransportDelegate> *factory;
-	ListenDelegate *delegate;
-};
-
-template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 UdpTransportFactory() {
 	socket = new uv_udp_t();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
-static inline void close_cb(uv_handle_t *handle) {
+void
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+close_cb(uv_handle_t *handle) {
 	delete static_cast<
-		RecvPayload<ListenDelegate, TransportDelegate> *
+		RecvPayload *
 	>(handle->data);
 	delete handle;
 }
@@ -73,8 +82,7 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 ~UdpTransportFactory() {
 	uv_close(
 		(uv_handle_t *)socket,
-		close_cb<ListenDelegate,
-		TransportDelegate>
+		close_cb
 	);
 }
 
@@ -113,7 +121,8 @@ bind(SocketAddress const &addr) {
 	return 0;
 }
 
-static inline void naive_alloc_cb(
+template<typename ListenDelegate, typename TransportDelegate>
+void UdpTransportFactory<ListenDelegate, TransportDelegate>::naive_alloc_cb(
 	uv_handle_t *,
 	size_t suggested_size,
 	uv_buf_t *buf
@@ -153,7 +162,7 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 	}
 
 	auto &addr = *reinterpret_cast<SocketAddress const *>(_addr);
-	auto payload = (RecvPayload<ListenDelegate, TransportDelegate> *)handle->data;
+	auto payload = (RecvPayload *)handle->data;
 
 	auto &factory = *(payload->factory);
 	auto &delegate = *static_cast<ListenDelegate *>(payload->delegate);
@@ -186,9 +195,9 @@ int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 listen(ListenDelegate &delegate) {
 	delete static_cast<
-		RecvPayload<ListenDelegate, TransportDelegate> *
+		RecvPayload *
 	>(socket->data);
-	socket->data = new RecvPayload<ListenDelegate, TransportDelegate> {
+	socket->data = new RecvPayload {
 		this,
 		&delegate
 	};

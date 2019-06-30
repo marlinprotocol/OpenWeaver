@@ -13,16 +13,27 @@ class TcpTransport {
 private:
 	uv_tcp_t *socket;
 
-	static inline void recv_cb(
+	static void naive_alloc_cb(
+		uv_handle_t *,
+		size_t suggested_size,
+		uv_buf_t *buf
+	);
+
+	static void recv_cb(
 		uv_stream_t *handle,
 		ssize_t nread,
 		uv_buf_t const *buf
 	);
 
-	static inline void send_cb(
+	static void send_cb(
 		uv_write_t *req,
 		int status
 	);
+
+	struct SendPayload {
+		Buffer &&packet;
+		TcpTransport<DelegateType> &transport;
+	};
 public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
@@ -50,7 +61,12 @@ TcpTransport<DelegateType>::TcpTransport(
 	uv_tcp_t *_socket
 ) : socket(_socket), src_addr(_src_addr), dst_addr(_dst_addr) {}
 
-static inline void naive_alloc_cb(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
+template<typename DelegateType>
+void TcpTransport<DelegateType>::naive_alloc_cb(
+	uv_handle_t *,
+	size_t suggested_size,
+	uv_buf_t *buf
+) {
 	buf->base = new char[suggested_size];
 	buf->len = suggested_size;
 }
@@ -111,17 +127,11 @@ void TcpTransport<DelegateType>::did_recv_bytes(Buffer &&packet) {
 }
 
 template<typename DelegateType>
-struct SendPayload {
-	Buffer &&packet;
-	TcpTransport<DelegateType> &transport;
-};
-
-template<typename DelegateType>
 void TcpTransport<DelegateType>::send_cb(
 	uv_write_t *req,
 	int status
 ) {
-	auto *data = (SendPayload<DelegateType> *)req->data;
+	auto *data = (SendPayload *)req->data;
 
 	if(status < 0) {
 		SPDLOG_ERROR(
@@ -143,7 +153,7 @@ void TcpTransport<DelegateType>::send_cb(
 template<typename DelegateType>
 int TcpTransport<DelegateType>::send(Buffer &&packet) {
 	auto *req = new uv_write_t();
-	auto req_data = new SendPayload<DelegateType>{std::move(packet), *this};
+	auto req_data = new SendPayload { std::move(packet), *this };
 	req->data = req_data;
 
 	auto buf = uv_buf_init(req_data->packet.data(), req_data->packet.size());
