@@ -2,6 +2,7 @@
 #define MARLIN_NET_TCPTRANSPORT_HPP
 
 #include "SocketAddress.hpp"
+#include "core/TransportManager.hpp"
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
@@ -12,6 +13,7 @@ template<typename DelegateType>
 class TcpTransport {
 private:
 	uv_tcp_t *socket;
+	TransportManager<TcpTransport<DelegateType>> &transport_manager;
 
 	static void naive_alloc_cb(
 		uv_handle_t *,
@@ -43,7 +45,8 @@ public:
 	TcpTransport(
 		SocketAddress const &src_addr,
 		SocketAddress const &dst_addr,
-		uv_tcp_t *socket
+		uv_tcp_t *socket,
+		TransportManager<TcpTransport<DelegateType>> &transport_manager
 	);
 
 	void setup(DelegateType *delegate);
@@ -58,8 +61,10 @@ template<typename DelegateType>
 TcpTransport<DelegateType>::TcpTransport(
 	SocketAddress const &_src_addr,
 	SocketAddress const &_dst_addr,
-	uv_tcp_t *_socket
-) : socket(_socket), src_addr(_src_addr), dst_addr(_dst_addr) {}
+	uv_tcp_t *_socket,
+	TransportManager<TcpTransport<DelegateType>> &transport_manager
+) : socket(_socket), transport_manager(transport_manager),
+	src_addr(_src_addr), dst_addr(_dst_addr) {}
 
 template<typename DelegateType>
 void TcpTransport<DelegateType>::naive_alloc_cb(

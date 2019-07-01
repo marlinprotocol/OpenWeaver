@@ -5,7 +5,6 @@
 #include "Buffer.hpp"
 #include "SocketAddress.hpp"
 #include "TcpTransport.hpp"
-#include <unordered_map>
 
 #include <spdlog/spdlog.h>
 
@@ -16,11 +15,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 class TcpTransportFactory {
 private:
 	uv_tcp_t *socket;
-
-	std::unordered_map<
-		SocketAddress,
-		TcpTransport<TransportDelegate>
-	> transport_map;
+	TransportManager<TcpTransport<TransportDelegate>> transport_manager;
 
 	static void close_cb(uv_handle_t *handle);
 	static void client_close_cb(uv_handle_t *handle);
@@ -189,13 +184,14 @@ connection_cb(uv_stream_t *handle, int status) {
 	auto &addr = *reinterpret_cast<SocketAddress const *>(&saddr);
 
 	if(delegate.should_accept(addr)) {
-		auto iter = factory.transport_map.try_emplace(
+		auto *transport = factory.transport_manager.get_or_create(
 			addr,
 			factory.addr,
 			addr,
-			client
+			client,
+			factory.transport_manager
 		).first;
-		delegate.did_create_transport(iter->second);
+		delegate.did_create_transport(*transport);
 	} else {
 		uv_close((uv_handle_t *)client, client_close_cb);
 	}
@@ -250,19 +246,19 @@ dial_cb(uv_connect_t *req, int status) {
 	auto &delegate = *static_cast<ListenDelegate *>(payload->delegate);
 	auto &addr = payload->addr;
 
-	auto res = factory.transport_map.try_emplace(
+	auto [transport, res] = factory.transport_manager.get_or_create(
 		addr,
 		factory.addr,
 		addr,
-		factory.socket
+		factory.socket,
+		factory.transport_manager
 	);
-	auto &transport = res.first->second;
 
-	if(res.second) {
-		delegate.did_create_transport(transport);
+	if(res) {
+		delegate.did_create_transport(*transport);
 	}
 
-	transport.delegate->did_dial(transport);
+	transport->delegate->did_dial(*transport);
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
@@ -292,12 +288,7 @@ TcpTransportFactory<ListenDelegate, TransportDelegate>::
 get_transport(
 	SocketAddress const &addr
 ) {
-	auto iter = transport_map.find(addr);
-	if(iter == transport_map.end()) {
-		return nullptr;
-	}
-
-	return &iter->second;
+	return transport_manager.get(addr);
 }
 
 } // namespace net
