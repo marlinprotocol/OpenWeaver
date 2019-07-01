@@ -40,6 +40,7 @@ public:
 	void setup(DelegateType *delegate);
 	void did_recv_packet(Buffer &&packet);
 	int send(Buffer &&packet);
+	void close();
 };
 
 
@@ -115,6 +116,11 @@ int UdpTransport<DelegateType>::send(Buffer &&packet) {
 	}
 
 	return 0;
+}
+
+template<typename DelegateType>
+void UdpTransport<DelegateType>::close() {
+	transport_manager.erase(dst_addr);
 }
 
 } // namespace net

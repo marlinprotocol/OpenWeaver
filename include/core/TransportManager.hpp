@@ -35,6 +35,10 @@ public:
 		);
 		return std::make_pair(&res.first->second, res.second);
 	}
+
+	void erase(SocketAddress const &addr) {
+		transport_map.erase(addr);
+	}
 };
 
 } // namespace net

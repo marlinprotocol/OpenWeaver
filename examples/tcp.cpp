@@ -21,6 +21,7 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
+		transport.close();
 	}
 
 	void did_dial(TcpTransport<Delegate> &transport) {
