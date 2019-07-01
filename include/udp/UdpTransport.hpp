@@ -2,6 +2,7 @@
 #define MARLIN_NET_UDPTRANSPORT_HPP
 
 #include "SocketAddress.hpp"
+#include "core/TransportManager.hpp"
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
@@ -12,6 +13,7 @@ template<typename DelegateType>
 class UdpTransport {
 private:
 	uv_udp_t *socket;
+	TransportManager<UdpTransport<DelegateType>> &transport_manager;
 
 	static void send_cb(
 		uv_udp_send_t *req,
@@ -31,7 +33,8 @@ public:
 	UdpTransport(
 		SocketAddress const &src_addr,
 		SocketAddress const &dst_addr,
-		uv_udp_t *socket
+		uv_udp_t *socket,
+		TransportManager<UdpTransport<DelegateType>> &transport_manager
 	);
 
 	void setup(DelegateType *delegate);
@@ -46,8 +49,10 @@ template<typename DelegateType>
 UdpTransport<DelegateType>::UdpTransport(
 	SocketAddress const &_src_addr,
 	SocketAddress const &_dst_addr,
-	uv_udp_t *_socket
-) : socket(_socket), src_addr(_src_addr), dst_addr(_dst_addr) {}
+	uv_udp_t *_socket,
+	TransportManager<UdpTransport<DelegateType>> &transport_manager
+) : socket(_socket), transport_manager(transport_manager),
+	src_addr(_src_addr), dst_addr(_dst_addr) {}
 
 template<typename DelegateType>
 void UdpTransport<DelegateType>::setup(DelegateType *delegate) {

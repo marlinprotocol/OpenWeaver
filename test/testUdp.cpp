@@ -17,10 +17,12 @@ struct ListenDelegate {
 };
 
 TEST(UdpTransport, Constructible) {
+	TransportManager<UdpTransport<TransportDelegate>> tm;
 	UdpTransport<TransportDelegate> t(
 		SocketAddress::loopback_ipv4(8000),
 		SocketAddress::loopback_ipv4(8001),
-		nullptr
+		nullptr,
+		tm
 	);
 
 	EXPECT_EQ(t.src_addr, SocketAddress::loopback_ipv4(8000));
@@ -28,10 +30,12 @@ TEST(UdpTransport, Constructible) {
 }
 
 TEST(UdpTransport, CanRecv) {
+	TransportManager<UdpTransport<TransportDelegate>> tm;
 	UdpTransport<TransportDelegate> t(
 		SocketAddress::loopback_ipv4(8000),
 		SocketAddress::loopback_ipv4(8001),
-		nullptr
+		nullptr,
+		tm
 	);
 
 	bool did_call_delegate = false;
@@ -59,10 +63,12 @@ TEST(UdpTransport, CanSend) {
 	auto *sock = new uv_udp_t();
 	uv_udp_init(uv_default_loop(), sock);
 
+	TransportManager<UdpTransport<TransportDelegate>> tm;
 	UdpTransport<TransportDelegate> t(
 		SocketAddress::loopback_ipv4(8000),
 		SocketAddress::loopback_ipv4(8001),
-		sock
+		sock,
+		tm
 	);
 
 	auto res = t.send(

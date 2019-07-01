@@ -5,7 +5,6 @@
 #include "Buffer.hpp"
 #include "SocketAddress.hpp"
 #include "UdpTransport.hpp"
-#include <unordered_map>
 
 #include <spdlog/spdlog.h>
 
@@ -16,11 +15,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 class UdpTransportFactory {
 private:
 	uv_udp_t *socket;
-
-	std::unordered_map<
-		SocketAddress,
-		UdpTransport<TransportDelegate>
-	> transport_map;
+	TransportManager<UdpTransport<TransportDelegate>> transport_manager;
 
 	static void naive_alloc_cb(
 		uv_handle_t *,
@@ -167,25 +162,25 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 	auto &factory = *(payload->factory);
 	auto &delegate = *static_cast<ListenDelegate *>(payload->delegate);
 
-	auto iter = factory.transport_map.find(addr);
-	if(iter == factory.transport_map.end()) {
+	auto *transport = factory.transport_manager.get(addr);
+	if(transport == nullptr) {
 		// Create new transport if permitted
 		if(delegate.should_accept(addr)) {
-			iter = factory.transport_map.try_emplace(
+			transport = factory.transport_manager.get_or_create(
 				addr,
 				factory.addr,
 				addr,
-				factory.socket
+				factory.socket,
+				factory.transport_manager
 			).first;
-			delegate.did_create_transport(iter->second);
+			delegate.did_create_transport(*transport);
 		} else {
 			delete[] buf->base;
 			return;
 		}
 	}
 
-	auto &transport = iter->second;
-	transport.did_recv_packet(
+	transport->did_recv_packet(
 		Buffer(buf->base, nread)
 	);
 }
@@ -224,17 +219,16 @@ template<typename ListenDelegate, typename TransportDelegate>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 dial(SocketAddress const &addr, ListenDelegate &delegate) {
-	auto res = this->transport_map.try_emplace(
+	auto [transport, res] = this->transport_manager.get_or_create(
 		addr,
 		this->addr,
 		addr,
-		this->socket
+		this->socket,
+		this->transport_manager
 	);
 
-	auto &transport = res.first->second;
-
-	if(res.second) {
-		delegate.did_create_transport(transport);
+	if(res) {
+		delegate.did_create_transport(*transport);
 	}
 
 	if(!is_listening) {
@@ -244,7 +238,7 @@ dial(SocketAddress const &addr, ListenDelegate &delegate) {
 		}
 	}
 
-	transport.delegate->did_dial(transport);
+	transport->delegate->did_dial(*transport);
 
 	return 0;
 }
@@ -255,12 +249,7 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 get_transport(
 	SocketAddress const &addr
 ) {
-	auto iter = transport_map.find(addr);
-	if(iter == transport_map.end()) {
-		return nullptr;
-	}
-
-	return &iter->second;
+	return transport_manager.get(addr);
 }
 
 } // namespace net
