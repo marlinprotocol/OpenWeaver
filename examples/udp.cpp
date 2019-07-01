@@ -12,6 +12,7 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
+		transport.close();
 	}
 
 	void did_send_packet(UdpTransport<Delegate> &transport, Buffer &&packet) {
@@ -21,6 +22,7 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
+		transport.close();
 	}
 
 	void did_dial(UdpTransport<Delegate> &transport) {

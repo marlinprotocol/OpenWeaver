@@ -32,6 +32,8 @@ private:
 		int status
 	);
 
+	static void close_cb(uv_handle_t *handle);
+
 	struct SendPayload {
 		Buffer &&packet;
 		TcpTransport<DelegateType> &transport;
@@ -52,6 +54,7 @@ public:
 	void setup(DelegateType *delegate);
 	void did_recv_bytes(Buffer &&packet);
 	int send(Buffer &&packet);
+	void close();
 };
 
 
@@ -82,6 +85,14 @@ void TcpTransport<DelegateType>::recv_cb(
 	ssize_t nread,
 	uv_buf_t const *buf
 ) {
+	auto transport = (TcpTransport<DelegateType> *)handle->data;
+
+	// EOF
+	if(nread == -4095) {
+		transport->close();
+		return;
+	}
+
 	// Error
 	if(nread < 0) {
 		sockaddr saddr;
@@ -104,7 +115,6 @@ void TcpTransport<DelegateType>::recv_cb(
 		return;
 	}
 
-	auto transport = (TcpTransport<DelegateType> *)handle->data;
 	transport->did_recv_bytes(
 		Buffer(buf->base, nread)
 	);
@@ -156,6 +166,13 @@ void TcpTransport<DelegateType>::send_cb(
 }
 
 template<typename DelegateType>
+void TcpTransport<DelegateType>::close_cb(uv_handle_t *handle) {
+	auto &transport = *(TcpTransport<DelegateType> *)handle->data;
+	transport.transport_manager.erase(transport.dst_addr);
+	delete handle;
+}
+
+template<typename DelegateType>
 int TcpTransport<DelegateType>::send(Buffer &&packet) {
 	auto *req = new uv_write_t();
 	auto req_data = new SendPayload { std::move(packet), *this };
@@ -181,6 +198,11 @@ int TcpTransport<DelegateType>::send(Buffer &&packet) {
 	}
 
 	return 0;
+}
+
+template<typename DelegateType>
+void TcpTransport<DelegateType>::close() {
+	uv_close((uv_handle_t *)socket, close_cb);
 }
 
 } // namespace net
