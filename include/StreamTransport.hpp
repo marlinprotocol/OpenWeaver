@@ -25,6 +25,9 @@ private:
 	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
 	BaseTransport &transport;
 
+	// Connection
+	uint64_t conn_id = 0;
+
 	// Streams
 	uint16_t next_stream_id = 0;
 	std::unordered_map<uint16_t, SendStream> send_streams;
@@ -174,18 +177,19 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
 	net::Buffer packet(
-		new char[length + 22] {0, static_cast<char>(is_fin)},
-		length + 22
+		new char[length + 30] {0, static_cast<char>(is_fin)},
+		length + 30
 	);
 
 	this->last_sent_packet++;
 
-	packet.write_uint16_be(2, stream.stream_id);
-	packet.write_uint64_be(4, this->last_sent_packet);
-	packet.write_uint64_be(12, data_item.stream_offset + offset);
-	packet.write_uint16_be(20, length);
+	packet.write_uint64_be(2, conn_id);
+	packet.write_uint16_be(10, stream.stream_id);
+	packet.write_uint64_be(12, this->last_sent_packet);
+	packet.write_uint64_be(20, data_item.stream_offset + offset);
+	packet.write_uint16_be(28, length);
 
-	std::memcpy(packet.data()+22, data_item.data.get()+offset, length);
+	std::memcpy(packet.data()+30, data_item.data.get()+offset, length);
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -458,7 +462,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	}
 
 	// Cover header
-	p.cover(22);
+	p.cover(30);
 
 	// Add to ack range
 	ack_ranges.add_packet_number(packet_number);
@@ -531,19 +535,20 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
-	net::Buffer packet(new char[500] {0, 2}, 500);
+	net::Buffer packet(new char[508] {0, 2}, 508);
 
 	int size = ack_ranges.ranges.size() > 61 ? 61 : ack_ranges.ranges.size();
 
-	packet.write_uint16_be(2, size);
-	packet.write_uint64_be(4, ack_ranges.largest);
+	packet.write_uint64_be(2, conn_id);
+	packet.write_uint16_be(10, size);
+	packet.write_uint64_be(12, ack_ranges.largest);
 
-	int i = 12;
+	int i = 20;
 	auto iter = ack_ranges.ranges.begin();
 	// Upto 30 gaps
 	for(
 		;
-		i < 500 && iter != ack_ranges.ranges.end();
+		i <= 500 && iter != ack_ranges.ranges.end();
 		i += 8, iter++
 	) {
 		packet.write_uint64_be(i, *iter);
@@ -583,7 +588,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	}
 
 	// Cover till range list
-	p.cover(12);
+	p.cover(20);
 
 	uint64_t high = largest;
 	bool gap = false;

@@ -23,19 +23,19 @@ struct StreamPacket: public net::Buffer {
 	}
 
 	uint16_t stream_id() const {
-		return read_uint16_be(2);
+		return read_uint16_be(10);
 	}
 
 	uint64_t packet_number() const {
-		return read_uint64_be(4);
-	}
-
-	uint64_t offset() const {
 		return read_uint64_be(12);
 	}
 
+	uint64_t offset() const {
+		return read_uint64_be(20);
+	}
+
 	uint16_t length() const {
-		return read_uint16_be(20);
+		return read_uint16_be(28);
 	}
 };
 
