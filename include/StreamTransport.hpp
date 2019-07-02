@@ -438,6 +438,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
 
+	auto conn_id = p.read_uint64_be(2);
+	if(conn_id != this->conn_id) { // Wrong connection id, discard
+		return;
+	}
+
 	auto offset = p.offset();
 	auto length = p.length();
 	auto packet_number = p.packet_number();
@@ -564,6 +569,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	SPDLOG_TRACE("ACK <<< {}", dst_addr.to_string());
 
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	auto conn_id = p.read_uint64_be(2);
+	if(conn_id != this->conn_id) { // Wrong connection id, discard
+		return;
+	}
 
 	auto now = uv_now(uv_default_loop());
 
