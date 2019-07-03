@@ -170,7 +170,7 @@ StreamTransportFactory<
 	net::SocketAddress const &addr
 ) {
 	auto iter = transport_map.find(addr);
-	if(iter == transport_map.end()) {
+	if(iter == transport_map.end() || !iter->second.is_active) {
 		return nullptr;
 	}
 

@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <unordered_set>
 #include <unordered_map>
+#include <random>
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
@@ -25,11 +26,20 @@ private:
 	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
 	BaseTransport &transport;
 
+	void reset();
+
 	// Connection
-	uint64_t conn_id = 0;
+	enum struct ConnectionState {
+		Listen,
+		DialSent,
+		DialRcvd,
+		Established
+	} conn_state = ConnectionState::Listen;
+	uint32_t src_conn_id = 0;
+	uint32_t dst_conn_id = 0;
+	bool dialled = false;
 
 	// Streams
-	uint16_t next_stream_id = 0;
 	std::unordered_map<uint16_t, SendStream> send_streams;
 	std::unordered_map<uint16_t, RecvStream> recv_streams;
 
@@ -91,6 +101,15 @@ private:
 	static void ack_timer_cb(uv_timer_t *handle);
 
 	// Protocol
+	void send_DIAL();
+	void did_recv_DIAL(net::Buffer &&packet);
+
+	void send_DIALCONF();
+	void did_recv_DIALCONF(net::Buffer &&packet);
+
+	void send_CONF();
+	void did_recv_CONF(net::Buffer &&packet);
+
 	void send_DATA(net::Buffer &&packet);
 	void did_recv_DATA(net::Buffer &&packet);
 
@@ -105,6 +124,7 @@ public:
 
 	net::SocketAddress src_addr;
 	net::SocketAddress dst_addr;
+	bool is_active = false;
 
 	DelegateType *delegate;
 
@@ -120,6 +140,48 @@ public:
 
 
 // Impl
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::reset() {
+	// Reset transport
+	conn_state = ConnectionState::Listen;
+	src_conn_id = 0;
+	dst_conn_id = 0;
+	dialled = false;
+
+	send_streams.erase();
+	recv_streams.erase();
+
+	last_sent_packet = -1;
+	sent_packets.erase();
+	lost_packets.erase();
+
+	rtt = -1;
+
+	bytes_in_flight = 0;
+	k = 0;
+	w_max = 0;
+	congestion_window = 15000;
+	ssthresh = -1;
+	congestion_start = 0;
+	largest_acked = 0;
+	largest_sent_time = 0;
+
+	send_queue_ids.erase();
+	send_queue.erase();
+
+	uv_timer_stop(&pacing_timer);
+	is_pacing_timer_active = false;
+
+	uv_timer_stop(&tlp_timer);
+	tlp_interval = DEFAULT_TLP_INTERVAL;
+
+	ack_ranges = AckRanges();
+	uv_timer_stop(&ack_timer);
+	ack_timer_active = false;
+
+	is_active = false;
+}
 
 //---------------- Stream functions begin ----------------//
 
@@ -183,7 +245,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 
 	this->last_sent_packet++;
 
-	packet.write_uint64_be(2, conn_id);
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
 	packet.write_uint16_be(10, stream.stream_id);
 	packet.write_uint64_be(12, this->last_sent_packet);
 	packet.write_uint64_be(20, data_item.stream_offset + offset);
@@ -424,6 +487,109 @@ void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *
 //---------------- Protocol functions begin ----------------//
 
 template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
+	net::Buffer packet(new char[10] {0, 3}, 10);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
+	net::Buffer &&packet
+) {
+	if(conn_state == ConnectionState::Listen) {
+		dst_conn_id = packet.read_uint32_be(2);
+		src_conn_id = (uint32_t)std::random_device()();
+
+		send_DIALCONF();
+
+		conn_state = ConnectionState::DialRcvd;
+	} else if(conn_state == ConnectionState::DialSent) {
+		dst_conn_id = packet.read_uint32_be(2);
+
+		send_CONF();
+
+		conn_state = ConnectionState::DialRcvd;
+	} else {
+		// Shouldn't receive DIAL in these states
+		// TODO: Handle
+	}
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
+	net::Buffer packet(new char[10] {0, 4}, 10);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
+	net::Buffer &&packet
+) {
+	if(conn_state == ConnectionState::DialSent) {
+		dst_conn_id = packet.read_uint32_be(2);
+
+		send_CONF();
+
+		conn_state = ConnectionState::Established;
+
+		if(dialled) {
+			delegate->did_dial(*this);
+		}
+	} else {
+		// Shouldn't receive DIALCONF in these states
+		// TODO: Handle
+	}
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
+	net::Buffer packet(new char[10] {0, 5}, 10);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
+	net::Buffer &&packet
+) {
+	if(conn_state == ConnectionState::DialRcvd) {
+		auto src_conn_id = packet.read_uint32_be(6);
+		auto dst_conn_id = packet.read_uint32_be(2);
+		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, handle
+			// TODO: Handle
+			SPDLOG_ERROR(
+				"Connection id mismatch: {}, {}, {}, {}",
+				src_conn_id,
+				this->src_conn_id,
+				dst_conn_id,
+				this->dst_conn_id
+			);
+			return;
+		}
+
+		conn_state = ConnectionState::Established;
+
+		if(dialled) {
+			delegate->did_dial(*this);
+		}
+	} else {
+		// Shouldn't receive CONF in these states
+		// TODO: Handle
+	}
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	net::Buffer &&packet
 ) {
@@ -438,19 +604,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
 
-	auto conn_id = p.read_uint64_be(2);
-	if(conn_id != this->conn_id) { // Wrong connection id, discard
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		return;
 	}
 
 	auto offset = p.offset();
 	auto length = p.length();
 	auto packet_number = p.packet_number();
-
-	// Get or create connection and stream
-	if(next_stream_id == 0) {
-		next_stream_id = 1;
-	}
 
 	auto &stream = get_or_create_recv_stream(p.stream_id());
 
@@ -544,7 +706,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 
 	int size = ack_ranges.ranges.size() > 61 ? 61 : ack_ranges.ranges.size();
 
-	packet.write_uint64_be(2, conn_id);
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
 	packet.write_uint16_be(10, size);
 	packet.write_uint64_be(12, ack_ranges.largest);
 
@@ -570,8 +733,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
-	auto conn_id = p.read_uint64_be(2);
-	if(conn_id != this->conn_id) { // Wrong connection id, discard
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		return;
 	}
 
@@ -794,7 +958,9 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
 ) {
-	delegate->did_dial(*this);
+	dialled = true;
+	send_DIAL();
+	conn_state = ConnectionState::DialSent;
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -810,6 +976,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		break;
 		// ACK
 		case 2: did_recv_ACK(std::move(packet));
+		break;
+		// ACK
+		case 3: did_recv_DIAL(std::move(packet));
+		break;
+		// ACK
+		case 4: did_recv_DIALCONF(std::move(packet));
+		break;
+		// ACK
+		case 5: did_recv_CONF(std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
@@ -831,6 +1006,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 		break;
 		// ACK
 		case 2: SPDLOG_TRACE("ACK >>> {}", dst_addr.to_string());
+		break;
+		// ACK
+		case 3: SPDLOG_TRACE("DIAL >>> {}", dst_addr.to_string());
+		break;
+		// ACK
+		case 4: SPDLOG_TRACE("DIALCONF >>> {}", dst_addr.to_string());
+		break;
+		// ACK
+		case 5: SPDLOG_TRACE("CONF >>> {}", dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", dst_addr.to_string());
