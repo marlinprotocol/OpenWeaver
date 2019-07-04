@@ -513,9 +513,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		send_CONF();
 
 		conn_state = ConnectionState::DialRcvd;
-	} else {
-		// Shouldn't receive DIAL in these states
-		// TODO: Handle
+	} else if(conn_state == ConnectionState::DialRcvd) {
+		// Duplicate DIAL, ignore
+		// Wait for dst to RST and try to establish again
+		// if this DIAL is latest one
+	} else if(conn_state == ConnectionState::Established) {
+		// Send existing ids
+		// Wait for dst to RST and try to establish again
+		// if this connection is stale
+		send_DIALCONF();
 	}
 }
 
