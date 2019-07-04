@@ -110,6 +110,9 @@ private:
 	void send_CONF();
 	void did_recv_CONF(net::Buffer &&packet);
 
+	void send_RST();
+	void did_recv_RST(net::Buffer &&packet);
+
 	void send_DATA(net::Buffer &&packet);
 	void did_recv_DATA(net::Buffer &&packet);
 
@@ -149,12 +152,12 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	dst_conn_id = 0;
 	dialled = false;
 
-	send_streams.erase();
-	recv_streams.erase();
+	send_streams.clear();
+	recv_streams.clear();
 
 	last_sent_packet = -1;
-	sent_packets.erase();
-	lost_packets.erase();
+	sent_packets.clear();
+	lost_packets.clear();
 
 	rtt = -1;
 
@@ -167,8 +170,8 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	largest_acked = 0;
 	largest_sent_time = 0;
 
-	send_queue_ids.erase();
-	send_queue.erase();
+	send_queue_ids.clear();
+	send_queue.clear();
 
 	uv_timer_stop(&pacing_timer);
 	is_pacing_timer_active = false;
@@ -541,6 +544,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 ) {
 	if(conn_state == ConnectionState::DialSent) {
 		dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.read_uint32_be(6);
+		if(src_conn_id != this->src_conn_id) {
+			send_RST();
+			return;
+		}
 
 		send_CONF();
 
@@ -549,9 +557,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
+	} else if(conn_state == ConnectionState::Established) {
+		auto src_conn_id = packet.read_uint32_be(6);
+		auto dst_conn_id = packet.read_uint32_be(2);
+		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
+			send_RST();
+
+			SPDLOG_ERROR(
+				"Connection id mismatch: {}, {}, {}, {}",
+				src_conn_id,
+				this->src_conn_id,
+				dst_conn_id,
+				this->dst_conn_id
+			);
+			return;
+		}
 	} else {
 		// Shouldn't receive DIALCONF in these states
-		// TODO: Handle
+		send_RST();
 	}
 }
 
@@ -572,8 +595,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 	if(conn_state == ConnectionState::DialRcvd) {
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
-		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, handle
-			// TODO: Handle
+		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
+			send_RST();
+
 			SPDLOG_ERROR(
 				"Connection id mismatch: {}, {}, {}, {}",
 				src_conn_id,
@@ -591,8 +615,25 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		}
 	} else {
 		// Shouldn't receive CONF in these states
-		// TODO: Handle
+		send_RST();
 	}
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_RST() {
+	net::Buffer packet(new char[10] {0, 6}, 10);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
+	net::Buffer &&
+) {
+	reset();
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -983,14 +1024,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		// ACK
 		case 2: did_recv_ACK(std::move(packet));
 		break;
-		// ACK
+		// DIAL
 		case 3: did_recv_DIAL(std::move(packet));
 		break;
-		// ACK
+		// DIALCONF
 		case 4: did_recv_DIALCONF(std::move(packet));
 		break;
-		// ACK
+		// CONF
 		case 5: did_recv_CONF(std::move(packet));
+		break;
+		// RST
+		case 6: did_recv_RST(std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
@@ -1013,14 +1057,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 		// ACK
 		case 2: SPDLOG_TRACE("ACK >>> {}", dst_addr.to_string());
 		break;
-		// ACK
+		// DIAL
 		case 3: SPDLOG_TRACE("DIAL >>> {}", dst_addr.to_string());
 		break;
-		// ACK
+		// DIALCONF
 		case 4: SPDLOG_TRACE("DIALCONF >>> {}", dst_addr.to_string());
 		break;
-		// ACK
+		// CONF
 		case 5: SPDLOG_TRACE("CONF >>> {}", dst_addr.to_string());
+		break;
+		// RST
+		case 6: SPDLOG_TRACE("RST >>> {}", dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", dst_addr.to_string());
