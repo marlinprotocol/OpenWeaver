@@ -31,13 +31,7 @@ private:
 	BaseTransportFactory f;
 
 	ListenDelegate *delegate;
-	std::unordered_map<
-		net::SocketAddress,
-		StreamTransport<
-			TransportDelegate,
-			DatagramTransport
-		>
-	> transport_map;
+	net::TransportManager<StreamTransport<TransportDelegate, DatagramTransport>> transport_manager;
 
 public:
 	bool should_accept(net::SocketAddress const &addr);
@@ -97,13 +91,14 @@ void StreamTransportFactory<
 		>
 	> &transport
 ) {
-	auto &stream_transport = transport_map.try_emplace(
+	auto *stream_transport = transport_manager.get_or_create(
 		transport.dst_addr,
 		transport.src_addr,
 		transport.dst_addr,
-		transport
-	).first->second;
-	delegate->did_create_transport(stream_transport);
+		transport,
+		transport_manager
+	).first;
+	delegate->did_create_transport(*stream_transport);
 }
 
 template<
@@ -169,12 +164,7 @@ StreamTransportFactory<
 >::get_transport(
 	net::SocketAddress const &addr
 ) {
-	auto iter = transport_map.find(addr);
-	if(iter == transport_map.end() || !iter->second.is_active) {
-		return nullptr;
-	}
-
-	return &iter->second;
+	return transport_manager.get(addr);
 }
 
 } // namespace stream

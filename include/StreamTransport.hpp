@@ -8,6 +8,7 @@
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
+#include <marlin/net/core/TransportManager.hpp>
 
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
@@ -25,6 +26,7 @@ class StreamTransport {
 private:
 	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
 	BaseTransport &transport;
+	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager;
 
 	void reset();
 
@@ -127,18 +129,21 @@ public:
 
 	net::SocketAddress src_addr;
 	net::SocketAddress dst_addr;
-	bool is_active = false;
 
 	DelegateType *delegate;
 
 	StreamTransport(
 		net::SocketAddress const &src_addr,
 		net::SocketAddress const &dst_addr,
-		BaseTransport &transport
+		BaseTransport &transport,
+		net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
 	);
 
 	void setup(DelegateType *delegate);
 	int send(net::Buffer &&bytes);
+	void close();
+
+	bool is_active();
 };
 
 
@@ -182,8 +187,6 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	ack_ranges = AckRanges();
 	uv_timer_stop(&ack_timer);
 	ack_timer_active = false;
-
-	is_active = false;
 }
 
 //---------------- Stream functions begin ----------------//
@@ -1081,8 +1084,9 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	net::SocketAddress const &src_addr,
 	net::SocketAddress const &dst_addr,
-	BaseTransport &transport
-) : transport(transport), src_addr(src_addr), dst_addr(dst_addr) {
+	BaseTransport &transport,
+	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
+) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr) {
 	uv_timer_init(uv_default_loop(), &this->tlp_timer);
 	this->tlp_timer.data = this;
 
@@ -1142,6 +1146,22 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	send_pending_data();
 
 	return 0;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::close() {
+	reset();
+	transport_manager.erase(dst_addr);
+	transport.close();
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
+	if(conn_state == ConnectionState::Established) {
+		return true;
+	}
+
+	return false;
 }
 
 } // namespace stream
