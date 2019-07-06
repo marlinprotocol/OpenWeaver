@@ -40,6 +40,10 @@ private:
 	uint32_t src_conn_id = 0;
 	uint32_t dst_conn_id = 0;
 	bool dialled = false;
+	uv_timer_t state_timer;
+	uint64_t state_timer_interval = 0;
+
+	static void dial_timer_cb(uv_timer_t *handle);
 
 	// Streams
 	std::unordered_map<uint16_t, SendStream> send_streams;
@@ -156,6 +160,8 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	src_conn_id = 0;
 	dst_conn_id = 0;
 	dialled = false;
+	uv_timer_stop(&state_timer);
+	state_timer_interval = 0;
 
 	send_streams.clear();
 	recv_streams.clear();
@@ -187,6 +193,28 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	ack_ranges = AckRanges();
 	uv_timer_stop(&ack_timer);
 	ack_timer_active = false;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
+	uv_timer_t *handle
+) {
+	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+
+	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
+		transport.state_timer_interval = 0;
+		SPDLOG_ERROR("Stream protocol: Dial timeout: {}", transport.dst_addr.to_string());
+		return;
+	}
+
+	transport.send_DIAL();
+	transport.state_timer_interval *= 2;
+	uv_timer_start(
+		&transport.state_timer,
+		dial_timer_cb,
+		transport.state_timer_interval,
+		0
+	);
 }
 
 //---------------- Stream functions begin ----------------//
@@ -438,7 +466,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > transport.congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR("Timer congestion event: {}", transport.congestion_window);
+			SPDLOG_ERROR("Stream protocol: Timer congestion event: {}", transport.congestion_window);
 			transport.congestion_start = uv_now(uv_default_loop());
 
 			if(transport.congestion_window < transport.w_max) {
@@ -507,6 +535,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	net::Buffer &&packet
 ) {
 	if(conn_state == ConnectionState::Listen) {
+		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+			return;
+		}
+
 		dst_conn_id = packet.read_uint32_be(2);
 		src_conn_id = (uint32_t)std::random_device()();
 
@@ -567,7 +599,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			send_RST();
 
 			SPDLOG_ERROR(
-				"Connection id mismatch: {}, {}, {}, {}",
+				"Stream protocol: Connection id mismatch: {}, {}, {}, {}",
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
@@ -602,7 +634,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			send_RST();
 
 			SPDLOG_ERROR(
-				"Connection id mismatch: {}, {}, {}, {}",
+				"Stream protocol: Connection id mismatch: {}, {}, {}, {}",
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
@@ -969,7 +1001,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR("Congestion event: {}", congestion_window);
+			SPDLOG_ERROR("Stream protocol: Congestion event: {}", congestion_window);
 			congestion_start = now;
 
 			if(congestion_window < w_max) {
@@ -1009,6 +1041,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
 ) {
 	dialled = true;
+
+	state_timer_interval = 1000;
+	uv_timer_start(&state_timer, dial_timer_cb, state_timer_interval, 0);
+
 	send_DIAL();
 	conn_state = ConnectionState::DialSent;
 }
@@ -1087,6 +1123,9 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	BaseTransport &transport,
 	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
 ) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr) {
+	uv_timer_init(uv_default_loop(), &this->state_timer);
+	this->state_timer.data = this;
+
 	uv_timer_init(uv_default_loop(), &this->tlp_timer);
 	this->tlp_timer.data = this;
 

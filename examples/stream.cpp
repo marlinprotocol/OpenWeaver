@@ -61,7 +61,7 @@ int main() {
 	Delegate d;
 
 	s.bind(SocketAddress::loopback_ipv4(8000));
-	s.listen(d);
+	// s.listen(d);
 	c.bind(SocketAddress::loopback_ipv4(0));
 	c.dial(SocketAddress::loopback_ipv4(8000), d);
 
