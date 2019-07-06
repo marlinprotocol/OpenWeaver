@@ -61,11 +61,9 @@ int main() {
 	Delegate d;
 
 	s.bind(SocketAddress::loopback_ipv4(8000));
-	// s.listen(d);
+	s.listen(d);
 	c.bind(SocketAddress::loopback_ipv4(0));
 	c.dial(SocketAddress::loopback_ipv4(8000), d);
-
-	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

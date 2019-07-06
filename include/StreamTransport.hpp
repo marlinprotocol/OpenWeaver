@@ -116,7 +116,7 @@ private:
 	void send_CONF();
 	void did_recv_CONF(net::Buffer &&packet);
 
-	void send_RST();
+	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
 	void did_recv_RST(net::Buffer &&packet);
 
 	void send_DATA(net::Buffer &&packet);
@@ -536,6 +536,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 ) {
 	if(conn_state == ConnectionState::Listen) {
 		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+			SPDLOG_ERROR(
+				"Stream protocol: DIAL: Should have empty src: {}",
+				packet.read_uint32_be(6)
+			);
 			return;
 		}
 
@@ -546,15 +550,27 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 		conn_state = ConnectionState::DialRcvd;
 	} else if(conn_state == ConnectionState::DialSent) {
+		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+			SPDLOG_ERROR(
+				"Stream protocol: DIAL: Should have empty src: {}",
+				packet.read_uint32_be(6)
+			);
+			return;
+		}
+
 		dst_conn_id = packet.read_uint32_be(2);
 
-		send_CONF();
+		uv_timer_stop(&state_timer);
+		state_timer_interval = 0;
+
+		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
 	} else if(conn_state == ConnectionState::DialRcvd) {
-		// Duplicate DIAL, ignore
+		// Send existing ids
 		// Wait for dst to RST and try to establish again
 		// if this DIAL is latest one
+		send_DIALCONF();
 	} else if(conn_state == ConnectionState::Established) {
 		// Send existing ids
 		// Wait for dst to RST and try to establish again
@@ -581,9 +597,50 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		dst_conn_id = packet.read_uint32_be(2);
 		auto src_conn_id = packet.read_uint32_be(6);
 		if(src_conn_id != this->src_conn_id) {
-			send_RST();
+			// On conn id mismatch, send RST for that id
+			// Connection should ideally be reestablished by
+			// dial retry sending another DIAL
+			SPDLOG_ERROR(
+				"Stream protocol: DIALCONF: Src id mismatch: {}, {}",
+				src_conn_id,
+				this->src_conn_id
+			);
+			send_RST(src_conn_id, dst_conn_id);
+			dst_conn_id = 0;
 			return;
 		}
+
+		uv_timer_stop(&state_timer);
+		state_timer_interval = 0;
+
+		send_CONF();
+
+		conn_state = ConnectionState::Established;
+
+		if(dialled) {
+			delegate->did_dial(*this);
+		}
+	} else if(conn_state == ConnectionState::DialRcvd) {
+		// Usually happend in case of simultaneous open
+		auto src_conn_id = packet.read_uint32_be(6);
+		auto dst_conn_id = packet.read_uint32_be(2);
+		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
+			// On conn id mismatch, send RST for that id
+			// Connection should ideally be reestablished by
+			// dial retry sending another DIAL
+			SPDLOG_ERROR(
+				"Stream protocol: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
+				src_conn_id,
+				this->src_conn_id,
+				dst_conn_id,
+				this->dst_conn_id
+			);
+			send_RST(src_conn_id, dst_conn_id);
+			return;
+		}
+
+		uv_timer_stop(&state_timer);
+		state_timer_interval = 0;
 
 		send_CONF();
 
@@ -596,20 +653,21 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			send_RST();
-
 			SPDLOG_ERROR(
-				"Stream protocol: Connection id mismatch: {}, {}, {}, {}",
+				"Stream protocol: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
 				this->dst_conn_id
 			);
+			send_RST(src_conn_id, dst_conn_id);
 			return;
 		}
+
+		send_CONF();
 	} else {
-		// Shouldn't receive DIALCONF in these states
-		send_RST();
+		// Shouldn't receive DIALCONF in other states, unrecoverable
+		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
 	}
 }
 
@@ -631,10 +689,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			send_RST();
+			send_RST(src_conn_id, dst_conn_id);
 
 			SPDLOG_ERROR(
-				"Stream protocol: Connection id mismatch: {}, {}, {}, {}",
+				"Stream protocol: CONF: Connection id mismatch: {}, {}, {}, {}",
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
@@ -648,14 +706,32 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
+	} else if(conn_state == ConnectionState::Established) {
+		auto src_conn_id = packet.read_uint32_be(6);
+		auto dst_conn_id = packet.read_uint32_be(2);
+		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
+			send_RST(src_conn_id, dst_conn_id);
+
+			SPDLOG_ERROR(
+				"Stream protocol: CONF: Connection id mismatch: {}, {}, {}, {}",
+				src_conn_id,
+				this->src_conn_id,
+				dst_conn_id,
+				this->dst_conn_id
+			);
+			return;
+		}
 	} else {
-		// Shouldn't receive CONF in these states
-		send_RST();
+		// Shouldn't receive CONF in other states, unrecoverable
+		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
 	}
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_RST() {
+void StreamTransport<DelegateType, DatagramTransport>::send_RST(
+	uint32_t src_conn_id,
+	uint32_t dst_conn_id
+) {
 	net::Buffer packet(new char[10] {0, 6}, 10);
 
 	packet.write_uint32_be(2, src_conn_id);
@@ -666,9 +742,17 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	net::Buffer &&
+	net::Buffer &&packet
 ) {
-	reset();
+	auto src_conn_id = packet.read_uint32_be(6);
+	auto dst_conn_id = packet.read_uint32_be(2);
+	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
+		SPDLOG_ERROR(
+			"Stream protocol: RST: {}",
+			dst_addr.to_string()
+		);
+		reset();
+	}
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1040,11 +1124,13 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
 ) {
+	// Begin handshake
 	dialled = true;
 
 	state_timer_interval = 1000;
 	uv_timer_start(&state_timer, dial_timer_cb, state_timer_interval, 0);
 
+	src_conn_id = (uint32_t)std::random_device()();
 	send_DIAL();
 	conn_state = ConnectionState::DialSent;
 }
