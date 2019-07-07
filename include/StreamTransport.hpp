@@ -776,6 +776,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
+	if(conn_state == ConnectionState::DialRcvd) {
+		conn_state = ConnectionState::Established;
+	} else if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
 	auto offset = p.offset();
 	auto length = p.length();
 	auto packet_number = p.packet_number();
@@ -898,6 +904,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	SPDLOG_TRACE("ACK <<< {}", dst_addr.to_string());
 
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
 
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
