@@ -29,20 +29,20 @@ public:
 
 	static void did_receive_packet(
 		NodeType &node,
-		const net::Packet &&p,
+		const net::Buffer &&p,
 		const net::SocketAddress &addr
 	);
 
 	static void did_send_packet(
 		NodeType &node,
-		const net::Packet &&p,
+		const net::Buffer &&p,
 		const net::SocketAddress &addr
 	);
 
 	static void did_receive_DISCOVER(NodeType &node, const net::SocketAddress &addr);
 	static void send_DISCOVER(NodeType &node, const net::SocketAddress &addr);
 
-	static void did_receive_PEERLIST(NodeType &node, const net::SocketAddress &addr, const net::Packet &&p);
+	static void did_receive_PEERLIST(NodeType &node, const net::SocketAddress &addr, const net::Buffer &&p);
 	static void send_PEERLIST(NodeType &node, const net::SocketAddress &addr);
 
 	static void did_receive_HEARTBEAT(NodeType &node, const net::SocketAddress &addr);
@@ -78,7 +78,7 @@ void DiscoveryProtocol<NodeType>::setup(
 template<typename NodeType>
 void DiscoveryProtocol<NodeType>::did_receive_packet(
 	NodeType &node,
-	const net::Packet &&p,
+	const net::Buffer &&p,
 	const net::SocketAddress &addr
 ) {
 	auto pp = reinterpret_cast<const DiscoveryPacket *>(&p);
@@ -116,7 +116,7 @@ void DiscoveryProtocol<NodeType>::did_receive_packet(
 template<typename NodeType>
 void DiscoveryProtocol<NodeType>::did_send_packet(
 	NodeType &node,
-	const net::Packet &&p,
+	const net::Buffer &&p,
 	const net::SocketAddress &addr __attribute__((unused))
 ) {
 	auto pp = reinterpret_cast<const DiscoveryPacket *>(&p);
@@ -142,7 +142,7 @@ void DiscoveryProtocol<NodeType>::send_DISCOVER(
 ) {
 	char *message = new char[10] {0, 2};
 
-	net::Packet p(message, 10);
+	net::Buffer p(message, 10);
 	node.send(std::move(p), addr);
 }
 
@@ -178,7 +178,7 @@ void DiscoveryProtocol<NodeType>::send_PEERLIST(
 		size += 8;
 	}
 
-	net::Packet p(message, size);
+	net::Buffer p(message, size);
 	node.send(std::move(p), addr);
 }
 
@@ -186,7 +186,7 @@ template<typename NodeType>
 void DiscoveryProtocol<NodeType>::did_receive_PEERLIST(
 	NodeType &node,
 	const net::SocketAddress &addr __attribute__((unused)),
-	const net::Packet &&p
+	const net::Buffer &&p
 ) {
 	SPDLOG_DEBUG("PEERLIST <<< {}", addr.to_string());
 
@@ -209,7 +209,7 @@ void DiscoveryProtocol<NodeType>::send_HEARTBEAT(
 ) {
 	char *message = new char[10] {0, 4};
 
-	net::Packet p(message, 10);
+	net::Buffer p(message, 10);
 	node.send(std::move(p), addr);
 }
 

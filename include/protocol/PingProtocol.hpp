@@ -1,7 +1,7 @@
 #ifndef MARLIN_BEACON_PINGPROTOCOL_HPP
 #define MARLIN_BEACON_PINGPROTOCOL_HPP
 
-#include <marlin/net/Packet.hpp>
+#include <marlin/net/Buffer.hpp>
 #include <marlin/net/SocketAddress.hpp>
 
 #include <spdlog/spdlog.h>
@@ -16,13 +16,13 @@ class PingProtocol {
 public:
 	static void did_receive_packet(
 		NodeType &node,
-		const net::Packet &&p,
+		const net::Buffer &&p,
 		const net::SocketAddress &addr
 	);
 
 	static void did_send_packet(
 		NodeType &node,
-		const net::Packet &&p,
+		const net::Buffer &&p,
 		const net::SocketAddress &addr
 	);
 
@@ -36,20 +36,20 @@ public:
 
 // Impl
 
-struct PingPacket: public net::Packet {
+struct PingPacket: public net::Buffer {
 	uint8_t version() const {
-		return extract_uint8(0);
+		return read_uint8(0);
 	}
 
 	uint8_t message() const {
-		return extract_uint8(1);
+		return read_uint8(1);
 	}
 };
 
 template<typename NodeType>
 void PingProtocol<NodeType>::did_receive_packet(
 	NodeType &node,
-	const net::Packet &&p,
+	const net::Buffer &&p,
 	const net::SocketAddress &addr
 ) {
 	auto pp = reinterpret_cast<const PingPacket *>(&p);
@@ -69,7 +69,7 @@ void PingProtocol<NodeType>::did_receive_packet(
 template<typename NodeType>
 void PingProtocol<NodeType>::did_send_packet(
 	NodeType &,
-	const net::Packet &&p,
+	const net::Buffer &&p,
 	const net::SocketAddress &addr __attribute__((unused))
 ) {
 	auto pp = reinterpret_cast<const PingPacket *>(&p);
@@ -93,7 +93,7 @@ void PingProtocol<NodeType>::send_PING(
 ) {
 	char *message = new char[10] {0, 0};
 
-	net::Packet p(message, 10);
+	net::Buffer p(message, 10);
 	node.send(std::move(p), addr);
 }
 
@@ -114,7 +114,7 @@ void PingProtocol<NodeType>::send_PONG(
 ) {
 	char *message = new char[10] {0, 1};
 
-	net::Packet p(message, 10);
+	net::Buffer p(message, 10);
 	node.send(std::move(p), addr);
 }
 

@@ -30,7 +30,7 @@ Beacon<BeaconDelegate>::Beacon(const net::SocketAddress &_addr) : BaseNode(_addr
 
 template<typename BeaconDelegate>
 void Beacon<BeaconDelegate>::start_discovery(const net::SocketAddress &addr) {
-	this->beacon_addr = addr;
+	this->protocol_storage.beacon_addr = addr;
 	DiscoveryProtocol<Beacon<BeaconDelegate>>::send_DISCOVER(*this, addr);
 }
 
