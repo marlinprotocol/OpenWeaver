@@ -544,7 +544,7 @@ void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
 	if(transport == nullptr) {
 		dial(addr);
 		return;
-	} else if(!transport.is_active()) {
+	} else if(!transport->is_active()) {
 		return;
 	}
 
