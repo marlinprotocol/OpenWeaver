@@ -89,7 +89,6 @@ public:
 	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
 
 	PubSubNode(const net::SocketAddress &_addr);
-	~PubSubNode();
 
 	PubSubDelegate *delegate;
 
@@ -107,6 +106,9 @@ public:
 		uint64_t size,
 		net::SocketAddress const *excluded = nullptr
 	);
+
+	void subscribe(net::SocketAddress const &addr);
+	void unsubscribe(net::SocketAddress const &addr);
 
 private:
 	std::unordered_multimap<std::string, BaseTransport *> channel_subscriptions;
@@ -490,18 +492,6 @@ PubSubNode<PubSubDelegate>::PubSubNode(
 }
 
 template<typename PubSubDelegate>
-PubSubNode<PubSubDelegate>::~PubSubNode() {
-	// Cleanup allocated ReadBuffers
-	for(
-		auto iter = this->read_buffers.begin();
-		iter != this->read_buffers.end();
-		iter++
-	) {
-		delete iter->second;
-	}
-}
-
-template<typename PubSubDelegate>
 int PubSubNode<PubSubDelegate>::dial(net::SocketAddress const &addr) {
 	return f.dial(addr, *this);
 }
@@ -545,6 +535,43 @@ void PubSubNode<PubSubDelegate>::send_message_on_channel(
 		);
 		send_MESSAGE(*it->second, channel, message_id, data, size);
 	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
+	auto *transport = f.get_transport(addr);
+
+	if(transport == nullptr) {
+		dial(addr);
+		return;
+	} else if(!transport.is_active()) {
+		return;
+	}
+
+	std::for_each(
+		delegate->channels.begin(),
+		delegate->channels.end(),
+		[&] (std::string const channel) {
+			send_SUBSCRIBE(*transport, channel);
+		}
+	);
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
+	auto *transport = f.get_transport(addr);
+
+	if(transport == nullptr) {
+		return;
+	}
+
+	std::for_each(
+		delegate->channels.begin(),
+		delegate->channels.end(),
+		[&] (std::string const channel) {
+			send_UNSUBSCRIBE(*transport, channel);
+		}
+	);
 }
 
 } // namespace pubsub
