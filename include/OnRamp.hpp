@@ -18,6 +18,8 @@ public:
 	marlin::rlpx::RlpxTransport<OnRamp> *rlpxt;
 
 	void handle_new_peer(const net::SocketAddress &addr) {
+		SPDLOG_INFO("New peer: {}", addr.to_string());
+
 		net::SocketAddress ps_addr(addr);
 
 		// Set correct port.

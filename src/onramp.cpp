@@ -17,7 +17,8 @@ int main() {
 	b.protocol_storage.delegate = &onramp;
 	onramp.b = &b;
 
-	b.start_discovery(SocketAddress::from_string("127.0.0.1:100"));
+	b.start_listening();
+	b.start_discovery(SocketAddress::from_string("18.224.44.185:8002"));
 
 	RlpxTransportFactory<OnRamp, OnRamp> f;
 	f.bind(SocketAddress::loopback_ipv4(9000));
