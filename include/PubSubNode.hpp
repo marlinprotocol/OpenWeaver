@@ -303,12 +303,25 @@ void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
 
 		read_buffer.bytes_remaining = bytes.read_uint64_be(0);
 		read_buffer.message_length = read_buffer.bytes_remaining;
+
+		if(read_buffer.message_length > 5000000) {
+			read_buffers.erase(std::make_tuple(transport.dst_addr, stream_id));
+			transport.close();
+			return;
+		}
+
 		read_buffer.message_id = bytes.read_uint64_be(8);
 		uint16_t channel_length = bytes.read_uint16_be(16);
 
 		// Check overflow
 		if((uint16_t)bytes.size() < 18 + channel_length)
 			return;
+
+		if(channel_length > 10) {
+			read_buffers.erase(std::make_tuple(transport.dst_addr, stream_id));
+			transport.close();
+			return;
+		}
 
 		read_buffer.channel = std::string(bytes.data()+18, bytes.data()+18+channel_length);
 
