@@ -139,8 +139,10 @@ bool Buffer::write_uint64(size_t const pos, uint64_t const num) {
 }
 
 #if MARLIN_NET_ENDIANNESS == MARLIN_NET_BIG_ENDIAN
+#ifdef __linux__
 #define htonll(x) (x)
 #define ntohll(x) (x)
+#endif
 
 uint16_t Buffer::read_uint16_le(size_t const pos) const {
 	return htons(read_uint16(pos));
@@ -191,8 +193,10 @@ bool Buffer::write_uint64_be(size_t const pos, uint64_t const num) {
 }
 
 #elif MARLIN_NET_ENDIANNESS == MARLIN_NET_LITTLE_ENDIAN
+#ifdef __linux__
 #define htonll(x) ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32)
 #define ntohll(x) ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32)
+#endif
 
 uint16_t Buffer::read_uint16_be(size_t const pos) const {
 	return htons(read_uint16(pos));
