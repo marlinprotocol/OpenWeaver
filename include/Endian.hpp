@@ -24,10 +24,10 @@
 
 #include <machine/endian.h>
 // Test BE
-#if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
+#if defined(BYTE_ORDER) && BYTE_ORDER == BIG_ENDIAN
 #define MARLIN_NET_ENDIANNESS MARLIN_NET_BIG_ENDIAN
 // Test LE
-#elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
+#elif defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN
 #define MARLIN_NET_ENDIANNESS MARLIN_NET_LITTLE_ENDIAN
 #endif
 
