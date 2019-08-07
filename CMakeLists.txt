@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 project(beacon VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
@@ -59,24 +59,24 @@ install(FILES
 # Tests
 ##########################################################
 
-enable_testing()
-find_package(GTest REQUIRED)
+# enable_testing()
+# find_package(GTest REQUIRED)
 
-set(TEST_SOURCES
-	test/testPingProtocol.cpp
-	test/testDiscoveryProtocol.cpp
-)
+# set(TEST_SOURCES
+# 	test/testPingProtocol.cpp
+# 	test/testDiscoveryProtocol.cpp
+# )
 
-foreach(TEST_SOURCE ${TEST_SOURCES})
-	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-	add_executable(${TEST_NAME} ${TEST_SOURCE})
-	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
-	target_include_directories(${TEST_NAME}
-		PUBLIC
-			${CMAKE_CURRENT_SOURCE_DIR}/include
-	)
-	add_test(${TEST_NAME} ${TEST_NAME})
-endforeach(TEST_SOURCE)
+# foreach(TEST_SOURCE ${TEST_SOURCES})
+# 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+# 	add_executable(${TEST_NAME} ${TEST_SOURCE})
+# 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
+# 	target_include_directories(${TEST_NAME}
+# 		PUBLIC
+# 			${CMAKE_CURRENT_SOURCE_DIR}/include
+# 	)
+# 	add_test(${TEST_NAME} ${TEST_NAME})
+# endforeach(TEST_SOURCE)
 
 
 ##########################################################
@@ -95,3 +95,16 @@ target_include_directories(testnode
 )
 
 target_link_libraries(testnode PUBLIC beacon)
+
+add_executable(server
+	examples/server.cpp
+)
+
+target_include_directories(server
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/examples
+)
+
+target_link_libraries(server PUBLIC beacon)
