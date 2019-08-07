@@ -9,14 +9,15 @@ int main() {
 
 	PubSubNode<Relay> ps(SocketAddress::from_string("0.0.0.0:8000"));
 	ps.delegate = &relay;
+	ps.should_relay = true;
 	relay.ps = &ps;
 
-	Beacon<Relay> b(SocketAddress::from_string("0.0.0.0:8002"));
-	b.protocol_storage.delegate = &relay;
+	DiscoveryClient<Relay> b(SocketAddress::from_string("0.0.0.0:8002"));
+	b.delegate = &relay;
+	b.is_discoverable = true;
 	relay.b = &b;
-	b.start_listening();
 
-	b.start_discovery(SocketAddress::from_string("127.0.0.1:100"));
+	b.start_discovery(SocketAddress::from_string("18.224.44.185:8002"));
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
