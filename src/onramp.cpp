@@ -13,11 +13,10 @@ int main() {
 	ps.delegate = &onramp;
 	onramp.ps = &ps;
 
-	Beacon<OnRamp> b(SocketAddress::from_string("0.0.0.0:8002"));
-	b.protocol_storage.delegate = &onramp;
+	DiscoveryClient<OnRamp> b(SocketAddress::from_string("0.0.0.0:8002"));
+	b.delegate = &onramp;
 	onramp.b = &b;
 
-	b.start_listening();
 	b.start_discovery(SocketAddress::from_string("18.224.44.185:8002"));
 
 	RlpxTransportFactory<OnRamp, OnRamp> f;

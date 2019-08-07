@@ -41,4 +41,6 @@ find_package(MarlinBeacon CONFIG REQUIRED COMPONENTS beacon
 	NAMES "Marlin" CONFIGS "MarlinBeaconConfig.cmake")
 target_link_libraries(onramp-eth PUBLIC Marlin::beacon)
 
+target_link_libraries(onramp-eth PUBLIC cryptopp)
+
 find_package(spdlog REQUIRED)
