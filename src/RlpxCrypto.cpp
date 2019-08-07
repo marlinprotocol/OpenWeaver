@@ -246,13 +246,13 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 		keccak256.Update(ek, 32);
 		keccak256.Update(digest, 32);
 		keccak256.TruncatedFinal(aess, 32);
-		SPDLOG_INFO("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
+		SPDLOG_DEBUG("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
 
 		keccak256.Restart();
 		keccak256.Update(ek, 32);
 		keccak256.Update(aess, 32);
 		keccak256.TruncatedFinal(macs, 32);
-		SPDLOG_INFO("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
+		SPDLOG_DEBUG("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
 
 		uint8_t iv[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 		d.SetKeyWithIV(aess, 32, iv, 16);
@@ -279,11 +279,11 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 		uint8_t digest[32];
 		auto temp_mac = ingress_mac;
 		temp_mac.TruncatedFinal(digest, 32);
-		SPDLOG_INFO("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+		SPDLOG_DEBUG("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 
 		temp_mac = egress_mac;
 		temp_mac.TruncatedFinal(digest, 32);
-		SPDLOG_INFO("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+		SPDLOG_DEBUG("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 	}
 }
 
@@ -298,19 +298,19 @@ bool RlpxCrypto::header_decrypt(uint8_t *in, size_t, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, digest, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ in[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	ingress_mac.Update(digest, 16);
 	temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	if(std::memcmp(in + 16, digest, 16) != 0) {
 		return false;
@@ -334,19 +334,19 @@ bool RlpxCrypto::header_encrypt(uint8_t *in, size_t, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, digest, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ out[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	egress_mac.Update(digest, 16);
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	std::memcpy(out + 16, digest, 16);
 
@@ -366,19 +366,19 @@ bool RlpxCrypto::frame_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, temp, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ temp[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	ingress_mac.Update(digest, 16);
 	temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	if(std::memcmp(in + in_size - 16, digest, 16) != 0) {
 		return false;
@@ -404,19 +404,19 @@ bool RlpxCrypto::frame_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, temp, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ temp[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	egress_mac.Update(digest, 16);
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	std::memcpy(out + in_size - 16, digest, 16);
 

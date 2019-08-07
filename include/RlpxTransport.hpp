@@ -76,12 +76,12 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 	net::Buffer &&bytes
 ) {
 	if(bytes_remaining > bytes.size()) { // Partial message
-		SPDLOG_INFO("Partial: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
+		SPDLOG_DEBUG("Partial: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
 		std::memcpy(buf + buf_size, bytes.data(), bytes.size());
 		buf_size += bytes.size();
 		bytes_remaining -= bytes.size();
 	} else { // Full message
-		SPDLOG_INFO("Full: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
+		SPDLOG_DEBUG("Full: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
 		std::memcpy(buf + buf_size, bytes.data(), bytes_remaining);
 		buf_size += bytes_remaining;
 		bytes.cover(bytes_remaining);
@@ -147,7 +147,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 			}
 		} else if(state == State::HelloHeaderWait) {
 			bool is_verified = crypto.header_decrypt(buf, 32, buf);
-			SPDLOG_INFO("Hello Header: {}", spdlog::to_hex(buf, buf + 32));
+			SPDLOG_DEBUG("Hello Header: {}", spdlog::to_hex(buf, buf + 32));
 
 			if(is_verified) {
 				length = bytes_remaining = ((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | (uint32_t)buf[2];
@@ -160,11 +160,11 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 			}
 		} else if(state == State::HelloFrameWait) {
 			bool is_verified = crypto.frame_decrypt(buf, buf_size, buf);
-			SPDLOG_INFO("Hello Frame: {}", spdlog::to_hex(buf, buf + buf_size));
+			SPDLOG_DEBUG("Hello Frame: {}", spdlog::to_hex(buf, buf + buf_size));
 
 			if(is_verified) {
 				std::string cl(buf + 6, buf + 6 + (int)buf[5]);
-				SPDLOG_INFO("Client: {}", cl);
+				SPDLOG_DEBUG("Client: {}", cl);
 
 				bytes_remaining = 32;
 				buf_size = 0;
@@ -174,7 +174,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 			}
 		} else if(state == State::RecvHeaderWait) {
 			bool is_verified = crypto.header_decrypt(buf, 32, buf);
-			SPDLOG_INFO("Recv Header: {}", spdlog::to_hex(buf, buf + 32));
+			SPDLOG_DEBUG("Recv Header: {}", spdlog::to_hex(buf, buf + 32));
 
 			if(is_verified) {
 				length = bytes_remaining = ((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | (uint32_t)buf[2];
@@ -187,7 +187,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 			}
 		} else if(state == State::RecvFrameWait) {
 			bool is_verified = crypto.frame_decrypt(buf, buf_size, buf);
-			SPDLOG_INFO("Recv Frame: {} bytes: {}", length, spdlog::to_hex(buf, buf + buf_size));
+			SPDLOG_DEBUG("Recv Frame: {} bytes: {}", length, spdlog::to_hex(buf, buf + buf_size));
 
 			if(is_verified) {
 				size_t ulen = 0;
@@ -199,7 +199,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 
 				net::Buffer message((char *)ubuf, ulen + 1);
 
-				SPDLOG_INFO("Message: {} bytes: {}", ulen, spdlog::to_hex(ubuf, ubuf + ulen + 1));
+				SPDLOG_DEBUG("Message: {} bytes: {}", ulen, spdlog::to_hex(ubuf, ubuf + ulen + 1));
 
 				if(message.data()[0] == 0x02) { // p2p Ping
 					auto pong = RlpItem::from_list({});
