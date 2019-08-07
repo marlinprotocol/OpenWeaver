@@ -42,6 +42,8 @@ struct Delegate {
 		transport.send(std::move(buf));
 	}
 
+	void did_close(TransportType &) {}
+
 	bool should_accept(SocketAddress const &) {
 		return true;
 	}

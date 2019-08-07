@@ -18,7 +18,7 @@ namespace marlin {
 namespace stream {
 
 #define DEFAULT_TLP_INTERVAL 1000
-#define DEFAULT_PACING_LIMIT 50000
+#define DEFAULT_PACING_LIMIT 20000
 #define DEFAULT_FRAGMENT_SIZE 1400
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -203,7 +203,11 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 
 	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
 		transport.state_timer_interval = 0;
-		SPDLOG_ERROR("Stream protocol: Dial timeout: {}", transport.dst_addr.to_string());
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Dial timeout",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string()
+		);
 		return;
 	}
 
@@ -332,8 +336,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 		}
 
 		auto &sent_packet = iter->second;
-		if(bytes_in_flight > congestion_window - sent_packet.length)
+		if(bytes_in_flight > congestion_window - sent_packet.length) {
 			return -2;
+		}
 
 		send_data_packet(
 			*sent_packet.stream,
@@ -466,7 +471,12 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > transport.congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR("Stream protocol: Timer congestion event: {}", transport.congestion_window);
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				transport.congestion_window
+			);
 			transport.congestion_start = uv_now(uv_default_loop());
 
 			if(transport.congestion_window < transport.w_max) {
@@ -495,10 +505,14 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 	transport.send_pending_data();
 
 	// Next timer interval
-	// TODO: Abort on retrying too many times
-	if(transport.tlp_interval < 25000)
+	if(transport.tlp_interval < 25000) {
 		transport.tlp_interval *= 2;
-	uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
+		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
+	} else {
+		// Abort on too many retries
+		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
+		transport.close();
+	}
 }
 
 //---------------- TLP functions end ----------------//
@@ -537,7 +551,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	if(conn_state == ConnectionState::Listen) {
 		if(packet.read_uint32_be(6) != 0) { // Should have empty source
 			SPDLOG_ERROR(
-				"Stream protocol: DIAL: Should have empty src: {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				packet.read_uint32_be(6)
 			);
 			return;
@@ -552,7 +568,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	} else if(conn_state == ConnectionState::DialSent) {
 		if(packet.read_uint32_be(6) != 0) { // Should have empty source
 			SPDLOG_ERROR(
-				"Stream protocol: DIAL: Should have empty src: {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				packet.read_uint32_be(6)
 			);
 			return;
@@ -601,7 +619,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
 			SPDLOG_ERROR(
-				"Stream protocol: DIALCONF: Src id mismatch: {}, {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Src id mismatch: {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				src_conn_id,
 				this->src_conn_id
 			);
@@ -629,7 +649,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
 			SPDLOG_ERROR(
-				"Stream protocol: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
@@ -654,7 +676,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
-				"Stream protocol: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
@@ -667,6 +691,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		send_CONF();
 	} else {
 		// Shouldn't receive DIALCONF in other states, unrecoverable
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
+			src_addr.to_string(),
+			dst_addr.to_string()
+		);
 		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
 	}
 }
@@ -689,15 +718,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			send_RST(src_conn_id, dst_conn_id);
-
 			SPDLOG_ERROR(
-				"Stream protocol: CONF: Connection id mismatch: {}, {}, {}, {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
 				this->dst_conn_id
 			);
+			send_RST(src_conn_id, dst_conn_id);
+
 			return;
 		}
 
@@ -710,19 +741,26 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			send_RST(src_conn_id, dst_conn_id);
-
 			SPDLOG_ERROR(
-				"Stream protocol: CONF: Connection id mismatch: {}, {}, {}, {}",
+				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
 				src_conn_id,
 				this->src_conn_id,
 				dst_conn_id,
 				this->dst_conn_id
 			);
+			send_RST(src_conn_id, dst_conn_id);
+
 			return;
 		}
 	} else {
 		// Shouldn't receive CONF in other states, unrecoverable
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
+			src_addr.to_string(),
+			dst_addr.to_string()
+		);
 		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
 	}
 }
@@ -748,7 +786,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	auto dst_conn_id = packet.read_uint32_be(2);
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
 		SPDLOG_ERROR(
-			"Stream protocol: RST: {}",
+			"Stream transport {{ Src: {}, Dst: {} }}: RST",
+			src_addr.to_string(),
 			dst_addr.to_string()
 		);
 		reset();
@@ -1095,7 +1134,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR("Stream protocol: Congestion event: {}", congestion_window);
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				congestion_window
+			);
 			congestion_start = now;
 
 			if(congestion_window < w_max) {
@@ -1253,8 +1297,10 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	}
 
 	// Abort if data queue is too big
-	if(stream.queue_offset - stream.acked_offset > 20000000)
+	if(stream.queue_offset - stream.acked_offset > 20000000) {
+		SPDLOG_ERROR("Data queue overflow");
 		return -1;
+	}
 
 	auto size = bytes.size();
 
@@ -1286,8 +1332,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
 	reset();
-	transport_manager.erase(dst_addr);
 	transport.close();
+	delegate->did_close(*this);
+	transport_manager.erase(dst_addr);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>

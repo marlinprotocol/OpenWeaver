@@ -12,6 +12,7 @@ struct TransportDelegate {
 	std::function<void(StreamTransport<TransportDelegate, UdpTransport> &, Buffer &&)> did_recv_bytes;
 	std::function<void(StreamTransport<TransportDelegate, UdpTransport> &, Buffer &&)> did_send_bytes;
 	std::function<void(StreamTransport<TransportDelegate, UdpTransport> &)> did_dial;
+	std::function<void(StreamTransport<TransportDelegate, UdpTransport> &)> did_close;
 };
 
 struct ListenDelegate {
