@@ -148,6 +148,7 @@ public:
 	void close();
 
 	bool is_active();
+	double get_rtt();
 };
 
 
@@ -1344,6 +1345,11 @@ bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 	}
 
 	return false;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
+	return rtt;
 }
 
 } // namespace stream
