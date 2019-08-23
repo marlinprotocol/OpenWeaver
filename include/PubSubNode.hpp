@@ -31,6 +31,11 @@ namespace std {
 namespace marlin {
 namespace pubsub {
 
+#define DefaultMaxSubscriptions 0
+#define DefaultMsgIDTimerInterval 10000
+#define DefaultPeerSelectTimerInterval 10000
+
+
 struct ReadBuffer {
 	std::list<net::Buffer> message_buffer;
 	uint64_t message_length = 0;
@@ -87,6 +92,10 @@ private:
 		const char *data,
 		uint64_t size
 	);
+
+	void ManageSubscribers();
+	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
+
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -129,6 +138,26 @@ private:
 		std::unordered_set<BaseTransport *>
 	> channel_subscriptions;
 
+	std::unordered_map<
+		std::string,
+		std::unordered_set<BaseTransport *>
+	> potential_channel_subscriptions;
+
+	// typedef std::std::vector<BaseTransport*> TransportVector;
+
+	// auto transport_rtt_comp =
+ //        [](const BaseTransport * T1, const BaseTransport * T2) 
+ //        { return T1.rtt < T2.rtt; };
+
+	// typedef std::priority_queue<BaseTransport *, TransportVector, transport_rtt_comp> PQueueTransport;
+
+	// std::unordered_map<
+	// 	std::string,
+	// 	PQueueTransport
+	// > channel_subscriptions;
+
+
+
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
 
@@ -139,7 +168,7 @@ private:
 
 	uv_timer_t message_id_timer;
 
-	static void timer_cb(uv_timer_t *handle) {
+	static void message_id_timer_cb(uv_timer_t *handle) {
 		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
 		// Overflow behaviour desirable
@@ -152,6 +181,14 @@ private:
 		) {
 			node.message_id_set.erase(*iter);
 		}
+	}
+
+	uv_timer_t peer_selection_timer;
+
+	static void peer_selection_timer_cb(uv_timer_t *handle) {
+		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
+
+		node.ManageSubscribers();
 	}
 };
 
@@ -167,7 +204,7 @@ void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	channel_subscriptions[channel].insert(&transport);
+	add_subscriber_to_channel(channel, transport);
 
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
@@ -176,7 +213,7 @@ void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 	);
 
 	// Send response
-	send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	// send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
 }
 
 template<typename PubSubDelegate>
@@ -387,6 +424,44 @@ void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
 	}
 }
 
+/* TODO:
+	ensure that the churn rate is not too high
+	provide it as an abstract interface
+	send dummy packet to estimate rtt
+	Put maxSubsriptions in a config
+*/
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::ManageSubscribers() {
+
+	SPDLOG_DEBUG("Managing peers");
+
+	std::for_each(
+		delegate->channels.begin(),
+		delegate->channels.end(),
+		[&] (std::string const channel) {
+
+			// move some of the subscribers to potential subscribers if oversubscribed
+			if (channel_subscriptions[channel].size() > DefaultMaxSubscriptions) {
+				// insert churn algorithm here
+				// send message to removed and added peers
+			}
+
+			for (auto* pot_transport : potential_channel_subscriptions[channel]) {
+				// add condition to check if rtt is too old, ideally this should be job transport manager?
+				// send dummy packet to estimate new rtt
+				SPDLOG_DEBUG("Channel: {} rtt: {}", channel, pot_transport->get_rtt());
+				if (pot_transport->get_rtt() == -1) {
+					char *message = new char[3] {'R','T','T'};
+					net::Buffer m(message, 3);
+
+					pot_transport->send(std::move(m));
+				}
+			}
+		}
+	);
+} 
+
+
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::send_MESSAGE(
 	BaseTransport &transport,
@@ -517,13 +592,18 @@ PubSubNode<PubSubDelegate>::PubSubNode(
 
 	uv_timer_init(uv_default_loop(), &message_id_timer);
 	this->message_id_timer.data = (void *)this;
-	uv_timer_start(&message_id_timer, &timer_cb, 10000, 10000);
+	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
+
+	uv_timer_init(uv_default_loop(), &peer_selection_timer);
+	this->peer_selection_timer.data = (void *)this;
+	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 }
 
 template<typename PubSubDelegate>
 int PubSubNode<PubSubDelegate>::dial(net::SocketAddress const &addr) {
 	return f.dial(addr, *this);
 }
+
 
 
 template<typename PubSubDelegate>
@@ -615,9 +695,29 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			channel_subscriptions[channel].insert(transport);
+			add_subscriber_to_channel(channel, transport);
 		}
 	);
+}
+
+/* TODO:
+1. check if the element is already present in either of the sets before inserting
+2. logging
+3. send response
+*/
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
+		SPDLOG_DEBUG("Adding subscriber to potential list");
+		potential_channel_subscriptions[channel].insert(&transport);
+	}
+	else {
+		SPDLOG_DEBUG("Adding subscriber to main list");
+		channel_subscriptions[channel].insert(&transport);
+	}
 }
 
 } // namespace pubsub
