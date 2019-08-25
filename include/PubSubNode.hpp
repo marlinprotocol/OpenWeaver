@@ -35,7 +35,6 @@ namespace pubsub {
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 10000
 
-
 struct ReadBuffer {
 	std::list<net::Buffer> message_buffer;
 	uint64_t message_length = 0;
@@ -46,7 +45,7 @@ struct ReadBuffer {
 
 template<typename PubSubDelegate>
 class PubSubNode {
-private:
+protected:
 	typedef stream::StreamTransportFactory<
 		PubSubNode<PubSubDelegate>,
 		PubSubNode<PubSubDelegate>,
@@ -93,7 +92,7 @@ private:
 		uint64_t size
 	);
 
-	void ManageSubscribers();
+	virtual void ManageSubscribers() {};
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
 
 public:
@@ -132,7 +131,7 @@ public:
 
 	void add_subscriber(net::SocketAddress const &addr);
 
-private:
+protected:
 	std::unordered_map<
 		std::string,
 		std::unordered_set<BaseTransport *>
@@ -423,44 +422,6 @@ void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
 		read_buffer.channel.clear();
 	}
 }
-
-/* TODO:
-	ensure that the churn rate is not too high
-	provide it as an abstract interface
-	send dummy packet to estimate rtt
-	Put maxSubsriptions in a config
-*/
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::ManageSubscribers() {
-
-	SPDLOG_DEBUG("Managing peers");
-
-	std::for_each(
-		delegate->channels.begin(),
-		delegate->channels.end(),
-		[&] (std::string const channel) {
-
-			// move some of the subscribers to potential subscribers if oversubscribed
-			if (channel_subscriptions[channel].size() > DefaultMaxSubscriptions) {
-				// insert churn algorithm here
-				// send message to removed and added peers
-			}
-
-			for (auto* pot_transport : potential_channel_subscriptions[channel]) {
-				// add condition to check if rtt is too old, ideally this should be job transport manager?
-				// send dummy packet to estimate new rtt
-				SPDLOG_DEBUG("Channel: {} rtt: {}", channel, pot_transport->get_rtt());
-				if (pot_transport->get_rtt() == -1) {
-					char *message = new char[3] {'R','T','T'};
-					net::Buffer m(message, 3);
-
-					pot_transport->send(std::move(m));
-				}
-			}
-		}
-	);
-} 
-
 
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::send_MESSAGE(
