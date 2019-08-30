@@ -643,7 +643,7 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			add_subscriber_to_channel(channel, transport);
+			add_subscriber_to_channel(channel, *transport);
 		}
 	);
 }
