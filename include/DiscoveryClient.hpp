@@ -147,7 +147,6 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
-	// TODO - Handle overflow
 	for(
 		uint16_t i = 2;
 		i + 7 < packet.size();
@@ -226,6 +225,14 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 			60000,
 			60000
 		);
+		if(is_discoverable) {
+			uv_timer_start(
+				&heartbeat_timer,
+				&heartbeat_timer_cb,
+				10000,
+				10000
+			);
+		}
 	} else {
 		send_DISCPROTO(transport);
 	}
@@ -299,13 +306,6 @@ DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 
 	uv_timer_init(uv_default_loop(), &heartbeat_timer);
 	heartbeat_timer.data = this;
-
-	uv_timer_start(
-		&heartbeat_timer,
-		&heartbeat_timer_cb,
-		10000,
-		10000
-	);
 }
 
 template<typename DiscoveryClientDelegate>
