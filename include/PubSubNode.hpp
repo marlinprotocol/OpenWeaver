@@ -31,7 +31,7 @@ namespace std {
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 0
+#define DefaultMaxSubscriptions 10
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 10000
 
@@ -45,6 +45,7 @@ struct ReadBuffer {
 
 template<typename PubSubDelegate>
 class PubSubNode {
+
 protected:
 	typedef stream::StreamTransportFactory<
 		PubSubNode<PubSubDelegate>,
@@ -56,6 +57,13 @@ protected:
 		PubSubNode<PubSubDelegate>,
 		net::UdpTransport
 	> BaseTransport;
+
+	typedef std::unordered_set<BaseTransport *> TransportSet;
+	typedef std::unordered_map< std::string, TransportSet> TransportSetMap;
+
+	TransportSetMap channel_subscriptions;
+	TransportSetMap potential_channel_subscriptions;
+
 
 	// typedef net::TcpTransportFactory<
 	// 	PubSubNode<PubSubDelegate>,
@@ -92,8 +100,11 @@ protected:
 		uint64_t size
 	);
 
-	virtual void ManageSubscribers() {};
+	virtual void manage_subscribers() {};
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
+
+	BaseTransport* find_min_rtt_transport(TransportSet& transport_set);
+	BaseTransport* find_max_rtt_transport(TransportSet& transport_set);
 
 public:
 	// Listen delegate
@@ -132,30 +143,6 @@ public:
 	void add_subscriber(net::SocketAddress const &addr);
 
 protected:
-	std::unordered_map<
-		std::string,
-		std::unordered_set<BaseTransport *>
-	> channel_subscriptions;
-
-	std::unordered_map<
-		std::string,
-		std::unordered_set<BaseTransport *>
-	> potential_channel_subscriptions;
-
-	// typedef std::std::vector<BaseTransport*> TransportVector;
-
-	// auto transport_rtt_comp =
- //        [](const BaseTransport * T1, const BaseTransport * T2) 
- //        { return T1.rtt < T2.rtt; };
-
-	// typedef std::priority_queue<BaseTransport *, TransportVector, transport_rtt_comp> PQueueTransport;
-
-	// std::unordered_map<
-	// 	std::string,
-	// 	PQueueTransport
-	// > channel_subscriptions;
-
-
 
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
@@ -187,7 +174,7 @@ protected:
 	static void peer_selection_timer_cb(uv_timer_t *handle) {
 		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
-		node.ManageSubscribers();
+		node.manage_subscribers();
 	}
 };
 
@@ -659,6 +646,32 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 			add_subscriber_to_channel(channel, transport);
 		}
 	);
+}
+
+template<typename PubSubDelegate>
+typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_min_rtt_transport(TransportSet& transport_set) {
+	BaseTransport* to_return;
+	for (auto* temp_transport : transport_set) {
+		if (temp_transport->get_rtt() == -1) continue;
+		if (to_return == NULL || temp_transport->get_rtt() < to_return->get_rtt()) {
+			to_return = temp_transport;
+		}	
+	}
+
+	return to_return;
+}
+
+template<typename PubSubDelegate>
+typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_max_rtt_transport(TransportSet& transport_set) {
+	BaseTransport* to_return;
+	for (auto* temp_transport : transport_set) {
+		if (temp_transport->get_rtt() == -1) continue;
+		if (to_return == NULL || temp_transport->get_rtt() > to_return->get_rtt()) {
+			to_return = temp_transport;
+		}	
+	}
+
+	return to_return;
 }
 
 /* TODO:
