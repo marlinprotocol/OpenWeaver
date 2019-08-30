@@ -55,7 +55,7 @@ public:
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
 	) {
-		SPDLOG_DEBUG(
+		SPDLOG_INFO(
 			"Received message {} on channel {}",
 			message_id,
 			channel
