@@ -2,6 +2,7 @@
 #define MARLIN_ONRAMP_ETH_ONRAMP_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/OnRampPubSub.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 #include <cryptopp/blake2.h>
@@ -17,7 +18,7 @@ using namespace marlin::rlpx;
 class OnRamp {
 public:
 	marlin::beacon::DiscoveryClient<OnRamp> *b;
-	marlin::pubsub::PubSubNode<OnRamp> *ps;
+	marlin::pubsub::OnRampPubSub<OnRamp> *ps;
 	marlin::rlpx::RlpxTransport<OnRamp> *rlpxt;
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
