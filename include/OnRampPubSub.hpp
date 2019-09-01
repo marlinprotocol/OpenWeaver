@@ -32,25 +32,32 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 			typename PubSubNode<PubSubDelegate>::TransportSet& temp_transport_set = this->channel_subscriptions[channel];
 			typename PubSubNode<PubSubDelegate>::TransportSet& temp_potential_transport_set = this->channel_subscriptions[channel];
 
-			typename PubSubNode<PubSubDelegate>::BaseTransport* ToReplaceTransport;
-			typename PubSubNode<PubSubDelegate>::BaseTransport* ToReplaceWithTransport;
-
 			// move some of the subscribers to potential subscribers if oversubscribed
 			if (temp_transport_set.size() > DefaultMaxSubscriptions) {
 				// insert churn algorithm here
 				// send message to removed and added peers
 
-				ToReplaceTransport = this->find_min_rtt_transport(temp_transport_set);
-				ToReplaceWithTransport = this->find_max_rtt_transport(temp_potential_transport_set);
+				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_min_rtt_transport(temp_transport_set);
+				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_max_rtt_transport(temp_potential_transport_set);
 
-				if (ToReplaceTransport != NULL &&
-					ToReplaceWithTransport != NULL &&
-					ToReplaceTransport->get_rtt() > ToReplaceWithTransport->get_rtt()) {
+				if (toReplaceTransport != NULL &&
+					toReplaceWithTransport != NULL &&
+					toReplaceTransport->get_rtt() > toReplaceWithTransport->get_rtt()) {
 
-					temp_transport_set.erase(ToReplaceTransport);
-					temp_transport_set.insert(ToReplaceWithTransport);
-					temp_potential_transport_set.erase(ToReplaceWithTransport);
-					temp_potential_transport_set.insert(ToReplaceTransport);
+					SPDLOG_DEBUG("Moving address: {} from potential subscribers to subscribers list on channel: {} ",
+						toReplaceWithTransport->dst_addr.to_string(),
+						channel);
+
+					temp_potential_transport_set.erase(toReplaceWithTransport);
+					temp_transport_set.insert(toReplaceWithTransport);
+
+
+					SPDLOG_DEBUG("Moving address: {} from subscribers to potential subscribers list on channel: {} ",
+						toReplaceTransport->dst_addr.to_string(),
+						channel);
+
+					temp_transport_set.erase(toReplaceTransport);
+					temp_potential_transport_set.insert(toReplaceTransport);
 				}
 			}
 

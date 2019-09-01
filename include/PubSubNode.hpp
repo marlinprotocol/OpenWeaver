@@ -31,7 +31,7 @@ namespace std {
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 10
+#define DefaultMaxSubscriptions 5
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 10000
 
@@ -160,7 +160,7 @@ protected:
 		// Overflow behaviour desirable
 		node.message_id_idx++;
 
-		for(
+		for (
 			auto iter = node.message_id_events[node.message_id_idx].begin();
 			iter != node.message_id_events[node.message_id_idx].end();
 			iter = node.message_id_events[node.message_id_idx].erase(iter)
@@ -685,11 +685,15 @@ void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 	BaseTransport &transport) {
 
 	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
-		SPDLOG_DEBUG("Adding subscriber to potential list");
+		SPDLOG_DEBUG("Adding address: {} to potential subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
 		potential_channel_subscriptions[channel].insert(&transport);
 	}
 	else {
-		SPDLOG_DEBUG("Adding subscriber to main list");
+		SPDLOG_DEBUG("Adding address: {} to subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
 		channel_subscriptions[channel].insert(&transport);
 	}
 }
