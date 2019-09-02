@@ -28,7 +28,6 @@ target_include_directories(stream
 
 find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
 	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-
 target_link_libraries(stream INTERFACE Marlin::net)
 
 find_package(spdlog REQUIRED)
