@@ -22,7 +22,7 @@ protected:
 template<typename PubSubDelegate>
 void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 
-	SPDLOG_DEBUG("Managing peers");
+	SPDLOG_INFO("Managing peers");
 
 	std::for_each(
 		this->delegate->channels.begin(),
@@ -34,7 +34,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 
 			// move some of the subscribers to potential subscribers if oversubscribed
 			if (temp_transport_set.size() > DefaultMaxSubscriptions) {
-				// insert churn algorithm here
+				// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
 				// send message to removed and added peers
 
 				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_min_rtt_transport(temp_transport_set);
@@ -44,7 +44,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 					toReplaceWithTransport != NULL &&
 					toReplaceTransport->get_rtt() > toReplaceWithTransport->get_rtt()) {
 
-					SPDLOG_DEBUG("Moving address: {} from potential subscribers to subscribers list on channel: {} ",
+					SPDLOG_INFO("Moving address: {} from potential subscribers to subscribers list on channel: {} ",
 						toReplaceWithTransport->dst_addr.to_string(),
 						channel);
 
@@ -52,7 +52,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 					temp_transport_set.insert(toReplaceWithTransport);
 
 
-					SPDLOG_DEBUG("Moving address: {} from subscribers to potential subscribers list on channel: {} ",
+					SPDLOG_INFO("Moving address: {} from subscribers to potential subscribers list on channel: {} ",
 						toReplaceTransport->dst_addr.to_string(),
 						channel);
 
@@ -62,15 +62,11 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 			}
 
 			for (auto* pot_transport : temp_potential_transport_set) {
-				// add condition to check if rtt is too old, ideally this should be job transport manager?
-				// send dummy packet to estimate new rtt
-				SPDLOG_DEBUG("Channel: {} rtt: {}", channel, pot_transport->get_rtt());
-				if (pot_transport->get_rtt() == -1) {
-					char *message = new char[3] {'R','T','T'};
-					net::Buffer m(message, 3);
+				SPDLOG_INFO("Potential Subscriber: {}  rtt: {} on channel {}", pot_transport->dst_addr.to_string(), pot_transport->get_rtt(), channel);
+			}
 
-					pot_transport->send(std::move(m));
-				}
+			for (auto* transport : temp_transport_set) {
+				SPDLOG_INFO("Subscriber: {}  rtt: {} on channel {}", transport->dst_addr.to_string(),  transport->get_rtt(), channel);
 			}
 		}
 	);
