@@ -17,7 +17,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 add_library(net STATIC
 	src/CidrBlock.cpp
 	src/Buffer.cpp
-	src/Socket.cpp
 	src/SocketAddress.cpp
 )
 
@@ -77,7 +76,6 @@ set(TEST_SOURCES
 	test/testBuffer.cpp
 	test/testEndian.cpp
 	test/testSocketAddress.cpp
-	test/testSocket.cpp
 	test/testUdp.cpp
 )
 
