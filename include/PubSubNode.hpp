@@ -676,7 +676,7 @@ typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::
 
 /* TODO:
 1. check if the element is already present in either of the sets before inserting
-2. logging
+2. correct logging
 3. send response
 */
 template<typename PubSubDelegate>
