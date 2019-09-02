@@ -653,11 +653,11 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 // Pick the ones with rtt's -1 too to give them a chance
 template<typename PubSubDelegate>
 typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_min_rtt_transport(TransportSet& transport_set) {
-	BaseTransport* to_return;
+	BaseTransport* to_return = nullptr;
 	for (auto* temp_transport : transport_set) {
 		if (temp_transport->get_rtt() == -1)
 			return temp_transport;
-		if (to_return == NULL || temp_transport->get_rtt() < to_return->get_rtt()) {
+		if (to_return == nullptr || temp_transport->get_rtt() < to_return->get_rtt()) {
 			to_return = temp_transport;
 		}	
 	}
@@ -667,10 +667,10 @@ typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::
 
 template<typename PubSubDelegate>
 typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_max_rtt_transport(TransportSet& transport_set) {
-	BaseTransport* to_return;
+	BaseTransport* to_return = nullptr;
 	for (auto* temp_transport : transport_set) {
 		if (temp_transport->get_rtt() == -1) continue;
-		if (to_return == NULL || temp_transport->get_rtt() > to_return->get_rtt()) {
+		if (to_return == nullptr || temp_transport->get_rtt() > to_return->get_rtt()) {
 			to_return = temp_transport;
 		}	
 	}

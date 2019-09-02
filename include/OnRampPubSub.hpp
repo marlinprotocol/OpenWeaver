@@ -40,9 +40,8 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_min_rtt_transport(temp_transport_set);
 				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_max_rtt_transport(temp_potential_transport_set);
 
-				if (toReplaceTransport != NULL &&
-					toReplaceWithTransport != NULL &&
-					toReplaceTransport->get_rtt() > toReplaceWithTransport->get_rtt()) {
+				if (toReplaceTransport != nullptr &&
+					toReplaceWithTransport != nullptr) {
 
 					SPDLOG_INFO("Moving address: {} from potential subscribers to subscribers list on channel: {} ",
 						toReplaceWithTransport->dst_addr.to_string(),
