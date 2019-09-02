@@ -229,7 +229,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 			uv_timer_start(
 				&heartbeat_timer,
 				&heartbeat_timer_cb,
-				10000,
+				0,
 				10000
 			);
 		}

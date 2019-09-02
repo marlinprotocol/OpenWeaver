@@ -24,7 +24,7 @@ public:
 };
 
 int main() {
-	auto baddr = net::SocketAddress::from_string("0.0.0.0:8002");
+	auto baddr = net::SocketAddress::from_string("127.0.0.1:8002");
 	auto caddr1 = net::SocketAddress::from_string("127.0.0.1:8000");
 	auto caddr2 = net::SocketAddress::from_string("127.0.0.1:8001");
 
