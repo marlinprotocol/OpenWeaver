@@ -1,6 +1,5 @@
 #include "Buffer.hpp"
 #include "Endian.hpp"
-#include <arpa/inet.h>
 #include <cstring>
 
 namespace marlin {
@@ -44,8 +43,13 @@ bool Buffer::cover(size_t const num) {
 	if (num > capacity - start_index) // Condition specifically avoids overflow
 		return false;
 
-	start_index += num;
+	cover_unsafe(num);
+
 	return true;
+}
+
+void Buffer::cover_unsafe(size_t const num) {
+	start_index += num;
 }
 
 bool Buffer::uncover(size_t const num) {
@@ -53,8 +57,38 @@ bool Buffer::uncover(size_t const num) {
 	if (start_index < num)
 		return false;
 
-	start_index -= num;
+	uncover_unsafe(num);
+
 	return true;
+}
+
+void Buffer::uncover_unsafe(size_t const num) {
+	start_index -= num;
+}
+
+uint8_t Buffer::read_uint8_unsafe(size_t const pos) const {
+	return data()[pos];
+}
+
+uint16_t Buffer::read_uint16_unsafe(size_t const pos) const {
+	uint16_t res;
+	std::memcpy(&res, data()+pos, 2);
+
+	return res;
+}
+
+uint32_t Buffer::read_uint32_unsafe(size_t const pos) const {
+	uint32_t res;
+	std::memcpy(&res, data()+pos, 4);
+
+	return res;
+}
+
+uint64_t Buffer::read_uint64_unsafe(size_t const pos) const {
+	uint64_t res;
+	std::memcpy(&res, data()+pos, 8);
+
+	return res;
 }
 
 uint8_t Buffer::read_uint8(size_t const pos) const {
@@ -62,7 +96,7 @@ uint8_t Buffer::read_uint8(size_t const pos) const {
 	if(size() < 1 || size() - 1 < pos)
 		return -1;
 
-	return data()[pos];
+	return read_uint8_unsafe(pos);
 }
 
 uint16_t Buffer::read_uint16(size_t const pos) const {
@@ -70,10 +104,7 @@ uint16_t Buffer::read_uint16(size_t const pos) const {
 	if(size() < 2 || size() - 2 < pos)
 		return -1;
 
-	uint16_t res;
-	std::memcpy(&res, data()+pos, 2);
-
-	return res;
+	return read_uint16_unsafe(pos);
 }
 
 uint32_t Buffer::read_uint32(size_t const pos) const {
@@ -81,10 +112,7 @@ uint32_t Buffer::read_uint32(size_t const pos) const {
 	if(size() < 4 || size() - 4 < pos)
 		return -1;
 
-	uint32_t res;
-	std::memcpy(&res, data()+pos, 4);
-
-	return res;
+	return read_uint32_unsafe(pos);
 }
 
 uint64_t Buffer::read_uint64(size_t const pos) const {
@@ -92,10 +120,23 @@ uint64_t Buffer::read_uint64(size_t const pos) const {
 	if(size() < 8 || size() - 8 < pos)
 		return -1;
 
-	uint64_t res;
-	std::memcpy(&res, data()+pos, 8);
+	return read_uint64_unsafe(pos);
+}
 
-	return res;
+void Buffer::write_uint8_unsafe(size_t const pos, uint8_t const num) {
+	data()[pos] = num;
+}
+
+void Buffer::write_uint16_unsafe(size_t const pos, uint16_t const num) {
+	std::memcpy(data()+pos, &num, 2);
+}
+
+void Buffer::write_uint32_unsafe(size_t const pos, uint32_t const num) {
+	std::memcpy(data()+pos, &num, 4);
+}
+
+void Buffer::write_uint64_unsafe(size_t const pos, uint64_t const num) {
+	std::memcpy(data()+pos, &num, 8);
 }
 
 bool Buffer::write_uint8(size_t const pos, uint8_t const num) {
@@ -103,7 +144,7 @@ bool Buffer::write_uint8(size_t const pos, uint8_t const num) {
 	if(size() < 1 || size() - 1 < pos)
 		return false;
 
-	data()[pos] = num;
+	write_uint8_unsafe(pos, num);
 
 	return true;
 }
@@ -113,7 +154,7 @@ bool Buffer::write_uint16(size_t const pos, uint16_t const num) {
 	if(size() < 2 || size() - 2 < pos)
 		return false;
 
-	std::memcpy(data()+pos, &num, 2);
+	write_uint16_unsafe(pos, num);
 
 	return true;
 }
@@ -123,7 +164,7 @@ bool Buffer::write_uint32(size_t const pos, uint32_t const num) {
 	if(size() < 4 || size() - 4 < pos)
 		return false;
 
-	std::memcpy(data()+pos, &num, 4);
+	write_uint32_unsafe(pos, num);
 
 	return true;
 }
@@ -133,27 +174,35 @@ bool Buffer::write_uint64(size_t const pos, uint64_t const num) {
 	if(size() < 8 || size() - 8 < pos)
 		return false;
 
-	std::memcpy(data()+pos, &num, 8);
+	write_uint64_unsafe(pos, num);
 
 	return true;
 }
 
 #if MARLIN_NET_ENDIANNESS == MARLIN_NET_BIG_ENDIAN
-#ifdef __linux__
-#define htonll(x) (x)
-#define ntohll(x) (x)
-#endif
 
 uint16_t Buffer::read_uint16_le(size_t const pos) const {
-	return htons(read_uint16(pos));
+	return __builtin_bswap16(read_uint16(pos));
 }
 
 uint32_t Buffer::read_uint32_le(size_t const pos) const {
-	return htonl(read_uint32(pos));
+	return __builtin_bswap32(read_uint32(pos));
 }
 
 uint64_t Buffer::read_uint64_le(size_t const pos) const {
-	return htonll(read_uint64(pos));
+	return __builtin_bswap64(read_uint64(pos));
+}
+
+uint16_t Buffer::read_uint16_le_unsafe(size_t const pos) const {
+	return __builtin_bswap16(read_uint16_unsafe(pos));
+}
+
+uint32_t Buffer::read_uint32_le_unsafe(size_t const pos) const {
+	return __builtin_bswap32(read_uint32_unsafe(pos));
+}
+
+uint64_t Buffer::read_uint64_le_unsafe(size_t const pos) const {
+	return __builtin_bswap64(read_uint64_unsafe(pos));
 }
 
 uint16_t Buffer::read_uint16_be(size_t const pos) const {
@@ -168,16 +217,40 @@ uint64_t Buffer::read_uint64_be(size_t const pos) const {
 	return read_uint64(pos);
 }
 
+uint16_t Buffer::read_uint16_be_unsafe(size_t const pos) const {
+	return read_uint16_unsafe(pos);
+}
+
+uint32_t Buffer::read_uint32_be_unsafe(size_t const pos) const {
+	return read_uint32_unsafe(pos);
+}
+
+uint64_t Buffer::read_uint64_be_unsafe(size_t const pos) const {
+	return read_uint64_unsafe(pos);
+}
+
 bool Buffer::write_uint16_le(size_t const pos, uint16_t const num) {
-	return write_uint16(pos, htons(num));
+	return write_uint16(pos, __builtin_bswap16(num));
 }
 
 bool Buffer::write_uint32_le(size_t const pos, uint32_t const num) {
-	return write_uint32(pos, htonl(num));
+	return write_uint32(pos, __builtin_bswap32(num));
 }
 
 bool Buffer::write_uint64_le(size_t const pos, uint64_t const num) {
-	return write_uint64(pos, htonll(num));
+	return write_uint64(pos, __builtin_bswap64(num));
+}
+
+void Buffer::write_uint16_le_unsafe(size_t const pos, uint16_t const num) {
+	return write_uint16_unsafe(pos, __builtin_bswap16(num));
+}
+
+void Buffer::write_uint32_le_unsafe(size_t const pos, uint32_t const num) {
+	return write_uint32_unsafe(pos, __builtin_bswap32(num));
+}
+
+void Buffer::write_uint64_le_unsafe(size_t const pos, uint64_t const num) {
+	return write_uint64_unsafe(pos, __builtin_bswap64(num));
 }
 
 bool Buffer::write_uint16_be(size_t const pos, uint16_t const num) {
@@ -190,24 +263,44 @@ bool Buffer::write_uint32_be(size_t const pos, uint32_t const num) {
 
 bool Buffer::write_uint64_be(size_t const pos, uint64_t const num) {
 	return write_uint64(pos, num);
+}
+
+void Buffer::write_uint16_be_unsafe(size_t const pos, uint16_t const num) {
+	return write_uint16_unsafe(pos, num);
+}
+
+void Buffer::write_uint32_be_unsafe(size_t const pos, uint32_t const num) {
+	return write_uint32_unsafe(pos, num);
+}
+
+void Buffer::write_uint64_be_unsafe(size_t const pos, uint64_t const num) {
+	return write_uint64_unsafe(pos, num);
 }
 
 #elif MARLIN_NET_ENDIANNESS == MARLIN_NET_LITTLE_ENDIAN
-#ifdef __linux__
-#define htonll(x) ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32)
-#define ntohll(x) ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32)
-#endif
 
 uint16_t Buffer::read_uint16_be(size_t const pos) const {
-	return htons(read_uint16(pos));
+	return __builtin_bswap16(read_uint16(pos));
 }
 
 uint32_t Buffer::read_uint32_be(size_t const pos) const {
-	return htonl(read_uint32(pos));
+	return __builtin_bswap32(read_uint32(pos));
 }
 
 uint64_t Buffer::read_uint64_be(size_t const pos) const {
-	return htonll(read_uint64(pos));
+	return __builtin_bswap64(read_uint64(pos));
+}
+
+uint16_t Buffer::read_uint16_be_unsafe(size_t const pos) const {
+	return __builtin_bswap16(read_uint16_unsafe(pos));
+}
+
+uint32_t Buffer::read_uint32_be_unsafe(size_t const pos) const {
+	return __builtin_bswap32(read_uint32_unsafe(pos));
+}
+
+uint64_t Buffer::read_uint64_be_unsafe(size_t const pos) const {
+	return __builtin_bswap64(read_uint64_unsafe(pos));
 }
 
 uint16_t Buffer::read_uint16_le(size_t const pos) const {
@@ -222,16 +315,40 @@ uint64_t Buffer::read_uint64_le(size_t const pos) const {
 	return read_uint64(pos);
 }
 
+uint16_t Buffer::read_uint16_le_unsafe(size_t const pos) const {
+	return read_uint16_unsafe(pos);
+}
+
+uint32_t Buffer::read_uint32_le_unsafe(size_t const pos) const {
+	return read_uint32_unsafe(pos);
+}
+
+uint64_t Buffer::read_uint64_le_unsafe(size_t const pos) const {
+	return read_uint64_unsafe(pos);
+}
+
 bool Buffer::write_uint16_be(size_t const pos, uint16_t const num) {
-	return write_uint16(pos, htons(num));
+	return write_uint16(pos, __builtin_bswap16(num));
 }
 
 bool Buffer::write_uint32_be(size_t const pos, uint32_t const num) {
-	return write_uint32(pos, htonl(num));
+	return write_uint32(pos, __builtin_bswap32(num));
 }
 
 bool Buffer::write_uint64_be(size_t const pos, uint64_t const num) {
-	return write_uint64(pos, htonll(num));
+	return write_uint64(pos, __builtin_bswap64(num));
+}
+
+void Buffer::write_uint16_be_unsafe(size_t const pos, uint16_t const num) {
+	return write_uint16_unsafe(pos, __builtin_bswap16(num));
+}
+
+void Buffer::write_uint32_be_unsafe(size_t const pos, uint32_t const num) {
+	return write_uint32_unsafe(pos, __builtin_bswap32(num));
+}
+
+void Buffer::write_uint64_be_unsafe(size_t const pos, uint64_t const num) {
+	return write_uint64_unsafe(pos, __builtin_bswap64(num));
 }
 
 bool Buffer::write_uint16_le(size_t const pos, uint16_t const num) {
@@ -244,6 +361,18 @@ bool Buffer::write_uint32_le(size_t const pos, uint32_t const num) {
 
 bool Buffer::write_uint64_le(size_t const pos, uint64_t const num) {
 	return write_uint64(pos, num);
+}
+
+void Buffer::write_uint16_le_unsafe(size_t const pos, uint16_t const num) {
+	return write_uint16_unsafe(pos, num);
+}
+
+void Buffer::write_uint32_le_unsafe(size_t const pos, uint32_t const num) {
+	return write_uint32_unsafe(pos, num);
+}
+
+void Buffer::write_uint64_le_unsafe(size_t const pos, uint64_t const num) {
+	return write_uint64_unsafe(pos, num);
 }
 
 #endif
