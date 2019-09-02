@@ -59,42 +59,40 @@ install(FILES
 # Tests
 ##########################################################
 
-# enable_testing()
-# find_package(GTest REQUIRED)
+enable_testing()
+find_package(GTest REQUIRED)
 
-# set(TEST_SOURCES
-# 	test/testPingProtocol.cpp
-# 	test/testDiscoveryProtocol.cpp
-# )
+set(TEST_SOURCES
+)
 
-# foreach(TEST_SOURCE ${TEST_SOURCES})
-# 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-# 	add_executable(${TEST_NAME} ${TEST_SOURCE})
-# 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
-# 	target_include_directories(${TEST_NAME}
-# 		PUBLIC
-# 			${CMAKE_CURRENT_SOURCE_DIR}/include
-# 	)
-# 	add_test(${TEST_NAME} ${TEST_NAME})
-# endforeach(TEST_SOURCE)
+foreach(TEST_SOURCE ${TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
+	target_include_directories(${TEST_NAME}
+		PUBLIC
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+	)
+	add_test(${TEST_NAME} ${TEST_NAME})
+endforeach(TEST_SOURCE)
 
 
 ##########################################################
 # Build examples
 ##########################################################
 
-add_executable(testnode EXCLUDE_FROM_ALL
+add_executable(discovery_example
 	examples/main.cpp
 )
 
-target_include_directories(testnode
+target_include_directories(discovery_example
 	PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
 
-target_link_libraries(testnode PUBLIC beacon)
+target_link_libraries(discovery_example PUBLIC beacon)
 
 add_executable(server
 	examples/server.cpp
