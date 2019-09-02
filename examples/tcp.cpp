@@ -5,21 +5,21 @@
 using namespace marlin::net;
 
 struct Delegate {
-	void did_recv_bytes(TcpTransport<Delegate> &transport, Buffer &&packet) {
+	void did_recv_bytes(TcpTransport<Delegate> &transport, Buffer &&bytes) {
 		SPDLOG_INFO(
-			"Transport {{ Src: {}, Dst: {} }}: Did recv packet: {} bytes",
+			"Transport {{ Src: {}, Dst: {} }}: Did recv bytes: {} bytes",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
-			packet.size()
+			bytes.size()
 		);
 	}
 
-	void did_send_bytes(TcpTransport<Delegate> &transport, Buffer &&packet) {
+	void did_send_bytes(TcpTransport<Delegate> &transport, Buffer &&bytes) {
 		SPDLOG_INFO(
-			"Transport {{ Src: {}, Dst: {} }}: Did send packet: {} bytes",
+			"Transport {{ Src: {}, Dst: {} }}: Did send bytes: {} bytes",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
-			packet.size()
+			bytes.size()
 		);
 		transport.close();
 	}

@@ -35,7 +35,7 @@ private:
 	static void close_cb(uv_handle_t *handle);
 
 	struct SendPayload {
-		Buffer &&packet;
+		Buffer &&bytes;
 		TcpTransport<DelegateType> &transport;
 	};
 public:
@@ -52,8 +52,8 @@ public:
 	);
 
 	void setup(DelegateType *delegate);
-	void did_recv_bytes(Buffer &&packet);
-	int send(Buffer &&packet);
+	void did_recv_bytes(Buffer &&bytes);
+	int send(Buffer &&bytes);
 	void close();
 };
 
@@ -137,8 +137,8 @@ void TcpTransport<DelegateType>::setup(DelegateType *delegate) {
 }
 
 template<typename DelegateType>
-void TcpTransport<DelegateType>::did_recv_bytes(Buffer &&packet) {
-	delegate->did_recv_bytes(*this, std::move(packet));
+void TcpTransport<DelegateType>::did_recv_bytes(Buffer &&bytes) {
+	delegate->did_recv_bytes(*this, std::move(bytes));
 }
 
 template<typename DelegateType>
@@ -157,7 +157,7 @@ void TcpTransport<DelegateType>::send_cb(
 	} else {
 		data->transport.delegate->did_send_bytes(
 			data->transport,
-			std::move(data->packet)
+			std::move(data->bytes)
 		);
 	}
 
@@ -173,12 +173,12 @@ void TcpTransport<DelegateType>::close_cb(uv_handle_t *handle) {
 }
 
 template<typename DelegateType>
-int TcpTransport<DelegateType>::send(Buffer &&packet) {
+int TcpTransport<DelegateType>::send(Buffer &&bytes) {
 	auto *req = new uv_write_t();
-	auto req_data = new SendPayload { std::move(packet), *this };
+	auto req_data = new SendPayload { std::move(bytes), *this };
 	req->data = req_data;
 
-	auto buf = uv_buf_init(req_data->packet.data(), req_data->packet.size());
+	auto buf = uv_buf_init(req_data->bytes.data(), req_data->bytes.size());
 	int res = uv_write(
 		req,
 		(uv_stream_t *)socket,
