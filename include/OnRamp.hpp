@@ -18,7 +18,7 @@ class OnRamp {
 public:
 	marlin::beacon::DiscoveryClient<OnRamp> *b;
 	marlin::pubsub::PubSubNode<OnRamp> *ps;
-	marlin::rlpx::RlpxTransport<OnRamp> *rlpxt;
+	marlin::rlpx::RlpxTransport<OnRamp> *rlpxt = nullptr;
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {};
