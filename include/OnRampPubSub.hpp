@@ -33,12 +33,12 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 			typename PubSubNode<PubSubDelegate>::TransportSet& temp_potential_transport_set = this->potential_channel_subscriptions[channel];
 
 			// move some of the subscribers to potential subscribers if oversubscribed
-			if (temp_transport_set.size() > DefaultMaxSubscriptions) {
+			if (temp_transport_set.size() >= DefaultMaxSubscriptions) {
 				// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
 				// send message to removed and added peers
 
-				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_min_rtt_transport(temp_transport_set);
-				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_max_rtt_transport(temp_potential_transport_set);
+				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_max_rtt_transport(temp_transport_set);
+				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_min_rtt_transport(temp_potential_transport_set);
 
 				if (toReplaceTransport != nullptr &&
 					toReplaceWithTransport != nullptr) {
