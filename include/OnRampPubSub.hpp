@@ -30,7 +30,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 		[&] (std::string const channel) {
 
 			typename PubSubNode<PubSubDelegate>::TransportSet& temp_transport_set = this->channel_subscriptions[channel];
-			typename PubSubNode<PubSubDelegate>::TransportSet& temp_potential_transport_set = this->channel_subscriptions[channel];
+			typename PubSubNode<PubSubDelegate>::TransportSet& temp_potential_transport_set = this->potential_channel_subscriptions[channel];
 
 			// move some of the subscribers to potential subscribers if oversubscribed
 			if (temp_transport_set.size() > DefaultMaxSubscriptions) {
