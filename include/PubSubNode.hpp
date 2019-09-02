@@ -105,6 +105,7 @@ protected:
 
 	BaseTransport* find_min_rtt_transport(TransportSet& transport_set);
 	BaseTransport* find_max_rtt_transport(TransportSet& transport_set);
+	bool check_tranport_in_set(BaseTransport&, TransportSet& transport_set);
 
 public:
 	// Listen delegate
@@ -648,11 +649,14 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 	);
 }
 
+
+// Pick the ones with rtt's -1 too to give them a chance
 template<typename PubSubDelegate>
 typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_min_rtt_transport(TransportSet& transport_set) {
 	BaseTransport* to_return;
 	for (auto* temp_transport : transport_set) {
-		if (temp_transport->get_rtt() == -1) continue;
+		if (temp_transport->get_rtt() == -1)
+			return temp_transport;
 		if (to_return == NULL || temp_transport->get_rtt() < to_return->get_rtt()) {
 			to_return = temp_transport;
 		}	
@@ -674,24 +678,35 @@ typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::
 	return to_return;
 }
 
+template<typename PubSubDelegate>
+bool PubSubNode<PubSubDelegate>::check_tranport_in_set(BaseTransport& base_transport, TransportSet& transport_set) {
+	if (transport_set.find(&base_transport) == transport_set.end()) {
+		return false;
+	}
+
+	return true;
+}
+
 /* TODO:
-1. check if the element is already present in either of the sets before inserting
-2. correct logging
-3. send response
+1. correct logging
+2. send response
 */
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
-		SPDLOG_DEBUG("Adding address: {} to potential subscribers list on channel: {} ",
+	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions &&
+		!check_tranport_in_set(transport, channel_subscriptions[channel])) {
+
+		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
 		potential_channel_subscriptions[channel].insert(&transport);
+
 	}
-	else {
-		SPDLOG_DEBUG("Adding address: {} to subscribers list on channel: {} ",
+	else if (!check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
+		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
 		channel_subscriptions[channel].insert(&transport);
