@@ -22,9 +22,12 @@ target_include_directories(pubsub
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
+find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
+	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
+target_link_libraries(pubsub INTERFACE Marlin::net)
+
 find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
 	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
-
 target_link_libraries(pubsub INTERFACE Marlin::stream)
 
 find_package(spdlog REQUIRED)
