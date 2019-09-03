@@ -33,7 +33,7 @@ namespace pubsub {
 
 #define DefaultMaxSubscriptions 5
 #define DefaultMsgIDTimerInterval 10000
-#define DefaultPeerSelectTimerInterval 10000
+#define DefaultPeerSelectTimerInterval 60000
 
 struct ReadBuffer {
 	std::list<net::Buffer> message_buffer;
@@ -103,6 +103,7 @@ protected:
 	virtual void manage_subscribers() {};
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
 
+	BaseTransport* find_random_rtt_transport(TransportSet& transport_set);
 	BaseTransport* find_min_rtt_transport(TransportSet& transport_set);
 	BaseTransport* find_max_rtt_transport(TransportSet& transport_set);
 	bool check_tranport_in_set(BaseTransport&, TransportSet& transport_set);
@@ -649,6 +650,21 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 	);
 }
 
+// Pick the ones with rtt's -1 too to give them a chance
+template<typename PubSubDelegate>
+typename PubSubNode<PubSubDelegate>::BaseTransport* PubSubNode<PubSubDelegate>::find_random_rtt_transport(TransportSet& transport_set) {
+	
+	BaseTransport* to_return = nullptr;
+	
+	int set_size = transport_set.size();
+
+	if (set_size != 0) {
+		int random_to_return = rand() % set_size;
+		to_return = *(std::next(transport_set.begin(), random_to_return));
+	}
+
+	return to_return;
+}
 
 // Pick the ones with rtt's -1 too to give them a chance
 template<typename PubSubDelegate>
@@ -710,6 +726,8 @@ void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 			transport.dst_addr.to_string(),
 			channel);
 		channel_subscriptions[channel].insert(&transport);
+
+		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
 	}
 }
 
