@@ -38,7 +38,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 				// send message to removed and added peers
 
 				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceTransport = this->find_max_rtt_transport(temp_transport_set);
-				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_min_rtt_transport(temp_potential_transport_set);
+				typename PubSubNode<PubSubDelegate>::BaseTransport* toReplaceWithTransport = this->find_random_rtt_transport(temp_potential_transport_set);
 
 				if (toReplaceTransport != nullptr &&
 					toReplaceWithTransport != nullptr) {
@@ -50,6 +50,7 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 					temp_potential_transport_set.erase(toReplaceWithTransport);
 					temp_transport_set.insert(toReplaceWithTransport);
 
+					PubSubNode<PubSubDelegate>::send_RESPONSE(*toReplaceWithTransport, true, "SUBSCRIBED TO " + channel);
 
 					SPDLOG_INFO("Moving address: {} from subscribers to potential subscribers list on channel: {} ",
 						toReplaceTransport->dst_addr.to_string(),
@@ -57,6 +58,8 @@ void OnRampPubSub<PubSubDelegate>::manage_subscribers() {
 
 					temp_transport_set.erase(toReplaceTransport);
 					temp_potential_transport_set.insert(toReplaceTransport);
+
+					PubSubNode<PubSubDelegate>::send_RESPONSE(*toReplaceTransport, true, "UNSUBSCRIBED FROM " + channel);
 				}
 			}
 
