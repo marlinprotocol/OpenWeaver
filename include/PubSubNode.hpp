@@ -46,7 +46,7 @@ struct ReadBuffer {
 template<typename PubSubDelegate>
 class PubSubNode {
 
-protected:
+public:
 	typedef stream::StreamTransportFactory<
 		PubSubNode<PubSubDelegate>,
 		PubSubNode<PubSubDelegate>,
@@ -64,7 +64,17 @@ protected:
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
 
+	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
+	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
+	void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
+	void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
 
+	BaseTransport* find_random_rtt_transport(TransportSet& transport_set);
+	BaseTransport* find_min_rtt_transport(TransportSet& transport_set);
+	BaseTransport* find_max_rtt_transport(TransportSet& transport_set);
+	bool check_tranport_in_set(BaseTransport&, TransportSet& transport_set);
+
+private:
 	// typedef net::TcpTransportFactory<
 	// 	PubSubNode<PubSubDelegate>,
 	// 	PubSubNode<PubSubDelegate>
@@ -99,14 +109,6 @@ protected:
 		const char *data,
 		uint64_t size
 	);
-
-	virtual void manage_subscribers() {};
-	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
-
-	BaseTransport* find_random_rtt_transport(TransportSet& transport_set);
-	BaseTransport* find_min_rtt_transport(TransportSet& transport_set);
-	BaseTransport* find_max_rtt_transport(TransportSet& transport_set);
-	bool check_tranport_in_set(BaseTransport&, TransportSet& transport_set);
 
 public:
 	// Listen delegate
@@ -144,7 +146,7 @@ public:
 
 	void add_subscriber(net::SocketAddress const &addr);
 
-protected:
+private:
 
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
@@ -176,7 +178,14 @@ protected:
 	static void peer_selection_timer_cb(uv_timer_t *handle) {
 		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
-		node.manage_subscribers();
+		std::for_each(
+			node.delegate->channels.begin(),
+			node.delegate->channels.end(),
+			[&] (std::string const channel) {
+
+				node.delegate->manage_subscribers(channel, node.channel_subscriptions, node.potential_channel_subscriptions);
+			}
+		);
 	}
 };
 
@@ -192,16 +201,13 @@ void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	add_subscriber_to_channel(channel, transport);
-
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
 	);
 
-	// Send response
-	// send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	add_subscriber_to_channel(channel, transport);
 }
 
 template<typename PubSubDelegate>
@@ -232,16 +238,13 @@ void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	channel_subscriptions[channel].erase(&transport);
-
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
 	);
 
-	// Send response
-	send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+	remove_subscriber_from_channel(channel, transport);
 }
 
 template<typename PubSubDelegate>
@@ -703,23 +706,13 @@ bool PubSubNode<PubSubDelegate>::check_tranport_in_set(BaseTransport& base_trans
 	return true;
 }
 
-/* TODO:
-1. correct logging
-2. send response
-*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions &&
-		!check_tranport_in_set(transport, channel_subscriptions[channel])) {
-
-		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
-			transport.dst_addr.to_string(),
-			channel);
-		potential_channel_subscriptions[channel].insert(&transport);
-
+	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {	
+		add_subscriber_to_potential_channel(channel, transport);
 	}
 	else if (!check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
 		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
@@ -728,6 +721,48 @@ void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 		channel_subscriptions[channel].insert(&transport);
 
 		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::add_subscriber_to_potential_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (!check_tranport_in_set(transport, channel_subscriptions[channel])) {
+		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		potential_channel_subscriptions[channel].insert(&transport);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::remove_subscriber_from_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (check_tranport_in_set(transport, channel_subscriptions[channel])) {
+		SPDLOG_INFO("Removing address: {} from subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		channel_subscriptions[channel].erase(&transport);
+
+		// Send response
+		send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::remove_subscriber_from_potential_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
+		SPDLOG_INFO("Removing address: {} from potential subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		potential_channel_subscriptions[channel].erase(&transport);
 	}
 }
 
