@@ -9,7 +9,7 @@ using namespace marlin::rlpx;
 int main() {
 	OnRamp onramp;
 
-	OnRampPubSub<OnRamp> ps(SocketAddress::from_string("0.0.0.0:8000"));
+	PubSubNode<OnRamp> ps(SocketAddress::from_string("0.0.0.0:8000"));
 	ps.delegate = &onramp;
 	onramp.ps = &ps;
 
