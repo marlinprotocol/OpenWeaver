@@ -1,6 +1,8 @@
 #ifndef MARLIN_ONRAMP_ETH_ONRAMP_HPP
 #define MARLIN_ONRAMP_ETH_ONRAMP_HPP
 
+#include <marlin/net/udp/UdpTransport.hpp>
+#include <marlin/stream/StreamTransportHelper.hpp>
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
@@ -15,6 +17,13 @@ using namespace marlin::pubsub;
 using namespace marlin::rlpx;
 
 class OnRamp {
+private:
+	typedef
+		marlin::stream::StreamTransportHelper<
+			marlin::pubsub::PubSubNode<OnRamp>,
+			net::UdpTransport
+		> StreamTransportHelper;
+
 public:
 	marlin::beacon::DiscoveryClient<OnRamp> *b;
 	marlin::pubsub::PubSubNode<OnRamp> *ps;
@@ -142,19 +151,17 @@ public:
 
 	void manage_subscribers(
 		std::string channel,
-		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSetMap& channel_subscriptions,
-		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSetMap& potential_channel_subscriptions) {
-
-			typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet& temp_transport_set = channel_subscriptions[channel];
-			typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet& temp_potential_transport_set = potential_channel_subscriptions[channel];
+		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet transport_set,
+		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet potential_transport_set) {
 
 			// move some of the subscribers to potential subscribers if oversubscribed
-			if (temp_transport_set.size() >= DefaultMaxSubscriptions) {
+			if (transport_set.size() >= DefaultMaxSubscriptions) {
 				// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
 				// send message to removed and added peers
 
-				marlin::pubsub::PubSubNode<OnRamp>::BaseTransport* toReplaceTransport = ps->find_max_rtt_transport(temp_transport_set);
-				marlin::pubsub::PubSubNode<OnRamp>::BaseTransport* toReplaceWithTransport = ps->find_random_rtt_transport(temp_potential_transport_set);
+				marlin::pubsub::PubSubNode<OnRamp>::BaseTransport* toReplaceTransport = StreamTransportHelper::find_max_rtt_transport(transport_set);
+
+				marlin::pubsub::PubSubNode<OnRamp>::BaseTransport* toReplaceWithTransport = StreamTransportHelper::find_random_rtt_transport(potential_transport_set);
 
 				if (toReplaceTransport != nullptr &&
 					toReplaceWithTransport != nullptr) {
@@ -175,11 +182,11 @@ public:
 				}
 			}
 
-			for (auto* pot_transport : temp_potential_transport_set) {
+			for (auto* pot_transport : potential_transport_set) {
 				SPDLOG_INFO("Potential Subscriber: {}  rtt: {} on channel {}", pot_transport->dst_addr.to_string(), pot_transport->get_rtt(), channel);
 			}
 
-			for (auto* transport : temp_transport_set) {
+			for (auto* transport : transport_set) {
 				SPDLOG_INFO("Subscriber: {}  rtt: {} on channel {}", transport->dst_addr.to_string(),  transport->get_rtt(), channel);
 			}
 	}
