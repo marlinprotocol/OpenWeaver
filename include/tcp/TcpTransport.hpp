@@ -35,7 +35,7 @@ private:
 	static void close_cb(uv_handle_t *handle);
 
 	struct SendPayload {
-		Buffer &&bytes;
+		Buffer bytes;
 		TcpTransport<DelegateType> &transport;
 	};
 public:
