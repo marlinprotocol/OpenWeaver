@@ -1,6 +1,7 @@
 #ifndef MARLIN_NET_UDPTRANSPORT_HPP
 #define MARLIN_NET_UDPTRANSPORT_HPP
 
+#include "Buffer.hpp"
 #include "SocketAddress.hpp"
 #include "core/TransportManager.hpp"
 #include <uv.h>
