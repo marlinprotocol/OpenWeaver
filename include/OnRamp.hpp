@@ -151,8 +151,8 @@ public:
 
 	void manage_subscribers(
 		std::string channel,
-		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet transport_set,
-		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet potential_transport_set) {
+		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet& transport_set,
+		typename marlin::pubsub::PubSubNode<OnRamp>::TransportSet& potential_transport_set) {
 
 			// move some of the subscribers to potential subscribers if oversubscribed
 			if (transport_set.size() >= DefaultMaxSubscriptions) {
