@@ -32,7 +32,7 @@ public:
 using NodeType = PubSubNode<PubSubClient>;
 
 int main() {
-	spdlog::default_logger()->set_level(spdlog::level::info);
+	// spdlog::default_logger()->set_level(spdlog::level::info);
 
 	PubSubClient b_del, b2_del;
 

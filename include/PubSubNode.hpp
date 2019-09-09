@@ -31,6 +31,10 @@ namespace std {
 namespace marlin {
 namespace pubsub {
 
+#define DefaultMaxSubscriptions 5
+#define DefaultMsgIDTimerInterval 10000
+#define DefaultPeerSelectTimerInterval 60000
+
 struct ReadBuffer {
 	std::list<net::Buffer> message_buffer;
 	uint64_t message_length = 0;
@@ -41,7 +45,8 @@ struct ReadBuffer {
 
 template<typename PubSubDelegate>
 class PubSubNode {
-private:
+
+public:
 	typedef stream::StreamTransportFactory<
 		PubSubNode<PubSubDelegate>,
 		PubSubNode<PubSubDelegate>,
@@ -53,6 +58,24 @@ private:
 		net::UdpTransport
 	> BaseTransport;
 
+	typedef
+		marlin::stream::StreamTransportHelper<
+			marlin::pubsub::PubSubNode<PubSubDelegate>,
+			net::UdpTransport
+		> StreamTransportHelper;
+
+	typedef std::unordered_set<BaseTransport *> TransportSet;
+	typedef std::unordered_map< std::string, TransportSet> TransportSetMap;
+
+	TransportSetMap channel_subscriptions;
+	TransportSetMap potential_channel_subscriptions;
+
+	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
+	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
+	void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
+	void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
+
+private:
 	// typedef net::TcpTransportFactory<
 	// 	PubSubNode<PubSubDelegate>,
 	// 	PubSubNode<PubSubDelegate>
@@ -87,6 +110,7 @@ private:
 		const char *data,
 		uint64_t size
 	);
+
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -124,10 +148,6 @@ public:
 	void add_subscriber(net::SocketAddress const &addr);
 
 private:
-	std::unordered_map<
-		std::string,
-		std::unordered_set<BaseTransport *>
-	> channel_subscriptions;
 
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
@@ -139,19 +159,34 @@ private:
 
 	uv_timer_t message_id_timer;
 
-	static void timer_cb(uv_timer_t *handle) {
+	static void message_id_timer_cb(uv_timer_t *handle) {
 		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
 		// Overflow behaviour desirable
 		node.message_id_idx++;
 
-		for(
+		for (
 			auto iter = node.message_id_events[node.message_id_idx].begin();
 			iter != node.message_id_events[node.message_id_idx].end();
 			iter = node.message_id_events[node.message_id_idx].erase(iter)
 		) {
 			node.message_id_set.erase(*iter);
 		}
+	}
+
+	uv_timer_t peer_selection_timer;
+
+	static void peer_selection_timer_cb(uv_timer_t *handle) {
+		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
+
+		std::for_each(
+			node.delegate->channels.begin(),
+			node.delegate->channels.end(),
+			[&] (std::string const channel) {
+
+				node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+			}
+		);
 	}
 };
 
@@ -167,16 +202,13 @@ void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	channel_subscriptions[channel].insert(&transport);
-
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
 	);
 
-	// Send response
-	send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	add_subscriber_to_channel(channel, transport);
 }
 
 template<typename PubSubDelegate>
@@ -207,16 +239,13 @@ void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	channel_subscriptions[channel].erase(&transport);
-
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
 	);
 
-	// Send response
-	send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+	remove_subscriber_from_channel(channel, transport);
 }
 
 template<typename PubSubDelegate>
@@ -517,13 +546,18 @@ PubSubNode<PubSubDelegate>::PubSubNode(
 
 	uv_timer_init(uv_default_loop(), &message_id_timer);
 	this->message_id_timer.data = (void *)this;
-	uv_timer_start(&message_id_timer, &timer_cb, 10000, 10000);
+	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
+
+	uv_timer_init(uv_default_loop(), &peer_selection_timer);
+	this->peer_selection_timer.data = (void *)this;
+	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 }
 
 template<typename PubSubDelegate>
 int PubSubNode<PubSubDelegate>::dial(net::SocketAddress const &addr) {
 	return f.dial(addr, *this);
 }
+
 
 
 template<typename PubSubDelegate>
@@ -615,9 +649,69 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			channel_subscriptions[channel].insert(transport);
+			add_subscriber_to_channel(channel, *transport);
 		}
 	);
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {	
+		add_subscriber_to_potential_channel(channel, transport);
+	}
+	else if (!StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
+		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		channel_subscriptions[channel].insert(&transport);
+
+		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::add_subscriber_to_potential_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (!StreamTransportHelper::check_tranport_in_set(transport, channel_subscriptions[channel])) {
+		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		potential_channel_subscriptions[channel].insert(&transport);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::remove_subscriber_from_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (StreamTransportHelper::check_tranport_in_set(transport, channel_subscriptions[channel])) {
+		SPDLOG_INFO("Removing address: {} from subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		channel_subscriptions[channel].erase(&transport);
+
+		// Send response
+		send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubNode<PubSubDelegate>::remove_subscriber_from_potential_channel(
+	std::string channel,
+	BaseTransport &transport) {
+
+	if (StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
+		SPDLOG_INFO("Removing address: {} from potential subscribers list on channel: {} ",
+			transport.dst_addr.to_string(),
+			channel);
+		potential_channel_subscriptions[channel].erase(&transport);
+	}
 }
 
 } // namespace pubsub
