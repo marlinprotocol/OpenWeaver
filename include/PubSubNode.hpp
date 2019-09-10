@@ -4,6 +4,7 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
+#include <marlin/stream/StreamTransportHelper.hpp>
 
 #include <algorithm>
 #include <map>
