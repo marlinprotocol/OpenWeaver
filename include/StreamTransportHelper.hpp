@@ -1,3 +1,6 @@
+#ifndef MARLIN_STREAM_STREAMTRANSPORTHELPER_HPP
+#define MARLIN_STREAM_STREAMTRANSPORTHELPER_HPP
+
 #include "StreamTransport.hpp"
 
 namespace marlin {
@@ -19,8 +22,6 @@ private:
 		> BaseTransport;
 
 	typedef std::unordered_set<BaseTransport *> TransportSet;
-
-
 
 public:
 	static BaseTransport* find_random_rtt_transport(TransportSet& transport_set);
@@ -109,3 +110,5 @@ bool StreamTransportHelper<
 
 } // namespace stream
 } // namespace marlin
+
+#endif // MARLIN_STREAM_STREAMTRANSPORTHELPER_HPP
