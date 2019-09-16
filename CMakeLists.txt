@@ -15,28 +15,60 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-include(FetchContent)
+# LibUV
+find_package(LibUV)
+if(NOT LibUV_FOUND)
+	message("Using internal libuv")
 
-find_package(Threads REQUIRED)
-FetchContent_Declare(libuv
-	GIT_REPOSITORY https://github.com/libuv/libuv.git
-	GIT_TAG origin/v1.x
-)
-FetchContent_MakeAvailable(libuv)
+	include(FetchContent)
 
-# Avert your eyes
-set_property(TARGET uv_a PROPERTY INTERFACE_INCLUDE_DIRECTORIES
-	$<INSTALL_INTERFACE:include>
-	$<BUILD_INTERFACE:${libuv_SOURCE_DIR}/include>
-)
-get_directory_property(uv_thread_lib
-	DIRECTORY ${libuv_SOURCE_DIR}
-	DEFINITION uv_libraries
-)
-list(APPEND uv_thread_lib Threads::Threads)
-set_property(TARGET uv_a PROPERTY INTERFACE_LINK_LIBRARIES
-	${uv_thread_lib}
-)
+	find_package(Threads REQUIRED)
+	FetchContent_Declare(libuv
+		GIT_REPOSITORY https://github.com/libuv/libuv.git
+		GIT_TAG v1.32.0
+	)
+	FetchContent_MakeAvailable(libuv)
+
+	# Avert your eyes
+	set_property(TARGET uv_a PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+		$<INSTALL_INTERFACE:include>
+		$<BUILD_INTERFACE:${libuv_SOURCE_DIR}/include>
+	)
+	get_directory_property(uv_libraries_fixed
+		DIRECTORY ${libuv_SOURCE_DIR}
+		DEFINITION uv_libraries
+	)
+	list(APPEND uv_libraries_fixed Threads::Threads)
+	set_property(TARGET uv_a PROPERTY INTERFACE_LINK_LIBRARIES
+		${uv_libraries_fixed}
+	)
+
+	install(TARGETS uv_a
+		EXPORT marlin-net-export
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	)
+endif()
+
+# Spdlog
+find_package(spdlog)
+if(NOT spdlog_FOUND)
+	message("Using internal spdlog")
+
+	include(FetchContent)
+
+	FetchContent_Declare(spdlog
+		GIT_REPOSITORY https://github.com/gabime/spdlog.git
+		GIT_TAG v1.3.1
+	)
+	FetchContent_MakeAvailable(spdlog)
+
+	install(TARGETS spdlog
+		EXPORT marlin-net-export
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	)
+endif()
 
 add_library(net STATIC
 	src/CidrBlock.cpp
@@ -56,11 +88,9 @@ set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
 )
 
-target_link_libraries(net PUBLIC uv_a)
+target_link_libraries(net PUBLIC uv_a spdlog::spdlog)
 
-find_package(spdlog REQUIRED)
-
-install(TARGETS net uv_a
+install(TARGETS net
 	EXPORT marlin-net-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
