@@ -3,7 +3,8 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${NET_CMAKE_DIR})
 
-find_package(LibUV MODULE REQUIRED COMPONENTS uv)
+find_package(LibUV REQUIRED)
+find_package(spdlog REQUIRED)
 
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
