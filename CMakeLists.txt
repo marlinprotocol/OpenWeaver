@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(net VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -13,6 +13,12 @@ endif()
 include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+# LibUV
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libuv.cmake")
+
+# Spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
 add_library(net STATIC
 	src/CidrBlock.cpp
@@ -32,10 +38,7 @@ set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
 )
 
-find_package(LibUV REQUIRED COMPONENTS uv)
-target_link_libraries(net PUBLIC LibUV::uv)
-
-find_package(spdlog REQUIRED)
+target_link_libraries(net PUBLIC uv_a spdlog::spdlog)
 
 install(TARGETS net
 	EXPORT marlin-net-export
@@ -55,13 +58,13 @@ install(EXPORT marlin-net-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
 )
 
 install(FILES
-    ${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibUV.cmake
+	${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibUV.cmake
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinNetConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
 )
 
 
