@@ -1,4 +1,4 @@
-find_package(spdlog)
+find_package(spdlog NO_CMAKE_PACKAGE_REGISTRY)
 if(NOT spdlog_FOUND)
 	message("Using internal spdlog")
 
