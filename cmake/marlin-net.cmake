@@ -7,4 +7,6 @@ if(NOT MarlinNet_FOUND)
         GIT_TAG master
     )
     FetchContent_MakeAvailable(MarlinNet)
+
+    add_library(Marlin::net ALIAS net)
 endif()
