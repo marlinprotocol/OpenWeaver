@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
-
 project(net VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -16,59 +15,10 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 # LibUV
-find_package(LibUV)
-if(NOT LibUV_FOUND)
-	message("Using internal libuv")
-
-	include(FetchContent)
-
-	find_package(Threads REQUIRED)
-	FetchContent_Declare(libuv
-		GIT_REPOSITORY https://github.com/libuv/libuv.git
-		GIT_TAG v1.32.0
-	)
-	FetchContent_MakeAvailable(libuv)
-
-	# Avert your eyes
-	set_property(TARGET uv_a PROPERTY INTERFACE_INCLUDE_DIRECTORIES
-		$<INSTALL_INTERFACE:include>
-		$<BUILD_INTERFACE:${libuv_SOURCE_DIR}/include>
-	)
-	get_directory_property(uv_libraries_fixed
-		DIRECTORY ${libuv_SOURCE_DIR}
-		DEFINITION uv_libraries
-	)
-	list(APPEND uv_libraries_fixed Threads::Threads)
-	set_property(TARGET uv_a PROPERTY INTERFACE_LINK_LIBRARIES
-		${uv_libraries_fixed}
-	)
-
-	install(TARGETS uv_a
-		EXPORT marlin-net-export
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	)
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libuv.cmake")
 
 # Spdlog
-find_package(spdlog)
-if(NOT spdlog_FOUND)
-	message("Using internal spdlog")
-
-	include(FetchContent)
-
-	FetchContent_Declare(spdlog
-		GIT_REPOSITORY https://github.com/gabime/spdlog.git
-		GIT_TAG v1.3.1
-	)
-	FetchContent_MakeAvailable(spdlog)
-
-	install(TARGETS spdlog
-		EXPORT marlin-net-export
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	)
-endif()
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
 add_library(net STATIC
 	src/CidrBlock.cpp
@@ -108,13 +58,13 @@ install(EXPORT marlin-net-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibUV.cmake
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinNetConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
 )
 
 
