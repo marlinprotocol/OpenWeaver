@@ -1,4 +1,4 @@
-find_package(GTest)
+find_package(GTest NO_CMAKE_PACKAGE_REGISTRY)
 if(NOT GTest_FOUND)
 	message("Using internal GTest")
 
@@ -10,4 +10,6 @@ if(NOT GTest_FOUND)
 	)
 	FetchContent_MakeAvailable(GTest)
 
+	add_library(GTest::GTest ALIAS gtest)
+	add_library(GTest::Main ALIAS gtest_main)
 endif()

@@ -31,11 +31,12 @@ target_include_directories(stream
 # 	OUTPUT_NAME "marlin-stream"
 # )
 
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlinnet.cmake")
-
+# MarlinNet
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(stream INTERFACE Marlin::net)
 
-find_package(spdlog REQUIRED)
+# spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
 install(TARGETS stream
 	EXPORT marlin-stream-export
