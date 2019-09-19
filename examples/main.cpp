@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "DiscoveryServer.hpp"
-#include "DiscoveryClient.hpp"
+#include <marlin/beacon/DiscoveryServer.hpp>
+#include <marlin/beacon/DiscoveryClient.hpp>
 #include <uv.h>
 #include <cstring>
 
