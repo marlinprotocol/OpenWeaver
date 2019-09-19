@@ -1,4 +1,4 @@
-find_package(GTest NO_CMAKE_PACKAGE_REGISTRY)
+find_package(GTest)
 if(NOT GTest_FOUND)
 	message("Using internal GTest")
 

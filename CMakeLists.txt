@@ -73,7 +73,7 @@ install(FILES
 ##########################################################
 
 enable_testing()
-#GTest
+# GTest
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
