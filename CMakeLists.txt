@@ -18,7 +18,7 @@ add_library(beacon INTERFACE)
 
 target_include_directories(beacon
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/beacon>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
@@ -62,7 +62,7 @@ install(FILES
 ##########################################################
 
 enable_testing()
-find_package(GTest REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
 )
