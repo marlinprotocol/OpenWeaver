@@ -1,5 +1,5 @@
-#include "Buffer.hpp"
-#include "Endian.hpp"
+#include <marlin/net/Buffer.hpp>
+#include <marlin/net/Endian.hpp>
 #include <cstring>
 
 namespace marlin {

@@ -1,8 +1,8 @@
 #ifndef MARLIN_NET_TCPTRANSPORT_HPP
 #define MARLIN_NET_TCPTRANSPORT_HPP
 
-#include "SocketAddress.hpp"
-#include "core/TransportManager.hpp"
+#include <marlin/net/SocketAddress.hpp>
+#include <marlin/net/core/TransportManager.hpp>
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
