@@ -73,7 +73,8 @@ install(FILES
 ##########################################################
 
 enable_testing()
-find_package(GTest REQUIRED)
+#GTest
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
 	test/testBuffer.cpp
