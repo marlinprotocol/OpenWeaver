@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(stream VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -23,7 +23,7 @@ add_library(stream INTERFACE)
 
 target_include_directories(stream
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/stream>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
@@ -31,11 +31,12 @@ target_include_directories(stream
 # 	OUTPUT_NAME "marlin-stream"
 # )
 
-find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
+# MarlinNet
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(stream INTERFACE Marlin::net)
 
-find_package(spdlog REQUIRED)
+# spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
 install(TARGETS stream
 	EXPORT marlin-stream-export
@@ -63,13 +64,12 @@ install(FILES
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
 )
 
-
 ##########################################################
 # Tests
 ##########################################################
 
 enable_testing()
-find_package(GTest REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
 	test/testAckRanges.cpp
