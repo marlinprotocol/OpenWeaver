@@ -1,4 +1,4 @@
-find_package(snappy NO_CMAKE_PACKAGE_REGISTRY)
+find_package(snappy)
 if(NOT snappy_FOUND)
 	message("Using internal snappy")
 
