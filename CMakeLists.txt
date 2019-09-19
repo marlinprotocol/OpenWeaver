@@ -23,7 +23,7 @@ add_library(stream INTERFACE)
 
 target_include_directories(stream
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/stream>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
