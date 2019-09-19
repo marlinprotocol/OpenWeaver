@@ -8,5 +8,7 @@ if(NOT MarlinStream_FOUND)
 		# to be changed when merged
 		# GIT_TAG master
 	)
-	FetchContent_MakeAvailable(MarlinStream)	
+	FetchContent_MakeAvailable(MarlinStream)
+
+	add_library(Marlin::stream ALIAS net)
 endif()
