@@ -34,18 +34,17 @@ set_target_properties(onramp-eth PROPERTIES
 	OUTPUT_NAME "onramp_eth"
 )
 
-find_package(MarlinPubsub CONFIG REQUIRED COMPONENTS pubsub
-	NAMES "Marlin" CONFIGS "MarlinPubsubConfig.cmake")
+# MarlinPubsub
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
 target_link_libraries(onramp-eth PUBLIC Marlin::pubsub)
 
-find_package(MarlinRlpx CONFIG REQUIRED COMPONENTS rlpx
-	NAMES "Marlin" CONFIGS "MarlinRlpxConfig.cmake")
+# MarlinRlpx
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-rlpx.cmake")
 target_link_libraries(onramp-eth PUBLIC Marlin::rlpx)
 
-find_package(MarlinBeacon CONFIG REQUIRED COMPONENTS beacon
-	NAMES "Marlin" CONFIGS "MarlinBeaconConfig.cmake")
+# MarlinBeacon
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
 target_link_libraries(onramp-eth PUBLIC Marlin::beacon)
 
-target_link_libraries(onramp-eth PUBLIC cryptopp)
-
-find_package(spdlog REQUIRED)
+# spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
