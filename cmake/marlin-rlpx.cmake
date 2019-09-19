@@ -4,7 +4,7 @@ if(NOT MarlinRlpx_FOUND)
     include(FetchContent)
     FetchContent_Declare(MarlinRlpx
         GIT_REPOSITORY https://gitlab.com/marlinprotocol/rlpx.cpp.git
-        GIT_TAG amol/deps
+        GIT_TAG master
     )
     FetchContent_MakeAvailable(MarlinRlpx)
 

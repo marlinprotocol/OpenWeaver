@@ -4,7 +4,7 @@ if(NOT MarlinPubsub_FOUND)
     include(FetchContent)
     FetchContent_Declare(MarlinPubsub
         GIT_REPOSITORY https://gitlab.com/marlinprotocol/pubsub.cpp.git
-        GIT_TAG amol/deps
+        GIT_TAG master
     )
     FetchContent_MakeAvailable(MarlinPubsub)
 
