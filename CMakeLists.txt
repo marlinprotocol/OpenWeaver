@@ -37,14 +37,16 @@ set_target_properties(rlpx PROPERTIES
 
 target_link_libraries(rlpx PUBLIC cryptopp)
 
-find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-
+# MarlinNet
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(rlpx PUBLIC Marlin::net)
 
-find_package(spdlog REQUIRED)
+# spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
-find_package(Snappy REQUIRED)
+# snappy
+find_package(Snappy)
+#include("${CMAKE_CURRENT_LIST_DIR}/cmake/snappy.cmake")
 target_link_libraries(rlpx PUBLIC Snappy::snappy)
 
 install(TARGETS rlpx
