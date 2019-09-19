@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "Endian.hpp"
+#include <marlin/net/Endian.hpp>
 
 #include <arpa/inet.h>
 

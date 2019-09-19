@@ -2,8 +2,8 @@
 #define MARLIN_NET_UDPTRANSPORTFACTORY_HPP
 
 #include <uv.h>
-#include "Buffer.hpp"
-#include "SocketAddress.hpp"
+#include <marlin/net/Buffer.hpp>
+#include <marlin/net/SocketAddress.hpp>
 #include "UdpTransport.hpp"
 
 #include <spdlog/spdlog.h>
