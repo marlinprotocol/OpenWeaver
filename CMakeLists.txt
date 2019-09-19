@@ -44,8 +44,8 @@ target_link_libraries(rlpx PUBLIC Marlin::net)
 # spdlog
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
-#snappy
-find_package(snappy)
+# snappy
+find_package(Snappy)
 #include("${CMAKE_CURRENT_LIST_DIR}/cmake/snappy.cmake")
 target_link_libraries(rlpx PUBLIC Snappy::snappy)
 
