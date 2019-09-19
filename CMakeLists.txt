@@ -18,19 +18,20 @@ add_library(pubsub INTERFACE)
 
 target_include_directories(pubsub
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/pubsub>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-target_link_libraries(pubsub INTERFACE Marlin::net)
-
-find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
-	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
+#MarlinStream
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
 target_link_libraries(pubsub INTERFACE Marlin::stream)
 
-find_package(spdlog REQUIRED)
+#MarlinNet
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
+target_link_libraries(pubsub INTERFACE Marlin::net)
+
+# Spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export
