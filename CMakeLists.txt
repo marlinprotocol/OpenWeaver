@@ -29,10 +29,6 @@ target_include_directories(relay
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
 target_link_libraries(relay PUBLIC Marlin::pubsub)
 
-#MarlinStream
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
-target_link_libraries(relay PUBLIC Marlin::stream)
-
 # MarlinBeacon
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
 target_link_libraries(relay PUBLIC Marlin::beacon)
