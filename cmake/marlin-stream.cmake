@@ -8,5 +8,5 @@ if(NOT MarlinStream_FOUND)
 	)
 	FetchContent_MakeAvailable(MarlinStream)
 
-	add_library(Marlin::stream ALIAS net)
+	add_library(Marlin::stream ALIAS stream)
 endif()
