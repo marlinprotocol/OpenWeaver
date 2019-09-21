@@ -1,6 +1,6 @@
-find_package(spdlog NO_CMAKE_PACKAGE_REGISTRY)
+find_package(spdlog NO_CMAKE_PACKAGE_REGISTRY QUIET)
 if(NOT spdlog_FOUND)
-	message("Using internal spdlog")
+	message("-- spdlog not found. Using internal spdlog.")
 
 	include(FetchContent)
 
@@ -9,4 +9,6 @@ if(NOT spdlog_FOUND)
 		GIT_TAG v1.3.1
 	)
 	FetchContent_MakeAvailable(spdlog)
+else()
+	message("-- spdlog found. Using system spdlog.")
 endif()

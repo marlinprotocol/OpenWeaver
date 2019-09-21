@@ -1,6 +1,6 @@
-find_package(MarlinBeacon)
+find_package(MarlinBeacon QUIET)
 if(NOT MarlinBeacon_FOUND)
-    message("Using internal MarlinBeacon")
+	message("-- MarlinBeacon not found. Using internal MarlinBeacon.")
     include(FetchContent)
     FetchContent_Declare(MarlinBeacon
         GIT_REPOSITORY https://gitlab.com/marlinprotocol/beacon.cpp.git
@@ -9,4 +9,6 @@ if(NOT MarlinBeacon_FOUND)
     FetchContent_MakeAvailable(MarlinBeacon)
 
     add_library(Marlin::beacon ALIAS beacon)
+else()
+	message("-- MarlinBeacon found. Using system MarlinBeacon.")
 endif()
