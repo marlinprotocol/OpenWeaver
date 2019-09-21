@@ -18,7 +18,7 @@ add_library(beacon INTERFACE)
 
 target_include_directories(beacon
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/beacon>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
@@ -36,7 +36,7 @@ install(TARGETS beacon
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/beacon)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 ##########################################################
 # Export
@@ -48,12 +48,12 @@ install(EXPORT marlin-beacon-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinBeacon
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinBeaconConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinBeacon
 )
 
 
@@ -62,7 +62,8 @@ install(FILES
 ##########################################################
 
 enable_testing()
-find_package(GTest REQUIRED)
+# GTest
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
 )
@@ -71,10 +72,6 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
-	target_include_directories(${TEST_NAME}
-		PUBLIC
-			${CMAKE_CURRENT_SOURCE_DIR}/include
-	)
 	add_test(${TEST_NAME} ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
