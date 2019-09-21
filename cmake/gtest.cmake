@@ -1,6 +1,6 @@
-find_package(GTest)
+find_package(GTest QUIET)
 if(NOT GTest_FOUND)
-	message("Using internal GTest")
+	message("-- GTest not found. Using internal GTest.")
 
 	include(FetchContent)
 
@@ -12,4 +12,6 @@ if(NOT GTest_FOUND)
 
 	add_library(GTest::GTest ALIAS gtest)
 	add_library(GTest::Main ALIAS gtest_main)
+else()
+	message("-- GTest found. Using system GTest.")
 endif()

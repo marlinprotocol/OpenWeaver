@@ -4,7 +4,7 @@ project(stream VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
@@ -27,16 +27,13 @@ target_include_directories(stream
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# set_target_properties(stream PROPERTIES
-# 	OUTPUT_NAME "marlin-stream"
-# )
-
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(stream INTERFACE Marlin::net)
 
 # spdlog
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+target_link_libraries(stream INTERFACE spdlog::spdlog)
 
 install(TARGETS stream
 	EXPORT marlin-stream-export
@@ -44,7 +41,7 @@ install(TARGETS stream
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/stream)
+install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 ##########################################################
 # Export
@@ -56,12 +53,12 @@ install(EXPORT marlin-stream-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinStream
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinStreamConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinStream
 )
 
 ##########################################################
@@ -79,10 +76,6 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main Marlin::net stream)
-	target_include_directories(${TEST_NAME}
-		PUBLIC
-			${CMAKE_CURRENT_SOURCE_DIR}/include
-	)
 	add_test(${TEST_NAME} ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
@@ -94,12 +87,4 @@ endforeach(TEST_SOURCE)
 add_executable(stream_example
 	examples/stream.cpp
 )
-
-target_include_directories(stream_example
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/examples
-)
-
 target_link_libraries(stream_example PUBLIC stream)
