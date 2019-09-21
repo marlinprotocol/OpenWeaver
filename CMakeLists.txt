@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(beacon VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
@@ -21,6 +18,7 @@ target_include_directories(beacon
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+target_compile_features(beacon INTERFACE cxx_std_17)
 
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
@@ -73,6 +71,7 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
 	add_test(${TEST_NAME} ${TEST_NAME})
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 endforeach(TEST_SOURCE)
 
 
@@ -90,8 +89,8 @@ target_include_directories(discovery_example
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-
 target_link_libraries(discovery_example PUBLIC beacon)
+target_compile_options(discovery_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 add_executable(server
 	examples/server.cpp
@@ -103,5 +102,5 @@ target_include_directories(server
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-
 target_link_libraries(server PUBLIC beacon)
+target_compile_options(server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
