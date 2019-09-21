@@ -100,12 +100,12 @@ add_executable(udp_example
 	examples/udp.cpp
 )
 target_link_libraries(udp_example PUBLIC net)
-target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(net PRIVATE cxx_std_17)
+target_compile_options(udp_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(udp_example PRIVATE cxx_std_17)
 
 add_executable(tcp_example
 	examples/tcp.cpp
 )
 target_link_libraries(tcp_example PUBLIC net)
-target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(net PRIVATE cxx_std_17)
+target_compile_options(tcp_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(tcp_example PRIVATE cxx_std_17)
