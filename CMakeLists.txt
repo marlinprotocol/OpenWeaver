@@ -14,12 +14,6 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-# LibUV
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/libuv.cmake")
-
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
-
 add_library(net STATIC
 	src/CidrBlock.cpp
 	src/Buffer.cpp
@@ -38,7 +32,13 @@ set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
 )
 
-target_link_libraries(net PUBLIC uv_a spdlog::spdlog)
+# LibUV
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libuv.cmake")
+target_link_libraries(net PUBLIC uv_a)
+
+# Spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+target_link_libraries(net PUBLIC spdlog::spdlog)
 
 install(TARGETS net
 	EXPORT marlin-net-export

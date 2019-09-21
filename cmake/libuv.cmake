@@ -1,6 +1,6 @@
-find_package(LibUV)
+find_package(LibUV QUIET)
 if(NOT LibUV_FOUND)
-	message("Using internal libuv")
+	message("-- LibUV not found. Using internal LibUV.")
 
 	include(FetchContent)
 
@@ -30,4 +30,6 @@ if(NOT LibUV_FOUND)
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	)
+else()
+	message("-- LibUV found. Using system LibUV.")
 endif()
