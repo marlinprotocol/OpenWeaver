@@ -3,11 +3,9 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${PUBSUB_CMAKE_DIR})
 
-find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
-
-find_package(MarlinStream CONFIG REQUIRED COMPONENTS stream
-	NAMES "Marlin" CONFIGS "MarlinStreamConfig.cmake")
+find_package(MarlinNet REQUIRED)
+find_package(MarlinStream REQUIRED)
+find_package(spdlog REQUIRED)
 
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
