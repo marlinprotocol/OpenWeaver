@@ -25,7 +25,7 @@ target_include_directories(net
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(net PRIVATE cxx_std_17)
+target_compile_features(net PUBLIC cxx_std_17)
 
 set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
