@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(relay VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -25,12 +25,13 @@ target_include_directories(relay
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-find_package(MarlinPubsub CONFIG REQUIRED COMPONENTS pubsub
-	NAMES "Marlin" CONFIGS "MarlinPubsubConfig.cmake")
+# MarlinPubsub
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
 target_link_libraries(relay PUBLIC Marlin::pubsub)
 
-find_package(MarlinBeacon CONFIG REQUIRED COMPONENTS beacon
-	NAMES "Marlin" CONFIGS "MarlinBeaconConfig.cmake")
+# MarlinBeacon
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
 target_link_libraries(relay PUBLIC Marlin::beacon)
 
-find_package(spdlog REQUIRED)
+# spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
