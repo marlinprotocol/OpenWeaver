@@ -1,14 +1,16 @@
-find_package(snappy)
-if(NOT snappy_FOUND)
-	message("Using internal snappy")
+find_package(Snappy QUIET)
+if(NOT Snappy_FOUND)
+	message("-- Snappy not found. Using internal Snappy.")
 
 	include(FetchContent)
 
-	FetchContent_Declare(snappy
+	FetchContent_Declare(Snappy
 		GIT_REPOSITORY https://github.com/google/snappy.git
-		GIT_TAG 1.1.7
+		GIT_TAG d837d5cfe1bf7b0eb52220428bc3541025db86cb
 	)
-	FetchContent_MakeAvailable(snappy)
+	FetchContent_MakeAvailable(Snappy)
 
 	add_library(Snappy::snappy ALIAS snappy)
+else()
+	message("-- Snappy found. Using system Snappy.")
 endif()
