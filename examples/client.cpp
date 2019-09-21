@@ -3,7 +3,7 @@
 #include <uv.h>
 #include <cstring>
 #include <algorithm>
-#include "PubSubNode.hpp"
+#include <marlin/pubsub/PubSubNode.hpp>
 
 
 using namespace marlin::net;
@@ -26,6 +26,14 @@ public:
 
 	void did_recv_message(PubSubNode<PubSubClient> &, std::unique_ptr<char[]> &&message, uint64_t size, std::string &channel, uint64_t message_id) {
 		SPDLOG_INFO("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.get(), message.get() + size));
+	}
+
+	void manage_subscribers(
+		std::string,
+		typename PubSubNode<PubSubClient>::TransportSet&,
+		typename PubSubNode<PubSubClient>::TransportSet&
+	) {
+
 	}
 };
 

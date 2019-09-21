@@ -32,6 +32,7 @@ target_link_libraries(pubsub INTERFACE Marlin::net)
 
 # Spdlog
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+target_link_libraries(pubsub INTERFACE spdlog::spdlog)
 
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export
@@ -39,7 +40,7 @@ install(TARGETS pubsub
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/pubsub)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 ##########################################################
 # Export
@@ -51,27 +52,19 @@ install(EXPORT marlin-pubsub-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinPubsub
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinPubsubConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinPubsub
 )
 
 ##########################################################
 # Build examples
 ##########################################################
 
-add_executable(testclient EXCLUDE_FROM_ALL
+add_executable(testclient
 	examples/client.cpp
 )
-
-target_include_directories(testclient
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/examples
-)
-
 target_link_libraries(testclient PUBLIC pubsub)
