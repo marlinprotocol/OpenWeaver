@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(stream VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
@@ -26,6 +23,7 @@ target_include_directories(stream
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+target_compile_features(stream INTERFACE cxx_std_17)
 
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
@@ -77,6 +75,8 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main Marlin::net stream)
 	add_test(${TEST_NAME} ${TEST_NAME})
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
 endforeach(TEST_SOURCE)
 
 
@@ -88,3 +88,5 @@ add_executable(stream_example
 	examples/stream.cpp
 )
 target_link_libraries(stream_example PUBLIC stream)
+target_compile_options(stream_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(stream_example PRIVATE cxx_std_17)
