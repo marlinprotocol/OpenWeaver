@@ -34,6 +34,8 @@ set_target_properties(rlpx PROPERTIES
 	OUTPUT_NAME "marlin-rlpx"
 )
 
+# Cryptopp
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/cryptopp.cmake")
 target_link_libraries(rlpx PUBLIC cryptopp)
 
 # MarlinNet

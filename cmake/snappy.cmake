@@ -2,7 +2,7 @@ find_package(Snappy QUIET)
 if(NOT Snappy_FOUND)
 	message("-- Snappy not found. Using internal Snappy.")
 
-	set(SNAPPY_BUILD_TESTS OFF)
+	set(SNAPPY_BUILD_TESTS OFF CACHE BOOL "Snappy disable tests")
 
 	include(FetchContent)
 
