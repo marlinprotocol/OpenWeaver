@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(pubsub VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
@@ -21,6 +18,7 @@ target_include_directories(pubsub
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+target_compile_features(pubsub INTERFACE cxx_std_17)
 
 #MarlinStream
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
@@ -68,3 +66,4 @@ add_executable(testclient
 	examples/client.cpp
 )
 target_link_libraries(testclient PUBLIC pubsub)
+target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors)
