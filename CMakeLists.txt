@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(net VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
@@ -27,6 +24,8 @@ target_include_directories(net
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(net PRIVATE cxx_std_17)
 
 set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
@@ -87,6 +86,8 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main net)
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
 	add_test(${TEST_NAME} ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
@@ -98,25 +99,13 @@ endforeach(TEST_SOURCE)
 add_executable(udp_example
 	examples/udp.cpp
 )
-
-target_include_directories(udp_example
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
 target_link_libraries(udp_example PUBLIC net)
+target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(net PRIVATE cxx_std_17)
 
 add_executable(tcp_example
 	examples/tcp.cpp
 )
-
-target_include_directories(tcp_example
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
 target_link_libraries(tcp_example PUBLIC net)
+target_compile_options(net PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(net PRIVATE cxx_std_17)
