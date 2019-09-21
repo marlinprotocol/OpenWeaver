@@ -65,6 +65,12 @@ public:
 	bool should_accept(SocketAddress const &) {
 		return true;
 	}
+
+	void manage_subscribers(
+		std::string,
+		typename marlin::pubsub::PubSubNode<Relay>::TransportSet&,
+		typename marlin::pubsub::PubSubNode<Relay>::TransportSet&) {
+	}
 };
 
 #endif // MARLIN_RELAY_RELAY_HPP
