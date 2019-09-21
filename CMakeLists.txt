@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(rlpx VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
@@ -30,6 +27,8 @@ target_include_directories(rlpx
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+target_compile_options(rlpx PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(rlpx PUBLIC cxx_std_17)
 
 set_target_properties(rlpx PROPERTIES
 	OUTPUT_NAME "marlin-rlpx"
@@ -83,3 +82,4 @@ add_executable(rlpx_example
 	examples/rlpx.cpp
 )
 target_link_libraries(rlpx_example PUBLIC rlpx)
+target_compile_options(rlpx_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
