@@ -71,6 +71,7 @@ public:
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
 
+	int get_num_active_subscribers(std::string channel);
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
 	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
 	void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
@@ -656,14 +657,22 @@ void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) 
 }
 
 template<typename PubSubDelegate>
+int PubSubNode<PubSubDelegate>::get_num_active_subscribers(
+	std::string channel) {
+	return channel_subscriptions[channel].size();
+}
+
+template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {	
-		add_subscriber_to_potential_channel(channel, transport);
-	}
-	else if (!StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
+	// if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
+	// 	add_subscriber_to_potential_channel(channel, transport);
+	// 	return;
+	// }
+
+	if (!StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
 		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
