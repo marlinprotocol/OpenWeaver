@@ -1,10 +1,7 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(lpf VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -pedantic-errors")
-
-if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 else()
 	add_definitions(-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
@@ -18,19 +15,17 @@ add_library(lpf INTERFACE)
 
 target_include_directories(lpf
 	INTERFACE
-		$<INSTALL_INTERFACE:include/marlin/lpf>
+		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# set_target_properties(lpf PROPERTIES
-# 	OUTPUT_NAME "marlin-lpf"
-# )
-
-find_package(MarlinNet CONFIG REQUIRED COMPONENTS net
-	NAMES "Marlin" CONFIGS "MarlinNetConfig.cmake")
+# MarlinNet
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(lpf INTERFACE Marlin::net)
 
-find_package(spdlog REQUIRED)
+# Spdlog
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+target_link_libraries(lpf INTERFACE spdlog::spdlog)
 
 install(TARGETS lpf
 	EXPORT marlin-lpf-export
@@ -38,7 +33,7 @@ install(TARGETS lpf
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/marlin/lpf)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 ##########################################################
 # Export
@@ -50,12 +45,12 @@ install(EXPORT marlin-lpf-export
   NAMESPACE
 	Marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinLpf
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinLpfConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Marlin
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinLpf
 )
 
 ##########################################################
@@ -65,12 +60,4 @@ install(FILES
 add_executable(lpf_example
 	examples/lpf.cpp
 )
-
-target_include_directories(lpf_example
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/examples
-)
-
 target_link_libraries(lpf_example PUBLIC lpf)
