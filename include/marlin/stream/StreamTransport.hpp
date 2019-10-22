@@ -1,3 +1,11 @@
+
+/*! \file StreamTransport.hpp
+    \brief Building on UDP
+
+    Details: XYZ.
+*/
+
+
 #ifndef MARLIN_STREAM_STREAMTRANSPORT_HPP
 #define MARLIN_STREAM_STREAMTRANSPORT_HPP
 
@@ -21,6 +29,12 @@ namespace stream {
 #define DEFAULT_PACING_LIMIT 20000
 #define DEFAULT_FRAGMENT_SIZE 1400
 
+//! Custom transport class building upon UDP
+/*!
+    Features over UDP:
+    a. 3 way handshake for connection establishment
+    b. support for adding multiple stream functionality
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
 private:
@@ -154,6 +168,10 @@ public:
 
 // Impl
 
+//! A private function to reset everything
+/*!
+    Resets and clears connection-state, timers, streams and various other tranport related params
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	// Reset transport
@@ -196,6 +214,12 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	ack_timer_active = false;
 }
 
+// Impl
+
+//! a callback function which sends dial message with exponential interval increases
+/*!
+    \param handle a uv_timer_t handle type
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 	uv_timer_t *handle
@@ -224,6 +248,14 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 
 //---------------- Stream functions begin ----------------//
 
+
+//! private function which creates or return sendstream of given stream_id
+/*!
+    Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
+
+    \param stream_id stream id to search for
+    \return SendStream SendStream corresponding for given param stream_id
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send_stream(
 	uint16_t const stream_id
@@ -236,6 +268,14 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 	return iter->second;
 }
 
+
+//! private function which creates or return sendstream of given stream_id
+/*!
+    Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
+
+    \param stream_id stream id to search for
+    \return RecvStream RecvStream corresponding for given param stream_id
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv_stream(
 	uint16_t const stream_id
@@ -253,6 +293,14 @@ RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv
 
 //---------------- Send functions end ----------------//
 
+
+//! adds given SendStream to send_queue
+/*!
+    Takes in the stream and adds it to the queue of streams which are inspected for data packets during the sending phase
+
+    \param SendStream SendStream to be added to the queue
+    \return returns false if stream already in queue otherwise true
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	SendStream &stream
