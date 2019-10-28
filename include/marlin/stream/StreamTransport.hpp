@@ -34,6 +34,7 @@ namespace stream {
     Features over UDP:
     a. 3 way handshake for connection establishment
     b. support for adding multiple stream functionality
+    c. FEC support to be integrated
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
@@ -67,8 +68,16 @@ private:
 	RecvStream &get_or_create_recv_stream(uint16_t const stream_id);
 
 	// Packets
+
+	/*!
+      strictly increasing packet number so that all packets including the lost ones which are being retransmitted have unique packet number
+    */
 	uint64_t last_sent_packet = -1;
 	std::map<uint64_t, SentPacketInfo> sent_packets;
+
+	/*!
+      packets which not have been acked since long time
+    */
 	std::map<uint64_t, SentPacketInfo> lost_packets;
 
 	// RTT estimate
@@ -168,7 +177,6 @@ public:
 
 // Impl
 
-//! A private function to reset everything
 /*!
     Resets and clears connection-state, timers, streams and various other tranport related params
 */
@@ -249,7 +257,7 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 //---------------- Stream functions begin ----------------//
 
 
-//! private function which creates or return sendstream of given stream_id
+//! creates or return sendstream of given stream_id
 /*!
     Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
 
@@ -269,7 +277,7 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 }
 
 
-//! private function which creates or return sendstream of given stream_id
+//! creates or return sendstream of given stream_id
 /*!
     Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
 
@@ -315,6 +323,13 @@ bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	return true;
 }
 
+//! Sends across given data item fragment
+/*!
+	\param stream SendStream to which the fragment's dataItem belongs to
+    \param data_item DataItem to which the fragment belongs to
+    \param offset integer offset of the fragment in the data_item
+    \param length byte length of the fragment
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	SendStream &stream,
@@ -360,6 +375,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	}
 }
 
+//! Schedules pacing timer callback
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	if(is_pacing_timer_active == false) {
@@ -368,6 +384,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	}
 }
 
+//! Attempts to send again the lost packets
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 	uint64_t initial_bytes_in_flight
@@ -405,6 +422,12 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 	return 0;
 }
 
+//! Attempts to send new packets in the given stream
+/*!
+	fragments dataItems in the stream and sends them across until is congestion or pacing limit not hit
+	\param stream SendStream which from which DataItems/Packets needs to be dequeued for sending
+    \param initial_bytes_in_flight for the purpose keeping a check on congestion and pacing limit
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 	SendStream &stream,
@@ -488,6 +511,11 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_
 
 
 //---------------- TLP functions begin ----------------//
+
+//! tail loss probe (tlp) function to detect inactivity
+/*!
+	called at TLP_INTERVAL to detect inactivity. examines for packet losses and adjusts congestion window accordingly
+*/
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *handle) {
@@ -850,6 +878,13 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	transport.send(std::move(packet));
 }
 
+
+/*!
+	handles the packet fragments received on the connection.
+	queues the packets if they are received out of order
+	if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
+	\param packet the bytes received
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	net::Buffer &&packet
@@ -999,7 +1034,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
-	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send send_RST
 		return;
 	}
 
@@ -1333,6 +1368,12 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 
 	transport.setup(this);
 }
+
+//! public function called by higher level to send data
+/*!
+	adds data to appropriate send stream and
+	calls send_pending_data to schedule pacing_timer_cb
+*/
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send(

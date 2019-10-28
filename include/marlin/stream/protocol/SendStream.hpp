@@ -1,3 +1,12 @@
+/*! \file SendStream.hpp
+    \brief
+
+    Details: XYZ.
+
+    Features over UDP:
+    a. 3 way handshake for connection establishment
+*/
+
 #ifndef MARLIN_STREAM_SENDSTREAM_HPP
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
@@ -74,6 +83,10 @@ struct SendStream {
 	}
 
 	std::list<DataItem> data_queue;
+
+	/*!
+      Represents the total number of bytes added to the queue
+    */
 	uint64_t queue_offset = 0;
 
 	uint64_t sent_offset = 0;
