@@ -9,6 +9,28 @@
 namespace marlin {
 namespace stream {
 
+//! Buffer implementation class to read the packets recieved on StreamTransport
+/*!
+
+	Packet breakup:
+    0	:	1	:	version
+	1	:	1	:	type_flag / fin flag in case of data packet
+	2	:	4	:	src_conn_id
+	6	: 	4	:	dst_conn_id
+	10	:	2	: 	stream_id for data packets, size for (ack?)
+	12	:	8	:	packet_number (valid for data and ack packets)
+	20	: 	8	:	offset of data in stream (only valid for data packets)
+
+
+	Type-flags:
+	0/1	:	data/data+fin
+	2	:	ack
+	3	:	dial
+	4	:	dial_conf
+	5	:	conf
+	6	:	reset
+*/
+
 struct StreamPacket: public net::Buffer {
 	uint8_t version() const {
 		return read_uint8(0);
