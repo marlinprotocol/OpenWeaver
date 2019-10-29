@@ -70,14 +70,14 @@ private:
 	// Packets
 
 	/*!
-      strictly increasing packet number so that all packets including the lost ones which are being retransmitted have unique packet number
-    */
+		strictly increasing packet number so that all packets including the lost ones which are being retransmitted have unique packet number
+	*/
 	uint64_t last_sent_packet = -1;
 	std::map<uint64_t, SentPacketInfo> sent_packets;
 
 	/*!
-      packets which not have been acked since long time
-    */
+		packets which not have been acked since long time
+	*/
 	std::map<uint64_t, SentPacketInfo> lost_packets;
 
 	// RTT estimate
@@ -1034,7 +1034,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
-	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send send_RST
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		return;
 	}
 
