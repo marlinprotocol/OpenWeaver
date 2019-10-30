@@ -178,7 +178,7 @@ public:
 // Impl
 
 /*!
-    Resets and clears connection-state, timers, streams and various other tranport related params
+	Resets and clears connection-state, timers, streams and various other tranport related params
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::reset() {
@@ -226,7 +226,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 
 //! a callback function which sends dial message with exponential interval increases
 /*!
-    \param handle a uv_timer_t handle type
+	\param handle a uv_timer_t handle type
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
@@ -259,10 +259,10 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 
 //! creates or return sendstream of given stream_id
 /*!
-    Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
+	Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
 
-    \param stream_id stream id to search for
-    \return SendStream SendStream corresponding for given param stream_id
+	\param stream_id stream id to search for
+	\return SendStream SendStream corresponding for given param stream_id
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send_stream(
@@ -279,10 +279,10 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 
 //! creates or return sendstream of given stream_id
 /*!
-    Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
+	Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
 
-    \param stream_id stream id to search for
-    \return RecvStream RecvStream corresponding for given param stream_id
+	\param stream_id stream id to search for
+	\return RecvStream RecvStream corresponding for given param stream_id
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv_stream(
@@ -304,10 +304,10 @@ RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv
 
 //! adds given SendStream to send_queue
 /*!
-    Takes in the stream and adds it to the queue of streams which are inspected for data packets during the sending phase
+	Takes in the stream and adds it to the queue of streams which are inspected for data packets during the sending phase
 
-    \param SendStream SendStream to be added to the queue
-    \return returns false if stream already in queue otherwise true
+	\param SendStream SendStream to be added to the queue
+	\return returns false if stream already in queue otherwise true
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
@@ -326,9 +326,9 @@ bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 //! Sends across given data item fragment
 /*!
 	\param stream SendStream to which the fragment's dataItem belongs to
-    \param data_item DataItem to which the fragment belongs to
-    \param offset integer offset of the fragment in the data_item
-    \param length byte length of the fragment
+	\param data_item DataItem to which the fragment belongs to
+	\param offset integer offset of the fragment in the data_item
+	\param length byte length of the fragment
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
@@ -880,9 +880,10 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 
 
 /*!
-	handles the packet fragments received on the connection.
-	queues the packets if they are received out of order
-	if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
+	a. handles the packet fragments received on the connection.
+	b. queues the packets if they are received out of order
+	c. if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
+
 	\param packet the bytes received
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1371,8 +1372,8 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 
 //! public function called by higher level to send data
 /*!
-	adds data to appropriate send stream and
-	calls send_pending_data to schedule pacing_timer_cb
+	a. adds data to appropriate send stream and
+	b. calls send_pending_data to schedule pacing_timer_cb
 */
 
 template<typename DelegateType, template<typename> class DatagramTransport>
