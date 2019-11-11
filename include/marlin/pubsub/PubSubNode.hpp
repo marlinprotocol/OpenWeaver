@@ -1,7 +1,5 @@
 /*! \file PubSub.hpp
     \brief Containing provisions for Publish Subscribe (PubSub) functionality
-
-    Details: XYZ.
 */
 
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
@@ -51,12 +49,18 @@ struct ReadBuffer {
 };
 
 
-//! Class containing the functionality to subscribe to channels as well publish message to the subscribtions
+//! Class containing the Pub-Sub functionality
 /*!
-    a. Uses the custom marlin-StreamTransport for message delivery
-    b. Currently both Publisher & Subscriber functionality in same class. Needs to be separated
-    c. send_subscribe(publisher_address, channel)
-    d. send_message(channel, message)
+    - Uses the custom marlin-StreamTransport for message delivery
+
+    - Important functions:
+        * subscribe(publisher_address)
+        * unsubsribe(publisher_address)
+        * send_message_on_channel(channel, message)
+
+    - TODO:
+        Currently both Publisher & Subscriber functionality in same class. Needs to be separated
+
 */
 template<typename PubSubDelegate>
 class PubSubNode {
@@ -302,7 +306,7 @@ void PubSubNode<PubSubDelegate>::did_recv_RESPONSE(
 	// Process rest of the message
 	std::string message(bytes.data(), bytes.data()+bytes.size());
 
-	// Check subscibe/unsubscribe response
+	// Check subscribe/unsubscribe response
 	if(message.rfind("UNSUBSCRIBED FROM ", 0) == 0) {
 		delegate->did_unsubscribe(*this, message.substr(18));
 	} else if(message.rfind("SUBSCRIBED TO ", 0) == 0) {
