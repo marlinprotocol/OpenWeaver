@@ -53,10 +53,10 @@ struct ReadBuffer {
 
 //! Class containing the functionality to subscribe to channels as well publish message to the subscribtions
 /*!
-	a. Uses the custom marlin-StreamTransport for message delivery
-	b. Currently both Publisher & Subscriber functionality in same class. Needs to be separated
-	c. send_subscribe(publisher_address, channel)
-	d. send_message(channel, message)
+    a. Uses the custom marlin-StreamTransport for message delivery
+    b. Currently both Publisher & Subscriber functionality in same class. Needs to be separated
+    c. send_subscribe(publisher_address, channel)
+    d. send_message(channel, message)
 */
 template<typename PubSubDelegate>
 class PubSubNode {
@@ -212,8 +212,8 @@ private:
 //---------------- PubSub functions begin ----------------//
 
 /*!
-	Callback on receipt of subscribe request.
-	Adds the address(tranport) to the set of subscriptions for requested channel
+    Callback on receipt of subscribe request.
+    Adds the address(tranport) to the set of subscriptions for requested channel
 */
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
@@ -253,8 +253,8 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(
 }
 
 /*!
-	Callback on receipt of unsubscribe request.
-	Removes the address(tranport) from the set of subscriptions for requested channel
+    Callback on receipt of unsubscribe request.
+    Removes the address(tranport) from the set of subscriptions for requested channel
 */
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
@@ -344,9 +344,9 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(
 
 //! Callback on receipt of message data
 /*!
-	a. reassembles the fragmented packets received by the streamTransport back into meaninfull data component
-	b. relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
-	c. performs message deduplication i.e doesnt relay the message if it has already been relayed recently
+    a. reassembles the fragmented packets received by the streamTransport back into meaninfull data component
+    b. relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
+    c. performs message deduplication i.e doesnt relay the message if it has already been relayed recently
 */
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
@@ -688,6 +688,9 @@ void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
 	);
 }
 
+/*!
+	Public function to add any subscriber to all the channels specified by delegate
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
