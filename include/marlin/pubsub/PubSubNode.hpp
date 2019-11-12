@@ -1,3 +1,7 @@
+/*! \file PubSub.hpp
+    \brief Containing provisions for Publish Subscribe (PubSub) functionality
+*/
+
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
@@ -44,6 +48,20 @@ struct ReadBuffer {
 	uint64_t message_id = 0;
 };
 
+
+//! Class containing the Pub-Sub functionality
+/*!
+    - Uses the custom marlin-StreamTransport for message delivery
+
+    - Important functions:
+        * subscribe(publisher_address)
+        * unsubsribe(publisher_address)
+        * send_message_on_channel(channel, message)
+
+    - TODO:
+        Currently both Publisher & Subscriber functionality in same class. Needs to be separated
+
+*/
 template<typename PubSubDelegate>
 class PubSubNode {
 
@@ -197,6 +215,10 @@ private:
 
 //---------------- PubSub functions begin ----------------//
 
+/*!
+    Callback on receipt of subscribe request.
+    Adds the address(tranport) to the set of subscriptions for requested channel
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
@@ -234,6 +256,10 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(
 	transport.send(std::move(bytes));
 }
 
+/*!
+    Callback on receipt of unsubscribe request.
+    Removes the address(tranport) from the set of subscriptions for requested channel
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
@@ -280,7 +306,7 @@ void PubSubNode<PubSubDelegate>::did_recv_RESPONSE(
 	// Process rest of the message
 	std::string message(bytes.data(), bytes.data()+bytes.size());
 
-	// Check subscibe/unsubscribe response
+	// Check subscribe/unsubscribe response
 	if(message.rfind("UNSUBSCRIBED FROM ", 0) == 0) {
 		delegate->did_unsubscribe(*this, message.substr(18));
 	} else if(message.rfind("SUBSCRIBED TO ", 0) == 0) {
@@ -320,6 +346,12 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(
 	transport.send(std::move(m));
 }
 
+//! Callback on receipt of message data
+/*!
+    a. reassembles the fragmented packets received by the streamTransport back into meaninfull data component
+    b. relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
+    c. performs message deduplication i.e doesnt relay the message if it has already been relayed recently
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
 	BaseTransport &transport,
@@ -473,6 +505,16 @@ void PubSubNode<PubSubDelegate>::did_dial(BaseTransport &transport) {
 	);
 }
 
+//! Receives the bytes/packet fragments from StreamTransport and processes them
+/*!
+	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
+
+	first-byte	:	type
+	0			:	subscribe
+	1			:	unsubscribe
+	2			:	response
+	3			:	message
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::did_recv_bytes(
 	BaseTransport &transport,
@@ -561,7 +603,9 @@ int PubSubNode<PubSubDelegate>::dial(net::SocketAddress const &addr) {
 }
 
 
-
+/*!
+	Public function to send messages over a given channel
+*/
 template<typename PubSubDelegate>
 uint64_t PubSubNode<PubSubDelegate>::send_message_on_channel(
 	std::string channel,
@@ -575,6 +619,9 @@ uint64_t PubSubNode<PubSubDelegate>::send_message_on_channel(
 	return message_id;
 }
 
+/*!
+	Public function to send messages over a given channel
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::send_message_on_channel(
 	std::string channel,
@@ -602,6 +649,9 @@ void PubSubNode<PubSubDelegate>::send_message_on_channel(
 	}
 }
 
+/*!
+	Public function to subscribe to any publisher address
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
@@ -622,6 +672,9 @@ void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
 	);
 }
 
+/*!
+	Public function to unsubscribe from any publisher address
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
@@ -639,6 +692,9 @@ void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
 	);
 }
 
+/*!
+	Public function to add any subscriber to all the channels specified by delegate
+*/
 template<typename PubSubDelegate>
 void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
