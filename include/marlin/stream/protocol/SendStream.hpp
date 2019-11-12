@@ -1,3 +1,7 @@
+/*! \file SendStream.hpp
+    \brief components for QUIC like multi-stream implementation over UDP
+*/
+
 #ifndef MARLIN_STREAM_SENDSTREAM_HPP
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
@@ -10,6 +14,7 @@
 namespace marlin {
 namespace stream {
 
+//! Struct to store data (and its params) which is queued to the output/send stream
 struct DataItem {
 	std::unique_ptr<char[]> data;
 	uint64_t size;
@@ -55,6 +60,13 @@ struct SentPacketInfo {
 	SentPacketInfo() {}
 };
 
+//! Implementation for individual stream in multi-stream transport protocol
+/*!
+    Features:
+    a. has its own congestion control
+	b. is responsible for ensuring the packet delivery of its dataItems
+
+*/
 struct SendStream {
 	uint16_t stream_id;
 
@@ -74,6 +86,10 @@ struct SendStream {
 	}
 
 	std::list<DataItem> data_queue;
+
+	/*!
+		Represents the total number of bytes added to the queue
+	*/
 	uint64_t queue_offset = 0;
 
 	uint64_t sent_offset = 0;
