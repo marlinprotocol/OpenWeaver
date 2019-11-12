@@ -1274,6 +1274,19 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	conn_state = ConnectionState::DialSent;
 }
 
+//! Receives the packet and processes them
+/*!
+	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
+
+	byte		type
+	0		:	DATA
+	1		:	DATA + FIN
+	2		:	ACK
+	3		:	DIAL
+	4		:	DIALCONF
+	5		:	CONF
+	6		:	RST
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	BaseTransport &,
