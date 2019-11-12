@@ -1,3 +1,7 @@
+/*! \file DiscoveryClient.hpp
+    \brief Client side implementation of beacon functionality to discover peer nodes to connect to
+*/
+
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
@@ -7,6 +11,14 @@
 namespace marlin {
 namespace beacon {
 
+//! Class implementing the client side ndoe discovery functionality
+/*!
+    Features:
+    * Uses the custom marlin UDPTransport for message delivery
+    * HEARTBEAT - function to register with the central discovery server to enable oneself be discoverable
+    * DISCPEER - function to find other discoverable clients
+    * DISCPROTO - function to find supported protocols on a node
+*/
 template<typename DiscoveryClientDelegate>
 class DiscoveryClient {
 private:
@@ -31,6 +43,9 @@ private:
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
+	/*!
+		stores the UDP Transport connection instance to the beacon server
+	*/
 	BaseTransport *beacon = nullptr;
 
 	uv_timer_t beacon_timer;
@@ -62,6 +77,19 @@ public:
 
 //---------------- Discovery protocol functions begin ----------------//
 
+
+/*!
+    function to get list of supported protocols on a client node
+
+    message format:
+
+    0               1               2
+    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
+    +++++++++++++++++++++++++++++++++
+    |      0x00     |      0x00     |
+    +++++++++++++++++++++++++++++++++
+
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPROTO(
 	BaseTransport &transport
@@ -72,6 +100,11 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPROTO(
 	transport.send(std::move(p));
 }
 
+
+/*!
+    Callback on receipt of disc proto
+    Sends back the protocols supported on this node
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_DISCPROTO(
 	BaseTransport &transport
@@ -81,6 +114,33 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_DISCPROTO(
 	send_LISTPROTO(transport);
 }
 
+
+/*!
+    function to send the list of supported protocols on this node
+
+    message format:
+
+     0               1               2               3
+     0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+    +++++++++++++++++++++++++++++++++++++++++++++++++
+    |      0x00     |      0x01     |Num entries (N)|
+    -----------------------------------------------------------------
+    |                      Protocol Number (1)                      |
+    -----------------------------------------------------------------
+    |          Version (1)          |            Port (1)           |
+    -----------------------------------------------------------------
+    |                      Protocol Number (2)                      |
+    -----------------------------------------------------------------
+    |          Version (2)          |            Port (2)           |
+    -----------------------------------------------------------------
+    |                              ...                              |
+    -----------------------------------------------------------------
+    |                      Protocol Number (N)                      |
+    -----------------------------------------------------------------
+    |          Version (N)          |            Port (N)           |
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_LISTPROTO(
 	BaseTransport &transport
@@ -130,6 +190,18 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPROTO(
 	}
 }
 
+/*!
+    function to discover peers
+
+    message format:
+
+    0               1               2
+    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
+    +++++++++++++++++++++++++++++++++
+    |      0x00     |      0x02     |
+    +++++++++++++++++++++++++++++++++
+
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
 	BaseTransport &transport
@@ -140,6 +212,10 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
 	transport.send(std::move(p));
 }
 
+/*!
+    Callback on receipt of list peers
+    Tries to connect to each of the peers via dial
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 	BaseTransport &transport __attribute__((unused)),
@@ -161,6 +237,18 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 	}
 }
 
+/*!
+    function to refresh/create entry at the discovery server to keep the node discoverable
+
+    message format:
+
+    0               1               2
+    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
+    +++++++++++++++++++++++++++++++++
+    |      0x00     |      0x04     |
+    +++++++++++++++++++++++++++++++++
+
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	BaseTransport &transport
@@ -171,6 +259,9 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	transport.send(std::move(p));
 }
 
+/*!
+    callback to periodically send DISCPEER sending in search of new peers
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb(uv_timer_t *handle) {
 	auto &client = *(DiscoveryClient<DiscoveryClientDelegate> *)handle->data;
@@ -179,6 +270,9 @@ void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb(uv_timer_t *handl
 	client.send_DISCPEER(*client.beacon);
 }
 
+/*!
+    callback to periodically send HEARTBEAT to refresh the entry at beacon server
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
 	auto &client = *(DiscoveryClient<DiscoveryClientDelegate> *)handle->data;
@@ -238,6 +332,17 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 	}
 }
 
+//! Receives the packet and processes them
+/*!
+	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
+
+	first-byte	:	type
+	0			:	DISCPROTO
+	1			:	LISTPROTO
+	2			:	ERROR - DISCPEER, meant for server
+	3			:	LISTPEER
+	4			:	ERROR- HEARTBEAT, meant for server
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_packet(
 	BaseTransport &transport,
@@ -308,6 +413,9 @@ DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 	heartbeat_timer.data = this;
 }
 
+/*!
+	connecting to the beacon server to start the peer discovery
+*/
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::start_discovery(
 	const net::SocketAddress &beacon_addr
