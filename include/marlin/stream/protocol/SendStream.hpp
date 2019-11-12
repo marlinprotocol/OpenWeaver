@@ -64,8 +64,7 @@ struct SentPacketInfo {
 /*!
     Features:
     a. has its own congestion control
-	b. is responsible for ensuring the packet delivery of its dataItems
-
+    b. is responsible for ensuring the packet delivery of its dataItems
 */
 struct SendStream {
 	uint16_t stream_id;
