@@ -11,7 +11,7 @@
 namespace marlin {
 namespace beacon {
 
-//! Class implementing the client side ndoe discovery functionality
+//! Class implementing the client side node discovery functionality
 /*!
     Features:
     * Uses the custom marlin UDPTransport for message delivery
