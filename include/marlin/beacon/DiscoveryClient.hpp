@@ -1,5 +1,5 @@
 /*! \file DiscoveryClient.hpp
-    \brief Client side implementation of beacon functionality to discover peer nodes to connect to
+	\brief Client side implementation of beacon functionality to discover peer nodes to connect to
 */
 
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
@@ -13,11 +13,11 @@ namespace beacon {
 
 //! Class implementing the client side node discovery functionality
 /*!
-    Features:
-    * Uses the custom marlin UDPTransport for message delivery
-    * HEARTBEAT - function to register with the central discovery server to enable oneself be discoverable
-    * DISCPEER - function to find other discoverable clients
-    * DISCPROTO - function to find supported protocols on a node
+	Features:
+	\li Uses the custom marlin UDPTransport for message delivery
+	\li HEARTBEAT - function to register with the central discovery server to enable oneself be discoverable
+	\li DISCPEER - function to find other discoverable clients
+	\li DISCPROTO - function to find supported protocols on a node
 */
 template<typename DiscoveryClientDelegate>
 class DiscoveryClient {
@@ -79,16 +79,17 @@ public:
 
 
 /*!
-    function to get list of supported protocols on a client node
+	function to get list of supported protocols on a client node
 
-    message format:
+\verbatim
 
-    0               1               2
-    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-    +++++++++++++++++++++++++++++++++
-    |      0x00     |      0x00     |
-    +++++++++++++++++++++++++++++++++
+0               1               2
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x00     |
++++++++++++++++++++++++++++++++++
 
+\endverbatim
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPROTO(
@@ -102,8 +103,8 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPROTO(
 
 
 /*!
-    Callback on receipt of disc proto
-    Sends back the protocols supported on this node
+	\li Callback on receipt of disc proto
+	\li Sends back the protocols supported on this node
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_DISCPROTO(
@@ -116,30 +117,31 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_DISCPROTO(
 
 
 /*!
-    function to send the list of supported protocols on this node
+	function to send the list of supported protocols on this node
 
-    message format:
+\verbatim
 
-     0               1               2               3
-     0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
-    +++++++++++++++++++++++++++++++++++++++++++++++++
-    |      0x00     |      0x01     |Num entries (N)|
-    -----------------------------------------------------------------
-    |                      Protocol Number (1)                      |
-    -----------------------------------------------------------------
-    |          Version (1)          |            Port (1)           |
-    -----------------------------------------------------------------
-    |                      Protocol Number (2)                      |
-    -----------------------------------------------------------------
-    |          Version (2)          |            Port (2)           |
-    -----------------------------------------------------------------
-    |                              ...                              |
-    -----------------------------------------------------------------
-    |                      Protocol Number (N)                      |
-    -----------------------------------------------------------------
-    |          Version (N)          |            Port (N)           |
-    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+0               1               2               3
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
++++++++++++++++++++++++++++++++++++++++++++++++++
+|      0x00     |      0x01     |Num entries (N)|
+-----------------------------------------------------------------
+|                      Protocol Number (1)                      |
+-----------------------------------------------------------------
+|          Version (1)          |            Port (1)           |
+-----------------------------------------------------------------
+|                      Protocol Number (2)                      |
+-----------------------------------------------------------------
+|          Version (2)          |            Port (2)           |
+-----------------------------------------------------------------
+|                              ...                              |
+-----------------------------------------------------------------
+|                      Protocol Number (N)                      |
+-----------------------------------------------------------------
+|          Version (N)          |            Port (N)           |
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+\endverbatim
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_LISTPROTO(
@@ -191,16 +193,17 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPROTO(
 }
 
 /*!
-    function to discover peers
+	function to discover peers
 
-    message format:
+\verbatim
 
-    0               1               2
-    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-    +++++++++++++++++++++++++++++++++
-    |      0x00     |      0x02     |
-    +++++++++++++++++++++++++++++++++
+0               1               2
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x02     |
++++++++++++++++++++++++++++++++++
 
+\endverbatim
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
@@ -213,8 +216,8 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
 }
 
 /*!
-    Callback on receipt of list peers
-    Tries to connect to each of the peers via dial
+	\li Callback on receipt of list peers
+	\li Tries to connect to each of the peers via dial
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
@@ -238,16 +241,17 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 }
 
 /*!
-    function to refresh/create entry at the discovery server to keep the node discoverable
+	function to refresh/create entry at the discovery server to keep the node discoverable
 
-    message format:
+\verbatim
 
-    0               1               2
-    0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-    +++++++++++++++++++++++++++++++++
-    |      0x00     |      0x04     |
-    +++++++++++++++++++++++++++++++++
+0               1               2
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x04     |
++++++++++++++++++++++++++++++++++
 
+\endverbatim
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
@@ -260,7 +264,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 }
 
 /*!
-    callback to periodically send DISCPEER sending in search of new peers
+	callback to periodically send DISCPEER sending in search of new peers
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb(uv_timer_t *handle) {
@@ -271,7 +275,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb(uv_timer_t *handl
 }
 
 /*!
-    callback to periodically send HEARTBEAT to refresh the entry at beacon server
+	callback to periodically send HEARTBEAT to refresh the entry at beacon server
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
@@ -336,12 +340,12 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
-	first-byte	:	type
-	0			:	DISCPROTO
-	1			:	LISTPROTO
-	2			:	ERROR - DISCPEER, meant for server
-	3			:	LISTPEER
-	4			:	ERROR- HEARTBEAT, meant for server
+	\li \b first-byte	:	\b type
+	\li 0			:	DISCPROTO
+	\li 1			:	LISTPROTO
+	\li 2			:	ERROR - DISCPEER, meant for server
+	\li 3			:	LISTPEER
+	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_packet(
