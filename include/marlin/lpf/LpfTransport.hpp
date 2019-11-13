@@ -29,6 +29,7 @@ public:
 	void did_dial(BaseTransport &transport);
 	void did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes);
 	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
+	void did_close(BaseTransport& transport);
 
 	net::SocketAddress src_addr;
 	net::SocketAddress dst_addr;
@@ -113,6 +114,14 @@ void LpfTransport<DelegateType, StreamTransportType, prefix_length>::did_send_by
 ) {
 	bytes.cover(8);
 	delegate->did_send_message(*this, std::move(bytes));
+}
+
+template<typename DelegateType, template<typename> class StreamTransportType, int prefix_length>
+void LpfTransport<DelegateType, StreamTransportType, prefix_length>::did_close(
+	BaseTransport&
+) {
+	delete buf;
+	delegate->did_close(*this);
 }
 
 template<typename DelegateType, template<typename> class StreamTransportType, int prefix_length>
