@@ -3,15 +3,15 @@
 
 #include "StreamTransport.hpp"
 
-//! Factory class to create and manage StreamTranport instances
-/*!
-    Features:
-    a. creates StreamTransport instances for every new peer
-    b. exposes functions to bind to a socket, setting up a UDP listener and dialing to a peer
-*/
 namespace marlin {
 namespace stream {
 
+//! Factory class to create and manage StreamTranport instances
+/*!
+    Features:
+    \li creates StreamTransport instances for every new peer
+    \li exposes functions to bind to a socket, setting up a UDP listener and dialing to a peer
+*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
