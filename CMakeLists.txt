@@ -20,11 +20,15 @@ target_include_directories(pubsub
 )
 target_compile_features(pubsub INTERFACE cxx_std_17)
 
-#MarlinStream
+# MarlinLpf
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-lpf.cmake")
+target_link_libraries(pubsub INTERFACE Marlin::lpf)
+
+# MarlinStream
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
 target_link_libraries(pubsub INTERFACE Marlin::stream)
 
-#MarlinNet
+# MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(pubsub INTERFACE Marlin::net)
 
