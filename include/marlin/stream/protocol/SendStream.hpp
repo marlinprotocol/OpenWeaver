@@ -62,9 +62,9 @@ struct SentPacketInfo {
 
 //! Implementation for individual stream in multi-stream transport protocol
 /*!
-    Features:
-    a. has its own congestion control
-    b. is responsible for ensuring the packet delivery of its dataItems
+	Features:
+	\li has its own congestion control
+	\li is responsible for ensuring the packet delivery of its dataItems
 */
 struct SendStream {
 	uint16_t stream_id;
