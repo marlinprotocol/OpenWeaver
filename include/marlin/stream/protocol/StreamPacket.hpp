@@ -1,3 +1,6 @@
+/*! \file StreamPacket.hpp
+*/
+
 #ifndef MARLIN_STREAM_STREAMPACKET_HPP
 #define MARLIN_STREAM_STREAMPACKET_HPP
 
@@ -11,6 +14,8 @@ namespace stream {
 
 //! Buffer implementation class to read the packets recieved on StreamTransport
 /*!
+
+\verbatim
 
  0               1               2               3
  0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
@@ -38,7 +43,6 @@ namespace stream {
 |                              ...                              |
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
 	Packet breakup:
 	0	:	1	:	version
 	1	:	1	:	type_flag / fin flag in case of data packet
@@ -56,6 +60,8 @@ namespace stream {
 	4	:	dial_conf
 	5	:	conf
 	6	:	reset
+
+\endverbatim
 */
 
 struct StreamPacket: public net::Buffer {

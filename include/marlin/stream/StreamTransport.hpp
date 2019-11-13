@@ -1,8 +1,5 @@
-
 /*! \file StreamTransport.hpp
     \brief Building on UDP
-
-    Details: XYZ.
 */
 
 
@@ -31,10 +28,10 @@ namespace stream {
 
 //! Custom transport class building upon UDP
 /*!
-    Features over UDP:
-    a. 3 way handshake for connection establishment
-    b. support for adding multiple stream functionality
-    c. FEC support to be integrated
+	Features over UDP:
+	\li 3 way handshake for connection establishment
+	\li supports multiple streams
+	\li FEC support to be integrated
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
@@ -880,9 +877,9 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 
 
 /*!
-	a. handles the packet fragments received on the connection.
-	b. queues the packets if they are received out of order
-	c. if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
+	\li handles the packet fragments received on the connection.
+	\li queues the packets if they are received out of order
+	\li if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
 
 	\param packet the bytes received
 */
@@ -1278,14 +1275,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
-	byte		type
-	0		:	DATA
-	1		:	DATA + FIN
-	2		:	ACK
-	3		:	DIAL
-	4		:	DIALCONF
-	5		:	CONF
-	6		:	RST
+	\li \b byte :	\b type
+	\li 0		:	DATA
+	\li 1		:	DATA + FIN
+	\li 2		:	ACK
+	\li 3		:	DIAL
+	\li 4		:	DIALCONF
+	\li 5		:	CONF
+	\li 6		:	RST
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
@@ -1385,8 +1382,8 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 
 //! public function called by higher level to send data
 /*!
-	a. adds data to appropriate send stream and
-	b. calls send_pending_data to schedule pacing_timer_cb
+	\li adds data to appropriate send stream and
+	\li calls send_pending_data to schedule pacing_timer_cb
 */
 
 template<typename DelegateType, template<typename> class DatagramTransport>
