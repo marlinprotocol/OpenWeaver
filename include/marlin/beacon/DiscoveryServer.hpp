@@ -1,8 +1,20 @@
+/*! \file DiscoveryServer.hpp
+    \brief Server side implementation of beacon functionality to register client nodes and provides info about other nodes (discovery)
+*/
+
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <map>
+
+//! Class implementing the server side node discovery functionality
+/*!
+    Features:
+    * Uses the custom marlin UDPTransport for message delivery
+    * HEARTBEAT - nodes which ping with a heartbeat are registered
+    * DISCPEER - nodes which ping with Discpeer are sent a list of peers
+*/
 
 namespace marlin {
 namespace beacon {
@@ -53,6 +65,11 @@ public:
 
 //---------------- Discovery protocol functions begin ----------------//
 
+
+/*!
+    Callback on receipt of disc proto
+    Sends back the protocols supported on this node
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPROTO(
 	BaseTransport &transport
@@ -72,6 +89,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	transport.send(std::move(p));
 }
 
+
+/*!
+    Callback on receipt of disc peer
+    Sends back the list of peers
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
 	BaseTransport &transport
@@ -81,6 +103,38 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
 	send_LISTPEER(transport);
 }
 
+
+/*!
+    function to send the list of peers on this node
+
+Format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x03     |
+	---------------------------------
+	|            AF_INET            |
+	-----------------------------------------------------------------
+	|                        IPv4 Address (1)                       |
+	-----------------------------------------------------------------
+	|            Port (1)           |
+	---------------------------------
+	|            AF_INET            |
+	-----------------------------------------------------------------
+	|                        IPv4 Address (2)                       |
+	-----------------------------------------------------------------
+	|            Port (2)           |
+	-----------------------------------------------------------------
+	|                              ...                              |
+	-----------------------------------------------------------------
+	|            AF_INET            |
+	-----------------------------------------------------------------
+	|                        IPv4 Address (N)                       |
+	-----------------------------------------------------------------
+	|            Port (N)           |
+	+++++++++++++++++++++++++++++++++
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
@@ -106,6 +160,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	transport.send(std::move(p));
 }
 
+/*!
+    Callback on receipt of heartbeat from a client node
+    Refreshes the entry of the node with current timestamp
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport
@@ -115,6 +173,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	peers[&transport] = uv_now(uv_default_loop());
 }
 
+
+/*!
+    callback to periodically cleanup the old peers which have been inactive for more than a minute (inactive = not received heartbeat)
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
 	auto &beacon = *(DiscoveryServer<DiscoveryServerDelegate> *)handle->data;
@@ -161,6 +223,18 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 	BaseTransport &
 ) {}
 
+
+//! Receives the packet and processes them
+/*!
+	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
+
+	first-byte	:	type
+	0			:	DISCPROTO
+	1			:	ERROR - LISTPROTO, meant for client
+	2			:	DISCPEER
+	3			:	ERROR - LISTPEER, meant for client
+	4			:	HEARTBEAT
+*/
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 	BaseTransport &transport,
