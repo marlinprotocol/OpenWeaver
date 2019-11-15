@@ -32,6 +32,7 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
+		did_dial(transport);
 	}
 
 	void did_dial(TransportType &transport) {
