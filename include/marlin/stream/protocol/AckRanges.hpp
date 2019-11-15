@@ -2,6 +2,7 @@
 #define MARLIN_STREAM_ACK_RANGES_HPP
 
 #include <list>
+#include <spdlog/spdlog.h>
 
 namespace marlin {
 namespace stream {
@@ -91,8 +92,9 @@ public:
 			ranges.push_back(1);
 		}
 
-		if(ranges.size() > 100) {
-			ranges.resize(100);
+		if(ranges.size() > 1001) {
+			SPDLOG_ERROR("AckRange resized: {}", num);
+			ranges.resize(1001);
 		}
 	}
 };
