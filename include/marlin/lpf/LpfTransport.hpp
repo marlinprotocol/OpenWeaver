@@ -46,6 +46,9 @@ public:
 	void setup(DelegateType *delegate);
 	int send(net::Buffer &&message);
 	void close();
+
+	bool is_active();
+	double get_rtt();
 };
 
 
@@ -158,6 +161,16 @@ void LpfTransport<DelegateType, StreamTransportType, prefix_length>::close() {
 	transport.close();
 	delegate->did_close(*this);
 	transport_manager.erase(dst_addr);
+}
+
+template<typename DelegateType, template<typename> class StreamTransportType, int prefix_length>
+bool LpfTransport<DelegateType, StreamTransportType, prefix_length>::is_active() {
+	return transport.is_active();
+}
+
+template<typename DelegateType, template<typename> class StreamTransportType, int prefix_length>
+double LpfTransport<DelegateType, StreamTransportType, prefix_length>::get_rtt() {
+	return transport.get_rtt();
 }
 
 } // namespace lpf
