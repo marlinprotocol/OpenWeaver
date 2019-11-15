@@ -117,7 +117,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_DISCPROTO(
 
 
 /*!
-	function to send the list of supported protocols on this node
+	sends the list of supported protocols on this node
 
 \verbatim
 
@@ -193,7 +193,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPROTO(
 }
 
 /*!
-	function to discover peers
+	sends peer discovery message
 
 \verbatim
 
@@ -241,7 +241,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 }
 
 /*!
-	function to refresh/create entry at the discovery server to keep the node discoverable
+	sends heartbeat message to refresh/create entry at the discovery server to keep the node discoverable
 
 \verbatim
 
@@ -336,7 +336,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 	}
 }
 
-//! Receives the packet and processes them
+//! receives the packet and processes them
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
@@ -418,7 +418,7 @@ DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 }
 
 /*!
-	connecting to the beacon server to start the peer discovery
+	connects to the beacon server to start the peer discovery
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::start_discovery(
