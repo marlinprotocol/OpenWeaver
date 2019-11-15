@@ -114,5 +114,9 @@ SocketAddress SocketAddress::deserialize(const std::vector<unsigned char>::itera
 	return addr;
 }
 
+uint16_t SocketAddress::get_port() const {
+	return reinterpret_cast<const sockaddr_in *>(this)->sin_port;
+}
+
 } // namespace net
 } // namespace marlin
