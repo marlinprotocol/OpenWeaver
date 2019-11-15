@@ -60,6 +60,8 @@ public:
 	std::vector<unsigned char> serialize() const;
 	/// Deserialize from bytes
 	static SocketAddress deserialize(const std::vector<unsigned char>::iterator bytes);
+
+	uint16_t get_port() const;
 };
 
 } // namespace net
