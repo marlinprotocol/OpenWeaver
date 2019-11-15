@@ -43,8 +43,8 @@ target_link_libraries(goldfish PUBLIC Marlin::beacon)
 
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(goldfish INTERFACE Marlin::net)
+target_link_libraries(goldfish PUBLIC Marlin::net)
 
 # Spdlog
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
-target_link_libraries(goldfish INTERFACE spdlog::spdlog)
+target_link_libraries(goldfish PUBLIC spdlog::spdlog)
