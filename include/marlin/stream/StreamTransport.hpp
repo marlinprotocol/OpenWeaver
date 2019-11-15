@@ -23,7 +23,7 @@ namespace marlin {
 namespace stream {
 
 #define DEFAULT_TLP_INTERVAL 1000
-#define DEFAULT_PACING_LIMIT 20000
+#define DEFAULT_PACING_LIMIT 25000
 #define DEFAULT_FRAGMENT_SIZE 1400
 
 //! Custom transport class building upon UDP
@@ -545,7 +545,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > transport.congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR(
+			SPDLOG_INFO(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -584,7 +584,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
+		SPDLOG_INFO("Lost peer: {}", transport.dst_addr.to_string());
 		transport.close();
 	}
 }
@@ -692,7 +692,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_ERROR(
+			SPDLOG_INFO(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Src id mismatch: {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -722,7 +722,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_ERROR(
+			SPDLOG_INFO(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -749,7 +749,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_ERROR(
+			SPDLOG_INFO(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -831,7 +831,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 	} else {
 		// Shouldn't receive CONF in other states, unrecoverable
 		SPDLOG_ERROR(
-			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
+			"Stream transport {{ Src: {}, Dst: {} }}: CONF: Unexpected",
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
@@ -995,9 +995,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
-	net::Buffer packet(new char[508] {0, 2}, 508);
+	int size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
-	int size = ack_ranges.ranges.size() > 61 ? 61 : ack_ranges.ranges.size();
+	net::Buffer packet(new char[20+8*size] {0, 2}, 20+8*size);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1006,10 +1006,10 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 
 	int i = 20;
 	auto iter = ack_ranges.ranges.begin();
-	// Upto 30 gaps
+	// Upto 85 gaps
 	for(
 		;
-		i <= 500 && iter != ack_ranges.ranges.end();
+		i <= 12+size*8 && iter != ack_ranges.ranges.end();
 		i += 8, iter++
 	) {
 		packet.write_uint64_be(i, *iter);
@@ -1195,7 +1195,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		// 1. more than 20 packets before largest acked - disabled for now
 		// 2. more than 25ms before before largest acked
 		if (/*sent_iter->first + 20 < largest_acked ||*/
-			largest_sent_time > sent_iter->second.sent_time + 25) {
+			largest_sent_time > sent_iter->second.sent_time + 50) {
+			SPDLOG_TRACE(
+				"Stream transport {{ Src: {}, Dst: {} }}: Lost packet: {}, {}, {}",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				sent_iter->first,
+				largest_sent_time,
+				sent_iter->second.sent_time
+			);
 
 			bytes_in_flight -= sent_iter->second.length;
 			sent_iter->second.stream->bytes_in_flight -= sent_iter->second.length;
@@ -1216,11 +1224,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR(
-				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}",
+			SPDLOG_INFO(
+				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}, {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
-				congestion_window
+				congestion_window,
+				last_iter->first
 			);
 			congestion_start = now;
 
