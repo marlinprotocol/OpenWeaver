@@ -53,7 +53,6 @@ public:
 		net::UdpTransportFactory,
 		net::UdpTransport
 	>;
-
 	template<typename Delegate>
 	using UdpStreamTransport = stream::StreamTransport<
 		Delegate,
@@ -645,7 +644,7 @@ void PubSubClient<PubSubDelegate>::add_subscriber_to_channel(
 			channel);
 		channel_subscriptions[channel].insert(&transport);
 
-		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+		// send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
 	}
 }
 
@@ -674,7 +673,7 @@ void PubSubClient<PubSubDelegate>::remove_subscriber_from_channel(
 		channel_subscriptions[channel].erase(&transport);
 
 		// Send response
-		send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+		// send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
 	}
 }
 
