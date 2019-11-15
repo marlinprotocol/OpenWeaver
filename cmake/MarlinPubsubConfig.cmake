@@ -3,6 +3,7 @@ include(CMakeFindDependencyMacro)
 
 list(APPEND CMAKE_MODULE_PATH ${PUBSUB_CMAKE_DIR})
 
+find_package(MarlinLpf REQUIRED)
 find_package(MarlinNet REQUIRED)
 find_package(MarlinStream REQUIRED)
 find_package(spdlog REQUIRED)
