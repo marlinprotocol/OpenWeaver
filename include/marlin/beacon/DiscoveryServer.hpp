@@ -104,7 +104,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
 
 
 /*!
-	function to send the list of peers on this node
+	sends the list of peers on this node
 
 \verbatim
 
@@ -176,7 +176,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 
 
 /*!
-	\li callback to periodically cleanup the old peers which have been inactive for more than a minute (inactive = not received heartbeat)
+	callback to periodically cleanup the old peers which have been inactive for more than a minute (inactive = not received heartbeat)
 */
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
@@ -225,7 +225,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 ) {}
 
 
-//! Receives the packet and processes them
+//! receives the packet and processes them
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
