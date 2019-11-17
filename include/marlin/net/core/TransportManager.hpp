@@ -1,3 +1,6 @@
+/*! \file TransportManager.hpp
+*/
+
 #ifndef MARLIN_NET_TRANSPORTMANAGER_HPP
 #define MARLIN_NET_TRANSPORTMANAGER_HPP
 
@@ -8,6 +11,7 @@
 namespace marlin {
 namespace net {
 
+//! Template Class which acts as a helper to store and retreive transport instances of template type against a query address
 template<typename TransportType>
 class TransportManager {
 	std::unordered_map<

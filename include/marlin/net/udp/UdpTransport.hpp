@@ -1,3 +1,11 @@
+/*! \file UdpTransport.hpp
+	\brief Marlin virtual UDP Transport connection implementation
+
+	Features:
+	\li purely representation & virtual udp transport connection instance which is essentially a wrapper around libuv udp
+	\li used to control UDP traffic to a particular destination
+*/
+
 #ifndef MARLIN_NET_UDPTRANSPORT_HPP
 #define MARLIN_NET_UDPTRANSPORT_HPP
 
@@ -10,6 +18,7 @@
 namespace marlin {
 namespace net {
 
+//! Wrapper transport class around libuv udp functionality
 template<typename DelegateType>
 class UdpTransport {
 private:
@@ -56,11 +65,17 @@ UdpTransport<DelegateType>::UdpTransport(
 ) : socket(_socket), transport_manager(transport_manager),
 	src_addr(_src_addr), dst_addr(_dst_addr) {}
 
+
+//! sets up the delegate when building an application or Higher Order Transport (Transport) over this transport
+/*!
+	\param delegate a DelegateType pointer to the application class instance which uses this transport
+*/
 template<typename DelegateType>
 void UdpTransport<DelegateType>::setup(DelegateType *delegate) {
 	this->delegate = delegate;
 }
 
+//! sends the incoming bytes to the application/HOT delegate
 template<typename DelegateType>
 void UdpTransport<DelegateType>::did_recv_packet(Buffer &&packet) {
 	delegate->did_recv_packet(*this, std::move(packet));
@@ -90,6 +105,11 @@ void UdpTransport<DelegateType>::send_cb(
 	delete req;
 }
 
+//! called by higher level to send data
+/*!
+	\param packet Marlin::Buffer type of packet
+	\return integer, 0 for success, failure otherwise
+*/
 template<typename DelegateType>
 int UdpTransport<DelegateType>::send(Buffer &&packet) {
 	uv_udp_send_t *req = new uv_udp_send_t();
@@ -119,6 +139,7 @@ int UdpTransport<DelegateType>::send(Buffer &&packet) {
 	return 0;
 }
 
+//! erases self entry from the transport manager which in turn destroys this instance. No other action required sinces its a virtual connection anyways
 template<typename DelegateType>
 void UdpTransport<DelegateType>::close() {
 	transport_manager.erase(dst_addr);
