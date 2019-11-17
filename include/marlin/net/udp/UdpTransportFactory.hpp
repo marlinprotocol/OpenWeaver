@@ -1,3 +1,9 @@
+/*! \file UdpTransportFactory.hpp
+	\brief Factory class to create and manage instances of marlin UDPTransport connections
+
+	Uses a transport manager helper class to redirect the incoming UDP traffic to appropriate UDPTransport instance
+*/
+
 #ifndef MARLIN_NET_UDPTRANSPORTFACTORY_HPP
 #define MARLIN_NET_UDPTRANSPORTFACTORY_HPP
 
@@ -11,6 +17,7 @@
 namespace marlin {
 namespace net {
 
+//! factory class to create instances of UDPTransport connection by either explicitly dialling or listening to incoming requests and messages
 template<typename ListenDelegate, typename TransportDelegate>
 class UdpTransportFactory {
 private:
@@ -72,6 +79,7 @@ close_cb(uv_handle_t *handle) {
 	delete handle;
 }
 
+//! Destructor, closes the listening socket
 template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 ~UdpTransportFactory() {
@@ -81,6 +89,11 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 	);
 }
 
+//! binds the socket to given arg address
+/*!
+	/param addr address to bind the socket to
+	/return an integer 0 if successful, negative otherwise
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -126,6 +139,11 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::naive_alloc_cb(
 	buf->len = suggested_size;
 }
 
+//! callback on receiving a message on the socket
+/*!
+	\li redirects the read data to appropriate udp transport connection instance
+	\li creates an instance if not already present
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 	uv_udp_t *handle,
@@ -185,6 +203,8 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 	);
 }
 
+
+//! starts listening for incoming messages on the socket address
 template<typename ListenDelegate, typename TransportDelegate>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -215,6 +235,12 @@ listen(ListenDelegate &delegate) {
 	return 0;
 }
 
+//! creates a UDP transport instance to the given address which can be used to send across messages by the delegate application or Higher order transport
+/*
+	/param addr address to dial to
+	/delegate the listen delegate object
+	/return 0 always, error handling done in dial_cb
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::

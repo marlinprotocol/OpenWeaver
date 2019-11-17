@@ -1,3 +1,9 @@
+/*! \file TCPTransportFactory.hpp
+	\brief Factory class to create and manage instances of marlin TCPTransport connections
+
+	Note: listen() and dial() methods in the same class might create confusion
+*/
+
 #ifndef MARLIN_NET_TCPTRANSPORTFACTORY_HPP
 #define MARLIN_NET_TCPTRANSPORTFACTORY_HPP
 
@@ -11,6 +17,11 @@
 namespace marlin {
 namespace net {
 
+//! factory class to create instances of TCPTransport connections by either explicitly dialling or listening to incoming requests
+/*!
+	\li client mode: dial(), dial_cb() methods
+	\li server mode: listen(), connection_cb() methods
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 class TcpTransportFactory {
 private:
@@ -66,6 +77,7 @@ close_cb(uv_handle_t *handle) {
 	delete handle;
 }
 
+//! Destructor, closes socket
 template<typename ListenDelegate, typename TransportDelegate>
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 ~TcpTransportFactory() {
@@ -75,6 +87,11 @@ TcpTransportFactory<ListenDelegate, TransportDelegate>::
 	);
 }
 
+//! binds the socket to given arg address
+/*!
+	/param addr address to bind the socket to
+	/return an integer 0 if successful, negative otherwise
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 int
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -117,6 +134,11 @@ client_close_cb(uv_handle_t *handle) {
 	delete handle;
 }
 
+//! callback on receipt of new connection request
+/*!
+	\li accepts the incoming tcp connection
+	\li creates a TCPTransport instance to handle any further communication on this TCP connection
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 void
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -197,6 +219,7 @@ connection_cb(uv_stream_t *handle, int status) {
 	}
 }
 
+//! starts listening for incoming connection requests on the socket address
 template<typename ListenDelegate, typename TransportDelegate>
 int
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -222,6 +245,7 @@ listen(ListenDelegate &delegate) {
 	return 0;
 }
 
+//! client mode callback function called on successful dial to the server instance
 template<typename ListenDelegate, typename TransportDelegate>
 void
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
@@ -261,6 +285,13 @@ dial_cb(uv_connect_t *req, int status) {
 	transport->delegate->did_dial(*transport);
 }
 
+
+//! client mode function that tries to establish a TCP connection to the given server socket address
+/*
+	/param addr address to dial to
+	/delegate the listen delegate object
+	/return 0 always, error handling done in dial_cb
+*/
 template<typename ListenDelegate, typename TransportDelegate>
 int
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
