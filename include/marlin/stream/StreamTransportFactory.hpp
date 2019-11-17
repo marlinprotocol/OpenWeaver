@@ -8,9 +8,9 @@ namespace stream {
 
 //! Factory class to create and manage StreamTranport instances
 /*!
-    Features:
-    \li creates StreamTransport instances for every new peer
-    \li exposes functions to bind to a socket, setting up a UDP listener and dialing to a peer
+	Features:
+	\li creates StreamTransport instances for every new peer
+	\li exposes functions to bind to a socket, setting up a UDP listener and dialing to a peer
 */
 template<
 	typename ListenDelegate,
@@ -78,7 +78,7 @@ bool StreamTransportFactory<
 }
 
 /*!
-	callback function after establishment of a new transport lower level,
+	callback function after establishment of a new transport at lower level
 */
 template<
 	typename ListenDelegate,
@@ -109,6 +109,12 @@ void StreamTransportFactory<
 	delegate->did_create_transport(*stream_transport);
 }
 
+
+//! calls bind() method of the underlying datagram transport factory
+/*!
+	/param addr address to bind to
+	/return an integer 0 if successful, negative otherwise
+*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -125,6 +131,11 @@ int StreamTransportFactory<
 	return f.bind(addr);
 }
 
+//! calls listen() method of the underlying datagram transport factory to listen for requests on given address and sets up the given delegate as the listen delegate
+/*!
+	/param delegate sets up the given delegate as the listen delegate
+	/return an integer 0 if successful, negative otherwise
+*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -141,6 +152,13 @@ int StreamTransportFactory<
 	return f.listen(*this);
 }
 
+
+//! calls dial() method of the underlying datagram transport factory and sets up the given delegate as the listen delegate
+/*!
+	/param addr socket address to dial/connect to
+	/param delegate sets up the given delegate as the listen delegate
+	/return an integer 0 if successful, negative otherwise
+*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,

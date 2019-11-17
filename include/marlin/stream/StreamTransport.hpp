@@ -28,7 +28,9 @@ namespace stream {
 
 //! Custom transport class building upon UDP
 /*!
-	Features over UDP:
+	A higher order transport (HOT) building over Marlin UDPTransport
+
+	Features:
 	\li 3 way handshake for connection establishment
 	\li supports multiple streams
 	\li FEC support to be integrated
@@ -259,7 +261,7 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 	Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
 
 	\param stream_id stream id to search for
-	\return SendStream SendStream corresponding for given param stream_id
+	\return SendStream object corresponding for given param stream_id
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send_stream(
@@ -279,7 +281,7 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 	Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
 
 	\param stream_id stream id to search for
-	\return RecvStream RecvStream corresponding for given param stream_id
+	\return RecvStream object corresponding for given param stream_id
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv_stream(
@@ -303,8 +305,8 @@ RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv
 /*!
 	Takes in the stream and adds it to the queue of streams which are inspected for data packets during the sending phase
 
-	\param SendStream SendStream to be added to the queue
-	\return returns false if stream already in queue otherwise true
+	\param stream object to be added to the queue
+	\return false if stream already in queue otherwise true
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
@@ -1265,6 +1267,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 //---------------- Delegate functions begin ----------------//
 
+
+//! Callback function when trying to establish a connection with a peer. Sends a DIAL packet to initiate the handshake
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
@@ -1380,6 +1384,11 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	this->pacing_timer.data = this;
 }
 
+
+//! sets up the delegate when building an application over this transport. Also sets this class as the delegate of the underlying datagram_transport
+/*!
+	\param delegate a DelegateType pointer to the application class instance which uses this transport
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::setup(
 	DelegateType *delegate
@@ -1389,12 +1398,14 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 	transport.setup(this);
 }
 
-//! public function called by higher level to send data
+
+//! called by higher level application to send data
 /*!
 	\li adds data to appropriate send stream and
 	\li calls send_pending_data to schedule pacing_timer_cb
-*/
 
+	\return an integer 0 if successful, negative otherwise
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send(
 	net::Buffer &&bytes
@@ -1439,6 +1450,13 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	return 0;
 }
 
+//! closes the connection and clears the entries
+/*!
+	\li resets all the connection data
+	\li calls the close for underlying datagram transport
+	\li notifies the delegate application about the close
+	\li erases self entry from the transport manager which in turn destroys this instance
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
 	reset();
