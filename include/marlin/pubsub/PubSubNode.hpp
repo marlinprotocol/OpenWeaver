@@ -1,4 +1,4 @@
-/*! \file PubSub.hpp
+/*! \file PubSubNode.hpp
     \brief Containing provisions for Publish Subscribe (PubSub) functionality
 */
 
