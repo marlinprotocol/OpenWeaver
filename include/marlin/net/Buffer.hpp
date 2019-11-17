@@ -1,3 +1,6 @@
+/*! \file Buffer.hpp
+*/
+
 #ifndef MARLIN_NET_BUFFER_HPP
 #define MARLIN_NET_BUFFER_HPP
 
@@ -8,6 +11,7 @@
 namespace marlin {
 namespace net {
 
+//! Marlin byte buffer implementation
 class Buffer {
 	char *buf;
 	size_t capacity;
