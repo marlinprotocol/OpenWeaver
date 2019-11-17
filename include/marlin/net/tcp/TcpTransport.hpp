@@ -1,3 +1,8 @@
+/*! \file UdpTransport.hpp
+	\brief Marlin TCP Transport connection implementation
+*/
+
+
 #ifndef MARLIN_NET_TCPTRANSPORT_HPP
 #define MARLIN_NET_TCPTRANSPORT_HPP
 
@@ -9,6 +14,7 @@
 namespace marlin {
 namespace net {
 
+//! Wrapper transport class around libuv tcp functionality
 template<typename DelegateType>
 class TcpTransport {
 private:
@@ -79,6 +85,7 @@ void TcpTransport<DelegateType>::naive_alloc_cb(
 	buf->len = suggested_size;
 }
 
+//! callback function on receipt of any message on this TCP connection instance
 template<typename DelegateType>
 void TcpTransport<DelegateType>::recv_cb(
 	uv_stream_t *handle,
@@ -120,6 +127,10 @@ void TcpTransport<DelegateType>::recv_cb(
 	);
 }
 
+//! sets up the delegate when building an application or Higher Order Transport (Transport) over this transport
+/*!
+	\param delegate a DelegateType pointer to the application class instance which uses this transport
+*/
 template<typename DelegateType>
 void TcpTransport<DelegateType>::setup(DelegateType *delegate) {
 	this->delegate = delegate;
@@ -136,6 +147,7 @@ void TcpTransport<DelegateType>::setup(DelegateType *delegate) {
 	}
 }
 
+//! sends the incoming bytes to the application/HOT delegate
 template<typename DelegateType>
 void TcpTransport<DelegateType>::did_recv_bytes(Buffer &&bytes) {
 	delegate->did_recv_bytes(*this, std::move(bytes));
@@ -172,6 +184,11 @@ void TcpTransport<DelegateType>::close_cb(uv_handle_t *handle) {
 	delete handle;
 }
 
+//! called by higher level to send data
+/*!
+	\param bytes Marlin::Buffer type of packet
+	\return integer, 0 for success, failure otherwise
+*/
 template<typename DelegateType>
 int TcpTransport<DelegateType>::send(Buffer &&bytes) {
 	auto *req = new uv_write_t();
@@ -200,6 +217,7 @@ int TcpTransport<DelegateType>::send(Buffer &&bytes) {
 	return 0;
 }
 
+//! closes the underlying tcp socket. calls the close callback which erases self entry from the transport manager, which in turn destroys this instance
 template<typename DelegateType>
 void TcpTransport<DelegateType>::close() {
 	uv_close((uv_handle_t *)socket, close_cb);
