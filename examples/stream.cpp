@@ -10,7 +10,9 @@ struct Delegate;
 
 using TransportType = StreamTransport<Delegate, UdpTransport>;
 
-#define SIZE 100000000
+#define l_SIZE 100000000
+#define m_SIZE 10000
+#define s_SIZE 100
 
 struct Delegate {
 	void did_recv_bytes(
@@ -36,7 +38,7 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType &transport) {
-		auto buf = Buffer(new char[SIZE], SIZE);
+		auto buf = Buffer(new char[m_SIZE], m_SIZE);
 
 		SPDLOG_INFO("Did dial");
 

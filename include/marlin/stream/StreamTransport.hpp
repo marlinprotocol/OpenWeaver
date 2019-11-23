@@ -276,7 +276,7 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 }
 
 
-//! creates or return sendstream of given stream_id
+//! creates or return recvstream of given stream_id
 /*!
 	Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
 
@@ -423,9 +423,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 
 //! Attempts to send new packets in the given stream
 /*!
-	fragments dataItems in the stream and sends them across until is congestion or pacing limit not hit
-	\param stream SendStream which from which DataItems/Packets needs to be dequeued for sending
-    \param initial_bytes_in_flight for the purpose keeping a check on congestion and pacing limit
+	fragments dataItems in the stream and sends them across until congestion or pacing limit is not hit
+	\param stream SendStream from which DataItems/Packets needs to be dequeued for sending
+    \param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
@@ -1465,6 +1465,9 @@ void StreamTransport<DelegateType, DatagramTransport>::close() {
 	transport_manager.erase(dst_addr);
 }
 
+/*!
+ * \return \b True if Stream connection state is Established. For other Conn. states returns \b False.
+ */
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 	if(conn_state == ConnectionState::Established) {
@@ -1474,6 +1477,9 @@ bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 	return false;
 }
 
+/*!
+ * \return adaptive rtt calculated for given Stream Transport
+ */
 template<typename DelegateType, template<typename> class DatagramTransport>
 double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 	return rtt;
