@@ -29,7 +29,13 @@ public:
 			message_id
 		);
 
-		mc_del->did_recv_message();
+		mc_del->did_recv_message(
+			message.data(),
+			message.size(),
+			channel.c_str(),
+			channel.size(),
+			message_id
+		);
 	}
 
 	void did_subscribe(
@@ -45,15 +51,24 @@ public:
 	) {}
 };
 
+MulticastClientDelegate_t* create_multicastclientdelegate() {
+	MulticastClientDelegate_t *mc_d;
+	mc_d = (__typeof__(mc_d))malloc(sizeof(*mc_d));
+
+	return mc_d;
+}
 
 struct MulticastClientWrapper {
 	void *obj;
 };
 
-MulticastClientWrapper_t* create_multicastclientwrapper() {
+MulticastClientWrapper_t* create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr) {
+
 	DefaultMulticastClientOptions clop1 {
 		{"goldfish"},
-		"127.0.0.1:9002"
+		beacon_addr,
+		discovery_addr,
+		pubsub_addr
 	};
 
 	MulticastClientWrapper_t *mc_w;
@@ -76,4 +91,6 @@ void setDelegate(MulticastClientWrapper_t* mc_w, MulticastClientDelegate_t* mc_d
 
 }
 
-
+int run_event_loop() {
+	return DefaultMulticastClient<MulticastDelegateWrapper>::run_event_loop();
+}
