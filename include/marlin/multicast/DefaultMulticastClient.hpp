@@ -26,6 +26,7 @@ public:
 	beacon::DiscoveryClient<DefaultMulticastClient<Delegate>> b;
 	PubSubClientType ps;
 
+	// can be changed to set to improve efficiency of add, remove and find
 	std::vector<std::string> channels = {"default"};
 
 	Delegate *delegate = nullptr;
