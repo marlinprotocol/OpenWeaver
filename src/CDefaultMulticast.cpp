@@ -1,9 +1,7 @@
 /*
 	TODO:
-	1. for the delegated functions, a new object of multicastclientwrapper needs to be created everytime. is it time consuming
-		CDefaultMulticast.cpp line 37, 58
-	2. introduce appropriate error messages on failure of any of the functions
-	3. when a channel is added or removed, subscribe/unsubscribe to channel to be called
+	1. introduce appropriate error messages on failure of any of the functions
+	2. when a channel is added or removed, subscribe/unsubscribe to channel to be called
 		unsubscribe to removed channel can happen when a message on old/unintended channel is received
 		subscribe to add channel can happen on new cycle for now
 */
@@ -15,20 +13,15 @@
 using namespace marlin::multicast;
 using namespace marlin::net;
 
-
-struct MulticastClientWrapper {
-	void *obj;
-};
-
-class MulticastDelegateWrapper {
+class MarlinMulticastDelegateWrapper {
 private:
-	// MulticastClientDelegate_t* mc_del;
+	// MarlinMulticastClientDelegate_t* mc_del;
 
 public:
-	MulticastClientDelegate_t* mc_del;
+	MarlinMulticastClientDelegate_t* mc_del;
 
 	void did_recv_message(
-		DefaultMulticastClient<MulticastDelegateWrapper> &client,
+		DefaultMulticastClient<MarlinMulticastDelegateWrapper> &client,
 		Buffer &&message,
 		std::string &channel,
 		uint64_t message_id
@@ -44,13 +37,8 @@ public:
 			message_id
 		);
 
-		// TODO: HACK! recursive assignments, freeing memory?, time consuming to perform everytime
-		MulticastClientWrapper_t *mc_w;
-		mc_w = (__typeof__(mc_w))malloc(sizeof(*mc_w));
-		mc_w->obj = &client;
-
 		mc_del->did_recv_message(
-			mc_w,
+			reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
 			message.data(),
 			message.size(),
 			channel.c_str(),
@@ -60,37 +48,32 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<MulticastDelegateWrapper> &client,
+		DefaultMulticastClient<MarlinMulticastDelegateWrapper> &client,
 		std::string &channel
 	) {
 		client.ps.send_message_on_channel(channel, "Hello!", 6);
 
-		// TODO: HACK! recursive assignments, freeing memory?, time consuming to perform everytime
-		MulticastClientWrapper_t *mc_w;
-		mc_w = (__typeof__(mc_w))malloc(sizeof(*mc_w));
-		mc_w->obj = &client;
-
 		mc_del->did_subscribe(
-			mc_w,
+			reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
 			channel.c_str(),
 			channel.size()
 		);
 	}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<MulticastDelegateWrapper> &,
+		DefaultMulticastClient<MarlinMulticastDelegateWrapper> &,
 		std::string &
 	) {}
 };
 
-MulticastClientDelegate_t* create_multicastclientdelegate() {
-	MulticastClientDelegate_t *mc_d;
+MarlinMulticastClientDelegate_t* marlin_multicast_create_multicastclientdelegate() {
+	MarlinMulticastClientDelegate_t *mc_d;
 	mc_d = (__typeof__(mc_d))malloc(sizeof(*mc_d));
 
 	return mc_d;
 }
 
-MulticastClientWrapper_t* create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr) {
+MarlinMulticastClientWrapper_t* marlin_multicast_create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr) {
 
 	// TODO: edit default goldfish, a list of channels through arguement instead?
 	DefaultMulticastClientOptions clop1 {
@@ -100,36 +83,27 @@ MulticastClientWrapper_t* create_multicastclientwrapper(char* beacon_addr, char*
 		pubsub_addr
 	};
 
-	MulticastClientWrapper_t *mc_w;
-	mc_w = (__typeof__(mc_w))malloc(sizeof(*mc_w));
-
-	mc_w->obj = new DefaultMulticastClient<MulticastDelegateWrapper> (clop1);
-
-	return mc_w;
+	return reinterpret_cast<MarlinMulticastClientWrapper_t *> (new DefaultMulticastClient<MarlinMulticastDelegateWrapper> (clop1));
 }
 
-void setDelegate(MulticastClientWrapper_t* mc_w, MulticastClientDelegate_t* mc_d) {
-	MulticastDelegateWrapper* mc_d_w = new MulticastDelegateWrapper();
+void marlin_multicast_setDelegate(MarlinMulticastClientWrapper_t* mc_w, MarlinMulticastClientDelegate_t* mc_d) {
+	MarlinMulticastDelegateWrapper* mc_d_w = new MarlinMulticastDelegateWrapper();
 	mc_d_w->mc_del = mc_d;
 
 
-	DefaultMulticastClient<MulticastDelegateWrapper> *obj;
-	obj = reinterpret_cast< DefaultMulticastClient<MulticastDelegateWrapper> *>(mc_w->obj);
+	DefaultMulticastClient<MarlinMulticastDelegateWrapper> *obj = reinterpret_cast< DefaultMulticastClient<MarlinMulticastDelegateWrapper> *>(mc_w);
 
 	obj->delegate = mc_d_w;
-
 }
 
-void send_message_on_channel(MulticastClientWrapper_t* mc_w, const char *channel, char *message, uint64_t size) {
-	DefaultMulticastClient<MulticastDelegateWrapper> *obj;
-	obj = reinterpret_cast< DefaultMulticastClient<MulticastDelegateWrapper> *>(mc_w->obj);
+void marlin_multicast_send_message_on_channel(MarlinMulticastClientWrapper_t* mc_w, const char *channel, char *message, uint64_t size) {
+	DefaultMulticastClient<MarlinMulticastDelegateWrapper> *obj = reinterpret_cast< DefaultMulticastClient<MarlinMulticastDelegateWrapper> *>(mc_w);
 
 	obj->ps.send_message_on_channel(channel, message, size);
 }
 
-bool add_channel(MulticastClientWrapper_t* mc_w, const char* channel) {
-	DefaultMulticastClient<MulticastDelegateWrapper> *obj;
-	obj = reinterpret_cast< DefaultMulticastClient<MulticastDelegateWrapper> *>(mc_w->obj);
+bool marlin_multicast_add_channel(MarlinMulticastClientWrapper_t* mc_w, const char* channel) {
+	DefaultMulticastClient<MarlinMulticastDelegateWrapper> *obj = reinterpret_cast< DefaultMulticastClient<MarlinMulticastDelegateWrapper> *>(mc_w);
 
 	if (std::find(obj->channels.begin(), obj->channels.end(), channel) == obj->channels.end()) {
 		obj->channels.push_back(channel);
@@ -139,9 +113,8 @@ bool add_channel(MulticastClientWrapper_t* mc_w, const char* channel) {
 	return false;
 }
 
-bool remove_channel(MulticastClientWrapper_t* mc_w, const char* channel) {
-	DefaultMulticastClient<MulticastDelegateWrapper> *obj;
-	obj = reinterpret_cast< DefaultMulticastClient<MulticastDelegateWrapper> *>(mc_w->obj);
+bool marlin_multicast_remove_channel(MarlinMulticastClientWrapper_t* mc_w, const char* channel) {
+	DefaultMulticastClient<MarlinMulticastDelegateWrapper> *obj = reinterpret_cast< DefaultMulticastClient<MarlinMulticastDelegateWrapper> *>(mc_w);
 
 	auto it = std::find(obj->channels.begin(), obj->channels.end(), channel);
 	if (it != obj->channels.end()) {
@@ -152,6 +125,6 @@ bool remove_channel(MulticastClientWrapper_t* mc_w, const char* channel) {
 	return false;
 }
 
-int run_event_loop() {
-	return DefaultMulticastClient<MulticastDelegateWrapper>::run_event_loop();
+int marlin_multicast_run_event_loop() {
+	return DefaultMulticastClient<MarlinMulticastDelegateWrapper>::run_event_loop();
 }
