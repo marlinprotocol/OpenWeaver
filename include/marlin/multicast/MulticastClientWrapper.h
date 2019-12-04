@@ -1,3 +1,6 @@
+#ifndef MARLIN_MULTICAST_MULTICASTCLIENTWRAPPER_H
+#define MARLIN_MULTICAST_MULTICASTCLIENTWRAPPER_H
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -5,12 +8,11 @@
 extern "C" {
 #endif
 
-struct MulticastClientWrapper;
-typedef struct MulticastClientWrapper MulticastClientWrapper_t;
+typedef struct MarlinMulticastClientWrapper MarlinMulticastClientWrapper_t;
 
-struct MulticastClientDelegate {
+struct MarlinMulticastClientDelegate {
 	void (*did_recv_message) (
-		MulticastClientWrapper_t* mc_w,
+		MarlinMulticastClientWrapper_t* mc_w,
 		const char* message,
 		uint64_t message_length,
 		const char* channel,
@@ -19,31 +21,33 @@ struct MulticastClientDelegate {
 	 );
 
 	void (*did_subscribe) (
-		MulticastClientWrapper_t* mc_w,
+		MarlinMulticastClientWrapper_t* mc_w,
 		const char* channel,
 		uint64_t channel_length
 	);
 
 	void (*did_unsubscribe) (
-		MulticastClientWrapper_t* mc_w,
+		MarlinMulticastClientWrapper_t* mc_w,
 		const char* channel,
 		uint64_t channel_length
 	);
 };
 
-typedef struct MulticastClientDelegate MulticastClientDelegate_t;
+typedef struct MarlinMulticastClientDelegate MarlinMulticastClientDelegate_t;
 
-MulticastClientDelegate_t* create_multicastclientdelegate();
-MulticastClientWrapper_t* create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr);
-void setDelegate(MulticastClientWrapper_t* mc_w, MulticastClientDelegate_t* mc_d);
+MarlinMulticastClientDelegate_t* marlin_multicast_create_multicastclientdelegate();
+MarlinMulticastClientWrapper_t* marlin_multicast_create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr);
+void marlin_multicast_setDelegate(MarlinMulticastClientWrapper_t* mc_w, MarlinMulticastClientDelegate_t* mc_d);
 
-void send_message_on_channel(MulticastClientWrapper_t* mc_w, const char *channel, char *message, uint64_t size);
+void marlin_multicast_send_message_on_channel(MarlinMulticastClientWrapper_t* mc_w, const char *channel, char *message, uint64_t size);
 
-bool add_channel(MulticastClientWrapper_t* mc_w, const char* channel);
-bool remove_channel(MulticastClientWrapper_t* mc_w, const char* channel);
+bool marlin_multicast_add_channel(MarlinMulticastClientWrapper_t* mc_w, const char* channel);
+bool marlin_multicast_remove_channel(MarlinMulticastClientWrapper_t* mc_w, const char* channel);
 
-int run_event_loop();
+int marlin_multicast_run_event_loop();
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // MARLIN_MULTICAST_MULTICASTCLIENTWRAPPER_H
