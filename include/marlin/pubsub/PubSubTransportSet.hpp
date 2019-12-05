@@ -50,7 +50,7 @@ BaseTransport*
 PubSubTransportSet<BaseTransport>::find_max_rtt_transport() {
 	BaseTransport* to_return = nullptr;
 	for (auto* temp_transport : *this) {
-		if (temp_transport->get_rtt() == -1) continue;
+		if (temp_transport->get_rtt() == -1) return temp_transport;
 		if (to_return == nullptr || temp_transport->get_rtt() > to_return->get_rtt()) {
 			to_return = temp_transport;
 		}
