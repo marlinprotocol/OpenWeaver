@@ -29,6 +29,8 @@ struct Delegate {
 		transport.send(Buffer(new char[10], 10));
 	}
 
+	void did_close(UdpTransport<Delegate> &) {}
+
 	bool should_accept(SocketAddress const &) {
 		return true;
 	}
