@@ -37,14 +37,16 @@ public:
 			message_id
 		);
 
-		mc_del->did_recv_message(
-			reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
-			message.data(),
-			message.size(),
-			channel.c_str(),
-			channel.size(),
-			message_id
-		);
+		if (mc_del->did_recv_message != 0) {
+			mc_del->did_recv_message(
+				reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
+				message.data(),
+				message.size(),
+				channel.c_str(),
+				channel.size(),
+				message_id
+			);
+		}
 	}
 
 	void did_subscribe(
@@ -53,11 +55,13 @@ public:
 	) {
 		client.ps.send_message_on_channel(channel, "Hello!", 6);
 
-		mc_del->did_subscribe(
-			reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
-			channel.c_str(),
-			channel.size()
-		);
+		if (mc_del->did_subscribe != 0) {
+			mc_del->did_subscribe(
+				reinterpret_cast<MarlinMulticastClientWrapper_t *> (&client),
+				channel.c_str(),
+				channel.size()
+			);
+		}
 	}
 
 	void did_unsubscribe(
@@ -70,7 +74,17 @@ MarlinMulticastClientDelegate_t* marlin_multicast_create_multicastclientdelegate
 	MarlinMulticastClientDelegate_t *mc_d;
 	mc_d = (__typeof__(mc_d))malloc(sizeof(*mc_d));
 
+	//initializing the function pointers with null
+	mc_d->did_recv_message = 0;
+	mc_d->did_subscribe = 0;
+	mc_d->did_unsubscribe = 0;
+
 	return mc_d;
+}
+
+void marlin_multicast_set_did_recv_message(MarlinMulticastClientDelegate_t *mc_d, type_did_recv_message_func f) {
+
+	mc_d->did_recv_message = f;
 }
 
 MarlinMulticastClientWrapper_t* marlin_multicast_create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr) {
