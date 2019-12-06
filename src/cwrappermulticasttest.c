@@ -28,7 +28,8 @@ void did_subscribe (
 int main() {
 	MarlinMulticastClientDelegate_t *mc_d = marlin_multicast_create_multicastclientdelegate();
 
-	mc_d->did_recv_message = did_recv_message;
+	marlin_multicast_set_did_recv_message(mc_d, did_recv_message);
+
 	mc_d->did_subscribe = did_subscribe;
 
 	MarlinMulticastClientWrapper_t *m2 = marlin_multicast_create_multicastclientwrapper("127.0.0.1:9002", "127.0.0.1:7002", "127.0.0.1:7000");
