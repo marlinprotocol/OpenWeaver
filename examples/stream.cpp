@@ -17,7 +17,8 @@ using TransportType = StreamTransport<Delegate, UdpTransport>;
 struct Delegate {
 	void did_recv_bytes(
 		TransportType &transport __attribute__((unused)),
-		Buffer &&packet __attribute__((unused))
+		Buffer &&packet __attribute__((unused)),
+		uint8_t stream_id __attribute__((unused))
 	) {
 		// SPDLOG_INFO(
 		// 	"Transport {{ Src: {}, Dst: {} }}: Did recv packet: {} bytes",
