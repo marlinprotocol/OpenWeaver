@@ -14,7 +14,7 @@ namespace net {
 template<typename ListenDelegate, typename TransportDelegate>
 class UdpTransportFactory {
 private:
-	uv_udp_t *socket;
+	uv_udp_t *socket = nullptr;
 	TransportManager<UdpTransport<TransportDelegate>> transport_manager;
 
 	static void naive_alloc_cb(
