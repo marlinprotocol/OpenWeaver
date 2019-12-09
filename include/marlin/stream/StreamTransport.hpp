@@ -147,6 +147,9 @@ private:
 	void send_ACK();
 	void did_recv_ACK(net::Buffer &&packet);
 
+	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
+	void did_recv_FLUSHSTREAM(net::Buffer &&packet);
+
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
@@ -167,11 +170,13 @@ public:
 	);
 
 	void setup(DelegateType *delegate);
-	int send(net::Buffer &&bytes, uint8_t stream_id = 0);
+	int send(net::Buffer &&bytes, uint16_t stream_id = 0);
 	void close();
 
 	bool is_active();
 	double get_rtt();
+
+	void flush_stream(uint16_t stream_id);
 };
 
 
@@ -1285,6 +1290,59 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	uv_timer_start(&tlp_timer, &tlp_timer_cb, tlp_interval, 0);
 }
 
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
+	uint16_t stream_id,
+	uint64_t offset
+) {
+	net::Buffer packet(new char[20] {0, 7}, 20);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+	packet.write_uint16_be(10, stream_id);
+	packet.write_uint64_be(12, offset);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
+	net::Buffer &&packet
+) {
+	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
+
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_INFO(
+			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	auto stream_id = p.stream_id();
+	auto offset = p.packet_number();
+
+	auto &stream = get_or_create_recv_stream(stream_id);
+	auto old_offset = stream.read_offset;
+	stream.read_offset = offset;
+
+	delegate->did_recv_flush_stream(*this, stream_id, offset, old_offset);
+}
+
 //---------------- Protocol functions end ----------------//
 
 
@@ -1353,6 +1411,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		// RST
 		case 6: did_recv_RST(std::move(packet));
 		break;
+		// FLUSHSTREAM
+		case 7: did_recv_FLUSHSTREAM(std::move(packet));
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
 		break;
@@ -1385,6 +1446,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 		break;
 		// RST
 		case 6: SPDLOG_TRACE("RST >>> {}", dst_addr.to_string());
+		break;
+		// FLUSHSTREAM
+		case 7: SPDLOG_TRACE("FLUSHSTREAM >>> {}", dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", dst_addr.to_string());
@@ -1439,7 +1503,7 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send(
 	net::Buffer &&bytes,
-	uint8_t stream_id
+	uint16_t stream_id
 ) {
 	if (conn_state != ConnectionState::Established) {
 		return -2;
@@ -1514,6 +1578,46 @@ bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 template<typename DelegateType, template<typename> class DatagramTransport>
 double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 	return rtt;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
+	uint16_t stream_id
+) {
+	auto &stream = get_or_create_send_stream(stream_id);
+
+	stream.data_queue.clear();
+	stream.queue_offset = stream.sent_offset;
+	stream.next_item_iterator = stream.data_queue.end();
+	stream.bytes_in_flight = 0;
+	stream.acked_offset = stream.sent_offset;
+	stream.outstanding_acks.clear();
+
+	// Remove previously sent packets
+	auto sent_iter = sent_packets.cbegin();
+	while(sent_iter != sent_packets.cend()) {
+		if(sent_iter->second.stream->stream_id != stream.stream_id) {
+			sent_iter++;
+			continue;
+		}
+
+		bytes_in_flight -= sent_iter->second.length;
+		sent_iter = sent_packets.erase(sent_iter);
+	}
+
+	// Remove lost packets
+	auto lost_iter = lost_packets.cbegin();
+	while(lost_iter != lost_packets.cend()) {
+		if(lost_iter->second.stream->stream_id != stream.stream_id) {
+			lost_iter++;
+			continue;
+		}
+
+		bytes_in_flight -= lost_iter->second.length;
+		lost_iter = lost_packets.erase(lost_iter);
+	}
+
+	send_FLUSHSTREAM(stream_id, stream.sent_offset);
 }
 
 } // namespace stream
