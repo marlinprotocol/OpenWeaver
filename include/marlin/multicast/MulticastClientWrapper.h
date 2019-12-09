@@ -18,20 +18,20 @@ typedef void (*type_did_recv_message_func) (
 	uint64_t channel_length,
 	uint64_t message_id);
 
-typedef void (*type_did_subscribe) (
+typedef void (*type_did_subscribe_func) (
 	MarlinMulticastClientWrapper_t* mc_w,
 	const char* channel,
 	uint64_t channel_length);
 
-typedef void (*type_did_unsubscribe) (
+typedef void (*type_did_unsubscribe_func) (
 	MarlinMulticastClientWrapper_t* mc_w,
 	const char* channel,
 	uint64_t channel_length);
 
 struct MarlinMulticastClientDelegate {
 	type_did_recv_message_func did_recv_message;
-	type_did_subscribe did_subscribe;
-	type_did_unsubscribe did_unsubscribe;
+	type_did_subscribe_func did_subscribe;
+	type_did_unsubscribe_func did_unsubscribe;
 };
 
 typedef struct MarlinMulticastClientDelegate MarlinMulticastClientDelegate_t;
@@ -39,6 +39,8 @@ typedef struct MarlinMulticastClientDelegate MarlinMulticastClientDelegate_t;
 MarlinMulticastClientDelegate_t* marlin_multicast_create_multicastclientdelegate();
 
 void marlin_multicast_set_did_recv_message(MarlinMulticastClientDelegate_t *mc_d, type_did_recv_message_func f);
+void marlin_multicast_set_did_subscribe(MarlinMulticastClientDelegate_t *mc_d, type_did_subscribe_func f);
+void marlin_multicast_set_did_unsubscribe(MarlinMulticastClientDelegate_t *mc_d, type_did_unsubscribe_func f);
 
 
 MarlinMulticastClientWrapper_t* marlin_multicast_create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr);

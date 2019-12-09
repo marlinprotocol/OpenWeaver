@@ -87,6 +87,16 @@ void marlin_multicast_set_did_recv_message(MarlinMulticastClientDelegate_t *mc_d
 	mc_d->did_recv_message = f;
 }
 
+void marlin_multicast_set_did_subscribe(MarlinMulticastClientDelegate_t *mc_d, type_did_subscribe_func f) {
+
+	mc_d->did_subscribe = f;
+}
+
+void marlin_multicast_set_did_unsubscribe(MarlinMulticastClientDelegate_t *mc_d, type_did_unsubscribe_func f) {
+
+	mc_d->did_unsubscribe = f;
+}
+
 MarlinMulticastClientWrapper_t* marlin_multicast_create_multicastclientwrapper(char* beacon_addr, char* discovery_addr, char* pubsub_addr) {
 
 	// TODO: edit default goldfish, a list of channels through arguement instead?
