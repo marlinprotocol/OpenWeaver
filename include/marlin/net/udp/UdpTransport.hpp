@@ -22,7 +22,7 @@ namespace net {
 template<typename DelegateType>
 class UdpTransport {
 private:
-	uv_udp_t *socket;
+	uv_udp_t *socket = nullptr;
 	TransportManager<UdpTransport<DelegateType>> &transport_manager;
 
 	static void send_cb(
@@ -38,7 +38,7 @@ public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
 
-	DelegateType *delegate;
+	DelegateType *delegate = nullptr;
 
 	UdpTransport(
 		SocketAddress const &src_addr,
@@ -63,7 +63,7 @@ UdpTransport<DelegateType>::UdpTransport(
 	uv_udp_t *_socket,
 	TransportManager<UdpTransport<DelegateType>> &transport_manager
 ) : socket(_socket), transport_manager(transport_manager),
-	src_addr(_src_addr), dst_addr(_dst_addr) {}
+	src_addr(_src_addr), dst_addr(_dst_addr), delegate(nullptr) {}
 
 
 //! sets up the delegate when building an application or Higher Order Transport (Transport) over this transport
@@ -142,6 +142,7 @@ int UdpTransport<DelegateType>::send(Buffer &&packet) {
 //! erases self entry from the transport manager which in turn destroys this instance. No other action required sinces its a virtual connection anyways
 template<typename DelegateType>
 void UdpTransport<DelegateType>::close() {
+	delegate->did_close(*this);
 	transport_manager.erase(dst_addr);
 }
 
