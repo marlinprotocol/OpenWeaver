@@ -70,4 +70,4 @@ add_executable(testclient
 	examples/client.cpp
 )
 target_link_libraries(testclient PUBLIC pubsub)
-target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)

@@ -6,6 +6,7 @@
 #define MARLIN_PUBSUB_PUBSUBSERVER_HPP
 
 #include <marlin/net/udp/UdpTransportFactory.hpp>
+#include <marlin/net/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 
@@ -26,7 +27,7 @@
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 100000
+#define DefaultMaxSubscriptions 2
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 60000
 
@@ -105,6 +106,9 @@ private:
 		uint64_t size
 	);
 
+	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&message);
+	void send_HEARTBEAT(BaseTransport &transport);
+
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -166,6 +170,19 @@ private:
 		) {
 			node.message_id_set.erase(*iter);
 		}
+
+		std::for_each(
+			node.delegate->channels.begin(),
+			node.delegate->channels.end(),
+			[&] (std::string const channel) {
+				for (auto* transport : node.channel_subscriptions[channel]) {
+					node.send_HEARTBEAT(*transport);
+				}
+				for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
+					node.send_HEARTBEAT(*pot_transport);
+				}
+			}
+		);
 	}
 
 	uv_timer_t peer_selection_timer;
@@ -177,11 +194,39 @@ private:
 			node.delegate->channels.begin(),
 			node.delegate->channels.end(),
 			[&] (std::string const channel) {
-
 				node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
 			}
 		);
 	}
+
+	struct pairhash {
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &p) const
+		{
+			return std::hash<T>()(p.first) ^ std::hash<U>()(p.second);
+		}
+	};
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		std::list<std::pair<BaseTransport *, uint16_t>>,
+		pairhash
+	> cut_through_map;
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		uint64_t,
+		pairhash
+	> cut_through_length;
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		bool,
+		pairhash
+	> cut_through_header_recv;
+public:
+	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
+	void cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
+	void cut_through_recv_end(BaseTransport &transport, uint16_t id);
+	void cut_through_recv_reset(BaseTransport &transport, uint16_t id);
 };
 
 
@@ -201,7 +246,7 @@ void PubSubServer<PubSubDelegate>::did_recv_SUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	SPDLOG_DEBUG(
+	SPDLOG_INFO(
 		"Received subscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
@@ -262,7 +307,7 @@ void PubSubServer<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 ) {
 	std::string channel(bytes.data(), bytes.data()+bytes.size());
 
-	SPDLOG_DEBUG(
+	SPDLOG_INFO(
 		"Received unsubscribe on channel {} from {}",
 		channel,
 		transport.dst_addr.to_string()
@@ -402,6 +447,7 @@ void PubSubServer<PubSubDelegate>::did_recv_MESSAGE(
 		return;
 
 	if(channel_length > 10) {
+		SPDLOG_ERROR("Channel too long: {}", channel_length);
 		transport.close();
 		return;
 	}
@@ -488,6 +534,19 @@ void PubSubServer<PubSubDelegate>::send_MESSAGE(
 	transport.send(std::move(m));
 }
 
+template<typename PubSubDelegate>
+void PubSubServer<PubSubDelegate>::send_HEARTBEAT(
+	BaseTransport &transport
+) {
+	char *message = new char[1];
+
+	message[0] = 4;
+
+	net::Buffer m(message, 1);
+
+	transport.send(std::move(m));
+}
+
 //---------------- PubSub functions end ----------------//
 
 
@@ -502,6 +561,7 @@ template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_create_transport(
 	BaseTransport &transport
 ) {
+	transport.should_cut_through = true;
 	transport.setup(this);
 }
 
@@ -562,6 +622,9 @@ void PubSubServer<PubSubDelegate>::did_recv_message(
 		// MESSAGE
 		case 3: this->did_recv_MESSAGE(transport, std::move(bytes));
 		break;
+		// HEARTBEAT, ignore
+		case 4:
+		break;
 	}
 }
 
@@ -569,18 +632,39 @@ template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_send_message(
 	BaseTransport &,
 	net::Buffer &&
-) {
-}
+) {}
 
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_close(BaseTransport &transport) {
+	// Remove from subscribers
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
 			channel_subscriptions[channel].erase(&transport);
+			potential_channel_subscriptions[channel].erase(&transport);
 		}
 	);
+
+	// Flush subscribers
+	for(auto id : transport.cut_through_used_ids) {
+		for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
+			subscriber->cut_through_send_reset(subscriber_id);
+		}
+
+		cut_through_map.erase(std::make_pair(&transport, id));
+	}
+
+	// Remove subscriptions
+	for(auto& [_, subscribers] : cut_through_map) {
+		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
+			if(iter->first == &transport) {
+				iter = subscribers.erase(iter);
+			} else {
+				iter++;
+			}
+		}
+	}
 }
 
 //---------------- Transport delegate functions end ----------------//
@@ -661,7 +745,27 @@ void PubSubServer<PubSubDelegate>::send_message_on_channel(
 			channel,
 			(*it)->dst_addr.to_string()
 		);
-		send_MESSAGE(**it, channel, message_id, data, size);
+		if(size > 50000) {
+			char *message = new char[channel.size()+11+size];
+
+			message[0] = 3;
+
+			net::Buffer m(message, channel.size()+11+size);
+			m.write_uint64_be(1, message_id);
+			m.write_uint16_be(9, channel.size());
+			std::memcpy(message + 11, channel.data(), channel.size());
+			std::memcpy(message + 11 + channel.size(), data, size);
+
+			auto res = (*it)->cut_through_send(std::move(m));
+
+			// TODO: Handle better
+			if(res < 0) {
+				SPDLOG_ERROR("Cut through send failed");
+				(*it)->close();
+			}
+		} else {
+			send_MESSAGE(**it, channel, message_id, data, size);
+		}
 	}
 }
 
@@ -741,17 +845,13 @@ int PubSubServer<PubSubDelegate>::get_num_active_subscribers(
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::add_subscriber_to_channel(
 	std::string channel,
-	BaseTransport &transport) {
-
-	// if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
-	// 	add_subscriber_to_potential_channel(channel, transport);
-	// 	return;
-	// }
-
-	if (!potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
+	BaseTransport &transport
+) {
+	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Adding address: {} to subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		channel_subscriptions[channel].insert(&transport);
 
 		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
@@ -763,8 +863,8 @@ void PubSubServer<PubSubDelegate>::add_subscriber_to_potential_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
+	if (!potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Adding address: {} to potential subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
 		potential_channel_subscriptions[channel].insert(&transport);
@@ -776,10 +876,11 @@ void PubSubServer<PubSubDelegate>::remove_subscriber_from_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_INFO("Removing address: {} from subscribers list on channel: {} ",
+	if (channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Removing address: {} from subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		channel_subscriptions[channel].erase(&transport);
 
 		// Send response
@@ -790,13 +891,103 @@ void PubSubServer<PubSubDelegate>::remove_subscriber_from_channel(
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::remove_subscriber_from_potential_channel(
 	std::string channel,
-	BaseTransport &transport) {
-
-	if (!potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_INFO("Removing address: {} from potential subscribers list on channel: {} ",
+	BaseTransport &transport
+) {
+	if (potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Removing address: {} from potential subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		potential_channel_subscriptions[channel].erase(&transport);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubServer<PubSubDelegate>::cut_through_recv_start(
+	BaseTransport &transport,
+	uint16_t id,
+	uint64_t length
+) {
+	cut_through_map[std::make_pair(&transport, id)] = {};
+	cut_through_header_recv[std::make_pair(&transport, id)] = false;
+	cut_through_length[std::make_pair(&transport, id)] = length;
+}
+
+template<typename PubSubDelegate>
+void PubSubServer<PubSubDelegate>::cut_through_recv_bytes(
+	BaseTransport &transport,
+	uint16_t id,
+	net::Buffer &&bytes
+) {
+	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
+		auto channel_length = bytes.read_uint16_be(9);
+
+		// Check overflow
+		if((uint16_t)bytes.size() < 11 + channel_length) {
+			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), channel_length);
+			transport.close();
+			return;
+		}
+
+		if(channel_length > 10) {
+			SPDLOG_ERROR("Channel too long: {}", channel_length);
+			transport.close();
+			return;
+		}
+
+		cut_through_header_recv[std::make_pair(&transport, id)] = true;
+
+		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
+		for(auto *subscriber : channel_subscriptions[channel]) {
+			auto sub_id = subscriber->cut_through_send_start(
+				cut_through_length[std::make_pair(&transport, id)]
+			);
+			if(sub_id == 0) {
+				SPDLOG_ERROR("Cannot send to subscriber");
+				continue;
+			}
+
+			cut_through_map[std::make_pair(&transport, id)].push_back(
+				std::make_pair(subscriber, sub_id)
+			);
+		}
+
+		cut_through_recv_bytes(transport, id, std::move(bytes));
+	} else {
+		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+			if(&transport == subscriber) continue;
+
+			auto sub_bytes = net::Buffer(new char[bytes.size()], bytes.size());
+			std::memcpy(sub_bytes.data(), bytes.data(), bytes.size());
+
+			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
+
+			// TODO: Handle better
+			if(res < 0) {
+				SPDLOG_ERROR("Cut through send failed");
+				subscriber->close();
+			}
+		}
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubServer<PubSubDelegate>::cut_through_recv_end(
+	BaseTransport &transport,
+	uint16_t id
+) {
+	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+		subscriber->cut_through_send_end(sub_id);
+	}
+}
+
+template<typename PubSubDelegate>
+void PubSubServer<PubSubDelegate>::cut_through_recv_reset(
+	BaseTransport &transport,
+	uint16_t id
+) {
+	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+		subscriber->cut_through_send_reset(sub_id);
 	}
 }
 
