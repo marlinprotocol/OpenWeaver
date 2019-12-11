@@ -27,7 +27,7 @@
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 5
+#define DefaultMaxSubscriptions 2
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 60000
 
@@ -60,19 +60,19 @@ public:
 		net::UdpTransport
 	>;
 
-	typedef lpf::LpfTransportFactory<
+	using BaseTransportFactory = lpf::LpfTransportFactory<
 		PubSubClient<PubSubDelegate>,
 		PubSubClient<PubSubDelegate>,
 		UdpStreamTransportFactory,
 		UdpStreamTransport
-	> BaseTransportFactory;
-	typedef lpf::LpfTransport<
+	>;
+	using BaseTransport = lpf::LpfTransport<
 		PubSubClient<PubSubDelegate>,
 		UdpStreamTransport
-	> BaseTransport;
+	>;
 
-	typedef PubSubTransportSet<BaseTransport> TransportSet;
-	typedef std::unordered_map<std::string, TransportSet> TransportSetMap;
+	using TransportSet = PubSubTransportSet<BaseTransport>;
+	using TransportSetMap = std::unordered_map<std::string, TransportSet>;
 
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
@@ -199,6 +199,12 @@ private:
 			}
 		);
 	}
+
+public:
+	void cut_through_recv_start(BaseTransport &, uint16_t, uint64_t) {}
+	void cut_through_recv_bytes(BaseTransport &, uint16_t, net::Buffer &&) {}
+	void cut_through_recv_end(BaseTransport &, uint16_t) {}
+	void cut_through_recv_reset(BaseTransport &, uint16_t) {}
 };
 
 
@@ -588,7 +594,27 @@ void PubSubClient<PubSubDelegate>::send_message_on_channel(
 			channel,
 			(*it)->dst_addr.to_string()
 		);
-		send_MESSAGE(**it, channel, message_id, data, size);
+		if(size > 50000) {
+			char *message = new char[channel.size()+11+size];
+
+			message[0] = 3;
+
+			net::Buffer m(message, channel.size()+11+size);
+			m.write_uint64_be(1, message_id);
+			m.write_uint16_be(9, channel.size());
+			std::memcpy(message + 11, channel.data(), channel.size());
+			std::memcpy(message + 11 + channel.size(), data, size);
+
+			auto res = (*it)->cut_through_send(std::move(m));
+
+			// TODO: Handle better
+			if(res < 0) {
+				SPDLOG_ERROR("Cut through send failed");
+				(*it)->close();
+			}
+		} else {
+			send_MESSAGE(**it, channel, message_id, data, size);
+		}
 	}
 }
 
@@ -666,7 +692,6 @@ void PubSubClient<PubSubDelegate>::add_subscriber_to_channel(
 	std::string channel,
 	BaseTransport &transport
 ) {
-
 	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
 		if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
 			add_subscriber_to_potential_channel(channel, transport);
@@ -675,9 +700,10 @@ void PubSubClient<PubSubDelegate>::add_subscriber_to_channel(
 		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
-		send_SUBSCRIBE(transport, channel);
 		channel_subscriptions[channel].insert(&transport);
 		// send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
+	} else {
+		send_SUBSCRIBE(transport, channel);
 	}
 }
 
