@@ -1,4 +1,4 @@
-/*! \file PubSub.hpp
+/*! \file PubSubNode.hpp
     \brief Containing provisions for Publish Subscribe (PubSub) functionality
 */
 
@@ -36,7 +36,7 @@ namespace std {
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 5
+#define DefaultMaxSubscriptions 100000
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 60000
 

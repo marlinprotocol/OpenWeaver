@@ -1,5 +1,5 @@
-/*! \file PubSub.hpp
-	\brief Containing provisions for Publish Subscribe (PubSub) functionality
+/*! \file PubSubServer.hpp
+    \brief Containing provisions for Publish Subscribe (PubSub) Server functionality
 */
 
 #ifndef MARLIN_PUBSUB_PUBSUBSERVER_HPP
@@ -27,21 +27,18 @@
 namespace marlin {
 namespace pubsub {
 
+#define DefaultMaxSubscriptions 2
 #define DefaultMsgIDTimerInterval 10000
 #define DefaultPeerSelectTimerInterval 60000
 
-//! Class containing the Pub-Sub functionality
+//! Class containing the Pub-Sub Server functionality
 /*!
-	- Uses the custom marlin-StreamTransport for message delivery
+	Uses the custom marlin-StreamTransport for message delivery
 
-	- Important functions:
-		* subscribe(publisher_address)
-		* unsubsribe(publisher_address)
-		* send_message_on_channel(channel, message)
-
-	- TODO:
-		Currently both Publisher & Subscriber functionality in same class. Needs to be separated
-
+	Important functions:
+	\li subscribe(publisher_address)
+	\li unsubsribe(publisher_address)
+	\li send_message_on_channel(channel, message)
 */
 template<typename PubSubDelegate>
 class PubSubServer {
@@ -237,9 +234,10 @@ public:
 
 //---------------- PubSub functions begin ----------------//
 
+//! Callback on receipt of subscribe request
 /*!
-	Callback on receipt of subscribe request.
-	Adds the address(tranport) to the set of subscriptions for requested channel
+	\param transport StreamTransport instance to be added to subsriber list
+	\param bytes Buffer containing the channel name to add the subscriber to
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_recv_SUBSCRIBE(
@@ -257,6 +255,25 @@ void PubSubServer<PubSubDelegate>::did_recv_SUBSCRIBE(
 	add_subscriber_to_channel(channel, transport);
 }
 
+
+/*!
+	\verbatim
+
+	SUBSCRIBE (0x00)
+	Channel as payload.
+
+	Message format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x00     |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::send_SUBSCRIBE(
 	BaseTransport &transport,
@@ -278,9 +295,10 @@ void PubSubServer<PubSubDelegate>::send_SUBSCRIBE(
 	transport.send(std::move(bytes));
 }
 
+//! Callback on receipt of unsubscribe request
 /*!
-	Callback on receipt of unsubscribe request.
-	Removes the address(tranport) from the set of subscriptions for requested channel
+	\param transport StreamTransport instance to be removed from subsriber list
+	\param bytes Buffer containing the channel name to remove the subscriber from
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_recv_UNSUBSCRIBE(
@@ -298,6 +316,25 @@ void PubSubServer<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 	remove_subscriber_from_channel(channel, transport);
 }
 
+
+/*!
+	\verbatim
+
+	UNSUBSCRIBE (0x01)
+	Channel as payload.
+
+	Message format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x01     |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::send_UNSUBSCRIBE(
 	BaseTransport &transport,
@@ -315,6 +352,9 @@ void PubSubServer<PubSubDelegate>::send_UNSUBSCRIBE(
 	transport.send(std::move(bytes));
 }
 
+/*!
+    Callback on receipt of response
+*/
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_recv_RESPONSE(
 	BaseTransport &,
@@ -342,6 +382,26 @@ void PubSubServer<PubSubDelegate>::did_recv_RESPONSE(
 	);
 }
 
+
+/*!
+	\verbatim
+
+	RESPONSE (0x02)
+
+	Payload contains a byte representing the reponse type(currently a OK/ERROR flag) followed by an arbitrary response message.
+
+	Format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++++++++++++++++++
+	|      0x00     |      0x02     |      Type     |
+	-----------------------------------------------------------------
+	|                            Message                          ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::send_RESPONSE(
 	BaseTransport &transport,
@@ -370,9 +430,9 @@ void PubSubServer<PubSubDelegate>::send_RESPONSE(
 
 //! Callback on receipt of message data
 /*!
-	a. reassembles the fragmented packets received by the streamTransport back into meaninfull data component
-	b. relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
-	c. performs message deduplication i.e doesnt relay the message if it has already been relayed recently
+	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
+	\li relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
+	\li performs message deduplication i.e doesnt relay the message if it has already been relayed recently
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_recv_MESSAGE(
@@ -421,6 +481,38 @@ void PubSubServer<PubSubDelegate>::did_recv_MESSAGE(
 	}
 }
 
+
+/*!
+	\verbatim
+
+	MESSAGE (0x03)
+
+	Payload contains a 8 byte message length, a 8 byte message id, channel details and the message data.
+
+	FORMAT:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x03     |
+	-----------------------------------------------------------------
+	|                                                               |
+	----                      Message Length                     ----
+	|                                                               |
+	-----------------------------------------------------------------
+	|                                                               |
+	----                        Message ID                       ----
+	|                                                               |
+	-----------------------------------------------------------------
+	|      Channel name length      |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	-----------------------------------------------------------------
+	|                         Message Data                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::send_MESSAGE(
 	BaseTransport &transport,
@@ -493,11 +585,15 @@ void PubSubServer<PubSubDelegate>::did_dial(BaseTransport &transport) {
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
+	\verbatim
+
 	first-byte	:	type
 	0			:	subscribe
 	1			:	unsubscribe
 	2			:	response
 	3			:	message
+
+	\endverbatim
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_recv_message(
@@ -598,8 +694,12 @@ int PubSubServer<PubSubDelegate>::dial(net::SocketAddress const &addr) {
 }
 
 
+//! sends messages over a given channel
 /*!
-	Public function to send messages over a given channel
+	\param channel name of channel to send message on
+	\param data char* byte sequence of message to send
+	\param size of the message to send
+	\param excluded avoid this address while sending the message
 */
 template<typename PubSubDelegate>
 uint64_t PubSubServer<PubSubDelegate>::send_message_on_channel(
@@ -614,8 +714,13 @@ uint64_t PubSubServer<PubSubDelegate>::send_message_on_channel(
 	return message_id;
 }
 
+//! sends messages over a given channel
 /*!
-	Public function to send messages over a given channel
+	\param channel name of channel to send message on
+	\param message_id msg id
+	\param data char* byte sequence of message to send
+	\param size of the message to send
+	\param excluded avoid this address while sending the message
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::send_message_on_channel(
@@ -664,8 +769,10 @@ void PubSubServer<PubSubDelegate>::send_message_on_channel(
 	}
 }
 
+
+//! subscribes to given publisher
 /*!
-	Public function to subscribe to any publisher address
+	\param addr publisher address to subscribe to
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
@@ -687,8 +794,9 @@ void PubSubServer<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
 	);
 }
 
+//! unsubscribes from given publisher
 /*!
-	Public function to unsubscribe from any publisher address
+	\param addr publisher address to unsubscribe from
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
@@ -707,8 +815,9 @@ void PubSubServer<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
 	);
 }
 
+//! adds given address as subscriber to all the channels specified by delegate
 /*!
-	Public function to add any subscriber to all the channels specified by delegate
+	\param addr address to add to the subscriber lists
 */
 template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) {
