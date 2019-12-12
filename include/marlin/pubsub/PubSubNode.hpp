@@ -1,5 +1,5 @@
 /*! \file PubSubNode.hpp
-    \brief Containing provisions for Publish Subscribe (PubSub) functionality
+    \brief Containing provisions for Publish Subscribe (PubSub) Server functionality
 */
 
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
@@ -8,7 +8,7 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
-#include <marlin/stream/StreamTransportHelper.hpp>
+#include <marlin/lpf/LpfTransportFactory.hpp>
 
 #include <algorithm>
 #include <map>
@@ -21,70 +21,73 @@
 #include <unordered_set>
 #include <uv.h>
 
-namespace std {
-	template <>
-	struct hash<std::tuple<marlin::net::SocketAddress const, uint16_t const>>
-	{
-		size_t operator()(const std::tuple<marlin::net::SocketAddress const, uint16_t const> &tup) const
-		{
-			return std::hash<std::string>()(std::get<0>(tup).to_string()) ^
-					std::hash<std::uint16_t>()(std::get<1>(tup));
-		}
-	};
-}
+#include <marlin/pubsub/PubSubTransportSet.hpp>
+
 
 namespace marlin {
 namespace pubsub {
 
-#define DefaultMaxSubscriptions 100000
-#define DefaultMsgIDTimerInterval 10000
-#define DefaultPeerSelectTimerInterval 60000
-
-struct ReadBuffer {
-	std::list<net::Buffer> message_buffer;
-	uint64_t message_length = 0;
-	uint64_t bytes_remaining = 0;
-	std::string channel;
-	uint64_t message_id = 0;
-};
-
-
 //! Class containing the Pub-Sub functionality
 /*!
-    - Uses the custom marlin-StreamTransport for message delivery
+	Uses the custom marlin-StreamTransport for message delivery
 
-    - Important functions:
-        * subscribe(publisher_address)
-        * unsubsribe(publisher_address)
-        * send_message_on_channel(channel, message)
-
-    - TODO:
-        Currently both Publisher & Subscriber functionality in same class. Needs to be separated
-
+	Important functions:
+	\li subscribe(publisher_address)
+	\li unsubsribe(publisher_address)
+	\li send_message_on_channel(channel, message)
 */
-template<typename PubSubDelegate>
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through = false,
+	bool accept_unsol_conn = false,
+	bool enable_relay = false
+>
 class PubSubNode {
+private:
+	constexpr size_t DefaultMaxSubscriptions = 2;
+	constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
+	constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 
+//---------------- Transport types ----------------//
 public:
-	typedef stream::StreamTransportFactory<
-		PubSubNode<PubSubDelegate>,
-		PubSubNode<PubSubDelegate>,
+	using Self = PubSubNode<
+		PubSubDelegate,
+		enable_cut_through,
+		accept_unsol_conn,
+		enable_relay
+	>;
+
+	template<typename ListenDelegate, typename TransportDelegate>
+	using BaseStreamTransportFactory = stream::StreamTransportFactory<
+		ListenDelegate,
+		TransportDelegate,
 		net::UdpTransportFactory,
 		net::UdpTransport
-	> BaseTransportFactory;
-	typedef stream::StreamTransport<
-		PubSubNode<PubSubDelegate>,
+	>;
+	template<typename Delegate>
+	using BaseStreamTransport = stream::StreamTransport<
+		Delegate,
 		net::UdpTransport
-	> BaseTransport;
+	>;
 
-	typedef
-		marlin::stream::StreamTransportHelper<
-			marlin::pubsub::PubSubNode<PubSubDelegate>,
-			net::UdpTransport
-		> StreamTransportHelper;
+	using BaseTransportFactory = lpf::LpfTransportFactory<
+		Self,
+		Self,
+		BaseStreamTransportFactory,
+		BaseStreamTransport,
+		enable_cut_through
+	>;
+	using BaseTransport = lpf::LpfTransport<
+		Self,
+		BaseStreamTransport,
+		enable_cut_through
+	>;
+private:
 
-	typedef std::unordered_set<BaseTransport *> TransportSet;
-	typedef std::unordered_map< std::string, TransportSet> TransportSetMap;
+//---------------- Subscription management ----------------//
+public:
+	typedef PubSubTransportSet<BaseTransport> TransportSet;
+	typedef std::unordered_map<std::string, TransportSet> TransportSetMap;
 
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
@@ -94,35 +97,38 @@ public:
 	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
 	void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
 	void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
-
 private:
-	// typedef net::TcpTransportFactory<
-	// 	PubSubNode<PubSubDelegate>,
-	// 	PubSubNode<PubSubDelegate>
-	// > BaseTransportFactory;
-	// typedef net::TcpTransport<
-	// 	PubSubNode<PubSubDelegate>
-	// > BaseTransport;
+	uv_timer_t peer_selection_timer;
 
-	BaseTransportFactory f;
+	static void peer_selection_timer_cb(uv_timer_t *handle) {
+		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
-	std::unordered_map<std::tuple<net::SocketAddress const, uint16_t const>, ReadBuffer> read_buffers;
+		std::for_each(
+			node.delegate->channels.begin(),
+			node.delegate->channels.end(),
+			[&] (std::string const channel) {
+				node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+			}
+		);
+	}
 
-	// PubSub
-	void did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&bytes);
+//---------------- Pubsub protocol ----------------//
+public:
+private:
+	void did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
 
-	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 	void send_UNSUBSCRIBE(BaseTransport &transport, std::string const channel);
 
-	void did_recv_RESPONSE(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_RESPONSE(BaseTransport &transport, net::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
 		bool success,
 		std::string msg_string
 	);
 
-	void did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
 		std::string channel,
@@ -131,6 +137,10 @@ private:
 		uint64_t size
 	);
 
+	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&message);
+	void send_HEARTBEAT(BaseTransport &transport);
+
+//---------------- Base layer ----------------//
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -138,16 +148,18 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes);
-	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_message(BaseTransport &transport, net::Buffer &&message);
+	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
-
-	PubSubNode(const net::SocketAddress &_addr);
-
-	PubSubDelegate *delegate;
-	bool should_relay = false;
-
+private:
+	BaseTransportFactory f;
 	int dial(net::SocketAddress const &addr);
+
+//---------------- Public Interface ----------------//
+public:
+	PubSubNode(const net::SocketAddress &_addr);
+	PubSubDelegate *delegate;
+
 	uint64_t send_message_on_channel(
 		std::string channel,
 		const char *data,
@@ -164,11 +176,11 @@ public:
 
 	void subscribe(net::SocketAddress const &addr);
 	void unsubscribe(net::SocketAddress const &addr);
-
-	void add_subscriber(net::SocketAddress const &addr);
-
 private:
 
+//---------------- Message deduplication ----------------//
+public:
+private:
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
 
@@ -192,22 +204,50 @@ private:
 		) {
 			node.message_id_set.erase(*iter);
 		}
-	}
-
-	uv_timer_t peer_selection_timer;
-
-	static void peer_selection_timer_cb(uv_timer_t *handle) {
-		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
 
 		std::for_each(
 			node.delegate->channels.begin(),
 			node.delegate->channels.end(),
 			[&] (std::string const channel) {
-
-				node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+				for (auto* transport : node.channel_subscriptions[channel]) {
+					node.send_HEARTBEAT(*transport);
+				}
+				for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
+					node.send_HEARTBEAT(*pot_transport);
+				}
 			}
 		);
 	}
+
+//---------------- Message deduplication ----------------//
+public:
+	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
+	void cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
+	void cut_through_recv_end(BaseTransport &transport, uint16_t id);
+	void cut_through_recv_reset(BaseTransport &transport, uint16_t id);
+private:
+	struct pairhash {
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &p) const
+		{
+			return std::hash<T>()(p.first) ^ std::hash<U>()(p.second);
+		}
+	};
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		std::list<std::pair<BaseTransport *, uint16_t>>,
+		pairhash
+	> cut_through_map;
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		uint64_t,
+		pairhash
+	> cut_through_length;
+	std::unordered_map<
+		std::pair<BaseTransport *, uint16_t>,
+		bool,
+		pairhash
+	> cut_through_header_recv;
 };
 
 
@@ -215,12 +255,23 @@ private:
 
 //---------------- PubSub functions begin ----------------//
 
+//! Callback on receipt of subscribe request
 /*!
-    Callback on receipt of subscribe request.
-    Adds the address(tranport) to the set of subscriptions for requested channel
+	\param transport StreamTransport instance to be added to subsriber list
+	\param bytes Buffer containing the channel name to add the subscriber to
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
@@ -235,8 +286,37 @@ void PubSubNode<PubSubDelegate>::did_recv_SUBSCRIBE(
 	add_subscriber_to_channel(channel, transport);
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(
+
+/*!
+	\verbatim
+
+	SUBSCRIBE (0x00)
+	Channel as payload.
+
+	Message format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x00     |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_SUBSCRIBE(
 	BaseTransport &transport,
 	std::string const channel
 ) {
@@ -256,12 +336,23 @@ void PubSubNode<PubSubDelegate>::send_SUBSCRIBE(
 	transport.send(std::move(bytes));
 }
 
+//! Callback on receipt of unsubscribe request
 /*!
-    Callback on receipt of unsubscribe request.
-    Removes the address(tranport) from the set of subscriptions for requested channel
+	\param transport StreamTransport instance to be removed from subsriber list
+	\param bytes Buffer containing the channel name to remove the subscriber from
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
@@ -276,8 +367,37 @@ void PubSubNode<PubSubDelegate>::did_recv_UNSUBSCRIBE(
 	remove_subscriber_from_channel(channel, transport);
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_UNSUBSCRIBE(
+
+/*!
+	\verbatim
+
+	UNSUBSCRIBE (0x01)
+	Channel as payload.
+
+	Message format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x01     |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_UNSUBSCRIBE(
 	BaseTransport &transport,
 	std::string const channel
 ) {
@@ -293,8 +413,21 @@ void PubSubNode<PubSubDelegate>::send_UNSUBSCRIBE(
 	transport.send(std::move(bytes));
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_recv_RESPONSE(
+/*!
+    Callback on receipt of response
+*/
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_recv_RESPONSE(
 	BaseTransport &,
 	net::Buffer &&bytes
 ) {
@@ -320,8 +453,38 @@ void PubSubNode<PubSubDelegate>::did_recv_RESPONSE(
 	);
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_RESPONSE(
+
+/*!
+	\verbatim
+
+	RESPONSE (0x02)
+
+	Payload contains a byte representing the reponse type(currently a OK/ERROR flag) followed by an arbitrary response message.
+
+	Format:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++++++++++++++++++
+	|      0x00     |      0x02     |      Type     |
+	-----------------------------------------------------------------
+	|                            Message                          ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_RESPONSE(
 	BaseTransport &transport,
 	bool success,
 	std::string msg_string
@@ -348,126 +511,149 @@ void PubSubNode<PubSubDelegate>::send_RESPONSE(
 
 //! Callback on receipt of message data
 /*!
-    a. reassembles the fragmented packets received by the streamTransport back into meaninfull data component
-    b. relay/forwards the message to other subscriptions on the channel if the should_relay flag is true
-    c. performs message deduplication i.e doesnt relay the message if it has already been relayed recently
+	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
+	\li relay/forwards the message to other subscriptions on the channel if the enable_relay flag is true
+	\li performs message deduplication i.e doesnt relay the message if it has already been relayed recently
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_recv_MESSAGE(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_recv_MESSAGE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	uint8_t stream_id = 0;
-	auto iter = read_buffers.try_emplace(
-		std::make_tuple(transport.dst_addr, stream_id)
-	).first;
-	auto &read_buffer = iter->second;
+	auto message_id = bytes.read_uint64_be(0);
+	auto channel_length = bytes.read_uint16_be(8);
 
-	if(read_buffer.bytes_remaining == 0) { // New message
-		SPDLOG_DEBUG("New message");
+	// Check overflow
+	if((uint16_t)bytes.size() < 10 + channel_length)
+		return;
 
-		read_buffer.bytes_remaining = bytes.read_uint64_be(0);
-		read_buffer.message_length = read_buffer.bytes_remaining;
-
-		if(read_buffer.message_length > 5000000) {
-			read_buffers.erase(std::make_tuple(transport.dst_addr, stream_id));
-			transport.close();
-			return;
-		}
-
-		read_buffer.message_id = bytes.read_uint64_be(8);
-		uint16_t channel_length = bytes.read_uint16_be(16);
-
-		// Check overflow
-		if((uint16_t)bytes.size() < 18 + channel_length)
-			return;
-
-		if(channel_length > 10) {
-			read_buffers.erase(std::make_tuple(transport.dst_addr, stream_id));
-			transport.close();
-			return;
-		}
-
-		read_buffer.channel = std::string(bytes.data()+18, bytes.data()+18+channel_length);
-
-		bytes.cover(18 + channel_length);
+	if(channel_length > 10) {
+		SPDLOG_ERROR("Channel too long: {}", channel_length);
+		transport.close();
+		return;
 	}
 
-	// Check if full message has been received
-	if(read_buffer.bytes_remaining > bytes.size()) { // Incomplete message
-		SPDLOG_DEBUG("Incomplete message");
-		read_buffer.bytes_remaining -= bytes.size();
-		read_buffer.message_buffer.push_back(std::move(bytes));
-	} else { // Full message
-		SPDLOG_DEBUG("Full message");
-		// Assemble final message
-		std::unique_ptr<char[]> message(new char[read_buffer.message_length]);
-		uint64_t offset = 0;
-		for(
-			auto iter = read_buffer.message_buffer.begin();
-			iter != read_buffer.message_buffer.end();
-			iter = read_buffer.message_buffer.erase(iter)
-		) {
-			std::memcpy(message.get() + offset, iter->data(), iter->size());
-			offset += iter->size();
-		}
-		// Read only bytes_remaining bytes from final packet to prevent buffer overrun
-		std::memcpy(
-			message.get() + offset,
-			bytes.data(),
-			read_buffer.bytes_remaining
-		);
+	auto channel = std::string(bytes.data()+10, bytes.data()+10+channel_length);
 
-		// Send it onward
-		if(message_id_set.find(read_buffer.message_id) == message_id_set.end()) { // Deduplicate message
-			message_id_set.insert(read_buffer.message_id);
-			message_id_events[message_id_idx].push_back(read_buffer.message_id);
+	bytes.cover(10 + channel_length);
 
-			if(should_relay) {
-				send_message_on_channel(
-					read_buffer.channel,
-					read_buffer.message_id,
-					message.get(),
-					read_buffer.message_length,
-					&transport.dst_addr
-				);
-			}
+	// Send it onward
+	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
+		message_id_set.insert(message_id);
+		message_id_events[message_id_idx].push_back(message_id);
 
-			// Call delegate
-			delegate->did_recv_message(
-				*this,
-				std::move(message),
-				read_buffer.message_length,
-				read_buffer.channel,
-				read_buffer.message_id
+		if constexpr (enable_relay) {
+			send_message_on_channel(
+				channel,
+				message_id,
+				bytes.data(),
+				bytes.size(),
+				&transport.dst_addr
 			);
 		}
 
-		// Reset state. Message buffer should already be empty.
-		read_buffer.bytes_remaining = 0;
-		read_buffer.message_length = 0;
-		read_buffer.channel.clear();
+		// Call delegate
+		delegate->did_recv_message(
+			*this,
+			std::move(bytes),
+			channel,
+			message_id
+		);
 	}
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_MESSAGE(
+
+/*!
+	\verbatim
+
+	MESSAGE (0x03)
+
+	Payload contains a 8 byte message length, a 8 byte message id, channel details and the message data.
+
+	FORMAT:
+
+	 0               1               2               3
+	 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
+	+++++++++++++++++++++++++++++++++
+	|      0x00     |      0x03     |
+	-----------------------------------------------------------------
+	|                                                               |
+	----                      Message Length                     ----
+	|                                                               |
+	-----------------------------------------------------------------
+	|                                                               |
+	----                        Message ID                       ----
+	|                                                               |
+	-----------------------------------------------------------------
+	|      Channel name length      |
+	-----------------------------------------------------------------
+	|                         Channel Name                        ...
+	-----------------------------------------------------------------
+	|                         Message Data                        ...
+	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	\endverbatim
+*/
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_MESSAGE(
 	BaseTransport &transport,
 	std::string channel,
 	uint64_t message_id,
 	const char *data,
 	uint64_t size
 ) {
-	char *message = new char[channel.size()+19+size];
+	char *message = new char[channel.size()+11+size];
 
 	message[0] = 3;
 
-	net::Buffer m(message, channel.size()+19+size);
-	m.write_uint64_be(1, size);
-	m.write_uint64_be(9, message_id);
-	m.write_uint16_be(17, channel.size());
-	std::memcpy(message + 19, channel.data(), channel.size());
-	std::memcpy(message + 19 + channel.size(), data, size);
+	net::Buffer m(message, channel.size()+11+size);
+	m.write_uint64_be(1, message_id);
+	m.write_uint16_be(9, channel.size());
+	std::memcpy(message + 11, channel.data(), channel.size());
+	std::memcpy(message + 11 + channel.size(), data, size);
+
+	transport.send(std::move(m));
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_HEARTBEAT(
+	BaseTransport &transport
+) {
+	char *message = new char[1];
+
+	message[0] = 4;
+
+	net::Buffer m(message, 1);
 
 	transport.send(std::move(m));
 }
@@ -477,13 +663,33 @@ void PubSubNode<PubSubDelegate>::send_MESSAGE(
 
 //---------------- Listen delegate functions begin ----------------//
 
-template<typename PubSubDelegate>
-bool PubSubNode<PubSubDelegate>::should_accept(net::SocketAddress const &) {
-	return true;
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::should_accept(net::SocketAddress const &) {
+	return accept_unsol_conn;
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_create_transport(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_create_transport(
 	BaseTransport &transport
 ) {
 	transport.setup(this);
@@ -494,13 +700,23 @@ void PubSubNode<PubSubDelegate>::did_create_transport(
 
 //---------------- Transport delegate functions begin ----------------//
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_dial(BaseTransport &transport) {
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_dial(BaseTransport &transport) {
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			send_SUBSCRIBE(transport, channel);
+			add_subscriber_to_channel(channel, transport);
 		}
 	);
 }
@@ -509,33 +725,34 @@ void PubSubNode<PubSubDelegate>::did_dial(BaseTransport &transport) {
 /*!
 	Determines the type of packet by reading the first byte and redirects the packet to appropriate function for further processing
 
+	\verbatim
+
 	first-byte	:	type
 	0			:	subscribe
 	1			:	unsubscribe
 	2			:	response
 	3			:	message
+
+	\endverbatim
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_recv_bytes(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_recv_message(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
 	// Abort on empty message
 	if(bytes.size() == 0)
 		return;
-
-	uint8_t stream_id = 0;
-
-	auto iter = read_buffers.try_emplace(
-		std::make_tuple(transport.dst_addr, stream_id)
-	).first;
-	auto &read_buffer = iter->second;
-
-	// Check if it is part of previously incomplete message
-	if(read_buffer.bytes_remaining > 0) {
-		this->did_recv_MESSAGE(transport, std::move(bytes));
-		return;
-	}
 
 	uint8_t message_type = bytes.data()[0];
 
@@ -555,32 +772,86 @@ void PubSubNode<PubSubDelegate>::did_recv_bytes(
 		// MESSAGE
 		case 3: this->did_recv_MESSAGE(transport, std::move(bytes));
 		break;
+		// HEARTBEAT, ignore
+		case 4:
+		break;
 	}
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_send_bytes(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_send_message(
 	BaseTransport &,
 	net::Buffer &&
-) {
-}
+) {}
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::did_close(BaseTransport &transport) {
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::did_close(BaseTransport &transport) {
+	// Remove from subscribers
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
 			channel_subscriptions[channel].erase(&transport);
+			potential_channel_subscriptions[channel].erase(&transport);
 		}
 	);
+
+	// Flush subscribers
+	for(auto id : transport.cut_through_used_ids) {
+		for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
+			subscriber->cut_through_send_reset(subscriber_id);
+		}
+
+		cut_through_map.erase(std::make_pair(&transport, id));
+	}
+
+	// Remove subscriptions
+	for(auto& [_, subscribers] : cut_through_map) {
+		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
+			if(iter->first == &transport) {
+				iter = subscribers.erase(iter);
+			} else {
+				iter++;
+			}
+		}
+	}
 }
 
 //---------------- Transport delegate functions end ----------------//
 
 
-template<typename PubSubDelegate>
-PubSubNode<PubSubDelegate>::PubSubNode(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::PubSubNode(
 	const net::SocketAddress &addr
 ) : message_id_gen(std::random_device()()),
 	message_id_events(256)
@@ -597,17 +868,41 @@ PubSubNode<PubSubDelegate>::PubSubNode(
 	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 }
 
-template<typename PubSubDelegate>
-int PubSubNode<PubSubDelegate>::dial(net::SocketAddress const &addr) {
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+int PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::dial(net::SocketAddress const &addr) {
 	return f.dial(addr, *this);
 }
 
 
+//! sends messages over a given channel
 /*!
-	Public function to send messages over a given channel
+	\param channel name of channel to send message on
+	\param data char* byte sequence of message to send
+	\param size of the message to send
+	\param excluded avoid this address while sending the message
 */
-template<typename PubSubDelegate>
-uint64_t PubSubNode<PubSubDelegate>::send_message_on_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+uint64_t PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_message_on_channel(
 	std::string channel,
 	const char *data,
 	uint64_t size,
@@ -619,11 +914,26 @@ uint64_t PubSubNode<PubSubDelegate>::send_message_on_channel(
 	return message_id;
 }
 
+//! sends messages over a given channel
 /*!
-	Public function to send messages over a given channel
+	\param channel name of channel to send message on
+	\param message_id msg id
+	\param data char* byte sequence of message to send
+	\param size of the message to send
+	\param excluded avoid this address while sending the message
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::send_message_on_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_message_on_channel(
 	std::string channel,
 	uint64_t message_id,
 	const char *data,
@@ -645,15 +955,47 @@ void PubSubNode<PubSubDelegate>::send_message_on_channel(
 			channel,
 			(*it)->dst_addr.to_string()
 		);
-		send_MESSAGE(**it, channel, message_id, data, size);
+		if(size > 50000) {
+			char *message = new char[channel.size()+11+size];
+
+			message[0] = 3;
+
+			net::Buffer m(message, channel.size()+11+size);
+			m.write_uint64_be(1, message_id);
+			m.write_uint16_be(9, channel.size());
+			std::memcpy(message + 11, channel.data(), channel.size());
+			std::memcpy(message + 11 + channel.size(), data, size);
+
+			auto res = (*it)->cut_through_send(std::move(m));
+
+			// TODO: Handle better
+			if(res < 0) {
+				SPDLOG_ERROR("Cut through send failed");
+				(*it)->close();
+			}
+		} else {
+			send_MESSAGE(**it, channel, message_id, data, size);
+		}
 	}
 }
 
+
+//! subscribes to given publisher
 /*!
-	Public function to subscribe to any publisher address
+	\param addr publisher address to subscribe to
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::subscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
@@ -667,16 +1009,27 @@ void PubSubNode<PubSubDelegate>::subscribe(net::SocketAddress const &addr) {
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			send_SUBSCRIBE(*transport, channel);
+			add_subscriber_to_channel(channel, *transport);
 		}
 	);
 }
 
+//! unsubscribes from given publisher
 /*!
-	Public function to unsubscribe from any publisher address
+	\param addr publisher address to unsubscribe from
 */
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::unsubscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
@@ -692,74 +1045,96 @@ void PubSubNode<PubSubDelegate>::unsubscribe(net::SocketAddress const &addr) {
 	);
 }
 
-/*!
-	Public function to add any subscriber to all the channels specified by delegate
-*/
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr) {
-	auto *transport = f.get_transport(addr);
-
-	if(transport == nullptr) {
-		return;
-	}
-
-	std::for_each(
-		delegate->channels.begin(),
-		delegate->channels.end(),
-		[&] (std::string const channel) {
-			add_subscriber_to_channel(channel, *transport);
-		}
-	);
-}
-
-template<typename PubSubDelegate>
-int PubSubNode<PubSubDelegate>::get_num_active_subscribers(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+int PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::get_num_active_subscribers(
 	std::string channel) {
 	return channel_subscriptions[channel].size();
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::add_subscriber_to_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_subscriber_to_channel(
 	std::string channel,
-	BaseTransport &transport) {
+	BaseTransport &transport
+) {
+	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
+			add_subscriber_to_potential_channel(channel, transport);
+			return;
+		}
 
-	// if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
-	// 	add_subscriber_to_potential_channel(channel, transport);
-	// 	return;
-	// }
-
-	if (!StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
-		SPDLOG_INFO("Adding address: {} to subscribers list on channel: {} ",
+		SPDLOG_DEBUG("Adding address: {} to subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		channel_subscriptions[channel].insert(&transport);
 
 		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
 	}
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::add_subscriber_to_potential_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_subscriber_to_potential_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (!StreamTransportHelper::check_tranport_in_set(transport, channel_subscriptions[channel])) {
-		SPDLOG_INFO("Adding address: {} to potential subscribers list on channel: {} ",
+	if (!potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Adding address: {} to potential subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
 			channel);
 		potential_channel_subscriptions[channel].insert(&transport);
 	}
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::remove_subscriber_from_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::remove_subscriber_from_channel(
 	std::string channel,
 	BaseTransport &transport) {
 
-	if (StreamTransportHelper::check_tranport_in_set(transport, channel_subscriptions[channel])) {
-		SPDLOG_INFO("Removing address: {} from subscribers list on channel: {} ",
+	if (channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Removing address: {} from subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		channel_subscriptions[channel].erase(&transport);
 
 		// Send response
@@ -767,16 +1142,157 @@ void PubSubNode<PubSubDelegate>::remove_subscriber_from_channel(
 	}
 }
 
-template<typename PubSubDelegate>
-void PubSubNode<PubSubDelegate>::remove_subscriber_from_potential_channel(
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::remove_subscriber_from_potential_channel(
 	std::string channel,
-	BaseTransport &transport) {
-
-	if (StreamTransportHelper::check_tranport_in_set(transport, potential_channel_subscriptions[channel])) {
-		SPDLOG_INFO("Removing address: {} from potential subscribers list on channel: {} ",
+	BaseTransport &transport
+) {
+	if (potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Removing address: {} from potential subscribers list on channel: {} ",
 			transport.dst_addr.to_string(),
-			channel);
+			channel
+		);
 		potential_channel_subscriptions[channel].erase(&transport);
+	}
+}
+
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::cut_through_recv_start(
+	BaseTransport &transport,
+	uint16_t id,
+	uint64_t length
+) {
+	cut_through_map[std::make_pair(&transport, id)] = {};
+	cut_through_header_recv[std::make_pair(&transport, id)] = false;
+	cut_through_length[std::make_pair(&transport, id)] = length;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::cut_through_recv_bytes(
+	BaseTransport &transport,
+	uint16_t id,
+	net::Buffer &&bytes
+) {
+	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
+		auto channel_length = bytes.read_uint16_be(9);
+
+		// Check overflow
+		if((uint16_t)bytes.size() < 11 + channel_length) {
+			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), channel_length);
+			transport.close();
+			return;
+		}
+
+		if(channel_length > 10) {
+			SPDLOG_ERROR("Channel too long: {}", channel_length);
+			transport.close();
+			return;
+		}
+
+		cut_through_header_recv[std::make_pair(&transport, id)] = true;
+
+		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
+		for(auto *subscriber : channel_subscriptions[channel]) {
+			auto sub_id = subscriber->cut_through_send_start(
+				cut_through_length[std::make_pair(&transport, id)]
+			);
+			if(sub_id == 0) {
+				SPDLOG_ERROR("Cannot send to subscriber");
+				continue;
+			}
+
+			cut_through_map[std::make_pair(&transport, id)].push_back(
+				std::make_pair(subscriber, sub_id)
+			);
+		}
+
+		cut_through_recv_bytes(transport, id, std::move(bytes));
+	} else {
+		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+			if(&transport == subscriber) continue;
+
+			auto sub_bytes = net::Buffer(new char[bytes.size()], bytes.size());
+			std::memcpy(sub_bytes.data(), bytes.data(), bytes.size());
+
+			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
+
+			// TODO: Handle better
+			if(res < 0) {
+				SPDLOG_ERROR("Cut through send failed");
+				subscriber->close();
+			}
+		}
+	}
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::cut_through_recv_end(
+	BaseTransport &transport,
+	uint16_t id
+) {
+	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+		subscriber->cut_through_send_end(sub_id);
+	}
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::cut_through_recv_reset(
+	BaseTransport &transport,
+	uint16_t id
+) {
+	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
+		subscriber->cut_through_send_reset(sub_id);
 	}
 }
 
