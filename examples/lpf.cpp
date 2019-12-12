@@ -7,10 +7,10 @@ using namespace marlin::net;
 using namespace marlin::lpf;
 
 template<typename Delegate>
-using TransportType = LpfTransport<Delegate, TcpTransport, 8>;
+using TransportType = LpfTransport<Delegate, TcpTransport, false, 8>;
 
 template<typename ListenDelegate, typename TransportDelegate>
-using TransportFactoryType = LpfTransportFactory<ListenDelegate, TransportDelegate, TcpTransportFactory, TcpTransport, 8>;
+using TransportFactoryType = LpfTransportFactory<ListenDelegate, TransportDelegate, TcpTransportFactory, TcpTransport, false, 8>;
 
 struct Delegate {
 	void did_recv_message(TransportType<Delegate> &transport, Buffer &&message) {
@@ -48,10 +48,10 @@ struct Delegate {
 		SPDLOG_INFO("Did close");
 	}
 
-	void cut_through_recv_start(TransportType<Delegate> &, uint8_t, uint64_t) {}
-	void cut_through_recv_bytes(TransportType<Delegate> &, uint8_t, Buffer) {}
-	void cut_through_recv_end(TransportType<Delegate> &, uint8_t) {}
-	void cut_through_recv_reset(TransportType<Delegate> &, uint8_t) {}
+	// void cut_through_recv_start(TransportType<Delegate> &, uint8_t, uint64_t) {}
+	// void cut_through_recv_bytes(TransportType<Delegate> &, uint8_t, Buffer) {}
+	// void cut_through_recv_end(TransportType<Delegate> &, uint8_t) {}
+	// void cut_through_recv_reset(TransportType<Delegate> &, uint8_t) {}
 };
 
 int main() {
