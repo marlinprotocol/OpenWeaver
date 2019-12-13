@@ -12,39 +12,39 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through = false,
 	int prefix_length = 8
 >
 class LpfTransportFactory {
 private:
-	typedef StreamTransportFactory<
-		LpfTransportFactory<
-			ListenDelegate,
-			TransportDelegate,
-			StreamTransportFactory,
-			StreamTransport
-		>,
-		LpfTransport<
-			TransportDelegate,
-			StreamTransport,
-			prefix_length
-		>
-	> BaseTransportFactory;
+	using Self = LpfTransportFactory<
+		ListenDelegate,
+		TransportDelegate,
+		StreamTransportFactory,
+		StreamTransport,
+		should_cut_through,
+		prefix_length
+	>;
+	using SelfTransport = LpfTransport<
+		TransportDelegate,
+		StreamTransport,
+		should_cut_through,
+		prefix_length
+	>;
+	using BaseTransportFactory = StreamTransportFactory<
+		Self,
+		SelfTransport
+	>;
 
 	BaseTransportFactory f;
 
 	ListenDelegate *delegate;
-	net::TransportManager<LpfTransport<TransportDelegate, StreamTransport>> transport_manager;
+	net::TransportManager<SelfTransport> transport_manager;
 
 public:
 	bool should_accept(net::SocketAddress const &addr);
 	void did_create_transport(
-		StreamTransport<
-			LpfTransport<
-				TransportDelegate,
-				StreamTransport,
-				prefix_length
-			>
-		> &transport
+		StreamTransport<SelfTransport> &transport
 	);
 
 	net::SocketAddress addr;
@@ -52,7 +52,7 @@ public:
 	int bind(net::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 	int dial(net::SocketAddress const &addr, ListenDelegate &delegate);
-	LpfTransport<TransportDelegate, StreamTransport> *get_transport(
+	SelfTransport *get_transport(
 		net::SocketAddress const &addr
 	);
 };
@@ -65,6 +65,7 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
 bool LpfTransportFactory<
@@ -72,6 +73,7 @@ bool LpfTransportFactory<
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::should_accept(net::SocketAddress const &addr) {
 	return delegate->should_accept(addr);
@@ -82,6 +84,7 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
 void LpfTransportFactory<
@@ -89,15 +92,10 @@ void LpfTransportFactory<
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::did_create_transport(
-	StreamTransport<
-		LpfTransport<
-			TransportDelegate,
-			StreamTransport,
-			prefix_length
-		>
-	> &transport
+	StreamTransport<SelfTransport> &transport
 ) {
 	auto *lpf_transport = transport_manager.get_or_create(
 		transport.dst_addr,
@@ -114,6 +112,7 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
 int LpfTransportFactory<
@@ -121,6 +120,7 @@ int LpfTransportFactory<
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::bind(net::SocketAddress const &addr) {
 	this->addr = addr;
@@ -132,6 +132,7 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
 int LpfTransportFactory<
@@ -139,6 +140,7 @@ int LpfTransportFactory<
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::listen(ListenDelegate &delegate) {
 	this->delegate = &delegate;
@@ -150,6 +152,7 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
 int LpfTransportFactory<
@@ -157,6 +160,7 @@ int LpfTransportFactory<
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::dial(net::SocketAddress const &addr, ListenDelegate &delegate) {
 	this->delegate = &delegate;
@@ -168,14 +172,23 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
+	bool should_cut_through,
 	int prefix_length
 >
-LpfTransport<TransportDelegate, StreamTransport> *
+typename LpfTransportFactory<
+	ListenDelegate,
+	TransportDelegate,
+	StreamTransportFactory,
+	StreamTransport,
+	should_cut_through,
+	prefix_length
+>::SelfTransport *
 LpfTransportFactory<
 	ListenDelegate,
 	TransportDelegate,
 	StreamTransportFactory,
 	StreamTransport,
+	should_cut_through,
 	prefix_length
 >::get_transport(
 	net::SocketAddress const &addr
