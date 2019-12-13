@@ -69,5 +69,14 @@ install(FILES
 add_executable(testclient
 	examples/client.cpp
 )
+
 target_link_libraries(testclient PUBLIC pubsub)
 target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+
+
+add_executable(testclient2
+	examples/client2.cpp
+)
+
+target_link_libraries(testclient2 PUBLIC pubsub)
+target_compile_options(testclient2 PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)

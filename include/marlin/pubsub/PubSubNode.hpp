@@ -45,7 +45,7 @@ template<
 class PubSubNode {
 private:
 	static constexpr size_t DefaultMaxSubscriptions = 2;
-	int max_sol_conns = DefaultMaxSubscriptions;
+	size_t max_sol_conns = DefaultMaxSubscriptions;
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 
@@ -98,13 +98,13 @@ public:
 	TransportSet unsol_conns;
 	// TransportSet unsol_standby_conns;
 
+	bool add_sol_conn(net::SocketAddress const &addr);
 	bool add_sol_conn(BaseTransport &transport);
 	bool add_sol_standby_conn(BaseTransport &transport);
 	bool add_unsol_conn(BaseTransport &transport);
 	// bool add_unsol_standby_conn(BaseTransport &transport); TODO: to be introduced later
 
 	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
-
 
 	int get_num_active_subscribers(std::string channel);
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
@@ -115,7 +115,7 @@ private:
 	uv_timer_t peer_selection_timer;
 
 	static void peer_selection_timer_cb(uv_timer_t *handle) {
-		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
+		auto &node = *(Self *)handle->data;
 
 		std::for_each(
 			node.delegate->channels.begin(),
@@ -127,7 +127,6 @@ private:
 	}
 
 //---------------- Pubsub protocol ----------------//
-public:
 private:
 	BaseTransportFactory f;
 
@@ -206,7 +205,7 @@ private:
 	uv_timer_t message_id_timer;
 
 	static void message_id_timer_cb(uv_timer_t *handle) {
-		auto &node = *(PubSubNode<PubSubDelegate> *)handle->data;
+		auto &node = *(Self *)handle->data;
 
 		// Overflow behaviour desirable
 		node.message_id_idx++;
@@ -708,6 +707,12 @@ void PubSubNode<
 >::did_create_transport(
 	BaseTransport &transport
 ) {
+
+	SPDLOG_DEBUG(
+		"DID CREATE TRANSPORT: {}",
+		transport.dst_addr.to_string()
+	);
+
 	transport.setup(this);
 }
 
@@ -728,13 +733,21 @@ void PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::did_dial(BaseTransport &transport) {
+
+	SPDLOG_DEBUG(
+		"DID DIAL: {}",
+		transport.dst_addr.to_string()
+	);
+
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			add_subscriber_to_channel(channel, transport);
+			send_SUBSCRIBE(transport, channel);
 		}
 	);
+
+	add_sol_conn(transport);
 }
 
 //! Receives the bytes/packet fragments from StreamTransport and processes them
@@ -875,6 +888,12 @@ PubSubNode<
 	f.bind(addr);
 	f.listen(*this);
 
+
+	SPDLOG_DEBUG(
+		"PUBSUB LISTENING ON : {}",
+		addr.to_string()
+	);
+
 	uv_timer_init(uv_default_loop(), &message_id_timer);
 	this->message_id_timer.data = (void *)this;
 	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
@@ -896,6 +915,12 @@ int PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::dial(net::SocketAddress const &addr) {
+
+	SPDLOG_DEBUG(
+			"SENDING DIAL TO: {}",
+			addr.to_string()
+		);
+
 	return f.dial(addr, *this);
 }
 
@@ -1025,7 +1050,7 @@ void PubSubNode<
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (std::string const channel) {
-			add_subscriber_to_channel(channel, *transport);
+			send_SUBSCRIBE(*transport, channel);
 		}
 	);
 }
@@ -1059,6 +1084,28 @@ void PubSubNode<
 			send_UNSUBSCRIBE(*transport, channel);
 		}
 	);
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_sol_conn(net::SocketAddress const &addr) {
+
+	auto *transport = f.get_transport(addr);
+
+	if(transport == nullptr) {
+		return false;
+	}
+
+	add_sol_conn(*transport);
 }
 
 template<
