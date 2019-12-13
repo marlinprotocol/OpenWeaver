@@ -231,11 +231,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 		i + 7 < packet.size();
 		i += 8
 	) {
-		std::vector<unsigned char> peer_addr_bytes(
-			packet.data()+i,
-			packet.data()+i+8
-		);
-		auto peer_addr = net::SocketAddress::deserialize(peer_addr_bytes.begin());
+		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
 		f.dial(peer_addr, *this);
 	}
 }

@@ -147,13 +147,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	// TODO - Handle overflow
 	for(
 		auto iter = peers.begin();
-		iter != peers.end() && size + 7 < 1100;
+		iter != peers.end() && size + 39 < 1100;
 		iter++
 	) {
 		if(iter->first == &transport) continue;
 
-		auto bytes = iter->first->dst_addr.serialize();
-		std::memcpy(message+size, bytes.data(), 8);
+		iter->first->dst_addr.serialize(message+size, 8);
 		size += 8;
 	}
 
