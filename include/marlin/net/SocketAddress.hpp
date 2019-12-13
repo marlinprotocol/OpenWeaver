@@ -57,9 +57,9 @@ public:
 	bool operator<(const SocketAddress &other) const;
 
 	/// Serialize into bytes
-	std::vector<unsigned char> serialize() const;
+	size_t serialize(char* bytes, size_t size) const;
 	/// Deserialize from bytes
-	static SocketAddress deserialize(const std::vector<unsigned char>::iterator bytes);
+	static SocketAddress deserialize(char const* bytes, size_t const size);
 
 	uint16_t get_port() const;
 };
