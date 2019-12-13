@@ -44,7 +44,7 @@ template<typename PubSubDelegate>
 class PubSubServer {
 public:
 	template<typename ListenDelegate, typename TransportDelegate>
-	using UdpStreamTransportFactory = stream::StreamTransportFactory<
+	using BaseStreamTransportFactory = stream::StreamTransportFactory<
 		ListenDelegate,
 		TransportDelegate,
 		net::UdpTransportFactory,
@@ -52,40 +52,27 @@ public:
 	>;
 
 	template<typename Delegate>
-	using UdpStreamTransport = stream::StreamTransport<
+	using BaseStreamTransport = stream::StreamTransport<
 		Delegate,
 		net::UdpTransport
 	>;
 
-	using BaseTransportFactory = lpf::LpfTransportFactory<
+	typedef lpf::LpfTransportFactory<
 		PubSubServer<PubSubDelegate>,
 		PubSubServer<PubSubDelegate>,
-		UdpStreamTransportFactory,
-		UdpStreamTransport
-	>;
-	using BaseTransport = lpf::LpfTransport<
+		BaseStreamTransportFactory,
+		BaseStreamTransport
+	> BaseTransportFactory;
+	typedef lpf::LpfTransport<
 		PubSubServer<PubSubDelegate>,
-		UdpStreamTransport
-	>;
+		BaseStreamTransport
+	> BaseTransport;
 
-	using TransportSet = PubSubTransportSet<BaseTransport>;
-	using TransportSetMap = std::unordered_map<std::string, TransportSet>;
+	typedef PubSubTransportSet<BaseTransport> TransportSet;
+	typedef std::unordered_map<std::string, TransportSet> TransportSetMap;
 
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
-
-	TransportSet sol_conns;
-	TransportSet sol_standby_conns;
-	TransportSet unsol_conns;
-	// TransportSet unsol_standby_conns;
-
-	bool add_sol_conn(BaseTransport &transport);
-	bool add_sol_standby_conn(BaseTransport &transport);
-	bool add_unsol_conn(BaseTransport &transport);
-	// bool add_unsol_standby_conn(BaseTransport &transport); TODO: to be introduced later
-
-	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
-
 
 	int get_num_active_subscribers(std::string channel);
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
@@ -159,10 +146,6 @@ public:
 	void add_subscriber(net::SocketAddress const &addr);
 
 private:
-
-	// Flag based atm
-	int max_sol_conns;
-	int max_unsol_conns;
 
 	std::uniform_int_distribution<uint64_t> message_id_dist;
 	std::mt19937_64 message_id_gen;
@@ -269,8 +252,7 @@ void PubSubServer<PubSubDelegate>::did_recv_SUBSCRIBE(
 		transport.dst_addr.to_string()
 	);
 
-	// add_subscriber_to_channel(channel, transport);
-	add_unsol_conn(transport);
+	add_subscriber_to_channel(channel, transport);
 }
 
 
@@ -852,101 +834,6 @@ void PubSubServer<PubSubDelegate>::add_subscriber(net::SocketAddress const &addr
 			add_subscriber_to_channel(channel, *transport);
 		}
 	);
-}
-
-template<typename PubSubDelegate>
-bool PubSubServer<PubSubDelegate>::add_sol_conn(BaseTransport &transport) {
-	if(transport == nullptr) {
-		return false;
-	}
-
-	//TODO: size check.
-	if (sol_conns.size() >= max_sol_conns) {
-		add_unsol_conn(transport);
-		return false;
-	}
-
-	if (unsol_conns.check_tranport_in_set(transport)) {
-		remove_conn(unsol_conn, transport);
-	}
-
-	if (!sol_conns.check_tranport_in_set(transport) &&
-		!sol_standby_conns.check_tranport_in_set(transport)) {
-
-		SPDLOG_DEBUG("Adding address: {} to sol conn list",
-			transport.dst_addr.to_string()
-		);
-
-		sol_conns.insert(&transport);
-		//TODO: send response
-		return true;
-	}
-
-	return false;
-}
-
-template<typename PubSubDelegate>
-bool PubSubServer<PubSubDelegate>::add_sol_standby_conn(BaseTransport &transport) {
-	if(transport == nullptr) {
-		return false;
-	}
-
-	if(!sol_conns.check_tranport_in_set(transport) &&
-	   !sol_standby_conns.check_tranport_in_set(transport)) {
-
-		SPDLOG_DEBUG("Adding address: {} to sol standby conn list",
-			transport.dst_addr.to_string()
-		);
-
-		sol_standby_conns.insert(&transport);
-		return true;
-	}
-
-	return false;
-}
-
-template<typename PubSubDelegate>
-bool PubSubServer<PubSubDelegate>::add_unsol_conn(BaseTransport &transport) {
-	if (transport == nullptr) {
-		return false;
-	}
-
-	if(!sol_conns.check_tranport_in_set(transport) &&
-	   !sol_standby_conns.check_tranport_in_set(transport) &&
-	   !unsol_standby_conns.check_tranport_in_set(transport)) {
-
-		SPDLOG_DEBUG("Adding address: {} to unsol conn list",
-			transport.dst_addr.to_string()
-		);
-
-		unsol_conns.insert(&transport);
-		return true;
-	}
-
-	return false;
-}
-
-template<typename PubSubDelegate>
-bool PubSubServer<PubSubDelegate>::remove_conn(TransportSet &t_set, BaseTransport &transport) {
-	if (transport == nullptr) {
-		return false;
-	}
-
-	if (t_set.check_tranport_in_set(transport)) {
-		SPDLOG_DEBUG("Removing address: {} from list",
-			transport.dst_addr.to_string()
-		);
-
-		t_set.erase(&transport);
-
-		//TODO SEND UNSUBSCRIBE
-		//TODO Send response
-		//send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
-
-		return true;
-	}
-
-	return false;
 }
 
 template<typename PubSubDelegate>

@@ -44,9 +44,10 @@ template<
 >
 class PubSubNode {
 private:
-	constexpr size_t DefaultMaxSubscriptions = 2;
-	constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
-	constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
+	static constexpr size_t DefaultMaxSubscriptions = 2;
+	int max_sol_conns = DefaultMaxSubscriptions;
+	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
+	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 
 //---------------- Transport types ----------------//
 public:
@@ -92,6 +93,19 @@ public:
 	TransportSetMap channel_subscriptions;
 	TransportSetMap potential_channel_subscriptions;
 
+	TransportSet sol_conns;
+	TransportSet sol_standby_conns;
+	TransportSet unsol_conns;
+	// TransportSet unsol_standby_conns;
+
+	bool add_sol_conn(BaseTransport &transport);
+	bool add_sol_standby_conn(BaseTransport &transport);
+	bool add_unsol_conn(BaseTransport &transport);
+	// bool add_unsol_standby_conn(BaseTransport &transport); TODO: to be introduced later
+
+	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
+
+
 	int get_num_active_subscribers(std::string channel);
 	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
 	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
@@ -115,6 +129,8 @@ private:
 //---------------- Pubsub protocol ----------------//
 public:
 private:
+	BaseTransportFactory f;
+
 	void did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
 
@@ -151,12 +167,10 @@ public:
 	void did_recv_message(BaseTransport &transport, net::Buffer &&message);
 	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
-private:
-	BaseTransportFactory f;
+
 	int dial(net::SocketAddress const &addr);
 
 //---------------- Public Interface ----------------//
-public:
 	PubSubNode(const net::SocketAddress &_addr);
 	PubSubDelegate *delegate;
 
@@ -283,7 +297,9 @@ void PubSubNode<
 		transport.dst_addr.to_string()
 	);
 
-	add_subscriber_to_channel(channel, transport);
+	// add_subscriber_to_channel(channel, transport);
+	if (accept_unsol_conn)
+		add_unsol_conn(transport);
 }
 
 
@@ -1044,6 +1060,130 @@ void PubSubNode<
 		}
 	);
 }
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_sol_conn(BaseTransport &transport) {
+
+	//TODO: size check.
+	if (sol_conns.size() >= max_sol_conns) {
+		add_unsol_conn(transport);
+		return false;
+	}
+
+	if (unsol_conns.check_tranport_in_set(transport)) {
+		remove_conn(unsol_conns, transport);
+	}
+
+	if (!sol_conns.check_tranport_in_set(transport) &&
+		!sol_standby_conns.check_tranport_in_set(transport)) {
+
+		SPDLOG_DEBUG("Adding address: {} to sol conn list",
+			transport.dst_addr.to_string()
+		);
+
+		sol_conns.insert(&transport);
+		//TODO: send response
+		return true;
+	}
+
+	return false;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_sol_standby_conn(BaseTransport &transport) {
+
+	if(!sol_conns.check_tranport_in_set(transport) &&
+	   !sol_standby_conns.check_tranport_in_set(transport)) {
+
+		SPDLOG_DEBUG("Adding address: {} to sol standby conn list",
+			transport.dst_addr.to_string()
+		);
+
+		sol_standby_conns.insert(&transport);
+		return true;
+	}
+
+	return false;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::add_unsol_conn(BaseTransport &transport) {
+
+	if(!sol_conns.check_tranport_in_set(transport) &&
+	   !sol_standby_conns.check_tranport_in_set(transport) &&
+	   !unsol_conns.check_tranport_in_set(transport)) {
+
+		SPDLOG_DEBUG("Adding address: {} to unsol conn list",
+			transport.dst_addr.to_string()
+		);
+
+		unsol_conns.insert(&transport);
+		return true;
+	}
+
+	return false;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::remove_conn(TransportSet &t_set, BaseTransport &transport) {
+
+	if (t_set.check_tranport_in_set(transport)) {
+		SPDLOG_DEBUG("Removing address: {} from list",
+			transport.dst_addr.to_string()
+		);
+
+		t_set.erase(&transport);
+
+		//TODO SEND UNSUBSCRIBE
+		//TODO Send response
+		//send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+
+		return true;
+	}
+
+	return false;
+}
+
 
 template<
 	typename PubSubDelegate,
