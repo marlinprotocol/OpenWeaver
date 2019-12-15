@@ -43,12 +43,14 @@ public:
 int main() {
 	PubSubNodeDelegate b_del;
 
+	size_t max_sol_conn = 10;
+
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
-	auto b = new PubSubNode<PubSubNodeDelegate, false, false, false>(addr);
+	auto b = new PubSubNode<PubSubNodeDelegate, false, false, false>(addr, max_sol_conn);
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, false, false, false>(addr2);
+	auto b2 = new PubSubNode<PubSubNodeDelegate, false, false, false>(addr2, max_sol_conn);
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");

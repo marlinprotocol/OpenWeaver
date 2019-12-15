@@ -170,7 +170,7 @@ public:
 	int dial(net::SocketAddress const &addr);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -881,8 +881,10 @@ PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::PubSubNode(
-	const net::SocketAddress &addr
-) : message_id_gen(std::random_device()()),
+	const net::SocketAddress &addr,
+	size_t max_sol
+) : max_sol_conns(max_sol),
+	message_id_gen(std::random_device()()),
 	message_id_events(256)
 {
 	f.bind(addr);
