@@ -20,6 +20,10 @@ target_include_directories(beacon
 )
 target_compile_features(beacon INTERFACE cxx_std_17)
 
+# libsodium
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
+target_link_libraries(beacon INTERFACE sodium)
+
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(beacon INTERFACE Marlin::net)
@@ -89,7 +93,7 @@ target_include_directories(discovery_example
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-target_link_libraries(discovery_example PUBLIC beacon)
+target_link_libraries(discovery_example PUBLIC beacon stdc++fs)
 target_compile_options(discovery_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 add_executable(server

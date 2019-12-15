@@ -8,6 +8,8 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <map>
 
+#include <sodium.h>
+
 namespace marlin {
 namespace beacon {
 
@@ -64,12 +66,19 @@ public:
 	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
 	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
 
-	DiscoveryClient(net::SocketAddress const &addr);
+	DiscoveryClient(net::SocketAddress const &addr, uint8_t const* static_sk);
+	~DiscoveryClient();
 
 	DiscoveryClientDelegate *delegate;
 	bool is_discoverable = false;
 
 	void start_discovery(net::SocketAddress const &beacon_addr);
+
+private:
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+
+	std::unordered_map<net::SocketAddress, std::array<uint8_t, 32>> node_key_map;
 };
 
 
@@ -188,7 +197,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPROTO(
 		// TODO: Move into SocketAddress
 		reinterpret_cast<sockaddr_in *>(&peer_addr)->sin_port = (port << 8) + (port >> 8);
 
-		delegate->new_peer(peer_addr, protocol, version);
+		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
 }
 
@@ -228,10 +237,12 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 
 	for(
 		uint16_t i = 2;
-		i + 7 < packet.size();
-		i += 8
+		i + 7 + crypto_box_PUBLICKEYBYTES < packet.size();
+		i += 8 + crypto_box_PUBLICKEYBYTES
 	) {
 		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
+		std::memcpy(node_key_map[peer_addr].data(), packet.data()+i+8, crypto_box_PUBLICKEYBYTES);
+
 		f.dial(peer_addr, *this);
 	}
 }
@@ -253,9 +264,10 @@ template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	char *message = new char[2] {0, 4};
+	char *message = new char[2+crypto_box_PUBLICKEYBYTES] {0, 4};
+	std::memcpy(message + 2, static_pk, crypto_box_PUBLICKEYBYTES);
 
-	net::Buffer p(message, 2);
+	net::Buffer p(message, 2+crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
 
@@ -401,7 +413,8 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_send_packet(
 
 template<typename DiscoveryClientDelegate>
 DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
-	net::SocketAddress const &addr
+	net::SocketAddress const &addr,
+	uint8_t const* static_sk
 ) {
 	f.bind(addr);
 	f.listen(*this);
@@ -411,8 +424,20 @@ DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 
 	uv_timer_init(uv_default_loop(), &heartbeat_timer);
 	heartbeat_timer.data = this;
+
+	if(sodium_init() == -1) {
+		throw;
+	}
+
+	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
+	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
 
+template<typename DiscoveryClientDelegate>
+DiscoveryClient<DiscoveryClientDelegate>::~DiscoveryClient() {
+	// Explicitly zero to protect memory
+	sodium_memzero(static_sk, crypto_box_SECRETKEYBYTES);
+}
 /*!
 	connecting to the beacon server to start the peer discovery
 */
