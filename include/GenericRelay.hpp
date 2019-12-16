@@ -6,6 +6,7 @@
 
 using namespace marlin;
 using namespace marlin::net;
+using namespace marlin::stream;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
@@ -19,6 +20,8 @@ template<
 >
 class GenericRelay {
 private:
+	size_t max_sol_conns;
+	uint32_t pubsub_port;
 
 	using Self = GenericRelay<
 		enable_cut_through,
@@ -42,6 +45,7 @@ public:
 
 	GenericRelay(
 		uint32_t protocol,
+		const uint32_t pubsub_port,
 		const net::SocketAddress &pubsub_addr,
 		const net::SocketAddress &beacon_addr,
 		const net::SocketAddress &beacon_server_addr
@@ -49,12 +53,21 @@ public:
 		// setting protocol
 		my_protocol = protocol;
 
+		//PROTOCOL HACK
+		this->pubsub_port = pubsub_port;
+
 		// setting up pusbub and beacon
 		if (
 			protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ||
 			protocol == RELAY_PUBSUB_PROTOCOL_NUMBER
 		) {
-			ps = new PubSubNodeType(pubsub_addr);
+			if (protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
+				max_sol_conns = 50;
+			} else {
+				max_sol_conns = 1;
+			}
+
+			ps = new PubSubNodeType(pubsub_addr, max_sol_conns);
 			ps->delegate = this;
 			b = new DiscoveryClient<Self>(beacon_addr);
 			b->is_discoverable = this->is_discoverable;
@@ -67,7 +80,7 @@ public:
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {
-			std::make_tuple(my_protocol, 0, 8000)
+			std::make_tuple(my_protocol, 0, pubsub_port)
 		};
 	}
 
@@ -118,10 +131,68 @@ public:
 		);
 	}
 
-	void manage_subscribers(
-		std::string,
-		typename PubSubNodeType::TransportSet&,
-		typename PubSubNodeType::TransportSet&) {
+	void manage_subscriptions(
+		size_t max_sol_conns,
+		typename PubSubNodeType::TransportSet& sol_conns,
+		typename PubSubNodeType::TransportSet& sol_standby_conns
+	) {
+		// TODO: remove comment
+		SPDLOG_INFO(
+			"manage_subscriptions port: {} sol_conns size: {}",
+				pubsub_port,
+				sol_conns.size()
+		);
+
+		// move some of the subscribers to potential subscribers if oversubscribed
+		if (sol_conns.size() >= max_sol_conns) {
+			// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
+			// send message to removed and added peers
+
+			auto* toReplaceTransport = sol_conns.find_max_rtt_transport();
+			auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
+
+			if (toReplaceTransport != nullptr &&
+				toReplaceWithTransport != nullptr) {
+
+				SPDLOG_INFO("Moving address: {} from sol_conns to sol_standby_conns",
+					toReplaceTransport->dst_addr.to_string()
+				);
+
+				// TODO: do away with individual subscribe for each channel
+				std::for_each(
+					channels.begin(),
+					channels.end(),
+					[&] (std::string const channel) {
+						ps->send_UNSUBSCRIBE(*toReplaceTransport, channel);
+					}
+				);
+				ps->remove_conn(sol_conns, *toReplaceTransport);
+				ps->add_sol_standby_conn(*toReplaceTransport);
+
+				SPDLOG_INFO("Moving address: {} from sol_standby_conns to sol_conns",
+					toReplaceWithTransport->dst_addr.to_string()
+				);
+
+				// TODO: do away with individual unsubscribe for each channel
+				std::for_each(
+					channels.begin(),
+					channels.end(),
+					[&] (std::string const channel) {
+						ps->send_SUBSCRIBE(*toReplaceWithTransport, channel);
+					}
+				);
+				ps->remove_conn(sol_standby_conns, *toReplaceWithTransport);
+				ps->add_sol_conn(*toReplaceWithTransport);
+			}
+		}
+
+		for (auto* transport : sol_standby_conns) {
+			SPDLOG_INFO("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
+		}
+
+		for (auto* transport : sol_conns) {
+			SPDLOG_INFO("Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
+		}
 	}
 };
 
