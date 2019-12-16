@@ -146,6 +146,15 @@ private:
 	);
 
 	void did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
+
+	void send_message_with_cut_through_check(
+		BaseTransport *transport,
+		std::string channel,
+		uint64_t message_id,
+		const char *data,
+		uint64_t size
+	);
+
 	void send_MESSAGE(
 		BaseTransport &transport,
 		std::string channel,
@@ -993,45 +1002,81 @@ void PubSubNode<
 	uint64_t size,
 	net::SocketAddress const *excluded
 ) {
-	auto subscribers = channel_subscriptions[channel];
+	// TODO: sending on solicited connections. ideally not to be sent relay --> master, if incoming from master
 	for (
-		auto it = subscribers.begin();
-		it != subscribers.end();
+		auto* it = sol_conns.begin();
+		it != sol_conns.end();
 		it++
 	) {
 		// Exclude given address, usually sender tp prevent loops
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
-		SPDLOG_DEBUG(
-			"Sending message {} on channel {} to {}",
-			message_id,
-			channel,
-			(*it)->dst_addr.to_string()
-		);
-		if(size > 50000) {
-			char *message = new char[channel.size()+11+size];
 
-			message[0] = 3;
+		send_message_with_cut_through_check(*it, channel, message_id, data, size);
+	}
 
-			net::Buffer m(message, channel.size()+11+size);
-			m.write_uint64_be(1, message_id);
-			m.write_uint16_be(9, channel.size());
-			std::memcpy(message + 11, channel.data(), channel.size());
-			std::memcpy(message + 11 + channel.size(), data, size);
 
-			auto res = (*it)->cut_through_send(std::move(m));
+	for (
+		auto* it = unsol_conns.begin();
+		it != unsol_conns.end();
+		it++
+	) {
+		// Exclude given address, usually sender tp prevent loops
+		if(excluded != nullptr && (*it)->dst_addr == *excluded)
+			continue;
 
-			// TODO: Handle better
-			if(res < 0) {
-				SPDLOG_ERROR("Cut through send failed");
-				(*it)->close();
-			}
-		} else {
-			send_MESSAGE(**it, channel, message_id, data, size);
-		}
+		send_message_with_cut_through_check(*it, channel, message_id, data, size);
 	}
 }
 
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_message_with_cut_through_check(
+	BaseTransport *transport,
+	std::string channel,
+	uint64_t message_id,
+	const char *data,
+	uint64_t size
+) {
+	SPDLOG_DEBUG(
+		"Sending message {} on channel {} to {}",
+		message_id,
+		channel,
+		transport->dst_addr.to_string()
+	);
+
+	if(size > 50000) {
+		char *message = new char[channel.size()+11+size];
+
+		message[0] = 3;
+
+		net::Buffer m(message, channel.size()+11+size);
+		m.write_uint64_be(1, message_id);
+		m.write_uint16_be(9, channel.size());
+		std::memcpy(message + 11, channel.data(), channel.size());
+		std::memcpy(message + 11 + channel.size(), data, size);
+
+		auto res = transport->cut_through_send(std::move(m));
+
+		// TODO: Handle better
+		if(res < 0) {
+			SPDLOG_ERROR("Cut through send failed");
+			transport->close();
+		}
+	} else {
+		send_MESSAGE(*transport, channel, message_id, data, size);
+	}
+}
 
 //! subscribes to given publisher
 /*!
