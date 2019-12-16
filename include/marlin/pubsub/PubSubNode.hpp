@@ -44,8 +44,7 @@ template<
 >
 class PubSubNode {
 private:
-	static constexpr size_t DefaultMaxSubscriptions = 2;
-	size_t max_sol_conns = DefaultMaxSubscriptions;
+	size_t max_sol_conns;
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 
@@ -98,6 +97,9 @@ public:
 	TransportSet unsol_conns;
 	// TransportSet unsol_standby_conns;
 
+	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
+	void send_UNSUBSCRIBE(BaseTransport &transport, std::string const channel);
+
 	bool add_sol_conn(net::SocketAddress const &addr);
 	bool add_sol_conn(BaseTransport &transport);
 	bool add_sol_standby_conn(BaseTransport &transport);
@@ -117,13 +119,15 @@ private:
 	static void peer_selection_timer_cb(uv_timer_t *handle) {
 		auto &node = *(Self *)handle->data;
 
-		std::for_each(
-			node.delegate->channels.begin(),
-			node.delegate->channels.end(),
-			[&] (std::string const channel) {
-				node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
-			}
-		);
+		node.delegate->manage_subscriptions(node.max_sol_conns, node.sol_conns, node.sol_standby_conns);
+
+		// std::for_each(
+		// 	node.delegate->channels.begin(),
+		// 	node.delegate->channels.end(),
+		// 	[&] (std::string const channel) {
+		// 		node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+		// 	}
+		// );
 	}
 
 //---------------- Pubsub protocol ----------------//
@@ -131,10 +135,8 @@ private:
 	BaseTransportFactory f;
 
 	void did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
-	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
 
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
-	void send_UNSUBSCRIBE(BaseTransport &transport, std::string const channel);
 
 	void did_recv_RESPONSE(BaseTransport &transport, net::Buffer &&message);
 	void send_RESPONSE(
@@ -218,18 +220,25 @@ private:
 			node.message_id_set.erase(*iter);
 		}
 
-		std::for_each(
-			node.delegate->channels.begin(),
-			node.delegate->channels.end(),
-			[&] (std::string const channel) {
-				for (auto* transport : node.channel_subscriptions[channel]) {
-					node.send_HEARTBEAT(*transport);
-				}
-				for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
-					node.send_HEARTBEAT(*pot_transport);
-				}
-			}
-		);
+		for (auto* transport : node.sol_conns) {
+			node.send_HEARTBEAT(*transport);
+		}
+
+		for (auto* transport : node.unsol_conns) {
+			node.send_HEARTBEAT(*transport);
+		}
+		// std::for_each(
+		// 	node.delegate->channels.begin(),
+		// 	node.delegate->channels.end(),
+		// 	[&] (std::string const channel) {
+		// 		for (auto* transport : node.channel_subscriptions[channel]) {
+		// 			node.send_HEARTBEAT(*transport);
+		// 		}
+		// 		for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
+		// 			node.send_HEARTBEAT(*pot_transport);
+		// 		}
+		// 	}
+		// );
 	}
 
 //---------------- Message deduplication ----------------//
@@ -379,7 +388,8 @@ void PubSubNode<
 		transport.dst_addr.to_string()
 	);
 
-	remove_subscriber_from_channel(channel, transport);
+	// TODO
+	remove_conn(unsol_conns, transport);
 }
 
 
@@ -1142,6 +1152,8 @@ bool PubSubNode<
 
 		sol_conns.insert(&transport);
 		//TODO: send response
+		send_RESPONSE(transport, true, "SUBSCRIBED");
+
 		return true;
 	}
 
@@ -1223,9 +1235,10 @@ bool PubSubNode<
 
 		t_set.erase(&transport);
 
-		//TODO SEND UNSUBSCRIBE
 		//TODO Send response
-		//send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
+		if (&t_set == &sol_conns) {
+			send_RESPONSE(transport, true, "UNSUBSCRIBED");
+		}
 
 		return true;
 	}
@@ -1266,7 +1279,7 @@ void PubSubNode<
 	BaseTransport &transport
 ) {
 	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		if (channel_subscriptions[channel].size() >= DefaultMaxSubscriptions) {
+		if (channel_subscriptions[channel].size() >= max_sol_conns) {
 			add_subscriber_to_potential_channel(channel, transport);
 			return;
 		}

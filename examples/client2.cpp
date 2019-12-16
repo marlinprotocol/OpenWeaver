@@ -31,8 +31,8 @@ public:
 		SPDLOG_INFO("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.data(), message.data() + message.size()));
 	}
 
-	void manage_subscribers(
-		std::string,
+	void manage_subscriptions(
+		size_t,
 		typename PubSubNodeType::TransportSet&,
 		typename PubSubNodeType::TransportSet&
 	) {
