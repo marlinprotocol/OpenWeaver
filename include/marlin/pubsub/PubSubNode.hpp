@@ -1135,7 +1135,7 @@ bool PubSubNode<
 
 	//TODO: size check.
 	if (sol_conns.size() >= max_sol_conns) {
-		add_unsol_conn(transport);
+		add_sol_standby_conn(transport);
 		return false;
 	}
 
