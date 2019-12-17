@@ -233,7 +233,7 @@ private:
 			node.send_HEARTBEAT(*transport);
 		}
 
-		for (auto* transport : node.unsol_conns) {
+		for (auto* transport : node.sol_standby_conns) {
 			node.send_HEARTBEAT(*transport);
 		}
 		// std::for_each(
