@@ -182,10 +182,10 @@ public:
 	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
 
-	int dial(net::SocketAddress const &addr, uint8_t const* keys = nullptr);
+	int dial(net::SocketAddress const &addr, uint8_t const* keys);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const* keys = nullptr);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const* keys);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -213,7 +213,7 @@ public:
 		uint16_t witness_size
 	);
 
-	void subscribe(net::SocketAddress const &addr);
+	void subscribe(net::SocketAddress const &addr, uint8_t const *keys);
 	void unsubscribe(net::SocketAddress const &addr);
 private:
 
@@ -1147,11 +1147,11 @@ void PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
->::subscribe(net::SocketAddress const &addr) {
+>::subscribe(net::SocketAddress const &addr, uint8_t const *keys) {
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
-		dial(addr);
+		dial(addr, keys);
 		return;
 	} else if(!transport->is_active()) {
 		return;
@@ -1164,6 +1164,8 @@ void PubSubNode<
 			send_SUBSCRIBE(*transport, channel);
 		}
 	);
+
+	add_sol_conn(*transport);
 }
 
 //! unsubscribes from given publisher
