@@ -122,7 +122,7 @@ TEST(UdpTransportFactory, CanDial) {
 
 	auto res = f.dial(SocketAddress::loopback_ipv4(8001), delegate);
 
-	EXPECT_EQ(res, 0);
+	EXPECT_EQ(res, 1);
 	EXPECT_TRUE(did_call_f_delegate);
 	EXPECT_TRUE(did_call_t_delegate);
 }
