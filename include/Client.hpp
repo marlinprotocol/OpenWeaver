@@ -92,7 +92,7 @@ public:
 		);
 
 		if(protocol == RELAY_PUBSUB_PROTOCOL_NUMBER) {
-			ps->subscribe(addr);
+			ps->subscribe(addr, static_pk);
 			// ps->add_sol_conn(addr);
 		}
 	}
