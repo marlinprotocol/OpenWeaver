@@ -25,6 +25,10 @@ target_include_directories(stream
 )
 target_compile_features(stream INTERFACE cxx_std_17)
 
+# libsodium
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
+target_link_libraries(stream INTERFACE sodium)
+
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
 target_link_libraries(stream INTERFACE Marlin::net)

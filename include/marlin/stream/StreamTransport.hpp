@@ -7,9 +7,12 @@
 #define MARLIN_STREAM_STREAMTRANSPORT_HPP
 
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
 #include <unordered_set>
 #include <unordered_map>
 #include <random>
+
+#include <sodium.h>
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
@@ -37,6 +40,8 @@ namespace stream {
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
+public:
+	static constexpr bool is_encrypted = true;
 private:
 	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
 	BaseTransport &transport;
@@ -166,10 +171,11 @@ public:
 		net::SocketAddress const &src_addr,
 		net::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
+		net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
+		uint8_t const* remote_static_pk
 	);
 
-	void setup(DelegateType *delegate);
+	void setup(DelegateType *delegate, uint8_t const* static_sk);
 	int send(net::Buffer &&bytes, uint16_t stream_id = 0);
 	void close();
 
@@ -177,6 +183,23 @@ public:
 	double get_rtt();
 
 	void flush_stream(uint16_t stream_id);
+
+private:
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+
+	uint8_t remote_static_pk[crypto_box_PUBLICKEYBYTES];
+
+	uint8_t ephemeral_sk[crypto_kx_SECRETKEYBYTES];
+	uint8_t ephemeral_pk[crypto_kx_PUBLICKEYBYTES];
+
+	uint8_t remote_ephemeral_pk[crypto_kx_PUBLICKEYBYTES];
+
+	uint8_t rx[crypto_kx_SESSIONKEYBYTES];
+	uint8_t tx[crypto_kx_SESSIONKEYBYTES];
+public:
+	uint8_t const* get_static_pk();
+	uint8_t const* get_remote_static_pk();
 };
 
 
@@ -619,10 +642,19 @@ void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
-	net::Buffer packet(new char[10] {0, 3}, 10);
+	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	net::Buffer packet(new char[10 + ct_len] {0, 3}, 10 + ct_len);
 
 	packet.write_uint32_be(2, this->src_conn_id);
 	packet.write_uint32_be(6, this->dst_conn_id);
+
+	uint8_t pt[pt_len];
+	std::memcpy(pt, static_pk, crypto_box_PUBLICKEYBYTES);
+	std::memcpy(pt + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
+
+	crypto_box_seal((uint8_t*)packet.data() + 10, pt, pt_len, remote_static_pk);
 
 	transport.send(std::move(packet));
 }
@@ -645,6 +677,33 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		this->dst_conn_id = packet.read_uint32_be(2);
 		this->src_conn_id = (uint32_t)std::random_device()();
 
+		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		uint8_t pt[pt_len];
+		if (crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		std::memcpy(remote_static_pk, pt, crypto_box_PUBLICKEYBYTES);
+		std::memcpy(remote_ephemeral_pk, pt + crypto_box_PUBLICKEYBYTES, crypto_kx_PUBLICKEYBYTES);
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
@@ -660,6 +719,33 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		}
 
 		this->dst_conn_id = packet.read_uint32_be(2);
+
+		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		uint8_t pt[pt_len];
+		if (crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		std::memcpy(remote_static_pk, pt, crypto_box_PUBLICKEYBYTES);
+		std::memcpy(remote_ephemeral_pk, pt + crypto_box_PUBLICKEYBYTES, crypto_kx_PUBLICKEYBYTES);
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
@@ -682,12 +768,29 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
-	net::Buffer packet(new char[10] {0, 4}, 10);
+	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	net::Buffer packet(new char[10 + ct_len] {0, 4}, 10 + ct_len);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
 
+	crypto_box_seal((uint8_t*)packet.data() + 10, ephemeral_pk, pt_len, remote_static_pk);
+
 	transport.send(std::move(packet));
+
+	// SPDLOG_INFO(
+	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
+	// 	src_addr.to_string(),
+	// 	dst_addr.to_string(),
+	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
+	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
+	// );
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -712,6 +815,29 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 
 		this->dst_conn_id = packet.read_uint32_be(2);
+
+		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		if (crypto_box_seal_open(remote_ephemeral_pk, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
@@ -791,6 +917,18 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 	packet.write_uint32_be(6, dst_conn_id);
 
 	transport.send(std::move(packet));
+
+	// SPDLOG_INFO(
+	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
+	// 	src_addr.to_string(),
+	// 	dst_addr.to_string(),
+	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
+	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
+	// );
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1463,7 +1601,8 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	net::SocketAddress const &src_addr,
 	net::SocketAddress const &dst_addr,
 	BaseTransport &transport,
-	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
+	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
+	uint8_t const* remote_static_pk
 ) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
 	uv_timer_init(uv_default_loop(), &this->state_timer);
 	this->state_timer.data = this;
@@ -1476,6 +1615,14 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 
 	uv_timer_init(uv_default_loop(), &this->pacing_timer);
 	this->pacing_timer.data = this;
+
+	if(sodium_init() == -1) {
+		throw;
+	}
+
+	if (remote_static_pk != nullptr) {
+		std::memcpy(this->remote_static_pk, remote_static_pk, crypto_box_PUBLICKEYBYTES);
+	}
 }
 
 
@@ -1485,9 +1632,15 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::setup(
-	DelegateType *delegate
+	DelegateType *delegate,
+	uint8_t const* static_sk
 ) {
 	this->delegate = delegate;
+
+	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
+	crypto_scalarmult_base(this->static_pk, this->static_sk);
+
+	crypto_kx_keypair(this->ephemeral_pk, this->ephemeral_sk);
 
 	transport.setup(this);
 }
@@ -1618,6 +1771,16 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	}
 
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+uint8_t const* StreamTransport<DelegateType, DatagramTransport>::get_static_pk() {
+	return static_pk;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+uint8_t const* StreamTransport<DelegateType, DatagramTransport>::get_remote_static_pk() {
+	return remote_static_pk;
 }
 
 } // namespace stream
