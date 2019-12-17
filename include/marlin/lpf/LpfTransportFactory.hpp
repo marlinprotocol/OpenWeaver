@@ -51,7 +51,7 @@ public:
 
 	int bind(net::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
-	int dial(net::SocketAddress const &addr, ListenDelegate &delegate);
+	int dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys = nullptr);
 	SelfTransport *get_transport(
 		net::SocketAddress const &addr
 	);
@@ -162,9 +162,14 @@ int LpfTransportFactory<
 	StreamTransport,
 	should_cut_through,
 	prefix_length
->::dial(net::SocketAddress const &addr, ListenDelegate &delegate) {
+>::dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys) {
 	this->delegate = &delegate;
-	return f.dial(addr, *this);
+
+	if constexpr (IsTransportEncrypted<StreamTransport<TransportDelegate>>::value) {
+		return f.dial(addr, *this, keys);
+	} else {
+		return f.dial(addr, *this);
+	}
 }
 
 template<

@@ -12,8 +12,15 @@
 #include <marlin/lpf/CutThroughBuffer.hpp>
 #include <marlin/lpf/StoreThenForwardBuffer.hpp>
 
+#include <type_traits>
+
 namespace marlin {
 namespace lpf {
+
+template<typename T>
+struct IsTransportEncrypted {
+	constexpr static bool value = false;
+};
 
 template<
 	typename DelegateType,
@@ -57,7 +64,8 @@ public:
 		net::TransportManager<Self> &transport_manager
 	);
 
-	void setup(DelegateType *delegate);
+	void setup(DelegateType *delegate, uint8_t const* keys = nullptr);
+
 	int send(net::Buffer &&message);
 	void close();
 
@@ -79,6 +87,9 @@ public:
 	void cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes);
 	void cut_through_recv_end(uint16_t id);
 	void cut_through_recv_reset(uint16_t id);
+
+	uint8_t const* get_static_pk();
+	uint8_t const* get_remote_static_pk();
 };
 
 
@@ -248,11 +259,16 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::setup(
-	DelegateType *delegate
+	DelegateType *delegate,
+	uint8_t const* keys
 ) {
 	this->delegate = delegate;
 
-	transport.setup(this);
+	if constexpr (IsTransportEncrypted<StreamTransportType<DelegateType>>::value) {
+		transport.setup(this, keys);
+	} else {
+		transport.setup(this);
+	}
 }
 
 template<
@@ -481,6 +497,36 @@ void LpfTransport<
 	prefix_length
 >::cut_through_recv_reset(uint16_t id) {
 	delegate->cut_through_recv_reset(*this, id);
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+uint8_t const* LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::get_static_pk() {
+	return transport.get_static_pk();
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+uint8_t const* LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::get_remote_static_pk() {
+	return transport.get_remote_static_pk();
 }
 
 } // namespace lpf
