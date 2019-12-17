@@ -1,5 +1,5 @@
 /*! \file StreamTransport.hpp
-    \brief Building on UDP
+	\brief Building on UDP
 */
 
 
@@ -27,7 +27,7 @@ namespace stream {
 
 #define DEFAULT_TLP_INTERVAL 1000
 #define DEFAULT_PACING_LIMIT 25000
-#define DEFAULT_FRAGMENT_SIZE 1400
+#define DEFAULT_FRAGMENT_SIZE (1400 - crypto_aead_aes256gcm_NPUBBYTES)
 
 //! Custom transport class building upon UDP
 /*!
@@ -197,6 +197,12 @@ private:
 
 	uint8_t rx[crypto_kx_SESSIONKEYBYTES];
 	uint8_t tx[crypto_kx_SESSIONKEYBYTES];
+
+	uint8_t rx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+	uint8_t tx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+
+	alignas(16) crypto_aead_aes256gcm_state rx_ctx;
+	alignas(16) crypto_aead_aes256gcm_state tx_ctx;
 public:
 	uint8_t const* get_static_pk();
 	uint8_t const* get_remote_static_pk();
@@ -370,8 +376,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
 	net::Buffer packet(
-		new char[length + 30] {0, static_cast<char>(is_fin)},
-		length + 30
+		new char[length + 30 + crypto_aead_aes256gcm_ABYTES] {0, static_cast<char>(is_fin)},
+		length + 30 + crypto_aead_aes256gcm_ABYTES
 	);
 
 	this->last_sent_packet++;
@@ -384,6 +390,25 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	packet.write_uint16_be(28, length);
 
 	std::memcpy(packet.data()+30, data_item.data.get()+offset, length);
+
+	uint8_t nonce[12];
+	for(int i = 0; i < 4; i++) {
+		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
+	}
+	for(int i = 0; i < 8; i++) {
+		nonce[8+i] = tx_IV[8+i] ^ packet.data()[12+i];
+	}
+	crypto_aead_aes256gcm_encrypt_afternm(
+		(uint8_t*)packet.data() + 20,
+		nullptr,
+		(uint8_t*)packet.data() + 20,
+		10 + length,
+		(uint8_t*)packet.data() + 2,
+		18,
+		nullptr,
+		nonce,
+		&tx_ctx
+	);
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -455,7 +480,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 /*!
 	fragments dataItems in the stream and sends them across until congestion or pacing limit is not hit
 	\param stream SendStream from which DataItems/Packets needs to be dequeued for sending
-    \param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
+	\param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
@@ -704,6 +729,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
+
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
@@ -746,6 +776,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			);
 			return;
 		}
+
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
@@ -838,6 +873,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			);
 			return;
 		}
+
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
@@ -1037,8 +1077,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
-	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
-
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
@@ -1054,6 +1092,41 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		send_RST(src_conn_id, dst_conn_id);
 		return;
 	}
+
+	uint8_t nonce[12];
+	for(int i = 0; i < 4; i++) {
+		nonce[i] = rx_IV[i] ^ packet.data()[2+i];
+	}
+	for(int i = 0; i < 8; i++) {
+		nonce[8+i] = rx_IV[8+i] ^ packet.data()[12+i];
+	}
+	auto res = crypto_aead_aes256gcm_decrypt_afternm(
+		(uint8_t*)p.data() + 20,
+		nullptr,
+		nullptr,
+		(uint8_t*)p.data() + 20,
+		p.size() - 20,
+		(uint8_t*)p.data() + 2,
+		18,
+		nonce,
+		&rx_ctx
+	);
+
+	if(res < 0) {
+		SPDLOG_INFO(
+			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			this->src_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	p.truncate(crypto_aead_aes256gcm_ABYTES);
+
+	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
