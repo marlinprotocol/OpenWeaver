@@ -124,7 +124,7 @@ public:
 			my_protocol==RELAY_PUBSUB_PROTOCOL_NUMBER
 		) {
 			if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
-				ps->subscribe(addr);
+				ps->subscribe(addr, static_pk);
 				// ps->add_sol_conn(addr);
 			}
 
