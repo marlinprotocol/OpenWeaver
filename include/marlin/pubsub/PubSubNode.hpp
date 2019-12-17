@@ -100,8 +100,8 @@ public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
 	typedef std::unordered_map<std::string, TransportSet> TransportSetMap;
 
-	TransportSetMap channel_subscriptions;
-	TransportSetMap potential_channel_subscriptions;
+	// TransportSetMap channel_subscriptions;
+	// TransportSetMap potential_channel_subscriptions;
 
 	TransportSet sol_conns;
 	TransportSet sol_standby_conns;
@@ -119,11 +119,11 @@ public:
 
 	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
 
-	int get_num_active_subscribers(std::string channel);
-	void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
-	void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
-	void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
-	void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
+	// int get_num_active_subscribers(std::string channel);
+	// void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
+	// void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
+	// void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
+	// void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
 private:
 	uv_timer_t peer_selection_timer;
 
@@ -491,10 +491,10 @@ void PubSubNode<
 	std::string message(bytes.data(), bytes.data()+bytes.size());
 
 	// Check subscribe/unsubscribe response
-	if(message.rfind("UNSUBSCRIBED FROM ", 0) == 0) {
-		delegate->did_unsubscribe(*this, message.substr(18));
-	} else if(message.rfind("SUBSCRIBED TO ", 0) == 0) {
-		delegate->did_subscribe(*this, message.substr(14));
+	if(message.rfind("UNSUBSCRIBED", 0) == 0) {
+		delegate->did_unsubscribe(*this, message);
+	} else if(message.rfind("SUBSCRIBED", 0) == 0) {
+		delegate->did_subscribe(*this, message);
 	}
 
 	SPDLOG_DEBUG(
@@ -895,14 +895,17 @@ void PubSubNode<
 	enable_relay
 >::did_close(BaseTransport &transport) {
 	// Remove from subscribers
-	std::for_each(
-		delegate->channels.begin(),
-		delegate->channels.end(),
-		[&] (std::string const channel) {
-			channel_subscriptions[channel].erase(&transport);
-			potential_channel_subscriptions[channel].erase(&transport);
-		}
-	);
+	// std::for_each(
+	// 	delegate->channels.begin(),
+	// 	delegate->channels.end(),
+	// 	[&] (std::string const channel) {
+	// 		channel_subscriptions[channel].erase(&transport);
+	// 		potential_channel_subscriptions[channel].erase(&transport);
+	// 	}
+	// );
+	remove_conn(sol_conns, transport);
+	remove_conn(sol_standby_conns, transport);
+	remove_conn(unsol_conns, transport);
 
 	// Flush subscribers
 	for(auto id : transport.cut_through_used_ids) {
@@ -1342,129 +1345,6 @@ bool PubSubNode<
 	return false;
 }
 
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay
->
-int PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay
->::get_num_active_subscribers(
-	std::string channel) {
-	return channel_subscriptions[channel].size();
-}
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay
->
-void PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay
->::add_subscriber_to_channel(
-	std::string channel,
-	BaseTransport &transport
-) {
-	if (!channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		if (channel_subscriptions[channel].size() >= max_sol_conns) {
-			add_subscriber_to_potential_channel(channel, transport);
-			return;
-		}
-
-		SPDLOG_DEBUG("Adding address: {} to subscribers list on channel: {} ",
-			transport.dst_addr.to_string(),
-			channel
-		);
-		channel_subscriptions[channel].insert(&transport);
-
-		send_RESPONSE(transport, true, "SUBSCRIBED TO " + channel);
-	}
-}
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay
->
-void PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay
->::add_subscriber_to_potential_channel(
-	std::string channel,
-	BaseTransport &transport) {
-
-	if (!potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_DEBUG("Adding address: {} to potential subscribers list on channel: {} ",
-			transport.dst_addr.to_string(),
-			channel);
-		potential_channel_subscriptions[channel].insert(&transport);
-	}
-}
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay
->
-void PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay
->::remove_subscriber_from_channel(
-	std::string channel,
-	BaseTransport &transport) {
-
-	if (channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_DEBUG("Removing address: {} from subscribers list on channel: {} ",
-			transport.dst_addr.to_string(),
-			channel
-		);
-		channel_subscriptions[channel].erase(&transport);
-
-		// Send response
-		send_RESPONSE(transport, true, "UNSUBSCRIBED FROM " + channel);
-	}
-}
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay
->
-void PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay
->::remove_subscriber_from_potential_channel(
-	std::string channel,
-	BaseTransport &transport
-) {
-	if (potential_channel_subscriptions[channel].check_tranport_in_set(transport)) {
-		SPDLOG_DEBUG("Removing address: {} from potential subscribers list on channel: {} ",
-			transport.dst_addr.to_string(),
-			channel
-		);
-		potential_channel_subscriptions[channel].erase(&transport);
-	}
-}
-
-
 template<
 	typename PubSubDelegate,
 	bool enable_cut_through,
@@ -1536,7 +1416,21 @@ void PubSubNode<
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
 
 		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
-		for(auto *subscriber : channel_subscriptions[channel]) {
+		for(auto *subscriber : sol_conns) {
+			auto sub_id = subscriber->cut_through_send_start(
+				cut_through_length[std::make_pair(&transport, id)]
+			);
+			if(sub_id == 0) {
+				SPDLOG_ERROR("Cannot send to subscriber");
+				continue;
+			}
+
+			cut_through_map[std::make_pair(&transport, id)].push_back(
+				std::make_pair(subscriber, sub_id)
+			);
+		}
+
+		for(auto *subscriber : unsol_conns) {
 			auto sub_id = subscriber->cut_through_send_start(
 				cut_through_length[std::make_pair(&transport, id)]
 			);
