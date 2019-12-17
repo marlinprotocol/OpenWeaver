@@ -25,6 +25,17 @@
 
 
 namespace marlin {
+
+namespace lpf {
+template<typename Delegate>
+struct IsTransportEncrypted<stream::StreamTransport<
+	Delegate,
+	net::UdpTransport
+>> {
+	constexpr static bool value = true;
+};
+}
+
 namespace pubsub {
 
 //! Class containing the Pub-Sub functionality
@@ -151,7 +162,9 @@ private:
 		std::string channel,
 		uint64_t message_id,
 		const char *data,
-		uint64_t size
+		uint64_t size,
+		char const* witness_data,
+		uint16_t witness_size
 	);
 
 	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&message);
@@ -169,10 +182,10 @@ public:
 	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
 
-	int dial(net::SocketAddress const &addr);
+	int dial(net::SocketAddress const &addr, uint8_t const* keys = nullptr);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const* keys = nullptr);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -186,7 +199,9 @@ public:
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
-		net::SocketAddress const *excluded = nullptr
+		net::SocketAddress const *excluded = nullptr,
+		char const* witness_data = nullptr,
+		uint16_t witness_size = 0
 	);
 
 	void subscribe(net::SocketAddress const &addr);
@@ -241,7 +256,7 @@ private:
 		// );
 	}
 
-//---------------- Message deduplication ----------------//
+//---------------- Cut through ----------------//
 public:
 	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
 	void cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
@@ -270,6 +285,8 @@ private:
 		bool,
 		pairhash
 	> cut_through_header_recv;
+
+	uint8_t const* keys = nullptr;
 };
 
 
@@ -570,12 +587,28 @@ void PubSubNode<
 
 	auto channel = std::string(bytes.data()+10, bytes.data()+10+channel_length);
 
-	bytes.cover(10 + channel_length);
+	auto witness_length = bytes.read_uint16_be(10+channel_length);
+
+	// Check overflow
+	if((uint16_t)bytes.size() < 12 + channel_length + witness_length)
+		return;
+
+	if(witness_length > 500) {
+		SPDLOG_ERROR("Witness too long: {}", witness_length);
+		transport.close();
+		return;
+	}
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
+
+		char *new_witness = new char[witness_length+32];
+		std::memcpy(new_witness, bytes.data()+12+channel_length, witness_length);
+		crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
+
+		bytes.cover(12 + channel_length + witness_length);
 
 		if constexpr (enable_relay) {
 			send_message_on_channel(
@@ -583,9 +616,13 @@ void PubSubNode<
 				message_id,
 				bytes.data(),
 				bytes.size(),
-				&transport.dst_addr
+				&transport.dst_addr,
+				new_witness,
+				witness_length + 32
 			);
 		}
+
+		delete[] new_witness;
 
 		// Call delegate
 		delegate->did_recv_message(
@@ -645,17 +682,21 @@ void PubSubNode<
 	std::string channel,
 	uint64_t message_id,
 	const char *data,
-	uint64_t size
+	uint64_t size,
+	const char* witness_data,
+	uint16_t witness_size
 ) {
-	char *message = new char[channel.size()+11+size];
+	char *message = new char[11 + channel.size() + 2 + witness_size + size];
 
 	message[0] = 3;
 
-	net::Buffer m(message, channel.size()+11+size);
+	net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
 	m.write_uint64_be(1, message_id);
 	m.write_uint16_be(9, channel.size());
 	std::memcpy(message + 11, channel.data(), channel.size());
-	std::memcpy(message + 11 + channel.size(), data, size);
+	m.write_uint16_be(11 + channel.size(), witness_size);
+	std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+	std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
 
 	transport.send(std::move(m));
 }
@@ -717,13 +758,12 @@ void PubSubNode<
 >::did_create_transport(
 	BaseTransport &transport
 ) {
-
 	SPDLOG_DEBUG(
 		"DID CREATE TRANSPORT: {}",
 		transport.dst_addr.to_string()
 	);
 
-	transport.setup(this);
+	transport.setup(this, keys);
 }
 
 //---------------- Listen delegate functions end ----------------//
@@ -892,10 +932,12 @@ PubSubNode<
 	enable_relay
 >::PubSubNode(
 	const net::SocketAddress &addr,
-	size_t max_sol
+	size_t max_sol,
+	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	message_id_gen(std::random_device()()),
-	message_id_events(256)
+	message_id_events(256),
+	keys(keys)
 {
 	f.bind(addr);
 	f.listen(*this);
@@ -926,14 +968,13 @@ int PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
->::dial(net::SocketAddress const &addr) {
-
+>::dial(net::SocketAddress const &addr, uint8_t const* keys) {
 	SPDLOG_DEBUG(
-			"SENDING DIAL TO: {}",
-			addr.to_string()
-		);
+		"SENDING DIAL TO: {}",
+		addr.to_string()
+	);
 
-	return f.dial(addr, *this);
+	return f.dial(addr, *this, keys);
 }
 
 
@@ -991,8 +1032,14 @@ void PubSubNode<
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
-	net::SocketAddress const *excluded
+	net::SocketAddress const *excluded,
+	char const* witness_data,
+	uint16_t witness_size
 ) {
+	if(witness_data == nullptr) {
+		witness_size = 32;
+	}
+
 	auto subscribers = channel_subscriptions[channel];
 	for (
 		auto it = subscribers.begin();
@@ -1009,15 +1056,21 @@ void PubSubNode<
 			(*it)->dst_addr.to_string()
 		);
 		if(size > 50000) {
-			char *message = new char[channel.size()+11+size];
+			char *message = new char[11 + channel.size() + 2 + witness_size + size];
 
 			message[0] = 3;
 
-			net::Buffer m(message, channel.size()+11+size);
+			net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
 			m.write_uint64_be(1, message_id);
 			m.write_uint16_be(9, channel.size());
 			std::memcpy(message + 11, channel.data(), channel.size());
-			std::memcpy(message + 11 + channel.size(), data, size);
+			m.write_uint16_be(11 + channel.size(), witness_size);
+			if(witness_data == nullptr) {
+				crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
+			} else {
+				std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+			}
+			std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
 
 			auto res = (*it)->cut_through_send(std::move(m));
 
@@ -1027,7 +1080,7 @@ void PubSubNode<
 				(*it)->close();
 			}
 		} else {
-			send_MESSAGE(**it, channel, message_id, data, size);
+			send_MESSAGE(**it, channel, message_id, data, size, witness_data, witness_size);
 		}
 	}
 }
@@ -1412,6 +1465,21 @@ void PubSubNode<
 		// Check overflow
 		if((uint16_t)bytes.size() < 11 + channel_length) {
 			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), channel_length);
+			transport.close();
+			return;
+		}
+
+		auto witness_length = bytes.read_uint16_be(11+channel_length);
+
+		bool found = false;
+		for(uint i = 0; i < witness_length/32; i++) {
+			if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, transport.get_remote_static_pk(), 32) == 0) {
+				found = true;
+			}
+		}
+
+		if((uint16_t)bytes.size() < 13 + channel_length + witness_length) {
+			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), witness_length);
 			transport.close();
 			return;
 		}

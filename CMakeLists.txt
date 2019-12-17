@@ -66,12 +66,12 @@ install(FILES
 # Build examples
 ##########################################################
 
-add_executable(testclient
-	examples/client.cpp
-)
+# add_executable(testclient
+# 	examples/client.cpp
+# )
 
-target_link_libraries(testclient PUBLIC pubsub)
-target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+# target_link_libraries(testclient PUBLIC pubsub)
+# target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 
 
 add_executable(testclient2
