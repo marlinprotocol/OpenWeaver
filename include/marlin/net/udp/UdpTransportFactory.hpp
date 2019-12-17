@@ -253,6 +253,13 @@ template<typename ListenDelegate, typename TransportDelegate>
 std::pair<UdpTransport<TransportDelegate> *, int>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 dial_impl(SocketAddress const &addr, ListenDelegate &delegate) {
+	if(!is_listening) {
+		auto status = listen(delegate);
+		if(status < 0) {
+			return {nullptr, status};
+		}
+	}
+
 	auto [transport, res] = this->transport_manager.get_or_create(
 		addr,
 		this->addr,
@@ -261,18 +268,7 @@ dial_impl(SocketAddress const &addr, ListenDelegate &delegate) {
 		this->transport_manager
 	);
 
-	if(res) {
-		delegate.did_create_transport(*transport);
-	}
-
-	if(!is_listening) {
-		auto status = listen(delegate);
-		if(status < 0) {
-			return {transport, status};
-		}
-	}
-
-	return {transport, 0};
+	return {transport, res ? 1 : 0};
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
@@ -280,6 +276,12 @@ int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 dial(SocketAddress const &addr, ListenDelegate &delegate) {
 	auto [transport, status] = dial_impl(addr, delegate);
+
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport);
+	}
 
 	transport->delegate->did_dial(*transport);
 
@@ -293,7 +295,13 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata) {
 	auto [transport, status] = dial_impl(addr, delegate);
 
-	transport->delegate->did_dial(*transport, metadata);
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport, metadata);
+	}
+
+	transport->delegate->did_dial(*transport);
 
 	return status;
 }
@@ -305,7 +313,13 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& metadata) {
 	auto [transport, status] = dial_impl(addr, delegate);
 
-	transport->delegate->did_dial(*transport, std::move(metadata));
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport, std::move(metadata));
+	}
+
+	transport->delegate->did_dial(*transport);
 
 	return status;
 }
