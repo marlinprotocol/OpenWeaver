@@ -203,6 +203,15 @@ public:
 		char const* witness_data = nullptr,
 		uint16_t witness_size = 0
 	);
+	void send_message_with_cut_through_check(
+		BaseTransport *transport,
+		std::string channel,
+		uint64_t message_id,
+		const char *data,
+		uint64_t size,
+		char const* witness_data,
+		uint16_t witness_size
+	);
 
 	void subscribe(net::SocketAddress const &addr);
 	void unsubscribe(net::SocketAddress const &addr);
@@ -239,7 +248,7 @@ private:
 			node.send_HEARTBEAT(*transport);
 		}
 
-		for (auto* transport : node.unsol_conns) {
+		for (auto* transport : node.sol_standby_conns) {
 			node.send_HEARTBEAT(*transport);
 		}
 		// std::for_each(
@@ -1040,51 +1049,85 @@ void PubSubNode<
 		witness_size = 32;
 	}
 
-	auto subscribers = channel_subscriptions[channel];
 	for (
-		auto it = subscribers.begin();
-		it != subscribers.end();
+		auto it = sol_conns.begin();
+		it != sol_conns.end();
 		it++
 	) {
 		// Exclude given address, usually sender tp prevent loops
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
-		SPDLOG_DEBUG(
-			"Sending message {} on channel {} to {}",
-			message_id,
-			channel,
-			(*it)->dst_addr.to_string()
-		);
-		if(size > 50000) {
-			char *message = new char[11 + channel.size() + 2 + witness_size + size];
+		send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
+	}
 
-			message[0] = 3;
-
-			net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
-			m.write_uint64_be(1, message_id);
-			m.write_uint16_be(9, channel.size());
-			std::memcpy(message + 11, channel.data(), channel.size());
-			m.write_uint16_be(11 + channel.size(), witness_size);
-			if(witness_data == nullptr) {
-				crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
-			} else {
-				std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
-			}
-			std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
-
-			auto res = (*it)->cut_through_send(std::move(m));
-
-			// TODO: Handle better
-			if(res < 0) {
-				SPDLOG_ERROR("Cut through send failed");
-				(*it)->close();
-			}
-		} else {
-			send_MESSAGE(**it, channel, message_id, data, size, witness_data, witness_size);
-		}
+	for (
+		auto it = unsol_conns.begin();
+		it != unsol_conns.end();
+		it++
+	) {
+		// Exclude given address, usually sender tp prevent loops
+		if(excluded != nullptr && (*it)->dst_addr == *excluded)
+			continue;
+		send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
 	}
 }
 
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::send_message_with_cut_through_check(
+	BaseTransport *transport,
+	std::string channel,
+	uint64_t message_id,
+	const char *data,
+	uint64_t size,
+	char const* witness_data,
+	uint16_t witness_size
+) {
+	SPDLOG_DEBUG(
+		"Sending message {} on channel {} to {}",
+		message_id,
+		channel,
+		transport->dst_addr.to_string()
+	);
+
+	if(size > 50000) {
+		char *message = new char[11 + channel.size() + 2 + witness_size + size];
+
+		message[0] = 3;
+
+		net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
+		m.write_uint64_be(1, message_id);
+		m.write_uint16_be(9, channel.size());
+		std::memcpy(message + 11, channel.data(), channel.size());
+		m.write_uint16_be(11 + channel.size(), witness_size);
+		if(witness_data == nullptr) {
+			crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
+		} else {
+			std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+		}
+		std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
+
+		auto res = transport->cut_through_send(std::move(m));
+
+		// TODO: Handle better
+		if(res < 0) {
+			SPDLOG_ERROR("Cut through send failed");
+			transport->close();
+		}
+	} else {
+		send_MESSAGE(*transport, channel, message_id, data, size, witness_data, witness_size);
+	}
+}
 
 //! subscribes to given publisher
 /*!
@@ -1188,7 +1231,7 @@ bool PubSubNode<
 
 	//TODO: size check.
 	if (sol_conns.size() >= max_sol_conns) {
-		add_unsol_conn(transport);
+		add_sol_standby_conn(transport);
 		return false;
 	}
 
