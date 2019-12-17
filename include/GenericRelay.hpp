@@ -3,6 +3,8 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
+#include <fstream>
+#include <experimental/filesystem>
 
 using namespace marlin;
 using namespace marlin::net;
@@ -56,6 +58,25 @@ public:
 		//PROTOCOL HACK
 		this->pubsub_port = pubsub_port;
 
+		//setting up keys
+		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+		uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+
+		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
+				throw;
+			}
+			crypto_scalarmult_base(static_pk, static_sk);
+		} else {
+			crypto_box_keypair(static_pk, static_sk);
+
+			std::experimental::filesystem::create_directories("./.marlin/keys/");
+			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+
+			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
+		}
+
 		// setting up pusbub and beacon
 		if (
 			protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ||
@@ -64,19 +85,18 @@ public:
 			if (protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				max_sol_conns = 50;
 			} else {
-				max_sol_conns = 1;
+				max_sol_conns = 2;
 			}
 
-			ps = new PubSubNodeType(pubsub_addr, max_sol_conns);
+			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, static_sk);
 			ps->delegate = this;
-			b = new DiscoveryClient<Self>(beacon_addr);
+			b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 			b->is_discoverable = this->is_discoverable;
 			b->delegate = this;
 
 			b->start_discovery(beacon_server_addr);
 		}
 	}
-
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {
@@ -87,16 +107,25 @@ public:
 	// relay logic
 	void new_peer(
 		net::SocketAddress const &addr,
+		uint8_t const* static_pk,
 		uint32_t protocol,
-		uint16_t
+		uint16_t version
 	) {
+		SPDLOG_INFO(
+			"New peer: {}, {:spn}, {}, {}",
+			addr.to_string(),
+			spdlog::to_hex(static_pk, static_pk+32),
+			protocol,
+			version
+		);
+
 		if (
 			my_protocol==MASTER_PUBSUB_PROTOCOL_NUMBER ||
 			my_protocol==RELAY_PUBSUB_PROTOCOL_NUMBER
 		) {
 			if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				ps->subscribe(addr);
-				ps->add_sol_conn(addr);
+				// ps->add_sol_conn(addr);
 			}
 
 		}
@@ -112,10 +141,11 @@ public:
 	}
 
 	void did_subscribe(
-		PubSubNodeType &,
+		PubSubNodeType &ps,
 		std::string channel __attribute__((unused))
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
+		ps.send_message_on_channel(channel, "GenericRelay did subs", 21);
 	}
 
 	void did_recv_message(

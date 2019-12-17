@@ -9,6 +9,11 @@ endif()
 
 include(GNUInstallDirs)
 
+IF(APPLE)
+    # Fix linking on 10.14+. See https://stackoverflow.com/questions/54068035
+    LINK_DIRECTORIES(/usr/local/lib)
+ENDIF()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_executable(genericRelay
@@ -21,6 +26,7 @@ target_include_directories(genericRelay
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+target_link_libraries(genericRelay PUBLIC c++)
 target_compile_options(genericRelay PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(genericRelay PUBLIC cxx_std_17)
 
