@@ -99,6 +99,53 @@ TEST(BufferResize, CannotUncoverWithUnderflow) {
 	EXPECT_EQ(buf.size(), 1390);
 }
 
+TEST(BufferResize, CanTruncateWithoutOverflow) {
+	char *raw_ptr = new char[1400];
+	auto buf = Buffer(raw_ptr, 1400);
+
+	bool res = buf.truncate(10);
+
+	EXPECT_TRUE(res);
+	EXPECT_EQ(buf.data(), raw_ptr);
+	EXPECT_EQ(buf.size(), 1390);
+}
+
+TEST(BufferResize, CannotTruncateWithOverflow) {
+	char *raw_ptr = new char[1400];
+	auto buf = Buffer(raw_ptr, 1400);
+	buf.truncate(10);
+
+	bool res = buf.truncate(1391);
+
+	EXPECT_FALSE(res);
+	EXPECT_EQ(buf.data(), raw_ptr);
+	EXPECT_EQ(buf.size(), 1390);
+}
+
+TEST(BufferResize, CanExpandWithoutUnderflow) {
+	char *raw_ptr = new char[1400];
+	auto buf = Buffer(raw_ptr, 1400);
+	buf.truncate(10);
+
+	bool res = buf.expand(10);
+
+	EXPECT_TRUE(res);
+	EXPECT_EQ(buf.data(), raw_ptr);
+	EXPECT_EQ(buf.size(), 1400);
+}
+
+TEST(BufferResize, CannotExpandWithUnderflow) {
+	char *raw_ptr = new char[1400];
+	auto buf = Buffer(raw_ptr, 1400);
+	buf.truncate(10);
+
+	bool res = buf.expand(11);
+
+	EXPECT_FALSE(res);
+	EXPECT_EQ(buf.data(), raw_ptr);
+	EXPECT_EQ(buf.size(), 1390);
+}
+
 TEST(BufferRead, CanReadUint8WithoutOverflow) {
 	char *raw_ptr = new char[1400];
 	raw_ptr[10] = 1;
