@@ -4,6 +4,7 @@
 #include <cstring>
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <sodium.h>
 
 
 using namespace marlin::net;
