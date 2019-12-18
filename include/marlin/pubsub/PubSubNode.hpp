@@ -56,8 +56,10 @@ template<
 class PubSubNode {
 private:
 	size_t max_sol_conns;
+	size_t max_unsol_conns;
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
+	static constexpr uint64_t DefaultBlacklistTimerInterval = 600000;
 
 //---------------- Transport types ----------------//
 public:
@@ -106,6 +108,8 @@ public:
 	TransportSet sol_conns;
 	TransportSet sol_standby_conns;
 	TransportSet unsol_conns;
+
+	std::unordered_set<net::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
 
 	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
@@ -139,6 +143,14 @@ private:
 		// 		node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
 		// 	}
 		// );
+	}
+
+	uv_timer_t blacklist_timer;
+
+	static void blacklist_timer_cb(uv_timer_t *handle) {
+		auto &node = *(Self *)handle->data;
+
+		node.blacklist_addr.clear();
 	}
 
 //---------------- Pubsub protocol ----------------//
@@ -185,7 +197,7 @@ public:
 	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const *keys);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, size_t max_unsol, uint8_t const *keys);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -332,8 +344,12 @@ void PubSubNode<
 	);
 
 	// add_subscriber_to_channel(channel, transport);
-	if (accept_unsol_conn)
-		add_unsol_conn(transport);
+	if (accept_unsol_conn) {
+		if (unsol_conns.size() < max_unsol_conns)
+			add_unsol_conn(transport);
+		else if (!unsol_conns.check_tranport_in_set(transport))
+			transport.close();
+	}
 }
 
 
@@ -903,6 +919,9 @@ void PubSubNode<
 	remove_conn(sol_standby_conns, transport);
 	remove_conn(unsol_conns, transport);
 
+	// add to blacklist
+	blacklist_addr.insert(transport.dst_addr);
+
 	// Flush subscribers
 	for(auto id : transport.cut_through_used_ids) {
 		for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
@@ -922,6 +941,9 @@ void PubSubNode<
 			}
 		}
 	}
+
+	// Call Manage_subscribers to rebalance lists
+	delegate->manage_subscriptions(max_sol_conns, sol_conns, sol_standby_conns);
 }
 
 //---------------- Transport delegate functions end ----------------//
@@ -941,8 +963,10 @@ PubSubNode<
 >::PubSubNode(
 	const net::SocketAddress &addr,
 	size_t max_sol,
+	size_t max_unsol,
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
+	max_unsol_conns(max_unsol),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
@@ -963,6 +987,10 @@ PubSubNode<
 	uv_timer_init(uv_default_loop(), &peer_selection_timer);
 	this->peer_selection_timer.data = (void *)this;
 	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
+
+	uv_timer_init(uv_default_loop(), &blacklist_timer);
+	this->blacklist_timer.data = (void *)this;
+	uv_timer_start(&blacklist_timer, &blacklist_timer_cb, DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
 }
 
 template<
@@ -1144,6 +1172,10 @@ void PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
+
+	if (blacklist_addr.find(addr) != blacklist_addr.end())
+		return;
+
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
@@ -1226,6 +1258,10 @@ bool PubSubNode<
 	if (sol_conns.size() >= max_sol_conns) {
 		add_sol_standby_conn(transport);
 		return false;
+	}
+
+	if (sol_standby_conns.check_tranport_in_set(transport)) {
+		remove_conn(sol_standby_conns, transport);
 	}
 
 	if (unsol_conns.check_tranport_in_set(transport)) {
