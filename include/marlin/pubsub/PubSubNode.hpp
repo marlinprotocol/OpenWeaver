@@ -704,7 +704,11 @@ void PubSubNode<
 	m.write_uint16_be(9, channel.size());
 	std::memcpy(message + 11, channel.data(), channel.size());
 	m.write_uint16_be(11 + channel.size(), witness_size);
-	std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+	if(witness_data == nullptr) {
+		crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
+	} else {
+		std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+	}
 	std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
 
 	transport.send(std::move(m));
