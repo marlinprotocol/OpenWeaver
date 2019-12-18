@@ -73,7 +73,7 @@ namespace std {
 	{
 		size_t operator()(const marlin::net::SocketAddress &addr) const
 		{
-			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr);
+			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr) ^ std::hash<uint16_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_port);
 		}
 	};
 }
