@@ -57,7 +57,9 @@ public:
 				std::memcpy(buf + size, bytes.data(), length - size);
 				bytes.cover(length - size);
 
-				delegate.did_recv_stf_message(id, net::Buffer(buf, length));
+				auto *tbuf = buf;
+				buf = nullptr;
+				delegate.did_recv_stf_message(id, net::Buffer(tbuf, length));
 
 				// Prepare to process length
 				buf = nullptr;
