@@ -131,7 +131,6 @@ public:
 		) {
 			if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				ps->subscribe(addr, static_pk);
-				// ps->add_sol_conn(addr);
 			}
 
 		}
@@ -209,14 +208,6 @@ public:
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
-				// TODO: do away with individual unsubscribe for each channel
-				std::for_each(
-					channels.begin(),
-					channels.end(),
-					[&] (std::string const channel) {
-						ps->send_SUBSCRIBE(*toReplaceWithTransport, channel);
-					}
-				);
 				ps->remove_conn(sol_standby_conns, *toReplaceWithTransport);
 				ps->add_sol_conn(*toReplaceWithTransport);
 			}
