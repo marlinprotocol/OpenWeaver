@@ -15,7 +15,7 @@ using namespace marlin::pubsub;
 
 class Client {
 private:
-	size_t max_sol_conns = 3;
+	size_t max_sol_conns = 2;
 	uint32_t pubsub_port;
 
 	using PubSubNodeType = marlin::pubsub::PubSubNode<
@@ -102,7 +102,6 @@ public:
 
 		if(protocol == RELAY_PUBSUB_PROTOCOL_NUMBER) {
 			ps->subscribe(addr, static_pk);
-			// ps->add_sol_conn(addr);
 		}
 	}
 
@@ -177,14 +176,6 @@ public:
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
-				// TODO: do away with individual unsubscribe for each channel
-				std::for_each(
-					channels.begin(),
-					channels.end(),
-					[&] (std::string const channel) {
-						ps->send_SUBSCRIBE(*toReplaceWithTransport, channel);
-					}
-				);
 				ps->remove_conn(sol_standby_conns, *toReplaceWithTransport);
 				ps->add_sol_conn(*toReplaceWithTransport);
 			}

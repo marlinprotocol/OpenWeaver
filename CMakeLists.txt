@@ -17,7 +17,7 @@ ENDIF()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_executable(genericRelay
-	src/main2.cpp
+	src/main.cpp
 )
 
 target_include_directories(genericRelay
