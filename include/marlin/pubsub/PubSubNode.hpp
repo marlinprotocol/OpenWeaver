@@ -182,10 +182,10 @@ public:
 	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
 
-	int dial(net::SocketAddress const &addr, uint8_t const* keys);
+	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const* keys);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, uint8_t const *keys);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -213,7 +213,7 @@ public:
 		uint16_t witness_size
 	);
 
-	void subscribe(net::SocketAddress const &addr, uint8_t const *keys);
+	void subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void unsubscribe(net::SocketAddress const &addr);
 private:
 
@@ -798,14 +798,6 @@ void PubSubNode<
 		transport.dst_addr.to_string()
 	);
 
-	std::for_each(
-		delegate->channels.begin(),
-		delegate->channels.end(),
-		[&] (std::string const channel) {
-			send_SUBSCRIBE(transport, channel);
-		}
-	);
-
 	add_sol_conn(transport);
 }
 
@@ -980,13 +972,13 @@ int PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
->::dial(net::SocketAddress const &addr, uint8_t const* keys) {
+>::dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 	SPDLOG_DEBUG(
 		"SENDING DIAL TO: {}",
 		addr.to_string()
 	);
 
-	return f.dial(addr, *this, keys);
+	return f.dial(addr, *this, remote_static_pk);
 }
 
 
@@ -1147,23 +1139,15 @@ void PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
->::subscribe(net::SocketAddress const &addr, uint8_t const *keys) {
+>::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
-		dial(addr, keys);
+		dial(addr, remote_static_pk);
 		return;
 	} else if(!transport->is_active()) {
 		return;
 	}
-
-	std::for_each(
-		delegate->channels.begin(),
-		delegate->channels.end(),
-		[&] (std::string const channel) {
-			send_SUBSCRIBE(*transport, channel);
-		}
-	);
 
 	add_sol_conn(*transport);
 }
@@ -1246,6 +1230,14 @@ bool PubSubNode<
 
 	if (!sol_conns.check_tranport_in_set(transport) &&
 		!sol_standby_conns.check_tranport_in_set(transport)) {
+
+		std::for_each(
+			delegate->channels.begin(),
+			delegate->channels.end(),
+			[&] (std::string const channel) {
+				send_SUBSCRIBE(transport, channel);
+			}
+		);
 
 		SPDLOG_DEBUG("Adding address: {} to sol conn list",
 			transport.dst_addr.to_string()
