@@ -26,7 +26,13 @@ target_include_directories(genericRelay
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+IF(APPLE)
 target_link_libraries(genericRelay PUBLIC c++)
+ELSE()
+target_link_libraries(genericRelay PUBLIC stdc++fs)
+ENDIF()
+
 target_compile_options(genericRelay PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(genericRelay PUBLIC cxx_std_17)
 

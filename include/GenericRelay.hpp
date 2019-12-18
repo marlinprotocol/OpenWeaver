@@ -43,6 +43,9 @@ private:
 	PubSubNodeType *ps;
 	marlin::beacon::DiscoveryClient<Self> *b;
 
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+
 public:
 
 	GenericRelay(
@@ -59,9 +62,6 @@ public:
 		this->pubsub_port = pubsub_port;
 
 		//setting up keys
-		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
-		uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-
 		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
 			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
 			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
@@ -76,6 +76,12 @@ public:
 
 			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 		}
+
+		SPDLOG_DEBUG(
+			"PK: {:spn}, SK: {:spn}",
+			spdlog::to_hex(static_pk, static_pk+32),
+			spdlog::to_hex(static_sk, static_sk+32)
+		);
 
 		// setting up pusbub and beacon
 		if (
