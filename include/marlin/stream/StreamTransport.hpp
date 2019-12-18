@@ -667,6 +667,13 @@ void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
+	SPDLOG_DEBUG(
+		"Stream transport {{ Src: {}, Dst: {} }}: DIAL >>>> {:spn}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES)
+	);
+
 	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
@@ -699,18 +706,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		this->dst_conn_id = packet.read_uint32_be(2);
-		this->src_conn_id = (uint32_t)std::random_device()();
+		SPDLOG_DEBUG(
+			"Stream transport {{ Src: {}, Dst: {} }}: DIAL <<<< {:spn}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES)
+		);
 
 		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
-		if (crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		if (res < 0) {
 			SPDLOG_ERROR(
-				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
 				src_addr.to_string(),
-				dst_addr.to_string()
+				dst_addr.to_string(),
+				res
 			);
 			return;
 		}
@@ -733,6 +746,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
+
+		this->dst_conn_id = packet.read_uint32_be(2);
+		this->src_conn_id = (uint32_t)std::random_device()();
 
 		send_DIALCONF();
 
@@ -748,22 +764,21 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		this->dst_conn_id = packet.read_uint32_be(2);
-
 		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
-		if (crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		if (res < 0) {
 			SPDLOG_ERROR(
-				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
 				src_addr.to_string(),
-				dst_addr.to_string()
+				dst_addr.to_string(),
+				res
 			);
 			return;
 		}
 
-		std::memcpy(remote_static_pk, pt, crypto_box_PUBLICKEYBYTES);
 		std::memcpy(remote_ephemeral_pk, pt + crypto_box_PUBLICKEYBYTES, crypto_kx_PUBLICKEYBYTES);
 
 		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
@@ -781,6 +796,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
+
+		this->dst_conn_id = packet.read_uint32_be(2);
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
@@ -849,14 +866,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		this->dst_conn_id = packet.read_uint32_be(2);
-
 		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		if (crypto_box_seal_open(remote_ephemeral_pk, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
 			SPDLOG_ERROR(
-				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure",
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
 				src_addr.to_string(),
 				dst_addr.to_string()
 			);
@@ -881,6 +896,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
+
+		this->dst_conn_id = packet.read_uint32_be(2);
 
 		send_CONF();
 
@@ -1564,6 +1581,10 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
 ) {
+	if(conn_state != ConnectionState::Listen) {
+		return;
+	}
+
 	// Begin handshake
 	dialled = true;
 
