@@ -70,7 +70,7 @@ public:
 		);
 
 		// setting up pusbub and beacon variables
-		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, static_sk);
+		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, 0, static_sk);
 		ps->delegate = this;
 		b = new DiscoveryClient<Client>(beacon_addr, static_sk);
 		b->is_discoverable = this->is_discoverable;
@@ -147,15 +147,11 @@ public:
 		);
 
 		// move some of the subscribers to potential subscribers if oversubscribed
+		// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
 		if (sol_conns.size() >= max_sol_conns) {
-			// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
-			// send message to removed and added peers
-
 			auto* toReplaceTransport = sol_conns.find_max_rtt_transport();
-			auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
 
-			if (toReplaceTransport != nullptr &&
-				toReplaceWithTransport != nullptr) {
+			if (toReplaceTransport != nullptr) {
 
 				SPDLOG_INFO("Moving address: {} from sol_conns to sol_standby_conns",
 					toReplaceTransport->dst_addr.to_string()
@@ -169,17 +165,27 @@ public:
 						ps->send_UNSUBSCRIBE(*toReplaceTransport, channel);
 					}
 				);
+
 				ps->remove_conn(sol_conns, *toReplaceTransport);
 				ps->add_sol_standby_conn(*toReplaceTransport);
+			}
+		}
+
+		if (sol_conns.size() < max_sol_conns) {
+			auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
+
+			if ( toReplaceWithTransport != nullptr) {
+				auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
+
 
 				SPDLOG_INFO("Moving address: {} from sol_standby_conns to sol_conns",
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
-				ps->remove_conn(sol_standby_conns, *toReplaceWithTransport);
 				ps->add_sol_conn(*toReplaceWithTransport);
 			}
 		}
+
 
 		for (auto* transport : sol_standby_conns) {
 			SPDLOG_INFO("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
