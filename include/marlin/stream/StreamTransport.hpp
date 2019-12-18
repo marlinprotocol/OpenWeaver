@@ -396,7 +396,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
 	}
 	for(int i = 0; i < 8; i++) {
-		nonce[8+i] = tx_IV[8+i] ^ packet.data()[12+i];
+		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
 	}
 	crypto_aead_aes256gcm_encrypt_afternm(
 		(uint8_t*)packet.data() + 20,
@@ -1115,7 +1115,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		nonce[i] = rx_IV[i] ^ packet.data()[2+i];
 	}
 	for(int i = 0; i < 8; i++) {
-		nonce[8+i] = rx_IV[8+i] ^ packet.data()[12+i];
+		nonce[4+i] = rx_IV[4+i] ^ packet.data()[12+i];
 	}
 	auto res = crypto_aead_aes256gcm_decrypt_afternm(
 		(uint8_t*)p.data() + 20,
