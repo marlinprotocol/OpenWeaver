@@ -84,7 +84,7 @@ close_cb(uv_handle_t *handle) {
 	delete static_cast<
 		RecvPayload *
 	>(handle->data);
-	delete handle;
+	delete (uv_udp_t*)handle;
 }
 
 //! Destructor, closes the listening socket

@@ -59,6 +59,10 @@ TEST(UdpTransport, CanRecv) {
 	EXPECT_TRUE(did_call_delegate);
 }
 
+void close_cb(uv_handle_t* handle) {
+	delete handle;
+}
+
 TEST(UdpTransport, CanSend) {
 	auto *sock = new uv_udp_t();
 	uv_udp_init(uv_default_loop(), sock);
@@ -71,13 +75,31 @@ TEST(UdpTransport, CanSend) {
 		tm
 	);
 
+	bool did_call_delegate = false;
+
+	TransportDelegate td;
+	td.did_send_packet = [&] (
+		UdpTransport<TransportDelegate> &transport,
+		Buffer &&packet
+	) {
+		did_call_delegate = true;
+
+		EXPECT_EQ(&transport, &t);
+		EXPECT_STREQ(packet.data(), "123456789");
+
+		uv_close((uv_handle_t*)sock, close_cb);
+	};
+
+	t.setup(&td);
 	auto res = t.send(
 		Buffer(new char[10] {'1','2','3','4','5','6','7','8','9',0}, 10)
 	);
 
 	EXPECT_EQ(res, 0);
 
-	delete sock;
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+	EXPECT_TRUE(did_call_delegate);
 }
 
 TEST(UdpTransportFactory, CanBind) {
