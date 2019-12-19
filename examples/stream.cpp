@@ -19,7 +19,7 @@ uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
 struct Delegate {
-	void did_recv_bytes(
+	int did_recv_bytes(
 		TransportType &transport __attribute__((unused)),
 		Buffer &&packet __attribute__((unused)),
 		uint8_t stream_id __attribute__((unused))
@@ -30,6 +30,7 @@ struct Delegate {
 		// 	transport.dst_addr.to_string(),
 		// 	packet.size()
 		// );
+		return 0;
 	}
 
 	void did_send_bytes(TransportType &transport, Buffer &&packet) {

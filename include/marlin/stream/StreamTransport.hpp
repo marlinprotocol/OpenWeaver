@@ -1192,7 +1192,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		p.cover(stream.read_offset - offset);
 
 		// Read bytes and update offset
-		delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		if(res < 0) {
+			return;
+		}
 		stream.read_offset = offset + length;
 
 		// Read any out of order data
@@ -1211,7 +1214,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 				packet.cover(stream.read_offset - iter->second.offset);
 
 				// Read bytes and update offset
-				delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+				auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+				if(res < 0) {
+					return;
+				}
+
 				stream.read_offset = iter->second.offset + iter->second.length;
 			}
 
