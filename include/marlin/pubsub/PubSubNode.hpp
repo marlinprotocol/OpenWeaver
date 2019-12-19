@@ -157,7 +157,7 @@ private:
 private:
 	BaseTransportFactory f;
 
-	void did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 
@@ -168,7 +168,7 @@ private:
 		std::string msg_string
 	);
 
-	void did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
 		std::string channel,
@@ -190,7 +190,7 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_message(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_message(BaseTransport &transport, net::Buffer &&message);
 	void did_send_message(BaseTransport &transport, net::Buffer &&message);
 	void did_close(BaseTransport &transport);
 
@@ -280,7 +280,7 @@ private:
 //---------------- Cut through ----------------//
 public:
 	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
-	void cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
+	int cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
 	void cut_through_recv_end(BaseTransport &transport, uint16_t id);
 	void cut_through_recv_reset(BaseTransport &transport, uint16_t id);
 private:
@@ -326,7 +326,7 @@ template<
 	bool accept_unsol_conn,
 	bool enable_relay
 >
-void PubSubNode<
+int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
@@ -347,9 +347,13 @@ void PubSubNode<
 	if (accept_unsol_conn) {
 		if (unsol_conns.size() < max_unsol_conns)
 			add_unsol_conn(transport);
-		else if (!unsol_conns.check_tranport_in_set(transport))
+		else if (!unsol_conns.check_tranport_in_set(transport)) {
 			transport.close();
+			return -1;
+		}
 	}
+
+	return 0;
 }
 
 
@@ -588,7 +592,7 @@ template<
 	bool accept_unsol_conn,
 	bool enable_relay
 >
-void PubSubNode<
+int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
@@ -602,12 +606,12 @@ void PubSubNode<
 
 	// Check overflow
 	if((uint16_t)bytes.size() < 10 + channel_length)
-		return;
+		return 0;
 
 	if(channel_length > 10) {
 		SPDLOG_ERROR("Channel too long: {}", channel_length);
 		transport.close();
-		return;
+		return -1;
 	}
 
 	auto channel = std::string(bytes.data()+10, bytes.data()+10+channel_length);
@@ -616,12 +620,12 @@ void PubSubNode<
 
 	// Check overflow
 	if((uint16_t)bytes.size() < 12 + channel_length + witness_length)
-		return;
+		return 0;
 
 	if(witness_length > 500) {
 		SPDLOG_ERROR("Witness too long: {}", witness_length);
 		transport.close();
-		return;
+		return -1;
 	}
 
 	// Send it onward
@@ -657,6 +661,8 @@ void PubSubNode<
 			message_id
 		);
 	}
+
+	return 0;
 }
 
 
@@ -841,7 +847,7 @@ template<
 	bool accept_unsol_conn,
 	bool enable_relay
 >
-void PubSubNode<
+int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
@@ -852,7 +858,7 @@ void PubSubNode<
 ) {
 	// Abort on empty message
 	if(bytes.size() == 0)
-		return;
+		return 0;
 
 	uint8_t message_type = bytes.data()[0];
 
@@ -861,7 +867,7 @@ void PubSubNode<
 
 	switch(message_type) {
 		// SUBSCRIBE
-		case 0: this->did_recv_SUBSCRIBE(transport, std::move(bytes));
+		case 0: return this->did_recv_SUBSCRIBE(transport, std::move(bytes));
 		break;
 		// UNSUBSCRIBE
 		case 1: this->did_recv_UNSUBSCRIBE(transport, std::move(bytes));
@@ -870,12 +876,14 @@ void PubSubNode<
 		case 2: this->did_recv_RESPONSE(transport, std::move(bytes));
 		break;
 		// MESSAGE
-		case 3: this->did_recv_MESSAGE(transport, std::move(bytes));
+		case 3: return this->did_recv_MESSAGE(transport, std::move(bytes));
 		break;
 		// HEARTBEAT, ignore
 		case 4:
 		break;
 	}
+
+	return 0;
 }
 
 template<
@@ -1406,7 +1414,7 @@ template<
 	bool accept_unsol_conn,
 	bool enable_relay
 >
-void PubSubNode<
+int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
@@ -1423,7 +1431,7 @@ void PubSubNode<
 		if((uint16_t)bytes.size() < 11 + channel_length) {
 			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), channel_length);
 			transport.close();
-			return;
+			return -1;
 		}
 
 		auto witness_length = bytes.read_uint16_be(11+channel_length);
@@ -1438,13 +1446,13 @@ void PubSubNode<
 		if((uint16_t)bytes.size() < 13 + channel_length + witness_length) {
 			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), witness_length);
 			transport.close();
-			return;
+			return -1;
 		}
 
 		if(channel_length > 10) {
 			SPDLOG_ERROR("Channel too long: {}", channel_length);
 			transport.close();
-			return;
+			return -1;
 		}
 
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
@@ -1478,7 +1486,7 @@ void PubSubNode<
 			);
 		}
 
-		cut_through_recv_bytes(transport, id, std::move(bytes));
+		return cut_through_recv_bytes(transport, id, std::move(bytes));
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 			if(&transport == subscriber) continue;
@@ -1495,6 +1503,8 @@ void PubSubNode<
 			}
 		}
 	}
+
+	return 0;
 }
 
 template<
