@@ -123,6 +123,8 @@ public:
 
 	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
 
+	bool check_tranport_present(BaseTransport &transport);
+
 	// int get_num_active_subscribers(std::string channel);
 	// void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
 	// void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
@@ -345,10 +347,17 @@ int PubSubNode<
 
 	// add_subscriber_to_channel(channel, transport);
 	if (accept_unsol_conn) {
-		if (unsol_conns.size() < max_unsol_conns)
-			add_unsol_conn(transport);
-		else if (!unsol_conns.check_tranport_in_set(transport)) {
+
+		if (blacklist_addr.find(transport.dst_addr) != blacklist_addr.end()) {
+			blacklist_addr.erase(transport.dst_addr);
+			add_sol_conn(transport);
+			return 0;
+		}
+
+		add_unsol_conn(transport);
+		if (!check_tranport_present(transport)) {
 			transport.close();
+			SPDLOG_INFO("CLOSING TRANSPORT, RETURNING -1");
 			return -1;
 		}
 	}
@@ -1181,6 +1190,8 @@ void PubSubNode<
 	enable_relay
 >::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 
+
+	// TODO: written so that relays with full unsol list dont occupy sol/standby lists in clients, and similarly masters with full unsol list dont occupy sol/standby lists in relays
 	if (blacklist_addr.find(addr) != blacklist_addr.end())
 		return;
 
@@ -1268,16 +1279,10 @@ bool PubSubNode<
 		return false;
 	}
 
-	if (sol_standby_conns.check_tranport_in_set(transport)) {
-		remove_conn(sol_standby_conns, transport);
-	}
+	remove_conn(sol_standby_conns, transport);
+	remove_conn(unsol_conns, transport);
 
-	if (unsol_conns.check_tranport_in_set(transport)) {
-		remove_conn(unsol_conns, transport);
-	}
-
-	if (!sol_conns.check_tranport_in_set(transport) &&
-		!sol_standby_conns.check_tranport_in_set(transport)) {
+	if (!check_tranport_present(transport)) {
 
 		std::for_each(
 			delegate->channels.begin(),
@@ -1314,8 +1319,7 @@ bool PubSubNode<
 	enable_relay
 >::add_sol_standby_conn(BaseTransport &transport) {
 
-	if(!sol_conns.check_tranport_in_set(transport) &&
-	   !sol_standby_conns.check_tranport_in_set(transport)) {
+	if(!check_tranport_present(transport)) {
 
 		SPDLOG_DEBUG("Adding address: {} to sol standby conn list",
 			transport.dst_addr.to_string()
@@ -1341,9 +1345,11 @@ bool PubSubNode<
 	enable_relay
 >::add_unsol_conn(BaseTransport &transport) {
 
-	if(!sol_conns.check_tranport_in_set(transport) &&
-	   !sol_standby_conns.check_tranport_in_set(transport) &&
-	   !unsol_conns.check_tranport_in_set(transport)) {
+	if (unsol_conns.size() >= max_unsol_conns) {
+		return false;
+	}
+
+	if(!check_tranport_present(transport)) {
 
 		SPDLOG_DEBUG("Adding address: {} to unsol conn list",
 			transport.dst_addr.to_string()
@@ -1381,6 +1387,30 @@ bool PubSubNode<
 			send_RESPONSE(transport, true, "UNSUBSCRIBED");
 		}
 
+		return true;
+	}
+
+	return false;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+bool PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::check_tranport_present(BaseTransport &transport) {
+
+	if (
+		sol_conns.check_tranport_in_set(transport) ||
+		sol_standby_conns.check_tranport_in_set(transport) ||
+		unsol_conns.check_tranport_in_set(transport)
+	) {
 		return true;
 	}
 
