@@ -43,11 +43,11 @@ private:
 
 	std::unordered_map<uint16_t, StoreThenForwardBuffer> stf_buffers;
 public:
-	void did_recv_stf_message(uint16_t id, net::Buffer &&message);
+	int did_recv_stf_message(uint16_t id, net::Buffer &&message);
 
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes, uint16_t stream_id = 0);
+	int did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes, uint16_t stream_id = 0);
 	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
 	void did_close(BaseTransport& transport);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
@@ -84,7 +84,7 @@ public:
 	void cut_through_send_reset(uint16_t id);
 
 	void cut_through_recv_start(uint16_t id, uint64_t length);
-	void cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes);
+	int cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes);
 	void cut_through_recv_end(uint16_t id);
 	void cut_through_recv_reset(uint16_t id);
 
@@ -101,7 +101,7 @@ template<
 	bool should_cut_through,
 	int prefix_length
 >
-void LpfTransport<
+int LpfTransport<
 	DelegateType,
 	StreamTransportType,
 	should_cut_through,
@@ -110,7 +110,7 @@ void LpfTransport<
 	uint16_t,
 	net::Buffer &&message
 ) {
-	delegate->did_recv_message(*this, std::move(message));
+	return delegate->did_recv_message(*this, std::move(message));
 }
 
 template<
@@ -136,7 +136,7 @@ template<
 	bool should_cut_through,
 	int prefix_length
 >
-void LpfTransport<
+int LpfTransport<
 	DelegateType,
 	StreamTransportType,
 	should_cut_through,
@@ -158,9 +158,10 @@ void LpfTransport<
 
 			if(res < 0) {
 				close();
+				return -1;
 			}
 
-			return;
+			return 0;
 		}
 	}
 
@@ -173,7 +174,10 @@ void LpfTransport<
 
 	if(res < 0) {
 		close();
+		return -1;
 	}
+
+	return 0;
 }
 
 template<
@@ -460,13 +464,13 @@ template<
 	bool should_cut_through,
 	int prefix_length
 >
-void LpfTransport<
+int LpfTransport<
 	DelegateType,
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
 >::cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes) {
-	delegate->cut_through_recv_bytes(*this, id, std::move(bytes));
+	return delegate->cut_through_recv_bytes(*this, id, std::move(bytes));
 }
 
 template<
