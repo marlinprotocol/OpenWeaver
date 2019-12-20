@@ -144,25 +144,27 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
-	char *message = new char[1100] {0, 3};
+	auto iter = peers.begin();
 
-	size_t size = 2;
+	while(iter != peers.end()) {
+		char *message = new char[1100] {0, 3};
+		size_t size = 2;
 
-	// TODO - Handle overflow
-	for(
-		auto iter = peers.begin();
-		iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
-		iter++
-	) {
-		if(iter->first == &transport) continue;
+		for(
+			;
+			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
+			iter++
+		) {
+			if(iter->first == &transport) continue;
 
-		iter->first->dst_addr.serialize(message+size, 8);
-		std::memcpy(message+size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
-		size += 8 + crypto_box_PUBLICKEYBYTES;
+			iter->first->dst_addr.serialize(message+size, 8);
+			std::memcpy(message+size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
+			size += 8 + crypto_box_PUBLICKEYBYTES;
+		}
+
+		net::Buffer p(message, size);
+		transport.send(std::move(p));
 	}
-
-	net::Buffer p(message, size);
-	transport.send(std::move(p));
 }
 
 /*!
