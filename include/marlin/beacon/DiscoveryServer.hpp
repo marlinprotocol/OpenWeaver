@@ -10,6 +10,8 @@
 
 #include <sodium.h>
 
+#include <spdlog/fmt/bin_to_hex.h>
+
 namespace marlin {
 namespace beacon {
 
@@ -172,7 +174,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	SPDLOG_DEBUG("HEARTBEAT <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG(
+		"HEARTBEAT <<< {}, {:spn}",
+		transport.dst_addr.to_string(),
+		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
+	);
 
 	peers[&transport].first = uv_now(uv_default_loop());
 	std::memcpy(peers[&transport].second.data(), bytes.data()+2, crypto_box_PUBLICKEYBYTES);
