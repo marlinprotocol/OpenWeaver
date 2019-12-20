@@ -602,7 +602,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > transport.congestion_start) {
 			// New congestion event
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -641,7 +641,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_INFO("Lost peer: {}", transport.dst_addr.to_string());
+		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
 		transport.close();
 	}
 }
@@ -855,7 +855,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Src id mismatch: {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -914,7 +914,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -941,7 +941,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -1097,7 +1097,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1130,7 +1130,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	);
 
 	if(res < 0) {
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1288,7 +1288,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1489,7 +1489,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}, {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -1551,7 +1551,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
