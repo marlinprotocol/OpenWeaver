@@ -11,6 +11,7 @@ using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
+#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000001
 #define CLIENT_PUBSUB_PROTOCOL_NUMBER 0x10000002
 
 class Client {
