@@ -93,7 +93,7 @@ public:
 		uint32_t protocol,
 		uint16_t version
 	) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"New peer: {}, {:spn}, {}, {}",
 			addr.to_string(),
 			spdlog::to_hex(static_pk, static_pk+32),
@@ -141,7 +141,7 @@ public:
 		typename PubSubNodeType::TransportSet& sol_standby_conns
 	) {
 		// TODO: remove comment
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"manage_subscriptions port: {} sol_conns size: {}",
 				pubsub_port,
 				sol_conns.size()
@@ -154,7 +154,7 @@ public:
 
 			if (toReplaceTransport != nullptr) {
 
-				SPDLOG_INFO("Moving address: {} from sol_conns to sol_standby_conns",
+				SPDLOG_DEBUG("Moving address: {} from sol_conns to sol_standby_conns",
 					toReplaceTransport->dst_addr.to_string()
 				);
 
@@ -179,14 +179,13 @@ public:
 				auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
 
 
-				SPDLOG_INFO("Moving address: {} from sol_standby_conns to sol_conns",
+				SPDLOG_DEBUG("Moving address: {} from sol_standby_conns to sol_conns",
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
 				ps->add_sol_conn(*toReplaceWithTransport);
 			}
 		}
-
 
 		for (auto* transport : sol_standby_conns) {
 			SPDLOG_INFO("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
