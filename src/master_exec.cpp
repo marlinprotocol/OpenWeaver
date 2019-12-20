@@ -12,7 +12,7 @@ int main(int , char **argv) {
 	uint32_t pubsub_port = 4000;
 	uint32_t discovery_port = 4002;
 	SPDLOG_INFO(
-		"Starting master with on pubsub port: {}, discovery_port: {}, beacon server: {}",
+		"Starting master on pubsub port: {}, discovery_port: {}, beacon server: {}",
 		pubsub_port,
 		discovery_port,
 		beacon_addr);

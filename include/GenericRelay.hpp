@@ -62,21 +62,40 @@ public:
 		//PROTOCOL HACK
 		this->pubsub_port = pubsub_port;
 
-		//setting up keys
-		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
-			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
-			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
-				throw;
+		if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
+				//setting up keys
+			if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+				std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+				if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
+					throw;
+				}
+				crypto_scalarmult_base(static_pk, static_sk);
+			} else {
+				crypto_box_keypair(static_pk, static_sk);
+
+				std::experimental::filesystem::create_directories("./.marlin/keys/");
+				std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+
+				sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 			}
-			crypto_scalarmult_base(static_pk, static_sk);
-		} else {
-			crypto_box_keypair(static_pk, static_sk);
+		} else if(protocol == RELAY_PUBSUB_PROTOCOL_NUMBER) {
+				//setting up keys
+			if(std::experimental::filesystem::exists("./.marlin/keys/static2")) {
+				std::ifstream sk("./.marlin/keys/static2", std::ios::binary);
+				if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
+					throw;
+				}
+				crypto_scalarmult_base(static_pk, static_sk);
+			} else {
+				crypto_box_keypair(static_pk, static_sk);
 
-			std::experimental::filesystem::create_directories("./.marlin/keys/");
-			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+				std::experimental::filesystem::create_directories("./.marlin/keys/");
+				std::ofstream sk("./.marlin/keys/static2", std::ios::binary);
 
-			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
+				sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
+			}
 		}
+
 
 		SPDLOG_DEBUG(
 			"PK: {:spn}, SK: {:spn}",
@@ -91,10 +110,10 @@ public:
 		) {
 			if (protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				max_sol_conns = 50;
-				max_unsol_conns = 1;//4;
+				max_unsol_conns = 4;//4;
 			} else {
 				max_sol_conns = 2;
-				max_unsol_conns = 1;//15;
+				max_unsol_conns = 4;//15;
 			}
 
 			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk);
@@ -118,7 +137,7 @@ public:
 		net::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
-		uint16_t version
+		uint16_t version [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG(
 			"New peer: {}, {:spn}, {}, {}",
@@ -159,13 +178,15 @@ public:
 	void did_recv_message(
 		PubSubNodeType &,
 		Buffer &&message __attribute__((unused)),
+		Buffer &&witness,
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
 	) {
 		SPDLOG_INFO(
-			"Received message {} on channel {}",
+			"Received message {} on channel {} witness {}",
 			message_id,
-			channel
+			channel,
+			spdlog::to_hex(witness.data(), witness.data() + witness.size())
 		);
 	}
 

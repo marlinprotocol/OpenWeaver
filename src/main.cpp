@@ -15,7 +15,7 @@ int main() {
 		4000,
 		SocketAddress::from_string("0.0.0.0:4000"),
 		SocketAddress::from_string("0.0.0.0:4002"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	GenericRelay<true, true, true> master2(
@@ -23,7 +23,7 @@ int main() {
 		4100,
 		SocketAddress::from_string("0.0.0.0:4100"),
 		SocketAddress::from_string("0.0.0.0:4102"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	GenericRelay<true, true, true> slave1(
@@ -31,7 +31,7 @@ int main() {
 		5000,
 		SocketAddress::from_string("0.0.0.0:5000"),
 		SocketAddress::from_string("0.0.0.0:5002"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	GenericRelay<true, true, true> slave2(
@@ -39,21 +39,21 @@ int main() {
 		5100,
 		SocketAddress::from_string("0.0.0.0:5100"),
 		SocketAddress::from_string("0.0.0.0:5102"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	Client client1(
 		6000,
 		SocketAddress::from_string("0.0.0.0:6000"),
 		SocketAddress::from_string("0.0.0.0:6002"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	Client client2(
 		6100,
 		SocketAddress::from_string("0.0.0.0:6100"),
 		SocketAddress::from_string("0.0.0.0:6102"),
-		SocketAddress::from_string("0.0.0.0:8002")
+		SocketAddress::from_string("127.0.0.1:8002")
 	);
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
