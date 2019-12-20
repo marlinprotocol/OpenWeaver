@@ -11,7 +11,7 @@ int main(int , char **argv) {
 	uint32_t pubsub_port = 6000;
 	uint32_t discovery_port = 6002;
 	SPDLOG_INFO(
-		"Starting relay with on pubsub port: {}, discovery_port: {}, beacon server: {}",
+		"Starting client on pubsub port: {}, discovery_port: {}, beacon server: {}",
 		pubsub_port,
 		discovery_port,
 		beacon_addr);

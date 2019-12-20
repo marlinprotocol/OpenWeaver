@@ -27,7 +27,7 @@ private:
 	>;
 
 	// const uint32_t my_protocol = CLIENT_PUBSUB_PROTOCOL_NUMBER;
-	bool is_discoverable = true; // false for client
+	bool is_discoverable = false; // false for client
 	PubSubNodeType *ps;
 	marlin::beacon::DiscoveryClient<Client> *b;
 
@@ -47,8 +47,8 @@ public:
 
 		//setting up keys
 
-		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
-			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+		if(std::experimental::filesystem::exists("./.marlin/keys/static3")) {
+			std::ifstream sk("./.marlin/keys/static3", std::ios::binary);
 			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 				throw;
 			}
@@ -58,7 +58,7 @@ public:
 			crypto_box_keypair(static_pk, static_sk);
 
 			std::experimental::filesystem::create_directories("./.marlin/keys/");
-			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+			std::ofstream sk("./.marlin/keys/static3", std::ios::binary);
 
 			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 			sk.close();
@@ -91,7 +91,7 @@ public:
 		net::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
-		uint16_t version
+		uint16_t version [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG(
 			"New peer: {}, {:spn}, {}, {}",
@@ -116,22 +116,26 @@ public:
 	}
 
 	void did_subscribe(
-		PubSubNodeType &,
+		PubSubNodeType &ps,
 		std::string channel __attribute__((unused))
 	) {
+		char message[70000];
+		ps.send_message_on_channel(channel, message, 70000);
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
 
 	void did_recv_message(
 		PubSubNodeType &,
 		Buffer &&message __attribute__((unused)),
+		Buffer &&witness,
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
 	) {
 		SPDLOG_INFO(
-			"Received message {} on channel {}",
+			"Received message {} on channel {} witness {}",
 			message_id,
-			channel
+			channel,
+			spdlog::to_hex(witness.data(), witness.data() + witness.size())
 		);
 	}
 
