@@ -34,7 +34,7 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType<Delegate> &transport) {
-		transport.send(Buffer(new char[10], 10));
+		transport.send(Buffer(new char[10] {0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
 	bool should_accept(SocketAddress const &) {
