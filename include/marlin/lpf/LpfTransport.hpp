@@ -157,7 +157,7 @@ int LpfTransport<
 			int res = rbuf.did_recv_bytes(*this, std::move(bytes));
 
 			if(res < 0) {
-				close();
+				if(res == -1) close();
 				return -1;
 			}
 
@@ -173,7 +173,7 @@ int LpfTransport<
 	int res = stfbuf.did_recv_bytes(*this, std::move(bytes));
 
 	if(res < 0) {
-		close();
+		if(res == -1) close();
 		return -1;
 	}
 
