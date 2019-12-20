@@ -47,7 +47,7 @@ public:
 				size = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
@@ -70,7 +70,7 @@ public:
 				length = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		}
 
