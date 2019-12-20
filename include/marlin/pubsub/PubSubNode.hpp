@@ -1463,12 +1463,12 @@ int PubSubNode<
 	uint16_t id,
 	net::Buffer &&bytes
 ) {
-	SPDLOG_INFO(
-		"Pubsub {} <<<< {}: CTR recv: {}",
-		transport.src_addr.to_string(),
-		transport.dst_addr.to_string(),
-		id
-	);
+	// SPDLOG_DEBUG(
+	// 	"Pubsub {} <<<< {}: CTR recv: {}",
+	// 	transport.src_addr.to_string(),
+	// 	transport.dst_addr.to_string(),
+	// 	id
+	// );
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
 		auto channel_length = bytes.read_uint16_be(9);
 
@@ -1509,6 +1509,7 @@ int PubSubNode<
 
 		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
 		for(auto *subscriber : sol_conns) {
+			if(&transport == subscriber) continue;
 			bool found = false;
 			for(uint i = 0; i < witness_length/32; i++) {
 				if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
@@ -1519,7 +1520,7 @@ int PubSubNode<
 			if (found) continue;
 
 			auto sub_id = subscriber->cut_through_send_start(
-				cut_through_length[std::make_pair(&transport, id)]
+				cut_through_length[std::make_pair(&transport, id)] + 32
 			);
 			if(sub_id == 0) {
 				SPDLOG_ERROR("Cannot send to subscriber");
@@ -1532,8 +1533,18 @@ int PubSubNode<
 		}
 
 		for(auto *subscriber : unsol_conns) {
+			if(&transport == subscriber) continue;
+			bool found = false;
+			for(uint i = 0; i < witness_length/32; i++) {
+				if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
+					found = true;
+					break;
+				}
+			}
+			if (found) continue;
+
 			auto sub_id = subscriber->cut_through_send_start(
-				cut_through_length[std::make_pair(&transport, id)]
+				cut_through_length[std::make_pair(&transport, id)] + 32
 			);
 			if(sub_id == 0) {
 				SPDLOG_ERROR("Cannot send to subscriber");
@@ -1545,14 +1556,17 @@ int PubSubNode<
 			);
 		}
 
-		char *new_witness = new char[witness_length+32];
-		std::memcpy(new_witness, bytes.data()+13+channel_length, witness_length);
+		char *new_header = new char[13+channel_length+witness_length+32];
+		std::memcpy(new_header, bytes.data(), 13+channel_length+witness_length);
 
 		bytes.cover(13 + channel_length + witness_length);
 
-		crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
+		crypto_scalarmult_base((uint8_t*)new_header+13+channel_length+witness_length, keys);
 
-		auto res = cut_through_recv_bytes(transport, id, net::Buffer(new_witness, witness_length + 32));
+		net::Buffer buf(new_header, 13+channel_length+witness_length+32);
+		buf.write_uint16_be(11+channel_length, witness_length + 32);
+
+		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
 		if(res < 0) {
 			return -1;
 		}
@@ -1560,8 +1574,6 @@ int PubSubNode<
 		return cut_through_recv_bytes(transport, id, std::move(bytes));
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
-			if(&transport == subscriber) continue;
-
 			auto sub_bytes = net::Buffer(new char[bytes.size()], bytes.size());
 			std::memcpy(sub_bytes.data(), bytes.data(), bytes.size());
 
