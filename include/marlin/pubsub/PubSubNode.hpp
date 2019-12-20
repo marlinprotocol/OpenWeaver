@@ -1355,6 +1355,9 @@ bool PubSubNode<
 		);
 
 		unsol_conns.insert(&transport);
+
+		send_RESPONSE(transport, true, "SUBSCRIBED");
+
 		return true;
 	}
 
