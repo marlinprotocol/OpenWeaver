@@ -357,7 +357,7 @@ int PubSubNode<
 		add_unsol_conn(transport);
 		if (!check_tranport_present(transport)) {
 			transport.close();
-			SPDLOG_INFO("CLOSING TRANSPORT, RETURNING -1");
+			SPDLOG_DEBUG("CLOSING TRANSPORT, RETURNING -1");
 			return -1;
 		}
 	}
@@ -644,11 +644,11 @@ int PubSubNode<
 
 		char *new_witness = new char[witness_length+32];
 		std::memcpy(new_witness, bytes.data()+12+channel_length, witness_length);
-		crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
 
 		bytes.cover(12 + channel_length + witness_length);
 
 		if constexpr (enable_relay) {
+			crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
 			send_message_on_channel(
 				channel,
 				message_id,
@@ -660,12 +660,11 @@ int PubSubNode<
 			);
 		}
 
-		delete[] new_witness;
-
-		// Call delegate
+		// Call delegate with old witness
 		delegate->did_recv_message(
 			*this,
 			std::move(bytes),
+			net::Buffer(new_witness, witness_length),
 			channel,
 			message_id
 		);
@@ -1466,13 +1465,6 @@ int PubSubNode<
 
 		auto witness_length = bytes.read_uint16_be(11+channel_length);
 
-		bool found = false;
-		for(uint i = 0; i < witness_length/32; i++) {
-			if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, transport.get_remote_static_pk(), 32) == 0) {
-				found = true;
-			}
-		}
-
 		if((uint16_t)bytes.size() < 13 + channel_length + witness_length) {
 			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), witness_length);
 			transport.close();
@@ -1489,6 +1481,15 @@ int PubSubNode<
 
 		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
 		for(auto *subscriber : sol_conns) {
+			bool found = false;
+			for(uint i = 0; i < witness_length/32; i++) {
+				if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
+					found = true;
+					break;
+				}
+			}
+			if (found) continue;
+
 			auto sub_id = subscriber->cut_through_send_start(
 				cut_through_length[std::make_pair(&transport, id)]
 			);
