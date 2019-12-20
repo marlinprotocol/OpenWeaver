@@ -29,7 +29,13 @@ public:
 		SPDLOG_INFO("Did subscribe: {}", channel);
 	}
 
-	void did_recv_message(PubSubNodeType &, Buffer &&message, std::string &channel, uint64_t message_id) {
+	void did_recv_message(
+		PubSubNodeType &,
+		Buffer &&message,
+		Buffer &&,
+		std::string &channel,
+		uint64_t message_id
+	) {
 		SPDLOG_INFO("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.data(), message.data() + message.size()));
 	}
 
