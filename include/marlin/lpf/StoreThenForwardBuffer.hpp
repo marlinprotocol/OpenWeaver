@@ -61,7 +61,7 @@ public:
 				buf = nullptr;
 				auto res = delegate.did_recv_stf_message(id, net::Buffer(tbuf, length));
 				if(res < 0) {
-					return -1;
+					return -2;
 				}
 
 				// Prepare to process length

@@ -51,14 +51,14 @@ public:
 				size += bytes.size();
 				auto res = delegate.cut_through_recv_bytes(id, std::move(bytes));
 				if(res < 0) {
-					return -1;
+					return -2;
 				}
 			} else { // Full message
 				net::Buffer tbytes(new char[length - size], length - size);
 				std::memcpy(tbytes.data(), bytes.data(), length - size);
 				auto res = delegate.cut_through_recv_bytes(id, std::move(tbytes));
 				if(res < 0) {
-					return -1;
+					return -2;
 				}
 				delegate.cut_through_recv_end(id);
 
