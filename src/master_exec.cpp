@@ -9,11 +9,17 @@ using namespace marlin::pubsub;
 
 int main(int , char **argv) {
 	std::string beacon_addr(argv[1]);
-	SPDLOG_INFO("Beacon: {}", beacon_addr);
+	uint32_t pubsub_port = 4000;
+	uint32_t discovery_port = 4002;
+	SPDLOG_INFO(
+		"Starting master with on pubsub port: {}, discovery_port: {}, beacon server: {}",
+		pubsub_port,
+		discovery_port,
+		beacon_addr);
 
 	GenericRelay<true, true, true> master1(
 		MASTER_PUBSUB_PROTOCOL_NUMBER,
-		4000,
+		pubsub_port,
 		SocketAddress::from_string("0.0.0.0:4000"),
 		SocketAddress::from_string("0.0.0.0:4002"),
 		SocketAddress::from_string(beacon_addr)
