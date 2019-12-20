@@ -1438,6 +1438,13 @@ void PubSubNode<
 	cut_through_map[std::make_pair(&transport, id)] = {};
 	cut_through_header_recv[std::make_pair(&transport, id)] = false;
 	cut_through_length[std::make_pair(&transport, id)] = length;
+
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR start: {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id
+	);
 }
 
 template<
@@ -1456,6 +1463,12 @@ int PubSubNode<
 	uint16_t id,
 	net::Buffer &&bytes
 ) {
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR recv: {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id
+	);
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
 		auto channel_length = bytes.read_uint16_be(9);
 
@@ -1480,6 +1493,18 @@ int PubSubNode<
 			return -1;
 		}
 
+		SPDLOG_INFO(
+			"Pubsub {} <<<< {}: CTR message id: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			bytes.read_uint64_be(1)
+		);
+		SPDLOG_INFO(
+			"Pubsub {} <<<< {}: CTR witness: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			spdlog::to_hex(bytes.data() + 13 + channel_length, bytes.data() + 13 + channel_length + witness_length)
+		);
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
 
 		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
@@ -1518,6 +1543,18 @@ int PubSubNode<
 			cut_through_map[std::make_pair(&transport, id)].push_back(
 				std::make_pair(subscriber, sub_id)
 			);
+		}
+
+		char *new_witness = new char[witness_length+32];
+		std::memcpy(new_witness, bytes.data()+13+channel_length, witness_length);
+
+		bytes.cover(13 + channel_length + witness_length);
+
+		crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
+
+		auto res = cut_through_recv_bytes(transport, id, net::Buffer(new_witness, witness_length + 32));
+		if(res < 0) {
+			return -1;
 		}
 
 		return cut_through_recv_bytes(transport, id, std::move(bytes));
@@ -1559,6 +1596,12 @@ void PubSubNode<
 	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 		subscriber->cut_through_send_end(sub_id);
 	}
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR end: {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id
+	);
 }
 
 template<
@@ -1579,6 +1622,12 @@ void PubSubNode<
 	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 		subscriber->cut_through_send_reset(sub_id);
 	}
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR reset: {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id
+	);
 }
 
 } // namespace pubsub
