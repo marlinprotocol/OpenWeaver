@@ -284,7 +284,8 @@ public:
 	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
 	int cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
 	void cut_through_recv_end(BaseTransport &transport, uint16_t id);
-	void cut_through_recv_reset(BaseTransport &transport, uint16_t id);
+	void cut_through_recv_flush(BaseTransport &transport, uint16_t id);
+	void cut_through_recv_skip(BaseTransport &transport, uint16_t id);
 private:
 	struct pairhash {
 		template <typename T, typename U>
@@ -941,7 +942,7 @@ void PubSubNode<
 	// Flush subscribers
 	for(auto id : transport.cut_through_used_ids) {
 		for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
-			subscriber->cut_through_send_reset(subscriber_id);
+			subscriber->cut_through_send_flush(subscriber_id);
 		}
 
 		cut_through_map.erase(std::make_pair(&transport, id));
@@ -952,6 +953,7 @@ void PubSubNode<
 		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
 			if(iter->first == &transport) {
 				iter = subscribers.erase(iter);
+				break;
 			} else {
 				iter++;
 			}
@@ -1493,11 +1495,12 @@ int PubSubNode<
 			return -1;
 		}
 
+		auto message_id = bytes.read_uint64_be(1);
 		SPDLOG_INFO(
 			"Pubsub {} <<<< {}: CTR message id: {}",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
-			bytes.read_uint64_be(1)
+			message_id
 		);
 		SPDLOG_INFO(
 			"Pubsub {} <<<< {}: CTR witness: {}",
@@ -1506,6 +1509,14 @@ int PubSubNode<
 			spdlog::to_hex(bytes.data() + 13 + channel_length, bytes.data() + 13 + channel_length + witness_length)
 		);
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
+
+		if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
+			message_id_set.insert(message_id);
+			message_id_events[message_id_idx].push_back(message_id);
+		} else {
+			transport.cut_through_send_skip(id);
+			return -1;
+		}
 
 		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
 		for(auto *subscriber : sol_conns) {
@@ -1627,15 +1638,49 @@ void PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
->::cut_through_recv_reset(
+>::cut_through_recv_flush(
 	BaseTransport &transport,
 	uint16_t id
 ) {
 	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
-		subscriber->cut_through_send_reset(sub_id);
+		subscriber->cut_through_send_flush(sub_id);
 	}
 	SPDLOG_INFO(
-		"Pubsub {} <<<< {}: CTR reset: {}",
+		"Pubsub {} <<<< {}: CTR flush: {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id
+	);
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay
+>
+void PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay
+>::cut_through_recv_skip(
+	BaseTransport &transport,
+	uint16_t id
+) {
+	// Remove subscriptions
+	for(auto& [_, subscribers] : cut_through_map) {
+		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
+			if(iter->first == &transport && iter->second == id) {
+				iter = subscribers.erase(iter);
+				break;
+			} else {
+				iter++;
+			}
+		}
+	}
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR skip: {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),
 		id
