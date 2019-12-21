@@ -68,6 +68,11 @@ struct Delegate {
 		uint64_t offset [[maybe_unused]],
 		uint64_t old_offset [[maybe_unused]]
 	) {}
+
+	void did_recv_skip_stream(
+		TransportType &transport [[maybe_unused]],
+		uint16_t stream_id [[maybe_unused]]
+	) {}
 };
 
 int main() {

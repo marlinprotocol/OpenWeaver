@@ -82,6 +82,8 @@ struct SendStream {
 		this->state = State::Ready;
 
 		this->next_item_iterator = this->data_queue.end();
+
+		uv_timer_init(uv_default_loop(), &state_timer);
 	}
 
 	std::list<DataItem> data_queue;
@@ -100,6 +102,9 @@ struct SendStream {
 
 	uint64_t acked_offset = 0;
 	std::map<uint64_t, uint16_t> outstanding_acks;
+
+	uint64_t state_timer_interval = 1000;
+	uv_timer_t state_timer;
 };
 
 } // namespace stream
