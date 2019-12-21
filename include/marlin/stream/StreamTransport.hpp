@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <random>
+#include <utility>
 
 #include <sodium.h>
 
@@ -43,9 +44,11 @@ class StreamTransport {
 public:
 	static constexpr bool is_encrypted = true;
 private:
-	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
+	using Self = StreamTransport<DelegateType, DatagramTransport>;
+	using BaseTransport = DatagramTransport<Self>;
+
 	BaseTransport &transport;
-	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager;
+	net::TransportManager<Self> &transport_manager;
 
 	void reset();
 
@@ -152,8 +155,14 @@ private:
 	void send_ACK();
 	void did_recv_ACK(net::Buffer &&packet);
 
+	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
+	void did_recv_SKIPSTREAM(net::Buffer &&packet);
+
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
 	void did_recv_FLUSHSTREAM(net::Buffer &&packet);
+
+	void send_FLUSHCONF(uint16_t stream_id);
+	void did_recv_FLUSHCONF(net::Buffer &&packet);
 
 public:
 	// Delegate
@@ -171,7 +180,7 @@ public:
 		net::SocketAddress const &src_addr,
 		net::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
+		net::TransportManager<Self> &transport_manager,
 		uint8_t const* remote_static_pk
 	);
 
@@ -182,6 +191,10 @@ public:
 	bool is_active();
 	double get_rtt();
 
+	static void skip_timer_cb(uv_timer_t *handle);
+	void skip_stream(uint16_t stream_id);
+
+	static void flush_timer_cb(uv_timer_t *handle);
 	void flush_stream(uint16_t stream_id);
 
 private:
@@ -224,7 +237,17 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	uv_timer_stop(&state_timer);
 	state_timer_interval = 0;
 
+	for(auto& [_, stream] : send_streams) {
+		delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
+		stream.state_timer.data = nullptr;
+		uv_timer_stop(&stream.state_timer);
+	}
 	send_streams.clear();
+	for(auto& [_, stream] : recv_streams) {
+		delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
+		stream.state_timer.data = nullptr;
+		uv_timer_stop(&stream.state_timer);
+	}
 	recv_streams.clear();
 
 	last_sent_packet = -1;
@@ -266,7 +289,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 	uv_timer_t *handle
 ) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
 		transport.state_timer_interval = 0;
@@ -528,7 +551,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 	transport.is_pacing_timer_active = false;
 
 	auto initial_bytes_in_flight = transport.bytes_in_flight;
@@ -573,7 +596,7 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	if(transport.sent_packets.size() == 0 && transport.lost_packets.size() == 0 && transport.send_queue.size() == 0) {
 		// Idle connection, stop timer
@@ -653,7 +676,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	transport.send_ACK();
 
@@ -1163,6 +1186,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
+	// Short circuit if stream is waiting to be flushed.
+	if(stream.wait_flush) {
+		return;
+	}
+
 	// Set stream size if fin bit set
 	if(p.is_fin_set() && stream.state == RecvStream::State::Recv) {
 		stream.size = offset + length;
@@ -1526,11 +1554,69 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
+void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
 	net::Buffer packet(new char[20] {0, 7}, 20);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+	packet.write_uint16_be(10, stream_id);
+	packet.write_uint64_be(12, offset);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
+	net::Buffer &&packet
+) {
+	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
+
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	auto stream_id = p.stream_id();
+	auto offset = p.packet_number();
+	auto &stream = get_or_create_send_stream(stream_id);
+
+	// Check for duplicate
+	if(offset < stream.acked_offset) {
+		send_FLUSHSTREAM(stream_id, stream.acked_offset);
+		return;
+	}
+
+	delegate->did_recv_skip_stream(*this, stream_id);
+
+	flush_stream(stream_id);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
+	uint16_t stream_id,
+	uint64_t offset
+) {
+	net::Buffer packet(new char[20] {0, 8}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1573,9 +1659,72 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	auto &stream = get_or_create_recv_stream(stream_id);
 	auto old_offset = stream.read_offset;
+
+	// Check for duplicate
+	if(old_offset >= offset) {
+		return;
+	}
+
+	delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
+	stream.state_timer.data = nullptr;
+	uv_timer_stop(&stream.state_timer);
+
+	stream.recv_packets.clear();
 	stream.read_offset = offset;
+	stream.wait_flush = false;
 
 	delegate->did_recv_flush_stream(*this, stream_id, offset, old_offset);
+
+	send_FLUSHCONF(stream_id);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
+	uint16_t stream_id
+) {
+	net::Buffer packet(new char[12] {0, 9}, 12);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+	packet.write_uint16_be(10, stream_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
+	net::Buffer &&packet
+) {
+	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), p.stream_id());
+
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	auto stream_id = p.stream_id();
+	auto &stream = get_or_create_send_stream(stream_id);
+
+	delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
+	stream.state_timer.data = nullptr;
+	uv_timer_stop(&stream.state_timer);
 }
 
 //---------------- Protocol functions end ----------------//
@@ -1650,8 +1799,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		// RST
 		case 6: did_recv_RST(std::move(packet));
 		break;
+		// SKIPSTREAM
+		case 7: did_recv_SKIPSTREAM(std::move(packet));
+		break;
 		// FLUSHSTREAM
-		case 7: did_recv_FLUSHSTREAM(std::move(packet));
+		case 8: did_recv_FLUSHSTREAM(std::move(packet));
+		break;
+		// FLUSHCONF
+		case 9: did_recv_FLUSHCONF(std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
@@ -1686,8 +1841,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 		// RST
 		case 6: SPDLOG_TRACE("RST >>> {}", dst_addr.to_string());
 		break;
+		// SKIPSTREAM
+		case 7: SPDLOG_TRACE("SKIPSTREAM >>> {}", dst_addr.to_string());
+		break;
 		// FLUSHSTREAM
-		case 7: SPDLOG_TRACE("FLUSHSTREAM >>> {}", dst_addr.to_string());
+		case 8: SPDLOG_TRACE("FLUSHSTREAM >>> {}", dst_addr.to_string());
+		break;
+		// FLUSHCONF
+		case 9: SPDLOG_TRACE("FLUSHCONF >>> {}", dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", dst_addr.to_string());
@@ -1835,6 +1996,86 @@ double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(uv_timer_t *handle) {
+	auto &timer_data = *(std::pair<Self *, RecvStream *> *)handle->data;
+	auto &transport = *timer_data.first;
+	auto &stream = *timer_data.second;
+
+	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
+		stream.state_timer_interval = 0;
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Skip timeout: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			stream.stream_id
+		);
+		transport.close();
+		return;
+	}
+
+	uint64_t offset;
+
+	if(stream.recv_packets.size() > 0) {
+		auto &packet = stream.recv_packets.rbegin()->second;
+		offset = packet.offset + packet.length;
+	} else {
+		offset = stream.read_offset;
+	}
+
+	transport.send_SKIPSTREAM(stream.stream_id, offset);
+
+	stream.state_timer_interval *= 2;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
+	uint16_t stream_id
+) {
+	auto &stream = get_or_create_recv_stream(stream_id);
+	stream.wait_flush = true;
+
+	uint64_t offset;
+
+	if(stream.recv_packets.size() > 0) {
+		auto &packet = stream.recv_packets.rbegin()->second;
+		offset = packet.offset + packet.length;
+	} else {
+		offset = stream.read_offset;
+	}
+
+	send_SKIPSTREAM(stream_id, offset);
+
+	stream.state_timer.data = new std::pair(&transport, &stream);
+	stream.state_timer_interval = 1000;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(uv_timer_t *handle) {
+	auto &timer_data = *(std::pair<Self *, SendStream *> *)handle->data;
+	auto &transport = *timer_data.first;
+	auto &stream = *timer_data.second;
+
+	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
+		stream.state_timer_interval = 0;
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Flush timeout: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			stream.stream_id
+		);
+		transport.close();
+		return;
+	}
+
+	transport.send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
+
+	stream.state_timer_interval *= 2;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	uint16_t stream_id
 ) {
@@ -1872,6 +2113,10 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	}
 
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
+
+	stream.state_timer_interval = 1000;
+	stream.state_timer.data = new std::pair(&transport, &stream);
+	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>

@@ -56,12 +56,15 @@ struct RecvStream {
 		Read
 	};
 	State state;
+	bool wait_flush = false;
 
 	uint64_t size = 0;
 
 	RecvStream(uint16_t stream_id) {
 		this->stream_id = stream_id;
 		this->state = State::Recv;
+
+		uv_timer_init(uv_default_loop(), &state_timer);
 	}
 
 	std::map<uint64_t, RecvPacketInfo> recv_packets;
@@ -98,6 +101,8 @@ struct RecvStream {
 		return this->read_offset == this->size;
 	}
 
+	uint64_t state_timer_interval = 1000;
+	uv_timer_t state_timer;
 };
 
 } // namespace stream
