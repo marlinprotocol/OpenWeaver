@@ -51,6 +51,7 @@ public:
 	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
 	void did_close(BaseTransport& transport);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
+	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
 
 	net::SocketAddress src_addr;
 	net::SocketAddress dst_addr;
@@ -81,12 +82,14 @@ public:
 	uint16_t cut_through_send_start(uint64_t length);
 	int cut_through_send_bytes(uint16_t id, net::Buffer &&bytes);
 	void cut_through_send_end(uint16_t id);
-	void cut_through_send_reset(uint16_t id);
+	void cut_through_send_skip(uint16_t id);
+	void cut_through_send_flush(uint16_t id);
 
 	void cut_through_recv_start(uint16_t id, uint64_t length);
 	int cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes);
 	void cut_through_recv_end(uint16_t id);
-	void cut_through_recv_reset(uint16_t id);
+	void cut_through_recv_skip(uint16_t id);
+	void cut_through_recv_flush(uint16_t id);
 
 	uint8_t const* get_static_pk();
 	uint8_t const* get_remote_static_pk();
@@ -229,9 +232,23 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::did_recv_flush_stream(BaseTransport &, uint16_t id, uint64_t, uint64_t) {
-	cut_through_recv_reset(id);
+	cut_through_recv_flush(id);
 }
 
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+void LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::did_recv_skip_stream(BaseTransport &, uint16_t id) {
+	cut_through_recv_skip(id);
+}
 
 template<
 	typename DelegateType,
@@ -439,8 +456,24 @@ void LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::cut_through_send_reset(uint16_t id) {
+>::cut_through_send_flush(uint16_t id) {
 	transport.flush_stream(id);
+	cut_through_send_end(id);
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+void LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::cut_through_send_skip(uint16_t id) {
+	transport.skip_stream(id);
 }
 
 template<
@@ -499,8 +532,24 @@ void LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::cut_through_recv_reset(uint16_t id) {
-	delegate->cut_through_recv_reset(*this, id);
+>::cut_through_recv_flush(uint16_t id) {
+	cut_through_buffers.erase(id);
+	delegate->cut_through_recv_flush(*this, id);
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+void LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::cut_through_recv_skip(uint16_t id) {
+	delegate->cut_through_recv_skip(*this, id);
 }
 
 template<
