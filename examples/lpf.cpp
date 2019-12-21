@@ -52,7 +52,7 @@ struct Delegate {
 	// void cut_through_recv_start(TransportType<Delegate> &, uint8_t, uint64_t) {}
 	// void cut_through_recv_bytes(TransportType<Delegate> &, uint8_t, Buffer) {}
 	// void cut_through_recv_end(TransportType<Delegate> &, uint8_t) {}
-	// void cut_through_recv_reset(TransportType<Delegate> &, uint8_t) {}
+	// void cut_through_recv_flush(TransportType<Delegate> &, uint8_t) {}
 };
 
 int main() {
