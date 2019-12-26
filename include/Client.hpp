@@ -120,6 +120,7 @@ public:
 		std::string channel __attribute__((unused))
 	) {
 		char message[70000];
+		std::memset(message, 0, 70000);
 		ps.send_message_on_channel(channel, message, 70000);
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
