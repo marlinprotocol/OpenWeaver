@@ -244,11 +244,23 @@ public:
 
 
 		for (auto* transport : sol_standby_conns) {
-			SPDLOG_INFO("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
+			auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_INFO(
+				"Node {:spn}: Standby conn: {:spn}: rtt: {}",
+				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
+				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
+				transport->get_rtt()
+			);
 		}
 
 		for (auto* transport : sol_conns) {
-			SPDLOG_INFO("Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
+			auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_INFO(
+				"Node {:spn}: Sol conn: {:spn}: rtt: {}",
+				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
+				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
+				transport->get_rtt()
+			);
 		}
 	}
 };
