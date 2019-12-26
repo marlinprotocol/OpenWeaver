@@ -27,7 +27,7 @@ target_compile_features(beacon INTERFACE cxx_std_17)
 
 # libsodium
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
-target_link_libraries(beacon INTERFACE sodium)
+target_link_libraries(beacon INTERFACE sodium.a)
 
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
