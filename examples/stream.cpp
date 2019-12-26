@@ -12,7 +12,7 @@ struct Delegate;
 using TransportType = StreamTransport<Delegate, UdpTransport>;
 
 #define l_SIZE 100000000
-#define m_SIZE 10000
+#define m_SIZE 100000
 #define s_SIZE 100
 
 uint8_t static_sk[crypto_box_SECRETKEYBYTES];

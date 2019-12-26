@@ -84,6 +84,7 @@ struct SendStream {
 		this->next_item_iterator = this->data_queue.end();
 
 		uv_timer_init(uv_default_loop(), &state_timer);
+		state_timer.data = nullptr;
 	}
 
 	std::list<DataItem> data_queue;

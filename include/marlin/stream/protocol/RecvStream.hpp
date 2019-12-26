@@ -65,6 +65,7 @@ struct RecvStream {
 		this->state = State::Recv;
 
 		uv_timer_init(uv_default_loop(), &state_timer);
+		state_timer.data = nullptr;
 	}
 
 	std::map<uint64_t, RecvPacketInfo> recv_packets;
