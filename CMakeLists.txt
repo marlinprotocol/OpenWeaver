@@ -66,25 +66,25 @@ install(FILES
 # C wrapper examples
 ##########################################################
 
-add_library(cwrappermulticast STATIC
-	src/CDefaultMulticast.cpp
+add_library(multicastsdk_c STATIC
+	src/MarlinMulticastClient.cpp
 )
 
-target_include_directories(cwrappermulticast
+target_include_directories(multicastsdk_c
 	PUBLIC
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(cwrappermulticast INTERFACE spdlog::spdlog)
-target_link_libraries(cwrappermulticast PUBLIC multicastsdk)
+target_link_libraries(multicastsdk_c INTERFACE spdlog::spdlog)
+target_link_libraries(multicastsdk_c PUBLIC multicastsdk)
 
-target_compile_options(cwrappermulticast PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(cwrappermulticast PUBLIC cxx_std_17)
+target_compile_options(multicastsdk_c PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(multicastsdk_c PUBLIC cxx_std_17)
 
-add_executable(cwrappermulticasttest
-	src/cwrappermulticasttest.c
-)
+# add_executable(multicastsdk_ctest
+# 	src/multicastsdk_ctest.c
+# )
 
-target_link_libraries(cwrappermulticasttest PUBLIC cwrappermulticast)
-target_compile_features(cwrappermulticasttest PUBLIC c_std_11)
+# target_link_libraries(multicastsdk_ctest PUBLIC multicastsdk_c)
+# target_compile_features(multicastsdk_ctest PUBLIC c_std_11)

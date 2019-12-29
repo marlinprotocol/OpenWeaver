@@ -130,11 +130,11 @@ public:
 			}
 		}
 
-		for (auto* transport : sol_standby_conns) {
+		for (auto* transport [[maybe_unused]] : sol_standby_conns) {
 			SPDLOG_DEBUG("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
 		}
 
-		for (auto* transport : sol_conns) {
+		for (auto* transport [[maybe_unused]] : sol_conns) {
 			SPDLOG_DEBUG("Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
 		}
 	}
