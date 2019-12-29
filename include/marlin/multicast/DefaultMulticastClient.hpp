@@ -1,7 +1,7 @@
 #ifndef MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 #define MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 
-#include <marlin/pubsub/PubSubClient.hpp>
+#include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <uv.h>
 
@@ -12,35 +12,36 @@ namespace multicast {
 #define PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 struct DefaultMulticastClientOptions {
+	uint8_t* static_sk;
 	std::vector<std::string> channels = {"default"};
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
 	std::string pubsub_addr = "127.0.0.1:8000";
+	size_t max_conn = 2;
 };
 
 template<typename Delegate>
 class DefaultMulticastClient {
 public:
-	using PubSubClientType = pubsub::PubSubClient<DefaultMulticastClient<Delegate>>;
+	using Self = DefaultMulticastClient<Delegate>;
+	using PubSubNodeType = pubsub::PubSubNode<
+		Self,
+		false,
+		false,
+		false
+	>;
 
-	beacon::DiscoveryClient<DefaultMulticastClient<Delegate>> b;
-	PubSubClientType ps;
-
-	// can be changed to set to improve efficiency of add, remove and find
-	std::vector<std::string> channels = {"default"};
-
-	Delegate *delegate = nullptr;
+	beacon::DiscoveryClient<Self> b;
+	PubSubNodeType ps;
 
 	void new_peer(
 		net::SocketAddress const &addr,
+		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps.subscribe(addr);
-
-			// TODO: Better design
-			ps.add_subscriber(addr);
+			ps.subscribe(addr, static_pk);
 		}
 	}
 
@@ -49,84 +50,111 @@ public:
 	}
 
 	void did_unsubscribe(
-		PubSubClientType &,
-		std::string channel __attribute__((unused))
+		PubSubNodeType &,
+		std::string channel
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 		delegate->did_unsubscribe(*this, channel);
 	}
 
 	void did_subscribe(
-		PubSubClientType &,
-		std::string channel __attribute__((unused))
+		PubSubNodeType &,
+		std::string channel
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 		delegate->did_subscribe(*this, channel);
 	}
 
 	void did_recv_message(
-		PubSubClientType &,
+		PubSubNodeType &,
 		net::Buffer &&message,
-		std::string &channel __attribute__((unused)),
-		uint64_t message_id __attribute__((unused))
+		net::Buffer &&witness,
+		std::string &channel,
+		uint64_t message_id
 	) {
 		SPDLOG_DEBUG(
 			"Received message {} on channel {}",
 			message_id,
 			channel
 		);
-		delegate->did_recv_message(*this, std::move(message), channel, message_id);
+		delegate->did_recv_message(
+			*this,
+			std::move(message),
+			std::move(witness),
+			channel,
+			message_id
+		);
 	}
 
-	void manage_subscribers(
-		std::string channel,
-		typename PubSubClientType::TransportSet& transport_set,
-		typename PubSubClientType::TransportSet& potential_transport_set
+	void manage_subscriptions(
+		size_t max_sol_conns,
+		typename PubSubNodeType::TransportSet& sol_conns,
+		typename PubSubNodeType::TransportSet& sol_standby_conns
 	) {
 		// move some of the subscribers to potential subscribers if oversubscribed
-		if (transport_set.size() >= DefaultMaxSubscriptions) {
-			// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
-			// send message to removed and added peers
+		// insert churn algorithm here. need to find a better algorithm to give old bad performers a chance gain. Pick randomly from potential peers?
+		if (sol_conns.size() >= max_sol_conns) {
+			auto* toReplaceTransport = sol_conns.find_max_rtt_transport();
 
-			auto* toReplaceTransport = transport_set.find_max_rtt_transport();
-			auto* toReplaceWithTransport = potential_transport_set.find_random_rtt_transport();
+			if (toReplaceTransport != nullptr) {
 
-			if (toReplaceTransport != nullptr &&
-				toReplaceWithTransport != nullptr) {
-
-				SPDLOG_INFO(
-					"Moving address: {} from subscribers to potential subscribers list on channel: {} ",
-					toReplaceTransport->dst_addr.to_string(),
-					channel
+				SPDLOG_DEBUG("Moving address: {} from sol_conns to sol_standby_conns",
+					toReplaceTransport->dst_addr.to_string()
 				);
 
-				ps.remove_subscriber_from_channel(channel, *toReplaceTransport);
-				ps.add_subscriber_to_potential_channel(channel, *toReplaceTransport);
-
-				SPDLOG_INFO(
-					"Moving address: {} from potential subscribers to subscribers list on channel: {} ",
-					toReplaceWithTransport->dst_addr.to_string(),
-					channel
+				// TODO: do away with individual subscribe for each channel
+				std::for_each(
+					channels.begin(),
+					channels.end(),
+					[&] (std::string const channel) {
+						ps.send_UNSUBSCRIBE(*toReplaceTransport, channel);
+					}
 				);
 
-				ps.remove_subscriber_from_potential_channel(channel, *toReplaceWithTransport);
-				ps.add_subscriber_to_channel(channel, *toReplaceWithTransport);
+				ps.remove_conn(sol_conns, *toReplaceTransport);
+				ps.add_sol_standby_conn(*toReplaceTransport);
 			}
 		}
 
-		for (auto* pot_transport : potential_transport_set) {
-			SPDLOG_DEBUG("Potential Subscriber: {}  rtt: {} on channel {}", pot_transport->dst_addr.to_string(), pot_transport->get_rtt(), channel);
+		if (sol_conns.size() < max_sol_conns) {
+			auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
+
+			if ( toReplaceWithTransport != nullptr) {
+				auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
+
+				SPDLOG_DEBUG("Moving address: {} from sol_standby_conns to sol_conns",
+					toReplaceWithTransport->dst_addr.to_string()
+				);
+
+				ps.add_sol_conn(*toReplaceWithTransport);
+			}
 		}
 
-		for (auto* transport : transport_set) {
-			SPDLOG_DEBUG("Subscriber: {}  rtt: {} on channel {}", transport->dst_addr.to_string(),  transport->get_rtt(), channel);
+		for (auto* transport : sol_standby_conns) {
+			SPDLOG_DEBUG("STANDBY Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
+		}
+
+		for (auto* transport : sol_conns) {
+			SPDLOG_DEBUG("Sol : {}  rtt: {}", transport->dst_addr.to_string(), transport->get_rtt());
 		}
 	}
 
-	DefaultMulticastClient(DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions())
-	: b(net::SocketAddress::from_string(options.discovery_addr)),
-	  ps(net::SocketAddress::from_string(options.pubsub_addr)),
-	  channels(options.channels) {
+	Delegate *delegate = nullptr;
+	std::vector<std::string> channels = {"default"};
+
+	DefaultMulticastClient(
+		DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions()
+	) : b(
+			net::SocketAddress::from_string(options.discovery_addr),
+			options.static_sk
+		),
+		ps(
+			net::SocketAddress::from_string(options.pubsub_addr),
+			options.max_conn,
+			0,
+			options.static_sk
+		),
+		channels(options.channels) {
 		SPDLOG_INFO(
 			"Beacon: {}, Discovery: {}, PubSub: {}",
 			options.beacon_addr,
