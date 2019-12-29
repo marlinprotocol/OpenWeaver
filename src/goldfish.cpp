@@ -1,4 +1,4 @@
-#include <marlin/pubsub/PubSubServer.hpp>
+#include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <uv.h>
@@ -13,13 +13,20 @@ using namespace marlin::pubsub;
 
 class Goldfish {
 public:
-	marlin::beacon::DiscoveryClient<Goldfish> *b;
-	marlin::pubsub::PubSubServer<Goldfish> *ps;
+	using Self = Goldfish;
+	using PubSubNodeType = PubSubNode<
+		Self,
+		true,
+		true,
+		true
+	>;
+
+	DiscoveryClient<Goldfish> *b;
+	PubSubNodeType *ps;
 
 	uint16_t ps_port = 10000;
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
-		// uint16_t ps_port = ps->
 		return {
 			std::make_tuple(PUBSUB_PROTOCOL_NUMBER, 0, ps_port)
 		};
@@ -27,32 +34,34 @@ public:
 
 	void new_peer(
 		net::SocketAddress const &addr,
+		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps->subscribe(addr);
+			ps->subscribe(addr, static_pk);
 		}
 	}
 
 	std::vector<std::string> channels = {"goldfish"};
 
 	void did_unsubscribe(
-		marlin::pubsub::PubSubServer<Goldfish> &,
+		PubSubNodeType &,
 		std::string channel __attribute__((unused))
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(
-		marlin::pubsub::PubSubServer<Goldfish> &,
+		PubSubNodeType &,
 		std::string channel __attribute__((unused))
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
 
 	void did_recv_message(
-		marlin::pubsub::PubSubServer<Goldfish> &,
+		PubSubNodeType &,
+		Buffer &&,
 		Buffer &&,
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
@@ -68,10 +77,10 @@ public:
 		return true;
 	}
 
-	void manage_subscribers(
-		std::string,
-		typename marlin::pubsub::PubSubServer<Goldfish>::TransportSet&,
-		typename marlin::pubsub::PubSubServer<Goldfish>::TransportSet&) {
+	void manage_subscriptions(
+		size_t,
+		typename PubSubNodeType::TransportSet&,
+		typename PubSubNodeType::TransportSet&) {
 	}
 };
 
@@ -110,14 +119,22 @@ int main(int argc, char **argv) {
 	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr));
 	b.delegate = &g;
 
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+	crypto_box_keypair(static_pk, static_sk);
+
 	// Pubsub
-	PubSubServer<Goldfish> ps(SocketAddress::from_string(pubsub_addr));
+	PubSubNode<
+		Goldfish,
+		true,
+		true,
+		true
+	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
 	ps.delegate = &g;
-	ps.should_relay = true;
 	g.ps = &ps;
 
 	// Discovery client
-	DiscoveryClient<Goldfish> dc(SocketAddress::from_string(discovery_addr));
+	DiscoveryClient<Goldfish> dc(SocketAddress::from_string(discovery_addr), static_sk);
 	dc.delegate = &g;
 	dc.is_discoverable = true;
 	g.b = &dc;
