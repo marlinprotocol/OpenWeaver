@@ -86,6 +86,8 @@ bool marlin_multicast_client_remove_channel(
 // Util
 int marlin_multicast_run_event_loop();
 
+void marlin_multicast_create_keypair(uint8_t* static_pk, uint8_t* static_sk);
+
 #ifdef __cplusplus
 }
 #endif
