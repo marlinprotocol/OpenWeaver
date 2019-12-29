@@ -63,7 +63,7 @@ install(FILES
 
 
 ##########################################################
-# C wrapper examples
+# C SDK
 ##########################################################
 
 add_library(multicastsdk_c STATIC
@@ -82,9 +82,14 @@ target_link_libraries(multicastsdk_c PUBLIC multicastsdk)
 target_compile_options(multicastsdk_c PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(multicastsdk_c PUBLIC cxx_std_17)
 
-# add_executable(multicastsdk_ctest
-# 	src/multicastsdk_ctest.c
-# )
 
-# target_link_libraries(multicastsdk_ctest PUBLIC multicastsdk_c)
-# target_compile_features(multicastsdk_ctest PUBLIC c_std_11)
+##########################################################
+# C SDK examples
+##########################################################
+
+add_executable(multicastsdk_c_example
+	examples/main.c
+)
+
+target_link_libraries(multicastsdk_c_example PUBLIC multicastsdk_c)
+target_compile_features(multicastsdk_c_example PUBLIC c_std_11)

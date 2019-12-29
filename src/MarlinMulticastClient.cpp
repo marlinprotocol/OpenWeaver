@@ -26,12 +26,12 @@ struct MarlinMulticastClientDelegate {
 		std::string &channel,
 		uint64_t message_id
 	) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Did recv message: {}",
 			std::string(message.data(), message.data() + message.size())
 		);
 
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"channel: {}, message_id: {}",
 			channel,
 			message_id
@@ -54,8 +54,6 @@ struct MarlinMulticastClientDelegate {
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &client,
 		std::string &channel
 	) {
-		client.ps.send_message_on_channel(channel, "Hello!", 6);
-
 		if (this->m_did_subscribe != 0) {
 			this->m_did_subscribe(
 				reinterpret_cast<MarlinMulticastClient_t *> (&client),
@@ -195,4 +193,8 @@ bool marlin_multicast_client_remove_channel(
 // Util
 int marlin_multicast_run_event_loop() {
 	return DefaultMulticastClient<MarlinMulticastClientDelegate>::run_event_loop();
+}
+
+void marlin_multicast_create_keypair(uint8_t* static_pk, uint8_t* static_sk) {
+	crypto_box_keypair(static_pk, static_sk);
 }
