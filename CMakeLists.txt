@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.9 FATAL_ERROR)
 
 add_executable(simulation
-        helpers/CircularArray.cpp
         helpers/Logger/easylogging.cpp       
         main.cpp
         core/Network/Network.cpp
