@@ -1,12 +1,14 @@
 #ifndef INITIALIZENETWORK_H_
 #define INITIALIZENETWORK_H_
 
+#include <iomanip>
 #include <random>
 #include <vector>
 
 #include "../config/Config.h"
 #include "../core/Network/Network.h"
 #include "../core/Network/Node/Node.h"
+#include "./Center.h"
 #include "./Logger/easylogging.h"
 
 bool generateNodes(Network& network) {
@@ -49,10 +51,39 @@ bool generateNodes(Network& network) {
 	return true;
 }
 
+bool testSanity(Network& network) {
+	LOG(INFO) << "Testing sanity of generated network topology"; 
+
+	int numNodesPerRegion[NUM_REGIONS] = {0};
+
+	const std::vector<Node*> nodes = network.getNodes();
+
+	for(auto node: nodes) {
+		numNodesPerRegion[node->getRegion()]++;
+	}
+
+	el::Logger* networkTopologyLogger = el::Loggers::getLogger("networkTopology");
+
+	CLOG(INFO, "networkTopology") << std::setw(20) << centered("REGION")
+								  << std::setw(20) << centered("EXPECTED")
+								  << std::setw(20) << centered("GENERATED");	
+
+	for(int i=0; i<NUM_REGIONS; i++) {
+		CLOG(INFO, "networkTopology") << std::setw(20) << std::left << REGIONS[i]
+								  	  << std::setw(20) << std::right << REGION_DISTRIBUTION_OF_NODES[i] * NUM_NODES
+								 	  << std::setw(20) << std::right << numNodesPerRegion[i];
+	}
+
+	LOG(INFO) << "Sanity check of generated network topology successful"; 
+
+	return true;
+}
+
 Network getRandomNetwork() {
 	Network network;
 
 	generateNodes(network);
+	testSanity(network);
 	// generateLinks();
 
 	return network;

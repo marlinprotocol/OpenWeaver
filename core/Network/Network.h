@@ -11,7 +11,7 @@ private:
 
 public:
 	bool addNode(Node* node);
-
+	std::vector<Node*> getNodes() const;
 };
 
 #endif /*NETWORK_H_*/

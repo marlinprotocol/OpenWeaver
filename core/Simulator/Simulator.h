@@ -2,7 +2,7 @@
 #define SIMULATOR_H_
 
 class Simulator {
-private:
+public:
 	bool setup();
 };
 

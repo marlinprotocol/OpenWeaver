@@ -5,3 +5,7 @@ Node::Node(int _nodeId, bool _isAlive, int _region) {
 	isAlive = _isAlive;
 	region = _region;
 }
+
+int Node::getRegion() const {
+	return region;
+}

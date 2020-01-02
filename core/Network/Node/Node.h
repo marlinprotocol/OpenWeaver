@@ -12,6 +12,7 @@ private:
 
 public:
 	Node(int _nodeId, bool _isAlive, int _region);
+	int getRegion() const;
 };
 
 #endif /*NODE_H_*/
