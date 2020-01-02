@@ -8,6 +8,10 @@
 // #include "../Blockchain/Block/PoSBlock.h"
 
 bool Simulator::setup() {
-	Network network = getRandomNetwork();
+	network = getRandomNetwork();
 	return true;
+}
+
+void Simulator::start() {
+	
 }

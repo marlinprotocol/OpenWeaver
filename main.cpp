@@ -28,7 +28,7 @@ int main() {
 	Simulator simulator;
     simulator.setup();
 
-    LOG(INFO) << "Safely exiting NetworkSimulator " << "v0.1";
+    LOG(INFO) << "Safely exiting NetworkSimulator";
 
     // Flush all loggers otherwise sometimes program closes and not every log gets printed
     el::Loggers::flushAll();

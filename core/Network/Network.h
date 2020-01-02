@@ -1,17 +1,18 @@
 #ifndef NETWORK_H_
 #define NETWORK_H_
 
+#include <memory>
 #include <vector>
 
 #include "./Node/Node.h"
 
 class Network {
 private:
-	std::vector<Node*> nodes;
+	std::vector<std::shared_ptr<Node>> nodes;
 
 public:
-	bool addNode(Node* node);
-	std::vector<Node*> getNodes() const;
+	bool addNode(std::shared_ptr<Node> node);
+	std::vector<std::shared_ptr<Node>> getNodes() const;
 };
 
 #endif /*NETWORK_H_*/

@@ -1,10 +1,10 @@
 #include "./Network.h"
 
-bool Network::addNode(Node* node) {
+bool Network::addNode(std::shared_ptr<Node> node) {
 	nodes.push_back(node);
 	return true;
 }
 
-std::vector<Node*> Network::getNodes() const {
+std::vector<std::shared_ptr<Node>> Network::getNodes() const {
 	return nodes;
 }

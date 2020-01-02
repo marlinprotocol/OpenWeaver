@@ -42,7 +42,7 @@ bool generateNodes(Network& network) {
 		double randomNumber = unif(rng);
 		for(int j=0; j<NUM_REGIONS; j++) {
 			if(randomNumber < cumulativeProbabilities[j]) {
-				network.addNode(new Node(i, true, j));
+				network.addNode( std::shared_ptr<Node>( new Node(i, true, j) ) );
 				break;
 			}
 		}
@@ -56,7 +56,7 @@ bool testSanity(Network& network) {
 
 	int numNodesPerRegion[NUM_REGIONS] = {0};
 
-	const std::vector<Node*> nodes = network.getNodes();
+	const std::vector<std::shared_ptr<Node>> nodes = network.getNodes();
 
 	for(auto node: nodes) {
 		numNodesPerRegion[node->getRegion()]++;
@@ -64,12 +64,14 @@ bool testSanity(Network& network) {
 
 	el::Logger* networkTopologyLogger = el::Loggers::getLogger("networkTopology");
 
-	CLOG(INFO, "networkTopology") << std::setw(20) << centered("REGION")
+	CLOG(INFO, "networkTopology") << std::setw(13) << centered("REGION_ID")
+								  << std::setw(20) << centered("REGION")
 								  << std::setw(20) << centered("EXPECTED")
 								  << std::setw(20) << centered("GENERATED");	
 
 	for(int i=0; i<NUM_REGIONS; i++) {
-		CLOG(INFO, "networkTopology") << std::setw(20) << std::left << REGIONS[i]
+		CLOG(INFO, "networkTopology") << std::setw(20) << std::right << i
+									  << std::setw(20) << std::left << REGIONS[i]
 								  	  << std::setw(20) << std::right << REGION_DISTRIBUTION_OF_NODES[i] * NUM_NODES
 								 	  << std::setw(20) << std::right << numNodesPerRegion[i];
 	}
@@ -84,7 +86,6 @@ Network getRandomNetwork() {
 
 	generateNodes(network);
 	testSanity(network);
-	// generateLinks();
 
 	return network;
 }
