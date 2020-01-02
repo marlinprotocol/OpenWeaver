@@ -3,3 +3,4 @@ a.out
 ./logs
 logs
 **/.DS_Store
+build
