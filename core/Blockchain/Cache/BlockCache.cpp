@@ -5,8 +5,8 @@ bool BlockCache::insert(int blockId, std::shared_ptr<Block> blockPtr) {
 	return true;
 }
 
-std::shared_ptr<Block> BlockCache::getBlockById(int blockId) {
-	return blockIdBodyMap[blockId];
+std::shared_ptr<Block> BlockCache::getBlockById(int blockId) const {
+	return blockIdBodyMap.find(blockId)->second;
 }
 
 bool BlockCache::hasBlockId(int blockId) {

@@ -22,14 +22,14 @@ void configureLogger() {
 int main() {
 	configureLogger();
 
-	LOG(INFO) << "Starting NetworkSimulator " << "v0.1";
+	LOG(INFO) << "[NetworkSimulator " << "v0.1 started]";
 	
 
 	Simulator simulator;
     simulator.setup();
     simulator.start();
 
-    LOG(INFO) << "Safely exiting NetworkSimulator";
+    LOG(INFO) << "[NetworkSimulator stopped]";
 
     // Flush all loggers otherwise sometimes program closes and not every log gets printed
     el::Loggers::flushAll();

@@ -18,6 +18,7 @@ public:
 		 std::unique_ptr<BlockchainManagementModel> _blockchainManagementModel,
 		 std::shared_ptr<BlockCache> _blockCache);
 	int getRegion() const;
+	int getNodeId() const;
 };
 
 #endif /*NODE_H_*/

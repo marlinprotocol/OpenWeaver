@@ -1,7 +1,7 @@
 #include "./Blockchain.h"
 #include "../../helpers/Logger/easylogging.h"
 
-Blockchain::Blockchain(std::shared_ptr<BlockCache> _blockCache) {
+Blockchain::Blockchain(std::shared_ptr<const BlockCache> _blockCache) {
 	blockCache = _blockCache;
 }
 
@@ -11,8 +11,12 @@ int Blockchain::getBlockchainHeight() {
 
 int Blockchain::oldestBlockHeightInCache() {
 	int indexOfEarliestInsertion = blockchain.getOldestItemIndex();
-	const std::vector<int>& blockIds = blockchain.getItemAtIndex(indexOfEarliestInsertion);
 
+	if(indexOfEarliestInsertion == -1) {
+		return -1;
+	}
+
+	const std::vector<int>& blockIds = blockchain.getItemAtIndex(indexOfEarliestInsertion);
 
 	return (*blockCache).getBlockById(blockIds[0])->getBlockHeight();
 }

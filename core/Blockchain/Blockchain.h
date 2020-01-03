@@ -12,12 +12,12 @@
 class Blockchain {
 private:
 	Queue<std::vector<int>> blockchain;
-	std::shared_ptr<BlockCache> blockCache;
+	std::shared_ptr<const BlockCache> blockCache;
 	bool addBlockAtHeight(int blockId, int blockHeight);
 	std::unique_ptr<BlockchainManagementModel> blockchainManagementModel;
 
 public:
-	Blockchain(std::shared_ptr<BlockCache> _blockCache);
+	Blockchain(std::shared_ptr<const BlockCache> _blockCache);
 	int getBlockchainHeight();
 	int oldestBlockHeightInCache();
 	int getBlockchainStorageSize();

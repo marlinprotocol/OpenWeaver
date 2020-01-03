@@ -2,8 +2,8 @@
 
 int EventManager::currentTick = 0;
 
-bool EventManager::addEvent(Event _event) {
-	eventQueue.addEvent(AsyncEvent(_event, currentTick + _event.getDurationInTicks()));
+bool EventManager::addEvent(std::shared_ptr<Event> _event) {
+	eventQueue.addEvent(AsyncEvent(_event, currentTick + _event->getDurationInTicks()));
 	return true;
 }
 

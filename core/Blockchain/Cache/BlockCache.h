@@ -12,7 +12,7 @@ private:
 
 public:
 	bool insert(int blockId, std::shared_ptr<Block> blockPtr);
-	std::shared_ptr<Block> getBlockById(int blockId);
+	std::shared_ptr<Block> getBlockById(int blockId) const;
 	bool hasBlockId(int blockId);
 };
 

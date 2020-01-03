@@ -61,8 +61,8 @@ bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, Nod
 	return true;
 }
 
-bool testSanity(Network& network) {
-	LOG(INFO) << "Testing sanity of generated network topology"; 
+bool printGeneratedNetwork(Network& network) {
+	LOG(INFO) << "[PRINTING_GENERATED_NETWORK_START]"; 
 
 	int numNodesPerRegion[NUM_REGIONS] = {0};
 
@@ -86,7 +86,7 @@ bool testSanity(Network& network) {
 								 	  << std::setw(20) << std::right << numNodesPerRegion[i];
 	}
 
-	LOG(INFO) << "Sanity check of generated network topology successful"; 
+	LOG(INFO) << "[PRINTING_GENERATED_NETWORK_END]"; 
 
 	return true;
 }
@@ -95,7 +95,7 @@ Network getRandomNetwork(std::shared_ptr<BlockCache> blockCache) {
 	Network network;
 
 	generateNodes(network, blockCache, NodeType::Miner);
-	testSanity(network);
+	printGeneratedNetwork(network);
 
 	return network;
 }

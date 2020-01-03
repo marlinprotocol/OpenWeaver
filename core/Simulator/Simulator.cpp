@@ -1,30 +1,61 @@
+#include <memory>
+
 #include "./Simulator.h"
-#include "../EventManagement/EventManager/EventManager.h"
+#include "../Blockchain/Block/Block.h"
+#include "../Blockchain/Block/PoWBlock.h"
+#include "../Blockchain/Block/PoSBlock.h"
+#include "../EventManagement/Event/EventTypes/MessageToNodeEvent.h"
+#include "../Network/Messages/Message.h"
+#include "../Network/Messages/NewBlockIdMessage.h"
 #include "../Network/Node/Miner.h"
+#include "../../config/Config.h"
 #include "../../helpers/InitializeNetwork.h"
 
 // #include "../Networking/RoutingTable.h"
-// #include "../Blockchain/Block/Block.h"
-// #include "../Blockchain/Block/PoWBlock.h"
-// #include "../Blockchain/Block/PoSBlock.h"
+
 
 Simulator::Simulator() {
 	blockCache = make_shared<BlockCache>();
 }
 
+int Simulator::createGenesisBlock() {
+	int genesisBlockId;
+
+	if(CONSENSUS_TYPE == "PoW") {
+		shared_ptr<Block> genesisBlock = getGenesisPoWBlock();
+		genesisBlockId = genesisBlock->getBlockId();
+		blockCache->insert(genesisBlockId, genesisBlock);
+	}
+
+	return genesisBlockId;
+}
+
+void Simulator::sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId) {
+	for(auto nodePtr: network.getNodes()) {
+		int nodeId = nodePtr->getNodeId();
+		eventManager.addEvent(shared_ptr<Event>(
+								new MessageToNodeEvent( 
+									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId
+								)
+							 ));
+	}
+}
+
 bool Simulator::setup() {
 	network = getRandomNetwork(blockCache);
+
+	int genesisBlockId = createGenesisBlock();
+	sendGenesisBlockToAllNodes(network, genesisBlockId);
+
 	return true;
 }
 
 void Simulator::start() {
-	LOG(INFO) << "Starting simulator"; 
-
-	EventManager eventManager;
+	LOG(INFO) << "[Simulator started]"; 
 
 	while(eventManager.hasNextEvent()) {
 		eventManager.executeNextEvent();
 	}
 
-	LOG(INFO) << "Safely exiting simulator"; 
+	LOG(INFO) << "[Simulator stopped]"; 
 }

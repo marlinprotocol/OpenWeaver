@@ -2,7 +2,7 @@
 
 int AsyncEvent::count = 0;
 
-AsyncEvent::AsyncEvent(Event _event, long _tickToExecOn) {
+AsyncEvent::AsyncEvent(std::shared_ptr<Event> _event, long _tickToExecOn) {
 	event = _event;
 	tickToExecOn = _tickToExecOn;
 	count++;
@@ -18,7 +18,5 @@ long AsyncEvent::getTickToExecOn() const {
 }
 
 bool AsyncEvent::execute() {
-	event.execute();
-
-	return true;
+	return event->execute();
 }

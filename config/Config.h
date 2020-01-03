@@ -18,6 +18,8 @@ const long long INTER_REGION_LATENCY[NUM_REGIONS][NUM_REGIONS] = {
 	{1, 1, 1, 1, 1, 1}	
 };
 
-const int NUM_NODES = 1000;
+const int NUM_NODES = 15;
+
+const string CONSENSUS_TYPE = "PoW";
 
 #endif /*CONFIG_H_*/
