@@ -9,6 +9,8 @@
 #include "../../../Network/Messages/MessageType.h"
 #include "../../../Network/Node/Node.h"
 
+class EventManager;
+
 class MessageToNodeEvent : public Event {
 private:
 	std::shared_ptr<Message> message;
@@ -17,7 +19,7 @@ private:
 
 public: 
 	MessageToNodeEvent(std::shared_ptr<Message> _message, int _forNodeId, int _fromNodeId, long long _durationInTicks);
-	bool execute(Network& _network);
+	bool execute(Network& _network, EventManager* _eventManager);
 };
 
 #endif /*MESSAGETONODEEVENT_H_*/

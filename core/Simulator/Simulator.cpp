@@ -41,6 +41,7 @@ void Simulator::sendGenesisBlockToAllNodes(const Network& network, int genesisBl
 								)
 							 ));
 	}
+	
 	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
 }
 

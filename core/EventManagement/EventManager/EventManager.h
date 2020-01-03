@@ -1,3 +1,6 @@
+#ifndef EVENTMANAGER_H_
+#define EVENTMANAGER_H_
+
 #include <queue> 
 #include <unordered_map> 
 
@@ -17,7 +20,9 @@ public:
 	EventManager(Network& _network);
 	bool addEvent(shared_ptr<Event> _event);
 	// AsyncEvent getNextEvent() const;
-	// bool removeEvent(); // when to use: when link fails and message wont reach other end?
+	bool removeEvent(int _id);
 	bool hasNextEvent();
 	bool executeNextEvent();
 };
+
+#endif /*EVENTMANAGER_H_*/

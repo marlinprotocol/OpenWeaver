@@ -9,6 +9,8 @@
 #include "../../Blockchain/Blockchain.h"
 #include "../../../helpers/Logger/easylogging.h"
 
+class EventManager;
+
 class Node {
 private:
 	int nodeId;
@@ -25,7 +27,7 @@ public:
 		 std::shared_ptr<BlockCache> _blockCache);
 	int getRegion() const;
 	int getNodeId() const;
-	virtual void onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message) = 0;
+	virtual void onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message, EventManager* _eventManager) = 0;
 };
 
 #endif /*NODE_H_*/

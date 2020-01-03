@@ -8,7 +8,8 @@ class Node;
 
 class Block {
 private:
-	static int blockId;
+	static int count;
+	int id;
 	int blockHeight;
 	int parentBlockId;
 	int blockProducerId;

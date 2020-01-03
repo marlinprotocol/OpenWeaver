@@ -22,3 +22,11 @@ bool EventQueue::removeNextEvent() {
 	eventQueue.pop();
 	return true;
 }	
+
+bool EventQueue::removeEvent(AsyncEvent _event) {
+	return eventQueue.remove(_event);
+}
+
+bool EventQueue::removeEvent(int _id) {
+	return removeEvent(AsyncEvent(_id));
+}

@@ -5,6 +5,8 @@
 #include "../../Network/Network.h"
 #include "../../../helpers/Logger/easylogging.h"
 
+class EventQueue;
+
 class Event {
 private:
 	long long durationInTicks;
@@ -12,7 +14,7 @@ private:
 public:
 	Event(long long _durationInTicks);
 	long getDurationInTicks();
-	virtual bool execute(Network& _network) = 0;
+	virtual bool execute(Network& _network, EventManager* _eventManager) = 0;
 	virtual ~Event() {}
 };
 

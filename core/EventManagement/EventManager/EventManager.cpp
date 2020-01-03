@@ -5,8 +5,11 @@ int EventManager::currentTick = 0;
 EventManager::EventManager(Network& _network) : network(_network) {}
 
 bool EventManager::addEvent(std::shared_ptr<Event> _event) {
-	eventQueue.addEvent(AsyncEvent(_event, currentTick + _event->getDurationInTicks()));
-	return true;
+	return eventQueue.addEvent(AsyncEvent(_event, currentTick + _event->getDurationInTicks()));
+}
+
+bool EventManager::removeEvent(int _id) {
+	return eventQueue.removeEvent(AsyncEvent(_id));
 }
 
 bool EventManager::hasNextEvent() {
@@ -26,7 +29,7 @@ bool EventManager::executeNextEvent() {
 
 	currentTick = asyncEvent.getTickToExecOn();
 
-	asyncEvent.execute(network);
+	asyncEvent.execute(network, this);
 
 	return true;
 }
