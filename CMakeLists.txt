@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 2.9 FATAL_ERROR)
 
 add_executable(simulation
         main.cpp
-        core/Network/Network.cpp
-        core/Network/Node/Miner.cpp
-        core/Network/Node/Node.cpp
-        core/Networking/RoutingTable.cpp
         core/Blockchain/Blockchain.cpp
         core/Blockchain/Block/PoSBlock.cpp
         core/Blockchain/Block/PoWBlock.cpp
@@ -14,8 +10,14 @@ add_executable(simulation
         core/Simulator/Simulator.cpp
         core/EventManagement/Event/Event.cpp
         core/EventManagement/Event/AsyncEvent.cpp
+        core/EventManagement/Event/EventTypes/MessageToNodeEvent.cpp
         core/EventManagement/EventManager/EventManager.cpp
         core/EventManagement/EventQueue/EventQueue.cpp
+        core/Network/Network.cpp
+        core/Network/Messages/NewBlockIdMessage.cpp
+        core/Network/Node/Miner.cpp
+        core/Network/Node/Node.cpp
+        core/Networking/RoutingTable.cpp
         helpers/Logger/easylogging.cpp       
         models/BlockchainManagementModels/BlockchainManagementBitcoinModel.cpp
 )
