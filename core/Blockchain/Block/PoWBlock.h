@@ -8,7 +8,8 @@ private:
 	long difficulty;
 
 public:
-	PoWBlock(Block* _parentBlock, Node* _blockProducer, long _tickStamp); 
+	PoWBlock(int _parentBlockId, int _blockProducerId, long _tickStamp); 
+	PoWBlock getGenesisBlock();
 };
 
 #endif /*POWBLOCK_H_*/

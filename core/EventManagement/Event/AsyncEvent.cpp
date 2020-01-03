@@ -16,3 +16,9 @@ bool AsyncEvent::operator<(const AsyncEvent& e) const {
 long AsyncEvent::getTickToExecOn() const {
 	return tickToExecOn;
 }
+
+bool AsyncEvent::execute() {
+	event.execute();
+
+	return true;
+}

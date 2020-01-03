@@ -9,18 +9,17 @@ class Block {
 private:
 	static int blockId;
 	int blockHeight;
-	Block* parentBlock;
-	Node* blockProducer;
+	int parentBlockId;
+	int blockProducerId;
 	long tickStamp;
 
 public:
-	Block(Block* _parentBlock, Node* _blockProducer, long _tickStamp);
+	Block(int _parentBlockId, int _blockProducerId, long _tickStamp);
 	int getBlockId();
 	int getBlockHeight();
-	Block* getParentBlock();
-	Node* getBlockProducer();
+	int getParentBlockId();
+	int getBlockProducerId();
 	long getTickStamp();
-	Block getGenesisBlock();
 };
 
 #endif /*BLOCK_H_*/

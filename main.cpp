@@ -27,6 +27,7 @@ int main() {
 
 	Simulator simulator;
     simulator.setup();
+    simulator.start();
 
     LOG(INFO) << "Safely exiting NetworkSimulator";
 

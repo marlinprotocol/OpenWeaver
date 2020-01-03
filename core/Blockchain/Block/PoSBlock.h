@@ -8,7 +8,7 @@ private:
 	
 
 public:
-	PoSBlock(Block* _parentBlock, Node* _blockProducer, long _tickStamp); 
+	PoSBlock(int _parentBlockId, int _blockProducerId, long _tickStamp); 
 };
 
 #endif /*POSBLOCK_H_*/

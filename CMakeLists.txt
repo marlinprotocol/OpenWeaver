@@ -11,6 +11,7 @@ add_executable(simulation
         core/Blockchain/Block/PoSBlock.cpp
         core/Blockchain/Block/PoWBlock.cpp
         core/Blockchain/Block/Block.cpp
+        core/Blockchain/Cache/BlockCache.cpp
         core/Simulator/Simulator.cpp
         core/EventManagement/Event/Event.cpp
         core/EventManagement/Event/AsyncEvent.cpp

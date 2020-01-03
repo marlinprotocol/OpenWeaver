@@ -2,9 +2,9 @@
 
 int Block::blockId = 0;
 
-Block::Block(Block* _parentBlock, Node* _blockProducer, long _tickStamp) {
-	parentBlock = _parentBlock;
-	blockProducer = _blockProducer;
+Block::Block(int _parentBlockId, int _blockProducerId, long _tickStamp) {
+	parentBlockId = _parentBlockId;
+	blockProducerId = _blockProducerId;
 	tickStamp = _tickStamp;
 }
 
@@ -16,18 +16,15 @@ int Block::getBlockHeight() {
 	return blockHeight;
 }
 
-Block* Block::getParentBlock() {
-	return parentBlock;
+int Block::getParentBlockId() {
+	return parentBlockId;
 }
 
-Node* Block::getBlockProducer() {
-	return blockProducer;
+int Block::getBlockProducerId() {
+	return blockProducerId;
 }
 
 long Block::getTickStamp() {
 	return tickStamp;
 }
 
-Block Block::getGenesisBlock() {
-	return Block(nullptr, nullptr, 0);
-}

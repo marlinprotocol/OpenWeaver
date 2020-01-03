@@ -7,6 +7,10 @@ bool EventManager::addEvent(Event _event) {
 	return true;
 }
 
+bool EventManager::hasNextEvent() {
+	return !eventQueue.isEmpty();
+}
+
 bool EventManager::executeNextEvent() {
 	if(eventQueue.isEmpty()) return false;
 	
@@ -14,6 +18,8 @@ bool EventManager::executeNextEvent() {
 	eventQueue.removeNextEvent();
 
 	currentTick = asyncEvent.getTickToExecOn();
+
+	asyncEvent.execute();
 
 	return true;
 }

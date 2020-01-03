@@ -1,7 +1,11 @@
 #include "./PoWBlock.h"
 
-PoWBlock::PoWBlock(Block* _parentBlock, Node* _blockProducer, long _tickStamp) 
-		 : Block(_parentBlock, _blockProducer, _tickStamp) {
+PoWBlock::PoWBlock(int _parentBlockId, int _blockProducerId, long _tickStamp) 
+		 : Block(_parentBlockId, _blockProducerId, _tickStamp) {
 
 
+}
+
+PoWBlock PoWBlock::getGenesisBlock() {
+	return PoWBlock(-1, -1, 0);
 }

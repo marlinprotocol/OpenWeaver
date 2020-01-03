@@ -1,7 +1,8 @@
 #include "./Simulator.h"
+#include "../EventManagement/EventManager/EventManager.h"
+#include "../Network/Node/Miner.h"
 #include "../../helpers/InitializeNetwork.h"
 
-// #include "../EventManagement/EventManager/EventManager.h"
 // #include "../Networking/RoutingTable.h"
 // #include "../Blockchain/Block/Block.h"
 // #include "../Blockchain/Block/PoWBlock.h"
@@ -13,5 +14,13 @@ bool Simulator::setup() {
 }
 
 void Simulator::start() {
-	
+	LOG(INFO) << "Starting simulator"; 
+
+	EventManager eventManager;
+
+	while(eventManager.hasNextEvent()) {
+		eventManager.executeNextEvent();
+	}
+
+	LOG(INFO) << "Safely exiting simulator"; 
 }
