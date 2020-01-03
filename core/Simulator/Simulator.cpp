@@ -14,7 +14,7 @@
 // #include "../Networking/RoutingTable.h"
 
 
-Simulator::Simulator() {
+Simulator::Simulator() : eventManager(network) {
 	blockCache = make_shared<BlockCache>();
 }
 
@@ -27,6 +27,8 @@ int Simulator::createGenesisBlock() {
 		blockCache->insert(genesisBlockId, genesisBlock);
 	}
 
+	LOG(INFO) << "[GenesisBlock Type " << CONSENSUS_TYPE << "created]";
+
 	return genesisBlockId;
 }
 
@@ -35,10 +37,11 @@ void Simulator::sendGenesisBlockToAllNodes(const Network& network, int genesisBl
 		int nodeId = nodePtr->getNodeId();
 		eventManager.addEvent(shared_ptr<Event>(
 								new MessageToNodeEvent( 
-									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId
+									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId, 0
 								)
 							 ));
 	}
+	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
 }
 
 bool Simulator::setup() {

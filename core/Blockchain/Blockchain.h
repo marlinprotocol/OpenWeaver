@@ -8,6 +8,7 @@
 #include "./Cache/BlockCache.h"
 #include "../../helpers/CircularArray.h"
 #include "../../models/BlockchainManagementModels/BlockchainManagementModel.h"
+#include "../../helpers/Logger/easylogging.h"
 
 class Blockchain {
 private:
@@ -22,7 +23,7 @@ public:
 	int oldestBlockHeightInCache();
 	int getBlockchainStorageSize();
 	bool hasBlock(int blockHeight, int blockId);
-	bool addBlock(PoWBlock block);
+	bool addBlock(int newBlockHeight, int newBlockId);
 };
 
 #endif /*BLOCKCHAIN_H_*/

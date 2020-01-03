@@ -2,6 +2,7 @@
 #define POSBLOCK_H_
 
 #include "./Block.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 class PoSBlock : public Block {
 private:

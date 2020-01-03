@@ -2,6 +2,7 @@
 #define BLOCK_H_
 
 // #include "./Node.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 class Node;
 

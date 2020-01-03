@@ -14,6 +14,7 @@ add_executable(simulation
         core/EventManagement/EventManager/EventManager.cpp
         core/EventManagement/EventQueue/EventQueue.cpp
         core/Network/Network.cpp
+        core/Network/Messages/Message.cpp
         core/Network/Messages/NewBlockIdMessage.cpp
         core/Network/Node/Miner.cpp
         core/Network/Node/Node.cpp

@@ -1,9 +1,9 @@
 #ifndef INITIALIZENETWORK_H_
 #define INITIALIZENETWORK_H_
 
-#include <iomanip>
-#include <random>
 #include <memory>
+#include <random>
+#include <string>
 #include <vector>
 
 #include "./Center.h"
@@ -80,10 +80,10 @@ bool printGeneratedNetwork(Network& network) {
 								  << std::setw(20) << centered("GENERATED");	
 
 	for(int i=0; i<NUM_REGIONS; i++) {
-		CLOG(INFO, "networkTopology") << std::setw(20) << std::right << i
-									  << std::setw(20) << std::left << REGIONS[i]
-								  	  << std::setw(20) << std::right << REGION_DISTRIBUTION_OF_NODES[i] * NUM_NODES
-								 	  << std::setw(20) << std::right << numNodesPerRegion[i];
+		CLOG(INFO, "networkTopology") << std::setw(13) << centered(std::to_string(i))
+									  << std::setw(20) << centered(REGIONS[i])
+								  	  << std::setw(20) << centered(std::to_string(REGION_DISTRIBUTION_OF_NODES[i] * NUM_NODES))
+								 	  << std::setw(20) << centered(std::to_string(numNodesPerRegion[i]));
 	}
 
 	LOG(INFO) << "[PRINTING_GENERATED_NETWORK_END]"; 

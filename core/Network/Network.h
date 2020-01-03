@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "./Node/Node.h"
+#include "../../helpers/Logger/easylogging.h"
 
 class Network {
 private:

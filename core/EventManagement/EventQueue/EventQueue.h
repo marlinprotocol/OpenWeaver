@@ -2,6 +2,7 @@
 #include <unordered_map> 
 
 #include "../Event/AsyncEvent.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 using namespace std;
 

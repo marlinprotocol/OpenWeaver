@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "../Block/Block.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 class BlockCache {
 private:

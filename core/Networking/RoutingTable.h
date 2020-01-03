@@ -1,6 +1,8 @@
 #include <set>
 #include <unordered_map>
 
+#include "../../helpers/Logger/easylogging.h"
+
 class RoutingTable {
 private:
 	int nodeOwnerId;

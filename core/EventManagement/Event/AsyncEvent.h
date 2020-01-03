@@ -1,6 +1,8 @@
 #include <memory>
 
 #include "./Event.h"
+#include "../../Network/Network.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 class AsyncEvent {
 private:
@@ -12,6 +14,6 @@ public:
 	AsyncEvent(std::shared_ptr<Event> _event, long _tickToExecOn);
 	bool operator<(const AsyncEvent& e) const;
 	long getTickToExecOn() const;
-	bool execute();
+	bool execute(Network& _network);
 };
 

@@ -4,7 +4,10 @@
 #include <memory>
 
 #include "../Event.h"
+#include "../../../Network/Network.h"
 #include "../../../Network/Messages/Message.h"
+#include "../../../Network/Messages/MessageType.h"
+#include "../../../Network/Node/Node.h"
 
 class MessageToNodeEvent : public Event {
 private:
@@ -13,8 +16,8 @@ private:
 	int fromNodeId;
 
 public: 
-	MessageToNodeEvent(std::shared_ptr<Message> _message, int _forNodeId, int _fromNodeId);
-	bool execute();
+	MessageToNodeEvent(std::shared_ptr<Message> _message, int _forNodeId, int _fromNodeId, long long _durationInTicks);
+	bool execute(Network& _network);
 };
 
 #endif /*MESSAGETONODEEVENT_H_*/

@@ -6,6 +6,7 @@
 #include "../Blockchain/Cache/BlockCache.h"
 #include "../EventManagement/EventManager/EventManager.h"
 #include "../Network/Network.h"
+#include "../../helpers/Logger/easylogging.h"
 
 class Simulator {
 private:

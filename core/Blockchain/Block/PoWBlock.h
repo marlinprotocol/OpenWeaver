@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "./Block.h"
+#include "../../../helpers/Logger/easylogging.h"
 
 class PoWBlock : public Block {
 private:

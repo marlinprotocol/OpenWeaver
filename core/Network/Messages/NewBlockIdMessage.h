@@ -10,6 +10,7 @@ private:
 public:
 	NewBlockIdMessage(int blockId);
 	int getBlockId();
+	std::string getType();
 };
 
 #endif /*NEWBLOCKIDMESSAGE_H_*/

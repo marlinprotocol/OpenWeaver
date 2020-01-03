@@ -40,9 +40,11 @@ bool Blockchain::addBlockAtHeight(int blockId, int blockHeight) {
 	return true;
 }
 
-bool Blockchain::addBlock(PoWBlock block) {
-	int newBlockHeight = block.getBlockHeight();
-	int newBlockId = block.getBlockId();
+bool Blockchain::addBlock(int newBlockHeight, int newBlockId) {
+	LOG(DEBUG) << "[" << std::setw(35) << std::left << "Blockchain::addBlock]"
+			   << "[Height:" << std::setw(6) << std::right << std::to_string(newBlockHeight) << "]"
+			   << "[Id:" << std::setw(8) << std::right << std::to_string(newBlockId) << "]";
+
 
 	if(newBlockHeight < oldestBlockHeightInCache()) {
 		LOG(DEBUG) << "Received old block at height " << newBlockHeight

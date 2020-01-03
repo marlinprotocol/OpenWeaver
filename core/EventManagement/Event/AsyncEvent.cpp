@@ -17,6 +17,7 @@ long AsyncEvent::getTickToExecOn() const {
 	return tickToExecOn;
 }
 
-bool AsyncEvent::execute() {
-	return event->execute();
+bool AsyncEvent::execute(Network& _network) {
+	LOG(DEBUG) << "[AsyncEvent::execute]";
+	return event->execute(_network);
 }
