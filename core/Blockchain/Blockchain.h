@@ -7,12 +7,14 @@
 #include "./Block/PoWBlock.h"
 #include "./Cache/BlockCache.h"
 #include "../../helpers/CircularArray.h"
+#include "../../models/BlockchainManagementModels/BlockchainManagementModel.h"
 
 class Blockchain {
 private:
 	Queue<std::vector<int>> blockchain;
 	std::shared_ptr<BlockCache> blockCache;
 	bool addBlockAtHeight(int blockId, int blockHeight);
+	std::unique_ptr<BlockchainManagementModel> blockchainManagementModel;
 
 public:
 	Blockchain(std::shared_ptr<BlockCache> _blockCache);

@@ -8,8 +8,12 @@
 // #include "../Blockchain/Block/PoWBlock.h"
 // #include "../Blockchain/Block/PoSBlock.h"
 
+Simulator::Simulator() {
+	blockCache = make_shared<BlockCache>();
+}
+
 bool Simulator::setup() {
-	network = getRandomNetwork();
+	network = getRandomNetwork(blockCache);
 	return true;
 }
 

@@ -1,6 +1,5 @@
 #include "./Blockchain.h"
 #include "../../helpers/Logger/easylogging.h"
-#include "../../models/BlockchainManagement/BlockchainManagementModel.h"
 
 Blockchain::Blockchain(std::shared_ptr<BlockCache> _blockCache) {
 	blockCache = _blockCache;

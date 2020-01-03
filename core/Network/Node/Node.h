@@ -11,10 +11,12 @@ private:
 	bool isAlive;
 	int region;
 	std::vector<long long> latencyToOtherNodes;
-	// Blockchain blockchain;
+	Blockchain blockchain;
 
 public:
-	Node(int _nodeId, bool _isAlive, int _region);
+	Node(int _nodeId, bool _isAlive, int _region, 
+		 std::unique_ptr<BlockchainManagementModel> _blockchainManagementModel,
+		 std::shared_ptr<BlockCache> _blockCache);
 	int getRegion() const;
 };
 

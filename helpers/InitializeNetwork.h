@@ -3,15 +3,20 @@
 
 #include <iomanip>
 #include <random>
+#include <memory>
 #include <vector>
 
-#include "../config/Config.h"
-#include "../core/Network/Network.h"
-#include "../core/Network/Node/Node.h"
 #include "./Center.h"
 #include "./Logger/easylogging.h"
+#include "../config/Config.h"
+#include "../core/Blockchain/Cache/BlockCache.h"
+#include "../core/Network/Network.h"
+#include "../core/Network/Node/Miner.h"
+#include "../core/Network/Node/Node.h"
+#include "../core/Network/Node/NodeType.h"
+#include "../models/BlockchainManagementModels/BlockchainManagementBitcoinModel.h"
 
-bool generateNodes(Network& network) {
+bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, NodeType nodeType) {
 	std::vector<double> cumulativeProbabilities;
 
 	// compute cumulative probability vector of node distribution in regions to randomly assign a node's region
@@ -42,7 +47,12 @@ bool generateNodes(Network& network) {
 		double randomNumber = unif(rng);
 		for(int j=0; j<NUM_REGIONS; j++) {
 			if(randomNumber < cumulativeProbabilities[j]) {
-				network.addNode( std::shared_ptr<Node>( new Node(i, true, j) ) );
+				if(nodeType == NodeType::Miner) 
+					network.addNode( std::shared_ptr<Node>( 
+										new Miner(i, true, j, 
+											      std::unique_ptr<BlockchainManagementBitcoinModel>(new BlockchainManagementBitcoinModel()),													
+												  blockCache) 
+												          ) );
 				break;
 			}
 		}
@@ -81,10 +91,10 @@ bool testSanity(Network& network) {
 	return true;
 }
 
-Network getRandomNetwork() {
+Network getRandomNetwork(std::shared_ptr<BlockCache> blockCache) {
 	Network network;
 
-	generateNodes(network);
+	generateNodes(network, blockCache, NodeType::Miner);
 	testSanity(network);
 
 	return network;
