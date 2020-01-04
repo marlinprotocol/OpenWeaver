@@ -932,12 +932,13 @@ void PubSubNode<
 	// 		potential_channel_subscriptions[channel].erase(&transport);
 	// 	}
 	// );
-	remove_conn(sol_conns, transport);
-	remove_conn(sol_standby_conns, transport);
-	remove_conn(unsol_conns, transport);
 
-	// add to blacklist
-	blacklist_addr.insert(transport.dst_addr);
+	if (remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport)) {
+		// add to blacklist
+		blacklist_addr.insert(transport.dst_addr);
+	}
+
+	remove_conn(unsol_conns, transport);
 
 	// Flush subscribers
 	for(auto id : transport.cut_through_used_ids) {
