@@ -1,10 +1,10 @@
 #include "./EventManager.h"
 
-int EventManager::currentTick = 0;
+uint64_t EventManager::currentTick = 0;
 
-EventManager::EventManager(Network& _network) : network(_network) {}
+EventManager::EventManager(Network& _network, std::shared_ptr<BlockCache> _blockCache) : network(_network), blockCache(_blockCache) {}
 
-bool EventManager::addEvent(std::shared_ptr<Event> _event) {
+int EventManager::addEvent(std::shared_ptr<Event> _event) {
 	return eventQueue.addEvent(AsyncEvent(_event, currentTick + _event->getDurationInTicks()));
 }
 
@@ -29,7 +29,13 @@ bool EventManager::executeNextEvent() {
 
 	currentTick = asyncEvent.getTickToExecOn();
 
-	asyncEvent.execute(network, this);
+	LOG(DEBUG) << "[Tickstamp: " << std::setw(10) << std::right << currentTick << "]";
+
+	asyncEvent.execute(network, this, currentTick);
 
 	return true;
+}
+
+std::shared_ptr<BlockCache>EventManager::getBlockCachePtr() {
+	return blockCache;
 }

@@ -12,7 +12,7 @@ private:
 	std::unordered_map<int, std::shared_ptr<Block>> blockIdBodyMap; 
 
 public:
-	bool insert(int blockId, std::shared_ptr<Block> blockPtr);
+	bool insert(std::shared_ptr<Block> blockPtr);
 	std::shared_ptr<Block> getBlockById(int blockId) const;
 	bool hasBlockId(int blockId);
 };

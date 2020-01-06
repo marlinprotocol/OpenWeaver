@@ -1,6 +1,7 @@
 #include "./BlockCache.h"
 
-bool BlockCache::insert(int blockId, std::shared_ptr<Block> blockPtr) {
+bool BlockCache::insert(std::shared_ptr<Block> blockPtr) {
+	int blockId = blockPtr->getBlockId();
 	blockIdBodyMap[blockId] = blockPtr;
 	return true;
 }

@@ -11,11 +11,7 @@
 #include "../../config/Config.h"
 #include "../../helpers/InitializeNetwork.h"
 
-// #include "../Networking/RoutingTable.h"
-
-
-Simulator::Simulator() : eventManager(network) {
-	blockCache = make_shared<BlockCache>();
+Simulator::Simulator() : blockCache(make_shared<BlockCache>()), eventManager(network, blockCache) {
 }
 
 int Simulator::createGenesisBlock() {
@@ -24,10 +20,10 @@ int Simulator::createGenesisBlock() {
 	if(CONSENSUS_TYPE == "PoW") {
 		shared_ptr<Block> genesisBlock = getGenesisPoWBlock();
 		genesisBlockId = genesisBlock->getBlockId();
-		blockCache->insert(genesisBlockId, genesisBlock);
+		blockCache->insert(genesisBlock);
 	}
 
-	LOG(INFO) << "[GenesisBlock Type " << CONSENSUS_TYPE << "created]";
+	LOG(INFO) << "[GenesisBlock Type " << CONSENSUS_TYPE << " with id " << genesisBlockId << " created]";
 
 	return genesisBlockId;
 }

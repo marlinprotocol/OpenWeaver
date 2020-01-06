@@ -6,6 +6,7 @@
 
 #include "../Messages/Message.h"
 #include "../Messages/NewBlockIdMessage.h"
+#include "../Messages/NewBlockMinedMessage.h"
 #include "../../Blockchain/Blockchain.h"
 #include "../../../helpers/Logger/easylogging.h"
 
@@ -28,6 +29,7 @@ public:
 	int getRegion() const;
 	int getNodeId() const;
 	virtual void onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message, EventManager* _eventManager) = 0;
+	virtual void onNewBlockMinedMessage(std::shared_ptr<NewBlockMinedMessage> _message, EventManager* _eventManager, uint64_t _currentTick) = 0;
 };
 
 #endif /*NODE_H_*/

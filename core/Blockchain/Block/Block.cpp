@@ -2,9 +2,17 @@
 
 int Block::count = 0;
 
-Block::Block(int _parentBlockId, int _blockProducerId, long _tickStamp) {
+Block::Block(int _parentBlockId, int _blockProducerId, int _blockHeight) {
 	parentBlockId = _parentBlockId;
 	blockProducerId = _blockProducerId;
+	blockHeight = _blockHeight;
+	id = count++;
+}
+
+Block::Block(int _parentBlockId, int _blockProducerId, int _blockHeight, long _tickStamp) {
+	parentBlockId = _parentBlockId;
+	blockProducerId = _blockProducerId;
+	blockHeight = _blockHeight;
 	tickStamp = _tickStamp;
 	id = count++;
 }

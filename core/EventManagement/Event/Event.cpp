@@ -1,7 +1,7 @@
 #include "./Event.h"
 
-Event::Event(long long _durationInTicks) : durationInTicks(_durationInTicks) {}
+Event::Event(uint64_t _durationInTicks) : durationInTicks(_durationInTicks) {}
 
-long Event::getDurationInTicks() {
+uint64_t Event::getDurationInTicks() {
 	return durationInTicks;
 } 

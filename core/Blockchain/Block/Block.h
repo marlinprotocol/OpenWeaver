@@ -16,7 +16,8 @@ private:
 	long tickStamp;
 
 public:
-	Block(int _parentBlockId, int _blockProducerId, long _tickStamp);
+	Block(int _parentBlockId, int _blockProducerId, int _blockHeight);
+	Block(int _parentBlockId, int _blockProducerId, int _blockHeight, long _tickStamp);
 	int getBlockId();
 	int getBlockHeight();
 	int getParentBlockId();

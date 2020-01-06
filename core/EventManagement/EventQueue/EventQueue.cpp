@@ -4,9 +4,9 @@ bool EventQueue::isEmpty() {
 	return eventQueue.empty();
 }
 
-bool EventQueue::addEvent(AsyncEvent _event) {
+int EventQueue::addEvent(AsyncEvent _event) {
 	eventQueue.push(_event);
-	return true;
+	return _event.getEventId();
 }
 
 // bool EventQueue::runNextEvent() {

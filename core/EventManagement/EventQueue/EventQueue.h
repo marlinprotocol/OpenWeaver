@@ -28,7 +28,7 @@ private:
 
 public:
 	bool isEmpty();
-	bool addEvent(AsyncEvent _event);
+	int addEvent(AsyncEvent _event);
 	AsyncEvent getNextEvent() const;
 	bool removeNextEvent(); 
 	bool removeEvent(AsyncEvent _event);

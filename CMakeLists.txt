@@ -16,6 +16,7 @@ add_executable(simulation
         core/Network/Network.cpp
         core/Network/Messages/Message.cpp
         core/Network/Messages/NewBlockIdMessage.cpp
+        core/Network/Messages/NewBlockMinedMessage.cpp
         core/Network/Node/Miner.cpp
         core/Network/Node/Node.cpp
         core/Networking/RoutingTable.cpp

@@ -9,12 +9,12 @@ class EventQueue;
 
 class Event {
 private:
-	long long durationInTicks;
+	uint64_t durationInTicks;
 
 public:
-	Event(long long _durationInTicks);
-	long getDurationInTicks();
-	virtual bool execute(Network& _network, EventManager* _eventManager) = 0;
+	Event(uint64_t _durationInTicks);
+	uint64_t getDurationInTicks();
+	virtual bool execute(Network& _network, EventManager* _eventManager, uint64_t _currentTick) = 0;
 	virtual ~Event() {}
 };
 

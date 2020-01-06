@@ -19,7 +19,7 @@ private:
 
 public: 
 	MessageToNodeEvent(std::shared_ptr<Message> _message, int _forNodeId, int _fromNodeId, long long _durationInTicks);
-	bool execute(Network& _network, EventManager* _eventManager);
+	bool execute(Network& _network, EventManager* _eventManager, uint64_t _currentTick);
 };
 
 #endif /*MESSAGETONODEEVENT_H_*/
