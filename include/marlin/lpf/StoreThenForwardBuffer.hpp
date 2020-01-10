@@ -47,7 +47,7 @@ public:
 				size = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
@@ -57,7 +57,12 @@ public:
 				std::memcpy(buf + size, bytes.data(), length - size);
 				bytes.cover(length - size);
 
-				delegate.did_recv_stf_message(id, net::Buffer(buf, length));
+				auto *tbuf = buf;
+				buf = nullptr;
+				auto res = delegate.did_recv_stf_message(id, net::Buffer(tbuf, length));
+				if(res < 0) {
+					return -2;
+				}
 
 				// Prepare to process length
 				buf = nullptr;
@@ -65,7 +70,7 @@ public:
 				length = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		}
 

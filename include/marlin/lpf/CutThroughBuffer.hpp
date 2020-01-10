@@ -44,16 +44,22 @@ public:
 				size = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		} else { // Cut through message
 			if(bytes.size() + size < length) { // Partial message
 				size += bytes.size();
-				delegate.cut_through_recv_bytes(id, std::move(bytes));
+				auto res = delegate.cut_through_recv_bytes(id, std::move(bytes));
+				if(res < 0) {
+					return -2;
+				}
 			} else { // Full message
 				net::Buffer tbytes(new char[length - size], length - size);
 				std::memcpy(tbytes.data(), bytes.data(), length - size);
-				delegate.cut_through_recv_bytes(id, std::move(tbytes));
+				auto res = delegate.cut_through_recv_bytes(id, std::move(tbytes));
+				if(res < 0) {
+					return -2;
+				}
 				delegate.cut_through_recv_end(id);
 
 				bytes.cover(length - size);
@@ -64,7 +70,7 @@ public:
 				length = 0;
 
 				// Process remaining bytes
-				did_recv_bytes(delegate, std::move(bytes));
+				return did_recv_bytes(delegate, std::move(bytes));
 			}
 		}
 
