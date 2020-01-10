@@ -1,5 +1,5 @@
 /*! \file StreamTransport.hpp
-    \brief Building on UDP
+	\brief Building on UDP
 */
 
 
@@ -7,9 +7,13 @@
 #define MARLIN_STREAM_STREAMTRANSPORT_HPP
 
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
 #include <unordered_set>
 #include <unordered_map>
 #include <random>
+#include <utility>
+
+#include <sodium.h>
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
@@ -24,7 +28,7 @@ namespace stream {
 
 #define DEFAULT_TLP_INTERVAL 1000
 #define DEFAULT_PACING_LIMIT 25000
-#define DEFAULT_FRAGMENT_SIZE 1400
+#define DEFAULT_FRAGMENT_SIZE (1400 - crypto_aead_aes256gcm_NPUBBYTES)
 
 //! Custom transport class building upon UDP
 /*!
@@ -37,10 +41,14 @@ namespace stream {
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
+public:
+	static constexpr bool is_encrypted = true;
 private:
-	typedef DatagramTransport<StreamTransport<DelegateType, DatagramTransport>> BaseTransport;
+	using Self = StreamTransport<DelegateType, DatagramTransport>;
+	using BaseTransport = DatagramTransport<Self>;
+
 	BaseTransport &transport;
-	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager;
+	net::TransportManager<Self> &transport_manager;
 
 	void reset();
 
@@ -147,8 +155,14 @@ private:
 	void send_ACK();
 	void did_recv_ACK(net::Buffer &&packet);
 
+	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
+	void did_recv_SKIPSTREAM(net::Buffer &&packet);
+
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
 	void did_recv_FLUSHSTREAM(net::Buffer &&packet);
+
+	void send_FLUSHCONF(uint16_t stream_id);
+	void did_recv_FLUSHCONF(net::Buffer &&packet);
 
 public:
 	// Delegate
@@ -166,17 +180,45 @@ public:
 		net::SocketAddress const &src_addr,
 		net::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
+		net::TransportManager<Self> &transport_manager,
+		uint8_t const* remote_static_pk
 	);
 
-	void setup(DelegateType *delegate);
+	void setup(DelegateType *delegate, uint8_t const* static_sk);
 	int send(net::Buffer &&bytes, uint16_t stream_id = 0);
 	void close();
 
 	bool is_active();
 	double get_rtt();
 
+	static void skip_timer_cb(uv_timer_t *handle);
+	void skip_stream(uint16_t stream_id);
+
+	static void flush_timer_cb(uv_timer_t *handle);
 	void flush_stream(uint16_t stream_id);
+
+private:
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+
+	uint8_t remote_static_pk[crypto_box_PUBLICKEYBYTES];
+
+	uint8_t ephemeral_sk[crypto_kx_SECRETKEYBYTES];
+	uint8_t ephemeral_pk[crypto_kx_PUBLICKEYBYTES];
+
+	uint8_t remote_ephemeral_pk[crypto_kx_PUBLICKEYBYTES];
+
+	uint8_t rx[crypto_kx_SESSIONKEYBYTES];
+	uint8_t tx[crypto_kx_SESSIONKEYBYTES];
+
+	uint8_t rx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+	uint8_t tx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+
+	alignas(16) crypto_aead_aes256gcm_state rx_ctx;
+	alignas(16) crypto_aead_aes256gcm_state tx_ctx;
+public:
+	uint8_t const* get_static_pk();
+	uint8_t const* get_remote_static_pk();
 };
 
 
@@ -195,7 +237,17 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	uv_timer_stop(&state_timer);
 	state_timer_interval = 0;
 
+	for(auto& [_, stream] : send_streams) {
+		delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
+		stream.state_timer.data = nullptr;
+		uv_timer_stop(&stream.state_timer);
+	}
 	send_streams.clear();
+	for(auto& [_, stream] : recv_streams) {
+		delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
+		stream.state_timer.data = nullptr;
+		uv_timer_stop(&stream.state_timer);
+	}
 	recv_streams.clear();
 
 	last_sent_packet = -1;
@@ -237,7 +289,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
 	uv_timer_t *handle
 ) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
 		transport.state_timer_interval = 0;
@@ -347,8 +399,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
 	net::Buffer packet(
-		new char[length + 30] {0, static_cast<char>(is_fin)},
-		length + 30
+		new char[length + 30 + crypto_aead_aes256gcm_ABYTES] {0, static_cast<char>(is_fin)},
+		length + 30 + crypto_aead_aes256gcm_ABYTES
 	);
 
 	this->last_sent_packet++;
@@ -361,6 +413,25 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	packet.write_uint16_be(28, length);
 
 	std::memcpy(packet.data()+30, data_item.data.get()+offset, length);
+
+	uint8_t nonce[12];
+	for(int i = 0; i < 4; i++) {
+		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
+	}
+	for(int i = 0; i < 8; i++) {
+		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
+	}
+	crypto_aead_aes256gcm_encrypt_afternm(
+		(uint8_t*)packet.data() + 20,
+		nullptr,
+		(uint8_t*)packet.data() + 20,
+		10 + length,
+		(uint8_t*)packet.data() + 2,
+		18,
+		nullptr,
+		nonce,
+		&tx_ctx
+	);
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -432,7 +503,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 /*!
 	fragments dataItems in the stream and sends them across until congestion or pacing limit is not hit
 	\param stream SendStream from which DataItems/Packets needs to be dequeued for sending
-    \param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
+	\param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
@@ -480,7 +551,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 	transport.is_pacing_timer_active = false;
 
 	auto initial_bytes_in_flight = transport.bytes_in_flight;
@@ -525,7 +596,7 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	if(transport.sent_packets.size() == 0 && transport.lost_packets.size() == 0 && transport.send_queue.size() == 0) {
 		// Idle connection, stop timer
@@ -554,7 +625,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > transport.congestion_start) {
 			// New congestion event
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -593,7 +664,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_INFO("Lost peer: {}", transport.dst_addr.to_string());
+		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
 		transport.close();
 	}
 }
@@ -605,7 +676,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(StreamTransport<DelegateType, DatagramTransport> *)handle->data;
+	auto &transport = *(Self *)handle->data;
 
 	transport.send_ACK();
 
@@ -619,10 +690,26 @@ void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
-	net::Buffer packet(new char[10] {0, 3}, 10);
+	SPDLOG_DEBUG(
+		"Stream transport {{ Src: {}, Dst: {} }}: DIAL >>>> {:spn}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES)
+	);
+
+	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	net::Buffer packet(new char[10 + ct_len] {0, 3}, 10 + ct_len);
 
 	packet.write_uint32_be(2, this->src_conn_id);
 	packet.write_uint32_be(6, this->dst_conn_id);
+
+	uint8_t pt[pt_len];
+	std::memcpy(pt, static_pk, crypto_box_PUBLICKEYBYTES);
+	std::memcpy(pt + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
+
+	crypto_box_seal((uint8_t*)packet.data() + 10, pt, pt_len, remote_static_pk);
 
 	transport.send(std::move(packet));
 }
@@ -642,6 +729,47 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
+		SPDLOG_DEBUG(
+			"Stream transport {{ Src: {}, Dst: {} }}: DIAL <<<< {:spn}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES)
+		);
+
+		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		uint8_t pt[pt_len];
+		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
+				res
+			);
+			return;
+		}
+
+		std::memcpy(remote_static_pk, pt, crypto_box_PUBLICKEYBYTES);
+		std::memcpy(remote_ephemeral_pk, pt + crypto_box_PUBLICKEYBYTES, crypto_kx_PUBLICKEYBYTES);
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
+
 		this->dst_conn_id = packet.read_uint32_be(2);
 		this->src_conn_id = (uint32_t)std::random_device()();
 
@@ -658,6 +786,39 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			);
 			return;
 		}
+
+		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		uint8_t pt[pt_len];
+		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
+				res
+			);
+			return;
+		}
+
+		std::memcpy(remote_ephemeral_pk, pt + crypto_box_PUBLICKEYBYTES, crypto_kx_PUBLICKEYBYTES);
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
 		this->dst_conn_id = packet.read_uint32_be(2);
 
@@ -682,12 +843,29 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
-	net::Buffer packet(new char[10] {0, 4}, 10);
+	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	net::Buffer packet(new char[10 + ct_len] {0, 4}, 10 + ct_len);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
 
+	crypto_box_seal((uint8_t*)packet.data() + 10, ephemeral_pk, pt_len, remote_static_pk);
+
 	transport.send(std::move(packet));
+
+	// SPDLOG_INFO(
+	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
+	// 	src_addr.to_string(),
+	// 	dst_addr.to_string(),
+	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
+	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
+	// );
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -700,7 +878,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Src id mismatch: {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -711,10 +889,38 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+		if (crypto_box_seal_open(remote_ephemeral_pk, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
+
+		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Key derivation failure",
+				src_addr.to_string(),
+				dst_addr.to_string()
+			);
+			return;
+		}
+
+		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
+		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
+		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
 		uv_timer_stop(&state_timer);
 		state_timer_interval = 0;
+
+		this->dst_conn_id = packet.read_uint32_be(2);
 
 		send_CONF();
 
@@ -731,7 +937,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -758,7 +964,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto src_conn_id = packet.read_uint32_be(6);
 		auto dst_conn_id = packet.read_uint32_be(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -791,6 +997,18 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 	packet.write_uint32_be(6, dst_conn_id);
 
 	transport.send(std::move(packet));
+
+	// SPDLOG_INFO(
+	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
+	// 	src_addr.to_string(),
+	// 	dst_addr.to_string(),
+	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
+	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
+	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
+	// );
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -899,12 +1117,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
-	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
-
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -916,6 +1132,41 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		send_RST(src_conn_id, dst_conn_id);
 		return;
 	}
+
+	uint8_t nonce[12];
+	for(int i = 0; i < 4; i++) {
+		nonce[i] = rx_IV[i] ^ packet.data()[2+i];
+	}
+	for(int i = 0; i < 8; i++) {
+		nonce[4+i] = rx_IV[4+i] ^ packet.data()[12+i];
+	}
+	auto res = crypto_aead_aes256gcm_decrypt_afternm(
+		(uint8_t*)p.data() + 20,
+		nullptr,
+		nullptr,
+		(uint8_t*)p.data() + 20,
+		p.size() - 20,
+		(uint8_t*)p.data() + 2,
+		18,
+		nonce,
+		&rx_ctx
+	);
+
+	if(res < 0) {
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			this->src_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	p.truncate(crypto_aead_aes256gcm_ABYTES);
+
+	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
@@ -932,6 +1183,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Short circuit once stream has been received fully.
 	if(stream.state == RecvStream::State::AllRecv ||
 		stream.state == RecvStream::State::Read) {
+		return;
+	}
+
+	// Short circuit if stream is waiting to be flushed.
+	if(stream.wait_flush) {
 		return;
 	}
 
@@ -964,7 +1220,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		p.cover(stream.read_offset - offset);
 
 		// Read bytes and update offset
-		delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		if(res < 0) {
+			return;
+		}
 		stream.read_offset = offset + length;
 
 		// Read any out of order data
@@ -983,7 +1242,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 				packet.cover(stream.read_offset - iter->second.offset);
 
 				// Read bytes and update offset
-				delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+				auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+				if(res < 0) {
+					return;
+				}
+
 				stream.read_offset = iter->second.offset + iter->second.length;
 			}
 
@@ -1053,7 +1316,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1254,7 +1517,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_INFO(
+			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}, {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -1291,11 +1554,69 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
+void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
 	net::Buffer packet(new char[20] {0, 7}, 20);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+	packet.write_uint16_be(10, stream_id);
+	packet.write_uint64_be(12, offset);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
+	net::Buffer &&packet
+) {
+	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
+
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	auto stream_id = p.stream_id();
+	auto offset = p.packet_number();
+	auto &stream = get_or_create_send_stream(stream_id);
+
+	// Check for duplicate
+	if(offset < stream.acked_offset) {
+		send_FLUSHSTREAM(stream_id, stream.acked_offset);
+		return;
+	}
+
+	delegate->did_recv_skip_stream(*this, stream_id);
+
+	flush_stream(stream_id);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
+	uint16_t stream_id,
+	uint64_t offset
+) {
+	net::Buffer packet(new char[20] {0, 8}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1316,7 +1637,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_INFO(
+		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1338,9 +1659,72 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	auto &stream = get_or_create_recv_stream(stream_id);
 	auto old_offset = stream.read_offset;
+
+	// Check for duplicate
+	if(old_offset >= offset) {
+		return;
+	}
+
+	delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
+	stream.state_timer.data = nullptr;
+	uv_timer_stop(&stream.state_timer);
+
+	stream.recv_packets.clear();
 	stream.read_offset = offset;
+	stream.wait_flush = false;
 
 	delegate->did_recv_flush_stream(*this, stream_id, offset, old_offset);
+
+	send_FLUSHCONF(stream_id);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
+	uint16_t stream_id
+) {
+	net::Buffer packet(new char[12] {0, 9}, 12);
+
+	packet.write_uint32_be(2, src_conn_id);
+	packet.write_uint32_be(6, dst_conn_id);
+	packet.write_uint16_be(10, stream_id);
+
+	transport.send(std::move(packet));
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
+	net::Buffer &&packet
+) {
+	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+
+	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), p.stream_id());
+
+	auto src_conn_id = p.read_uint32_be(6);
+	auto dst_conn_id = p.read_uint32_be(2);
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	auto stream_id = p.stream_id();
+	auto &stream = get_or_create_send_stream(stream_id);
+
+	delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
+	stream.state_timer.data = nullptr;
+	uv_timer_stop(&stream.state_timer);
 }
 
 //---------------- Protocol functions end ----------------//
@@ -1353,6 +1737,10 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &
 ) {
+	if(conn_state != ConnectionState::Listen) {
+		return;
+	}
+
 	// Begin handshake
 	dialled = true;
 
@@ -1411,8 +1799,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		// RST
 		case 6: did_recv_RST(std::move(packet));
 		break;
+		// SKIPSTREAM
+		case 7: did_recv_SKIPSTREAM(std::move(packet));
+		break;
 		// FLUSHSTREAM
-		case 7: did_recv_FLUSHSTREAM(std::move(packet));
+		case 8: did_recv_FLUSHSTREAM(std::move(packet));
+		break;
+		// FLUSHCONF
+		case 9: did_recv_FLUSHCONF(std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
@@ -1447,8 +1841,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 		// RST
 		case 6: SPDLOG_TRACE("RST >>> {}", dst_addr.to_string());
 		break;
+		// SKIPSTREAM
+		case 7: SPDLOG_TRACE("SKIPSTREAM >>> {}", dst_addr.to_string());
+		break;
 		// FLUSHSTREAM
-		case 7: SPDLOG_TRACE("FLUSHSTREAM >>> {}", dst_addr.to_string());
+		case 8: SPDLOG_TRACE("FLUSHSTREAM >>> {}", dst_addr.to_string());
+		break;
+		// FLUSHCONF
+		case 9: SPDLOG_TRACE("FLUSHCONF >>> {}", dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", dst_addr.to_string());
@@ -1463,7 +1863,8 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	net::SocketAddress const &src_addr,
 	net::SocketAddress const &dst_addr,
 	BaseTransport &transport,
-	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
+	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
+	uint8_t const* remote_static_pk
 ) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
 	uv_timer_init(uv_default_loop(), &this->state_timer);
 	this->state_timer.data = this;
@@ -1476,6 +1877,14 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 
 	uv_timer_init(uv_default_loop(), &this->pacing_timer);
 	this->pacing_timer.data = this;
+
+	if(sodium_init() == -1) {
+		throw;
+	}
+
+	if (remote_static_pk != nullptr) {
+		std::memcpy(this->remote_static_pk, remote_static_pk, crypto_box_PUBLICKEYBYTES);
+	}
 }
 
 
@@ -1485,9 +1894,15 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::setup(
-	DelegateType *delegate
+	DelegateType *delegate,
+	uint8_t const* static_sk
 ) {
 	this->delegate = delegate;
+
+	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
+	crypto_scalarmult_base(this->static_pk, this->static_sk);
+
+	crypto_kx_keypair(this->ephemeral_pk, this->ephemeral_sk);
 
 	transport.setup(this);
 }
@@ -1581,6 +1996,86 @@ double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(uv_timer_t *handle) {
+	auto &timer_data = *(std::pair<Self *, RecvStream *> *)handle->data;
+	auto &transport = *timer_data.first;
+	auto &stream = *timer_data.second;
+
+	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
+		stream.state_timer_interval = 0;
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Skip timeout: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			stream.stream_id
+		);
+		transport.close();
+		return;
+	}
+
+	uint64_t offset;
+
+	if(stream.recv_packets.size() > 0) {
+		auto &packet = stream.recv_packets.rbegin()->second;
+		offset = packet.offset + packet.length;
+	} else {
+		offset = stream.read_offset;
+	}
+
+	transport.send_SKIPSTREAM(stream.stream_id, offset);
+
+	stream.state_timer_interval *= 2;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
+	uint16_t stream_id
+) {
+	auto &stream = get_or_create_recv_stream(stream_id);
+	stream.wait_flush = true;
+
+	uint64_t offset;
+
+	if(stream.recv_packets.size() > 0) {
+		auto &packet = stream.recv_packets.rbegin()->second;
+		offset = packet.offset + packet.length;
+	} else {
+		offset = stream.read_offset;
+	}
+
+	send_SKIPSTREAM(stream_id, offset);
+
+	stream.state_timer.data = new std::pair(&transport, &stream);
+	stream.state_timer_interval = 1000;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(uv_timer_t *handle) {
+	auto &timer_data = *(std::pair<Self *, SendStream *> *)handle->data;
+	auto &transport = *timer_data.first;
+	auto &stream = *timer_data.second;
+
+	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
+		stream.state_timer_interval = 0;
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Flush timeout: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			stream.stream_id
+		);
+		transport.close();
+		return;
+	}
+
+	transport.send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
+
+	stream.state_timer_interval *= 2;
+	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	uint16_t stream_id
 ) {
@@ -1618,6 +2113,20 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	}
 
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
+
+	stream.state_timer_interval = 1000;
+	stream.state_timer.data = new std::pair(&transport, &stream);
+	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+uint8_t const* StreamTransport<DelegateType, DatagramTransport>::get_static_pk() {
+	return static_pk;
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+uint8_t const* StreamTransport<DelegateType, DatagramTransport>::get_remote_static_pk() {
+	return remote_static_pk;
 }
 
 } // namespace stream
