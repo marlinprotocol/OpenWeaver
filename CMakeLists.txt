@@ -9,6 +9,11 @@ endif()
 
 include(GNUInstallDirs)
 
+IF(APPLE)
+    # Fix linking on 10.14+. See https://stackoverflow.com/questions/54068035
+    LINK_DIRECTORIES(/usr/local/lib)
+ENDIF()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(beacon INTERFACE)
@@ -19,6 +24,10 @@ target_include_directories(beacon
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_compile_features(beacon INTERFACE cxx_std_17)
+
+# libsodium
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
+target_link_libraries(beacon INTERFACE sodium.a)
 
 # MarlinNet
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
@@ -89,7 +98,7 @@ target_include_directories(discovery_example
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-target_link_libraries(discovery_example PUBLIC beacon)
+target_link_libraries(discovery_example PUBLIC beacon stdc++fs)
 target_compile_options(discovery_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 add_executable(server

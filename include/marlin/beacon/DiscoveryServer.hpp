@@ -8,6 +8,10 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <map>
 
+#include <sodium.h>
+
+#include <spdlog/fmt/bin_to_hex.h>
+
 namespace marlin {
 namespace beacon {
 
@@ -38,11 +42,11 @@ private:
 	void did_recv_DISCPEER(BaseTransport &transport);
 	void send_LISTPEER(BaseTransport &transport);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport);
+	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&bytes);
 
 	static void heartbeat_timer_cb(uv_timer_t *handle);
 
-	std::unordered_map<BaseTransport *, uint64_t> peers;
+	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
 	uv_timer_t heartbeat_timer;
 public:
 	// Listen delegate
@@ -140,25 +144,27 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
-	char *message = new char[1100] {0, 3};
+	auto iter = peers.begin();
 
-	size_t size = 2;
+	while(iter != peers.end()) {
+		char *message = new char[1100] {0, 3};
+		size_t size = 2;
 
-	// TODO - Handle overflow
-	for(
-		auto iter = peers.begin();
-		iter != peers.end() && size + 7 < 1100;
-		iter++
-	) {
-		if(iter->first == &transport) continue;
+		for(
+			;
+			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
+			iter++
+		) {
+			if(iter->first == &transport) continue;
 
-		auto bytes = iter->first->dst_addr.serialize();
-		std::memcpy(message+size, bytes.data(), 8);
-		size += 8;
+			iter->first->dst_addr.serialize(message+size, 8);
+			std::memcpy(message+size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
+			size += 8 + crypto_box_PUBLICKEYBYTES;
+		}
+
+		net::Buffer p(message, size);
+		transport.send(std::move(p));
 	}
-
-	net::Buffer p(message, size);
-	transport.send(std::move(p));
 }
 
 /*!
@@ -167,11 +173,17 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 */
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
-	BaseTransport &transport
+	BaseTransport &transport,
+	net::Buffer &&bytes
 ) {
-	SPDLOG_DEBUG("HEARTBEAT <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG(
+		"HEARTBEAT <<< {}, {:spn}",
+		transport.dst_addr.to_string(),
+		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
+	);
 
-	peers[&transport] = uv_now(uv_default_loop());
+	peers[&transport].first = uv_now(uv_default_loop());
+	std::memcpy(peers[&transport].second.data(), bytes.data()+2, crypto_box_PUBLICKEYBYTES);
 }
 
 
@@ -187,7 +199,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb(uv_timer_t *ha
 	auto iter = beacon.peers.begin();
 	while(iter != beacon.peers.end()) {
 		// Remove stale peers if inactive for a minute
-		if(now - iter->second > 60000) {
+		if(now - iter->second.first > 60000) {
 			iter = beacon.peers.erase(iter);
 		} else {
 			iter++;
@@ -255,7 +267,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 		case 3: SPDLOG_ERROR("Unexpected LISTPEER from {}", transport.dst_addr.to_string());
 		break;
 		// HEARTBEAT
-		case 4: did_recv_HEARTBEAT(transport);
+		case 4: did_recv_HEARTBEAT(transport, std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
