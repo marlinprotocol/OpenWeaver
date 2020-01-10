@@ -561,7 +561,6 @@ template<typename PubSubDelegate>
 void PubSubServer<PubSubDelegate>::did_create_transport(
 	BaseTransport &transport
 ) {
-	transport.should_cut_through = true;
 	transport.setup(this);
 }
 
