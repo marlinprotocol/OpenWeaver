@@ -97,6 +97,7 @@ void TcpTransport<DelegateType>::recv_cb(
 	// EOF
 	if(nread == -4095) {
 		transport->close();
+		delete[] buf->base;
 		return;
 	}
 

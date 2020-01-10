@@ -16,6 +16,7 @@ class Buffer {
 	char *buf;
 	size_t capacity;
 	size_t start_index;
+	size_t end_index;
 
 public:
 	/// Construct from unique_ptr
@@ -44,6 +45,7 @@ public:
 		buf = nullptr;
 		capacity = 0;
 		start_index = 0;
+		end_index = 0;
 
 		return _buf;
 	}
@@ -55,7 +57,7 @@ public:
 
 	/// Length of buffer
 	inline size_t size() const {
-		return capacity - start_index;
+		return end_index - start_index;
 	}
 
 	/// Moves start of buffer forward and covers given number of bytes
@@ -67,6 +69,16 @@ public:
 	bool uncover(size_t const num);
 	/// Moves start of buffer backward and uncovers given number of bytes without bounds checking
 	void uncover_unsafe(size_t const num);
+
+	/// Moves end of buffer backward and covers given number of bytes
+	bool truncate(size_t const num);
+	/// Moves end of buffer backward and covers given number of bytes without bounds checking
+	void truncate_unsafe(size_t const num);
+
+	/// Moves end of buffer forward and uncovers given number of bytes
+	bool expand(size_t const num);
+	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
+	void expand_unsafe(size_t const num);
 
 	//-------- 8 bit reads begin --------//
 
