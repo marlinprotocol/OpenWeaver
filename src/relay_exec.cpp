@@ -5,7 +5,7 @@ using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000001
+#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 int main(int , char **argv) {
 	std::string beacon_addr(argv[1]);
@@ -15,8 +15,8 @@ int main(int , char **argv) {
 		"Starting relay on pubsub port: {}, discovery_port: {}, beacon server: {}",
 		pubsub_port,
 		discovery_port,
-		beacon_addr);
-
+		beacon_addr
+	);
 
 	GenericRelay<true, true, true> master1(
 		RELAY_PUBSUB_PROTOCOL_NUMBER,

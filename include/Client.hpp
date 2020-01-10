@@ -11,8 +11,7 @@ using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000001
-#define CLIENT_PUBSUB_PROTOCOL_NUMBER 0x10000002
+#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 class Client {
 private:
@@ -26,7 +25,6 @@ private:
 		false
 	>;
 
-	// const uint32_t my_protocol = CLIENT_PUBSUB_PROTOCOL_NUMBER;
 	bool is_discoverable = false; // false for client
 	PubSubNodeType *ps;
 	marlin::beacon::DiscoveryClient<Client> *b;

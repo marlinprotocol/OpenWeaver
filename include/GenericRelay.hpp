@@ -12,8 +12,8 @@ using namespace marlin::stream;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000000
-#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000001
+#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000001
+#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 template<
 	bool enable_cut_through = false,
@@ -110,10 +110,10 @@ public:
 		) {
 			if (protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				max_sol_conns = 50;
-				max_unsol_conns = 4;//4;
+				max_unsol_conns = 6;
 			} else {
 				max_sol_conns = 2;
-				max_unsol_conns = 4;//15;
+				max_unsol_conns = 16;
 			}
 
 			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk);
@@ -154,7 +154,6 @@ public:
 			if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
 				ps->subscribe(addr, static_pk);
 			}
-
 		}
 	}
 
@@ -178,15 +177,14 @@ public:
 	void did_recv_message(
 		PubSubNodeType &,
 		Buffer &&message __attribute__((unused)),
-		Buffer &&witness,
+		Buffer &&witness __attribute__((unused)),
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
 	) {
 		SPDLOG_INFO(
-			"Received message {} on channel {} witness {}",
+			"Received message {} on channel {}",
 			message_id,
-			channel,
-			spdlog::to_hex(witness.data(), witness.data() + witness.size())
+			channel
 		);
 	}
 
