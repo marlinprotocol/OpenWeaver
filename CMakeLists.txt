@@ -9,6 +9,11 @@ endif()
 
 include(GNUInstallDirs)
 
+IF(APPLE)
+    # Fix linking on 10.14+. See https://stackoverflow.com/questions/54068035
+    LINK_DIRECTORIES(/usr/local/lib)
+ENDIF()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(pubsub INTERFACE)
@@ -66,8 +71,17 @@ install(FILES
 # Build examples
 ##########################################################
 
-add_executable(testclient
-	examples/client.cpp
+# add_executable(testclient
+# 	examples/client.cpp
+# )
+
+# target_link_libraries(testclient PUBLIC pubsub)
+# target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+
+
+add_executable(testclient2
+	examples/client2.cpp
 )
-target_link_libraries(testclient PUBLIC pubsub)
-target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+
+target_link_libraries(testclient2 PUBLIC pubsub)
+target_compile_options(testclient2 PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
