@@ -6,16 +6,17 @@ namespace marlin {
 namespace net {
 
 Buffer::Buffer(std::unique_ptr<char[]> &&_buf, size_t const size) :
-buf(_buf.release()), capacity(size), start_index(0) {}
+buf(_buf.release()), capacity(size), start_index(0), end_index(size) {}
 
 Buffer::Buffer(char *const _buf, size_t const size) :
-buf(_buf), capacity(size), start_index(0) {}
+buf(_buf), capacity(size), start_index(0), end_index(size) {}
 
 Buffer::Buffer(Buffer &&b) :
-buf(b.buf), capacity(b.capacity), start_index(b.start_index) {
+buf(b.buf), capacity(b.capacity), start_index(b.start_index), end_index(b.capacity) {
 	b.buf = nullptr;
 	b.capacity = 0;
 	b.start_index = 0;
+	b.end_index = 0;
 }
 
 Buffer &Buffer::operator=(Buffer &&b) {
@@ -26,10 +27,12 @@ Buffer &Buffer::operator=(Buffer &&b) {
 	buf = b.buf;
 	capacity = b.capacity;
 	start_index = b.start_index;
+	end_index = b.end_index;
 
 	b.buf = nullptr;
 	b.capacity = 0;
 	b.start_index = 0;
+	b.end_index = 0;
 
 	return *this;
 }
@@ -40,7 +43,7 @@ Buffer::~Buffer() {
 
 bool Buffer::cover(size_t const num) {
 	// Bounds checking
-	if (num > capacity - start_index) // Condition specifically avoids overflow
+	if (num > size())
 		return false;
 
 	cover_unsafe(num);
@@ -64,6 +67,34 @@ bool Buffer::uncover(size_t const num) {
 
 void Buffer::uncover_unsafe(size_t const num) {
 	start_index -= num;
+}
+
+bool Buffer::truncate(size_t const num) {
+	// Bounds checking
+	if (num > size())
+		return false;
+
+	truncate_unsafe(num);
+
+	return true;
+}
+
+void Buffer::truncate_unsafe(size_t const num) {
+	end_index -= num;
+}
+
+bool Buffer::expand(size_t const num) {
+	// Bounds checking
+	if (capacity - end_index < num)
+		return false;
+
+	expand_unsafe(num);
+
+	return true;
+}
+
+void Buffer::expand_unsafe(size_t const num) {
+	end_index += num;
 }
 
 uint8_t Buffer::read_uint8_unsafe(size_t const pos) const {

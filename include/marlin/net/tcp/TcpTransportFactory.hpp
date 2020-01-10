@@ -250,7 +250,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 void
 TcpTransportFactory<ListenDelegate, TransportDelegate>::
 dial_cb(uv_connect_t *req, int status) {
-	auto payload = (DialPayload *)req->data;
+	auto *payload = (DialPayload *)req->data;
 
 	auto &factory = *(payload->factory);
 
@@ -261,7 +261,7 @@ dial_cb(uv_connect_t *req, int status) {
 			status
 		);
 
-		delete (DialPayload *)req->data;
+		delete payload;
 		delete req;
 
 		return;
@@ -283,6 +283,9 @@ dial_cb(uv_connect_t *req, int status) {
 	}
 
 	transport->delegate->did_dial(*transport);
+
+	delete payload;
+	delete req;
 }
 
 

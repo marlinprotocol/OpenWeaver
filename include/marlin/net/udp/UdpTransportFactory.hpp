@@ -46,6 +46,8 @@ private:
 		UdpTransportFactory<ListenDelegate, TransportDelegate> *factory;
 		ListenDelegate *delegate;
 	};
+
+	std::pair<UdpTransport<TransportDelegate> *, int> dial_impl(SocketAddress const &addr, ListenDelegate &delegate);
 public:
 	SocketAddress addr;
 
@@ -54,7 +56,13 @@ public:
 
 	int bind(SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
+
 	int dial(SocketAddress const &addr, ListenDelegate &delegate);
+	template<typename MetadataType>
+	int dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata);
+	template<typename MetadataType>
+	int dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& metadata);
+
 	UdpTransport<TransportDelegate> *get_transport(
 		SocketAddress const &addr
 	);
@@ -76,7 +84,7 @@ close_cb(uv_handle_t *handle) {
 	delete static_cast<
 		RecvPayload *
 	>(handle->data);
-	delete handle;
+	delete (uv_udp_t*)handle;
 }
 
 //! Destructor, closes the listening socket
@@ -242,9 +250,16 @@ listen(ListenDelegate &delegate) {
 	/return 0 always, error handling done in dial_cb
 */
 template<typename ListenDelegate, typename TransportDelegate>
-int
+std::pair<UdpTransport<TransportDelegate> *, int>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(SocketAddress const &addr, ListenDelegate &delegate) {
+dial_impl(SocketAddress const &addr, ListenDelegate &delegate) {
+	if(!is_listening) {
+		auto status = listen(delegate);
+		if(status < 0) {
+			return {nullptr, status};
+		}
+	}
+
 	auto [transport, res] = this->transport_manager.get_or_create(
 		addr,
 		this->addr,
@@ -253,20 +268,60 @@ dial(SocketAddress const &addr, ListenDelegate &delegate) {
 		this->transport_manager
 	);
 
-	if(res) {
-		delegate.did_create_transport(*transport);
-	}
+	return {transport, res ? 1 : 0};
+}
 
-	if(!is_listening) {
-		auto status = listen(delegate);
-		if(status < 0) {
-			return status;
-		}
+template<typename ListenDelegate, typename TransportDelegate>
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+dial(SocketAddress const &addr, ListenDelegate &delegate) {
+	auto [transport, status] = dial_impl(addr, delegate);
+
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport);
 	}
 
 	transport->delegate->did_dial(*transport);
 
-	return 0;
+	return status;
+}
+
+template<typename ListenDelegate, typename TransportDelegate>
+template<typename MetadataType>
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata) {
+	auto [transport, status] = dial_impl(addr, delegate);
+
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport, metadata);
+	}
+
+	transport->delegate->did_dial(*transport);
+
+	return status;
+}
+
+template<typename ListenDelegate, typename TransportDelegate>
+template<typename MetadataType>
+int
+UdpTransportFactory<ListenDelegate, TransportDelegate>::
+dial(SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& metadata) {
+	auto [transport, status] = dial_impl(addr, delegate);
+
+	if(status < 0) {
+		return status;
+	} else if(status == 1) {
+		delegate.did_create_transport(*transport, std::move(metadata));
+	}
+
+	transport->delegate->did_dial(*transport);
+
+	return status;
 }
 
 template<typename ListenDelegate, typename TransportDelegate>

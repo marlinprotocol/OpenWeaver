@@ -57,9 +57,9 @@ public:
 	bool operator<(const SocketAddress &other) const;
 
 	/// Serialize into bytes
-	std::vector<unsigned char> serialize() const;
+	size_t serialize(char* bytes, size_t size) const;
 	/// Deserialize from bytes
-	static SocketAddress deserialize(const std::vector<unsigned char>::iterator bytes);
+	static SocketAddress deserialize(char const* bytes, size_t const size);
 
 	uint16_t get_port() const;
 };
@@ -73,7 +73,7 @@ namespace std {
 	{
 		size_t operator()(const marlin::net::SocketAddress &addr) const
 		{
-			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr);
+			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr) ^ std::hash<uint16_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_port);
 		}
 	};
 }

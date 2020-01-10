@@ -15,6 +15,8 @@
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
+#include <list>
+
 namespace marlin {
 namespace net {
 
@@ -32,8 +34,10 @@ private:
 
 	struct SendPayload {
 		Buffer packet;
-		UdpTransport<DelegateType> &transport;
+		UdpTransport<DelegateType> *transport;
 	};
+
+	std::list<uv_udp_send_t *> pending_req;
 public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
@@ -88,15 +92,22 @@ void UdpTransport<DelegateType>::send_cb(
 ) {
 	auto *data = (SendPayload *)req->data;
 
+	if(data->transport == nullptr) {
+		delete data;
+		delete req;
+		return;
+	}
+	data->transport->pending_req.pop_front();
+
 	if(status < 0) {
 		SPDLOG_ERROR(
 			"Net: Socket {}: Send callback error: {}",
-			data->transport.dst_addr.to_string(),
+			data->transport->dst_addr.to_string(),
 			status
 		);
 	} else {
-		data->transport.delegate->did_send_packet(
-			data->transport,
+		data->transport->delegate->did_send_packet(
+			*data->transport,
 			std::move(data->packet)
 		);
 	}
@@ -113,8 +124,10 @@ void UdpTransport<DelegateType>::send_cb(
 template<typename DelegateType>
 int UdpTransport<DelegateType>::send(Buffer &&packet) {
 	uv_udp_send_t *req = new uv_udp_send_t();
-	auto req_data = new SendPayload{std::move(packet), *this};
+	auto req_data = new SendPayload{std::move(packet), this};
 	req->data = req_data;
+
+	pending_req.push_back(req);
 
 	auto buf = uv_buf_init(req_data->packet.data(), req_data->packet.size());
 	int res = uv_udp_send(
@@ -143,6 +156,10 @@ int UdpTransport<DelegateType>::send(Buffer &&packet) {
 template<typename DelegateType>
 void UdpTransport<DelegateType>::close() {
 	delegate->did_close(*this);
+	for (auto *req : pending_req) {
+		auto *data = (SendPayload *)req->data;
+		data->transport = nullptr;
+	}
 	transport_manager.erase(dst_addr);
 }
 

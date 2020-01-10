@@ -35,7 +35,7 @@
 
 // Error if still not detected
 #ifndef MARLIN_NET_ENDIANNESS
-#error Couldn't detect endianness
+#error Could not detect endianness
 #endif
 
 #endif

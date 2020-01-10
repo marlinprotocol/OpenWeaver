@@ -92,20 +92,31 @@ bool SocketAddress::operator<(const SocketAddress &other) const {
 	return this->to_string() < other.to_string();
 }
 
-std::vector<unsigned char> SocketAddress::serialize() const {
+size_t SocketAddress::serialize(char* bytes, size_t size) const {
+	if(size < 8) {
+		return 0;
+	}
+
 	uint16_t family = reinterpret_cast<const sockaddr_in *>(this)->sin_family;
 	char *start = (char *)&(reinterpret_cast<const sockaddr_in *>(this)->sin_addr);
 	uint16_t port = reinterpret_cast<const sockaddr_in *>(this)->sin_port;
 
-	std::vector<unsigned char> bytes({static_cast<unsigned char>(family >> 8), static_cast<unsigned char>(family & 0xff)});
-	bytes.insert(bytes.end(), start, start+4);
-	bytes.push_back(port >> 8);
-	bytes.push_back(port & 0xff);
-	return bytes;
+	bytes[0] = static_cast<char>(family >> 8);
+	bytes[1] = static_cast<char>(family & 0xff);
+	std::memcpy(bytes+2, start, 4);
+	bytes[6] = port >> 8;
+	bytes[7] = port & 0xff;
+
+	return 8;
 }
 
-SocketAddress SocketAddress::deserialize(const std::vector<unsigned char>::iterator bytes) {
+SocketAddress SocketAddress::deserialize(char const* bytes, size_t const size) {
 	SocketAddress addr;
+
+	if(size < 8) {
+		return addr;
+	}
+
 	reinterpret_cast<sockaddr_in *>(&addr)->sin_family =
 		((uint16_t)bytes[0] << 8) + (uint16_t)bytes[1];
 	memcpy(&(reinterpret_cast<sockaddr_in *>(&addr)->sin_addr), &(bytes[2]), 4);
