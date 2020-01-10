@@ -46,14 +46,15 @@ public:
 				TransportDelegate,
 				DatagramTransport
 			>
-		> &transport
+		> &transport,
+		uint8_t const* remote_static_pk = nullptr
 	);
 
 	net::SocketAddress addr;
 
 	int bind(net::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
-	int dial(net::SocketAddress const &addr, ListenDelegate &delegate);
+	int dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* key);
 	StreamTransport<TransportDelegate, DatagramTransport> *get_transport(
 		net::SocketAddress const &addr
 	);
@@ -97,14 +98,16 @@ void StreamTransportFactory<
 			TransportDelegate,
 			DatagramTransport
 		>
-	> &transport
+	> &transport,
+	uint8_t const* remote_static_pk
 ) {
 	auto *stream_transport = transport_manager.get_or_create(
 		transport.dst_addr,
 		transport.src_addr,
 		transport.dst_addr,
 		transport,
-		transport_manager
+		transport_manager,
+		remote_static_pk
 	).first;
 	delegate->did_create_transport(*stream_transport);
 }
@@ -170,9 +173,9 @@ int StreamTransportFactory<
 	TransportDelegate,
 	DatagramTransportFactory,
 	DatagramTransport
->::dial(net::SocketAddress const &addr, ListenDelegate &delegate) {
+>::dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* remote_static_pk) {
 	this->delegate = &delegate;
-	return f.dial(addr, *this);
+	return f.dial(addr, *this, remote_static_pk);
 }
 
 template<
