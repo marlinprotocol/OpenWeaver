@@ -9,11 +9,6 @@ endif()
 
 include(GNUInstallDirs)
 
-IF(APPLE)
-    # Fix linking on 10.14+. See https://stackoverflow.com/questions/54068035
-    LINK_DIRECTORIES(/usr/local/lib)
-ENDIF()
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(multicastsdk INTERFACE)
@@ -77,20 +72,6 @@ add_executable(msggen
 
 target_link_libraries(msggen PUBLIC multicastsdk)
 
-add_executable(multicastTcpServer
-	examples/MulticastTcpServer.cpp
-)
-
-target_link_libraries(multicastTcpServer PUBLIC multicastsdk)
-
-
-# MarlinLpf
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-lpf.cmake")
-target_link_libraries(multicastTcpServer PUBLIC Marlin::lpf)
-
-# MarlinStream
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
-target_link_libraries(multicastTcpServer PUBLIC Marlin::stream)
 
 ##########################################################
 # C SDK

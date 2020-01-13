@@ -162,7 +162,6 @@ public:
 			options.pubsub_addr
 		);
 
-		b.is_discoverable = false;
 		b.delegate = this;
 		ps.delegate = this;
 
