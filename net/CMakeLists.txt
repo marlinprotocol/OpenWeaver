@@ -16,6 +16,7 @@ add_library(net STATIC
 	src/Buffer.cpp
 	src/SocketAddress.cpp
 )
+add_library(marlin::net ALIAS net)
 
 target_include_directories(net
 	PUBLIC
@@ -31,13 +32,11 @@ set_target_properties(net PROPERTIES
 	OUTPUT_NAME "marlin-net"
 )
 
-# LibUV
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/libuv.cmake")
+# libuv
 target_link_libraries(net PUBLIC uv_a)
 
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
-target_link_libraries(net PUBLIC spdlog::spdlog)
+# spdlog
+target_link_libraries(net PUBLIC spdlog)
 
 install(TARGETS net
 	EXPORT marlin-net-export
@@ -55,15 +54,14 @@ install(EXPORT marlin-net-export
   FILE
 	MarlinNetTargets.cmake
   NAMESPACE
-	Marlin::
+	marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
+	${CMAKE_INSTALL_LIBDIR}/cmake/marlinNet
 )
 
 install(FILES
-	${CMAKE_CURRENT_LIST_DIR}/cmake/FindLibUV.cmake
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinNetConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinNet
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinNet
 )
 
 
