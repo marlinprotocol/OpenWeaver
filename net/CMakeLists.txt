@@ -80,6 +80,7 @@ set(TEST_SOURCES
 	test/testUdp.cpp
 )
 
+add_custom_target(net_tests)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
@@ -87,6 +88,8 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
 	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(net_tests ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
 
@@ -94,16 +97,26 @@ endforeach(TEST_SOURCE)
 # Examples
 ##########################################################
 
-add_executable(udp_example
+set(EXAMPLE_SOURCES
 	examples/udp.cpp
-)
-target_link_libraries(udp_example PUBLIC net)
-target_compile_options(udp_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(udp_example PRIVATE cxx_std_17)
-
-add_executable(tcp_example
 	examples/tcp.cpp
 )
-target_link_libraries(tcp_example PUBLIC net)
-target_compile_options(tcp_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(tcp_example PRIVATE cxx_std_17)
+
+add_custom_target(net_examples)
+foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
+	get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
+	add_executable(${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
+	target_link_libraries(${EXAMPLE_NAME}_example PUBLIC net)
+	target_compile_options(${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
+
+	add_dependencies(net_examples ${EXAMPLE_NAME}_example)
+endforeach(EXAMPLE_SOURCE)
+
+
+##########################################################
+# All
+##########################################################
+
+add_custom_target(net_all)
+add_dependencies(net_all net net_tests net_examples)
