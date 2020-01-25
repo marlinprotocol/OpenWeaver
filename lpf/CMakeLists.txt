@@ -12,6 +12,7 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(lpf INTERFACE)
+add_library(marlin::lpf ALIAS lpf)
 
 target_include_directories(lpf
 	INTERFACE
@@ -19,12 +20,10 @@ target_include_directories(lpf
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(lpf INTERFACE Marlin::net)
+# marlin::stream
+target_link_libraries(lpf INTERFACE marlin::stream)
 
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+# spdlog
 target_link_libraries(lpf INTERFACE spdlog::spdlog)
 
 install(TARGETS lpf
@@ -40,17 +39,17 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-lpf-export
-  FILE
-	MarlinLpfTargets.cmake
-  NAMESPACE
-	Marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinLpf
+	FILE
+		MarlinLpfTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinLpf
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinLpfConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinLpf
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinLpf
 )
 
 ##########################################################
