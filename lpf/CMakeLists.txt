@@ -20,8 +20,8 @@ target_include_directories(lpf
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# marlin::stream
-target_link_libraries(lpf INTERFACE marlin::stream)
+# marlin::net
+target_link_libraries(lpf INTERFACE marlin::net)
 
 # spdlog
 target_link_libraries(lpf INTERFACE spdlog::spdlog)
