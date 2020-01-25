@@ -17,6 +17,7 @@ ENDIF()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(stream INTERFACE)
+add_library(marlin::stream ALIAS stream)
 
 target_include_directories(stream
 	INTERFACE
@@ -26,15 +27,12 @@ target_include_directories(stream
 target_compile_features(stream INTERFACE cxx_std_17)
 
 # libsodium
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
-target_link_libraries(stream INTERFACE sodium.a)
+target_link_libraries(stream INTERFACE sodium::sodium)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(stream INTERFACE Marlin::net)
+# marlin::net
+target_link_libraries(stream INTERFACE marlin::net)
 
 # spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 target_link_libraries(stream INTERFACE spdlog::spdlog)
 
 install(TARGETS stream
@@ -50,17 +48,17 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-stream-export
-  FILE
-	MarlinStreamTargets.cmake
-  NAMESPACE
-	Marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinStream
+	FILE
+		MarlinStreamTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinStream
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinStreamConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinStream
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinStream
 )
 
 ##########################################################
