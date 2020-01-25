@@ -17,6 +17,7 @@ ENDIF()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(beacon INTERFACE)
+add_library(marlin::beacon ALIAS beacon)
 
 target_include_directories(beacon
 	INTERFACE
@@ -26,15 +27,12 @@ target_include_directories(beacon
 target_compile_features(beacon INTERFACE cxx_std_17)
 
 # libsodium
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/libsodium.cmake")
-target_link_libraries(beacon INTERFACE sodium.a)
+target_link_libraries(beacon INTERFACE sodium::sodium)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(beacon INTERFACE Marlin::net)
+# marlin::net
+target_link_libraries(beacon INTERFACE marlin::net)
 
 # spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 target_link_libraries(beacon INTERFACE spdlog::spdlog)
 
 install(TARGETS beacon
