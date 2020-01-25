@@ -48,17 +48,17 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-beacon-export
-  FILE
-	MarlinBeaconTargets.cmake
-  NAMESPACE
-	Marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinBeacon
+	FILE
+		MarlinBeaconTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinBeacon
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinBeaconConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinBeacon
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinBeacon
 )
 
 
@@ -73,12 +73,15 @@ include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 set(TEST_SOURCES
 )
 
+add_custom_target(beacon_tests)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
-	add_test(${TEST_NAME} ${TEST_NAME})
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(beacon_tests ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
 
@@ -86,9 +89,12 @@ endforeach(TEST_SOURCE)
 # Build examples
 ##########################################################
 
+add_custom_target(beacon_examples)
+
 add_executable(discovery_example
-	examples/main.cpp
+	examples/discovery.cpp
 )
+add_dependencies(beacon_examples discovery_example)
 
 target_include_directories(discovery_example
 	PUBLIC
@@ -102,6 +108,7 @@ target_compile_options(discovery_example PRIVATE -Werror -Wall -Wextra -pedantic
 add_executable(server
 	examples/server.cpp
 )
+add_dependencies(beacon_examples server)
 
 target_include_directories(server
 	PUBLIC
@@ -111,3 +118,10 @@ target_include_directories(server
 )
 target_link_libraries(server PUBLIC beacon)
 target_compile_options(server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+
+##########################################################
+# All
+##########################################################
+
+add_custom_target(beacon_all)
+add_dependencies(beacon_all net beacon_tests beacon_examples)
