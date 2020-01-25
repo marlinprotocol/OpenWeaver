@@ -17,6 +17,7 @@ ENDIF()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(pubsub INTERFACE)
+add_library(marlin::pubsub ALIAS pubsub)
 
 target_include_directories(pubsub
 	INTERFACE
@@ -25,20 +26,16 @@ target_include_directories(pubsub
 )
 target_compile_features(pubsub INTERFACE cxx_std_17)
 
-# MarlinLpf
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-lpf.cmake")
-target_link_libraries(pubsub INTERFACE Marlin::lpf)
+# marlin::lpf
+target_link_libraries(pubsub INTERFACE marlin::lpf)
 
-# MarlinStream
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-stream.cmake")
-target_link_libraries(pubsub INTERFACE Marlin::stream)
+# marlin::stream
+target_link_libraries(pubsub INTERFACE marlin::stream)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(pubsub INTERFACE Marlin::net)
+# marlin::net
+target_link_libraries(pubsub INTERFACE marlin::net)
 
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+# spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog)
 
 install(TARGETS pubsub
@@ -54,34 +51,26 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-pubsub-export
-  FILE
-	MarlinPubsubTargets.cmake
-  NAMESPACE
-	Marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinPubsub
+	FILE
+		MarlinPubsubTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinPubsub
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinPubsubConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinPubsub
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinPubsub
 )
 
 ##########################################################
 # Build examples
 ##########################################################
 
-# add_executable(testclient
-# 	examples/client.cpp
-# )
-
-# target_link_libraries(testclient PUBLIC pubsub)
-# target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
-
-
-add_executable(testclient2
-	examples/client2.cpp
+add_executable(testclient
+	examples/client.cpp
 )
 
-target_link_libraries(testclient2 PUBLIC pubsub)
-target_compile_options(testclient2 PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+target_link_libraries(testclient PUBLIC pubsub)
+target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
