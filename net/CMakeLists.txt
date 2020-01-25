@@ -33,10 +33,10 @@ set_target_properties(net PROPERTIES
 )
 
 # libuv
-target_link_libraries(net PUBLIC uv_a)
+target_link_libraries(net PUBLIC libuv::uv_a)
 
 # spdlog
-target_link_libraries(net PUBLIC spdlog)
+target_link_libraries(net PUBLIC spdlog::spdlog)
 
 install(TARGETS net
 	EXPORT marlin-net-export
@@ -51,12 +51,12 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-net-export
-  FILE
-	MarlinNetTargets.cmake
-  NAMESPACE
-	marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/marlinNet
+	FILE
+		MarlinNetTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinNet
 )
 
 install(FILES
