@@ -72,13 +72,16 @@ set(TEST_SOURCES
 	test/testAckRanges.cpp
 )
 
+add_custom_target(stream_tests)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
-	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main Marlin::net stream)
-	add_test(${TEST_NAME} ${TEST_NAME})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main stream)
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
+	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(stream_tests ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
 
@@ -86,9 +89,21 @@ endforeach(TEST_SOURCE)
 # Build examples
 ##########################################################
 
+add_custom_target(stream_examples)
+
 add_executable(stream_example
 	examples/stream.cpp
 )
+add_dependencies(stream_examples stream_example)
+
 target_link_libraries(stream_example PUBLIC stream)
 target_compile_options(stream_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(stream_example PRIVATE cxx_std_17)
+
+
+##########################################################
+# All
+##########################################################
+
+add_custom_target(stream_all)
+add_dependencies(stream_all stream stream_tests stream_examples)

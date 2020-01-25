@@ -124,4 +124,4 @@ target_compile_options(server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 ##########################################################
 
 add_custom_target(beacon_all)
-add_dependencies(beacon_all net beacon_tests beacon_examples)
+add_dependencies(beacon_all beacon beacon_tests beacon_examples)
