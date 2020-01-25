@@ -52,11 +52,47 @@ install(FILES
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinLpf
 )
 
+
+##########################################################
+# Tests
+##########################################################
+
+enable_testing()
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
+
+set(TEST_SOURCES
+)
+
+add_custom_target(lpf_tests)
+foreach(TEST_SOURCE ${TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main lpf)
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
+	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(lpf_tests ${TEST_NAME})
+endforeach(TEST_SOURCE)
+
+
 ##########################################################
 # Build examples
 ##########################################################
 
+add_custom_target(lpf_examples)
+
 add_executable(lpf_example
 	examples/lpf.cpp
 )
+add_dependencies(lpf_examples lpf_example)
+
 target_link_libraries(lpf_example PUBLIC lpf)
+
+
+##########################################################
+# All
+##########################################################
+
+add_custom_target(lpf_all)
+add_dependencies(lpf_all lpf lpf_tests lpf_examples)
