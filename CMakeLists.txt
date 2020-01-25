@@ -5,3 +5,4 @@ add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 add_subdirectory(net EXCLUDE_FROM_ALL)
 add_subdirectory(beacon EXCLUDE_FROM_ALL)
+add_subdirectory(stream EXCLUDE_FROM_ALL)
