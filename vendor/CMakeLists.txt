@@ -1,3 +1,9 @@
+#-------- gtest --------#
+add_subdirectory(googletest)
+add_library(GTest::GTest ALIAS gtest)
+add_library(GTest::Main ALIAS gtest_main)
+
+
 #-------- libuv --------#
 add_subdirectory(libuv)
 add_library(libuv::uv_a ALIAS uv_a)
