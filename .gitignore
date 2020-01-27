@@ -32,3 +32,5 @@
 *.app
 
 build
+
+.DS_Store
