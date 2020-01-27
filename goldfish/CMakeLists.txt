@@ -33,18 +33,14 @@ set_target_properties(goldfish PROPERTIES
 	OUTPUT_NAME "goldfish"
 )
 
-# MarlinPubsub
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
-target_link_libraries(goldfish PUBLIC Marlin::pubsub)
+# marlin::pubsub
+target_link_libraries(goldfish PUBLIC marlin::pubsub)
 
-# MarlinBeacon
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
-target_link_libraries(goldfish PUBLIC Marlin::beacon)
+# marlin::beacon
+target_link_libraries(goldfish PUBLIC marlin::beacon)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(goldfish PUBLIC Marlin::net)
+# marlin::net
+target_link_libraries(goldfish PUBLIC marlin::net)
 
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+# spdlog
 target_link_libraries(goldfish PUBLIC spdlog::spdlog)
