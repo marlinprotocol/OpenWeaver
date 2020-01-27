@@ -33,9 +33,8 @@
 
 build
 
-
-.DS_Store
-
 # Doxygen related
 html
 latex
+
+.DS_Store
