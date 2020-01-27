@@ -66,7 +66,6 @@ install(FILES
 ##########################################################
 
 enable_testing()
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/gtest.cmake")
 
 set(TEST_SOURCES
 	test/testAckRanges.cpp
