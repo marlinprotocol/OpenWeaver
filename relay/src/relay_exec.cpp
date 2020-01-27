@@ -1,5 +1,4 @@
 #include "GenericRelay.hpp"
-#include "Client.hpp"
 
 using namespace marlin::net;
 using namespace marlin::beacon;
