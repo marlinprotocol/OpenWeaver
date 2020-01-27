@@ -12,6 +12,7 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(multicastsdk INTERFACE)
+add_library(marlin::multicastsdk ALIAS multicastsdk)
 
 target_include_directories(multicastsdk
 	INTERFACE
@@ -19,20 +20,16 @@ target_include_directories(multicastsdk
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-# MarlinPubsub
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
-target_link_libraries(multicastsdk INTERFACE Marlin::pubsub)
+# marlin::pubsub
+target_link_libraries(multicastsdk INTERFACE marlin::pubsub)
 
-# MarlinBeacon
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
-target_link_libraries(multicastsdk INTERFACE Marlin::beacon)
+# marlin::beacon
+target_link_libraries(multicastsdk INTERFACE marlin::beacon)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(multicastsdk INTERFACE Marlin::net)
+# marlin::net
+target_link_libraries(multicastsdk INTERFACE marlin::net)
 
-# Spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
+# spdlog
 target_link_libraries(multicastsdk INTERFACE spdlog::spdlog)
 
 install(TARGETS multicastsdk
@@ -51,14 +48,14 @@ install(EXPORT marlin-multicastsdk-export
   FILE
 	MarlinMulticastSDKTargets.cmake
   NAMESPACE
-	Marlin::
+	marlin::
   DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinMulticastSDK
+	${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinMulticastSDKConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinMulticastSDK
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
 )
 
 
@@ -80,6 +77,7 @@ target_link_libraries(msggen PUBLIC multicastsdk)
 add_library(multicastsdk_c STATIC
 	src/MarlinMulticastClient.cpp
 )
+add_library(marlin::multicastsdk_c ALIAS multicastsdk_c)
 
 target_include_directories(multicastsdk_c
 	PUBLIC
