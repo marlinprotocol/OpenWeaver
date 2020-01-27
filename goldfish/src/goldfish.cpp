@@ -2,6 +2,7 @@
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <uv.h>
+#include <unistd.h>
 
 
 using namespace marlin;
