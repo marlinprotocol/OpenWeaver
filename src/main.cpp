@@ -5,9 +5,8 @@ using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000000
-#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000001
-#define CLIENT_PUBSUB_PROTOCOL_NUMBER 0x10000002
+#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000001
+#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 int main() {
 	GenericRelay<true, true, true> master1(

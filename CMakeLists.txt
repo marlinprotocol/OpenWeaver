@@ -48,24 +48,12 @@ target_link_libraries(genericRelay PUBLIC Marlin::beacon)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 target_link_libraries(genericRelay PUBLIC spdlog::spdlog)
 
-
-add_executable(clientexec
-	src/client_exec.cpp
-)
-
 add_executable(relayexec
 	src/relay_exec.cpp
 )
 
 add_executable(masterexec
 	src/master_exec.cpp
-)
-
-target_include_directories(clientexec
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_include_directories(relayexec
@@ -83,18 +71,14 @@ target_include_directories(masterexec
 )
 
 IF(APPLE)
-target_link_libraries(clientexec PUBLIC c++)
 target_link_libraries(relayexec PUBLIC c++)
 target_link_libraries(masterexec PUBLIC c++)
 
 ELSE()
-target_link_libraries(clientexec PUBLIC stdc++fs)
 target_link_libraries(relayexec PUBLIC stdc++fs)
 target_link_libraries(masterexec PUBLIC stdc++fs)
 ENDIF()
 
-target_compile_options(clientexec PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(clientexec PUBLIC cxx_std_17)
 target_compile_options(relayexec PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(relayexec PUBLIC cxx_std_17)
 target_compile_options(masterexec PRIVATE -Werror -Wall -Wextra -pedantic-errors)
@@ -102,12 +86,10 @@ target_compile_features(masterexec PUBLIC cxx_std_17)
 
 # MarlinPubsub
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-pubsub.cmake")
-target_link_libraries(clientexec PUBLIC Marlin::pubsub)
 target_link_libraries(relayexec PUBLIC Marlin::pubsub)
 target_link_libraries(masterexec PUBLIC Marlin::pubsub)
 
 # MarlinBeacon
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-beacon.cmake")
-target_link_libraries(clientexec PUBLIC Marlin::beacon)
 target_link_libraries(relayexec PUBLIC Marlin::beacon)
 target_link_libraries(masterexec PUBLIC Marlin::beacon)
