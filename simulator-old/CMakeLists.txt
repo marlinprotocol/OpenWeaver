@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.9 FATAL_ERROR)
 
-add_executable(simulation
+add_executable(simulation_old
         main.cpp
         core/Blockchain/Blockchain.cpp
         core/Blockchain/Block/PoSBlock.cpp
@@ -18,13 +18,13 @@ add_executable(simulation
         core/Network/Messages/NewBlockIdMessage.cpp
         core/Network/Messages/NewBlockMinedMessage.cpp
         core/Network/Node/Miner.cpp
-        core/Network/Node/Node.cpp   
-        core/Networking/RoutingTable.cpp        
-        helpers/Logger/easylogging.cpp       
+        core/Network/Node/Node.cpp
+        core/Networking/RoutingTable.cpp
+        helpers/Logger/easylogging.cpp
         models/BlockchainManagementModels/BitcoinModel.cpp
-        models/Networking/BitcoinRoutingTable.cpp        
+        models/Networking/BitcoinRoutingTable.cpp
 )
 
 add_definitions(-DELPP_DEFAULT_LOG_FILE="./logs/default.log")
 
-set_property(TARGET simulation PROPERTY CXX_STANDARD 11)
+set_property(TARGET simulation_old PROPERTY CXX_STANDARD 11)
