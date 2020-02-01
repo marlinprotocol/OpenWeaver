@@ -74,7 +74,7 @@ target_link_libraries(msggen PUBLIC multicastsdk)
 # C SDK
 ##########################################################
 
-add_library(multicastsdk_c STATIC
+add_library(multicastsdk_c SHARED
 	src/MarlinMulticastClient.cpp
 )
 add_library(marlin::multicastsdk_c ALIAS multicastsdk_c)
@@ -85,7 +85,7 @@ target_include_directories(multicastsdk_c
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(multicastsdk_c INTERFACE spdlog::spdlog)
+target_link_libraries(multicastsdk_c PUBLIC spdlog::spdlog)
 target_link_libraries(multicastsdk_c PUBLIC multicastsdk)
 
 target_compile_options(multicastsdk_c PRIVATE -Werror -Wall -Wextra -pedantic-errors)
