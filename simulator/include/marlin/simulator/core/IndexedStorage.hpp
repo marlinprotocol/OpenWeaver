@@ -1,7 +1,6 @@
 #ifndef MARLIN_SIMULATOR_CORE_INDEXEDSTORAGE_HPP
 #define MARLIN_SIMULATOR_CORE_INDEXEDSTORAGE_HPP
 
-#include <cstdint>
 #include <list>
 #include <tuple>
 #include <map>
@@ -13,34 +12,40 @@ namespace simulator {
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MapIndex {
 private:
-	using TPtrType = typename std::list<std::shared_ptr<T>>::iterator;
-	std::map<MemberType, TPtrType> index;
+	std::map<MemberType, std::shared_ptr<T>> index;
 public:
-	void add(TPtrType t_ptr) {
-		index[t_ptr->*member()] = t_ptr;
+	void add(std::shared_ptr<T> t_ptr) {
+		index[(*t_ptr.*member)()] = t_ptr;
 	}
 
-	void remove(TPtrType t_ptr) {
-		index.erase(t_ptr->*member());
+	void remove(std::shared_ptr<T> t_ptr) {
+		index.erase((*t_ptr.*member)());
 	}
 
-	TPtrType front() {
+	void remove(MemberType m) {
+		index.erase(m);
+	}
+
+	std::shared_ptr<T> front() {
 		return index.begin();
+	}
+
+	std::shared_ptr<T> at(MemberType m) {
+		return index.at(m);
 	}
 };
 
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MultimapIndex {
 private:
-	using TPtrType = typename std::list<std::shared_ptr<T>>::iterator;
-	std::multimap<MemberType, TPtrType> index;
+	std::multimap<MemberType, std::shared_ptr<T>> index;
 public:
-	void add(TPtrType t_ptr) {
-		index.insert(std::make_pair(t_ptr->*member(), t_ptr));
+	void add(std::shared_ptr<T> t_ptr) {
+		index.insert(std::make_pair((*t_ptr.*member)(), t_ptr));
 	}
 
-	void remove(TPtrType t_ptr) {
-		auto [begin, end] = index.equal_range(t_ptr->*member());
+	void remove(std::shared_ptr<T> t_ptr) {
+		auto [begin, end] = index.equal_range((*t_ptr.*member)());
 
 		while(begin != end) {
 			if(begin->second == t_ptr) {
@@ -49,11 +54,13 @@ public:
 				begin++;
 			}
 		}
-
-		index.insert(std::make_pair(t_ptr->*member(), t_ptr));
 	}
 
-	TPtrType front() {
+	void remove(MemberType m) {
+		index.erase(m);
+	}
+
+	std::shared_ptr<T> front() {
 		return index.begin()->second;
 	}
 };
@@ -64,12 +71,14 @@ template<
 >
 class IndexedStorage {
 private:
-	std::list<std::shared_ptr<T>> storage;
 	std::tuple<Indexes...> indexes;
 public:
 	void add(std::shared_ptr<T> t) {
-		auto new_iter = storage.insert(storage.end(), t);
-		std::apply([new_iter](auto& ...x) { (..., x.add(new_iter)); }, indexes);
+		std::apply([t](auto& ...x) { (..., x.add(t)); }, indexes);
+	}
+
+	void remove(std::shared_ptr<T> t) {
+		std::apply([t](auto& ...x) { (..., x.remove(t)); }, indexes);
 	}
 
 	template<size_t idx>
