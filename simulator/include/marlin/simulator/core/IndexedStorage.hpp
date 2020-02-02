@@ -26,6 +26,10 @@ public:
 		index.erase(m);
 	}
 
+	bool is_empty() {
+		return index.empty();
+	}
+
 	std::shared_ptr<T> front() {
 		return index.begin();
 	}
@@ -60,6 +64,10 @@ public:
 		index.erase(m);
 	}
 
+	bool is_empty() {
+		return index.empty();
+	}
+
 	std::shared_ptr<T> front() {
 		return index.begin()->second;
 	}
@@ -79,6 +87,10 @@ public:
 
 	void remove(std::shared_ptr<T> t) {
 		std::apply([t](auto& ...x) { (..., x.remove(t)); }, indexes);
+	}
+
+	bool is_empty() {
+		return std::apply([](auto& ...x) { return (x.is_empty() && ...); }, indexes);
 	}
 
 	template<size_t idx>
