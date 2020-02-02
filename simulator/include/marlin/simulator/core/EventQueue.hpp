@@ -27,6 +27,7 @@ public:
 	void remove_event(std::shared_ptr<Event<EventQueue>> event);
 	void remove_event(uint64_t event_id);
 	std::shared_ptr<Event<EventQueue>> get_next_event();
+	bool is_empty();
 };
 
 } // namespace simulator
