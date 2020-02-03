@@ -9,7 +9,7 @@ class RepeatedEvent final : public Event<EventQueue> {
 public:
 	RepeatedEvent(uint64_t tick) : Event<EventQueue>(tick) {}
 
-	void run(EventQueue &manager) {
+	void run(EventQueue &manager) override {
 		cout<<"Event fired: "<<tick<<endl;
 
 		if(tick >= 10) return;
