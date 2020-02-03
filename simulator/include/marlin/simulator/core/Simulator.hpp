@@ -8,9 +8,8 @@ namespace marlin {
 namespace simulator {
 
 class Simulator {
-private:
-	EventQueue queue;
 public:
+	EventQueue queue;
 	Simulator();
 
 	void add_event(std::shared_ptr<Event<EventQueue>> event);

@@ -66,6 +66,7 @@ install(FILES
 
 set(EXAMPLE_SOURCES
 	examples/basic.cpp
+	examples/network_link.cpp
 )
 
 add_custom_target(simulator_examples)
