@@ -9,11 +9,11 @@ void EventQueue::add_event(std::shared_ptr<Event<EventQueue>> event) {
 }
 
 void EventQueue::remove_event(std::shared_ptr<Event<EventQueue>> event) {
-	storage.get<0>().remove(event);
+	storage.remove(event);
 }
 
 void EventQueue::remove_event(uint64_t event_id) {
-	storage.get<0>().remove(event_id);
+	storage.remove(storage.get<0>().at(event_id));
 }
 
 bool EventQueue::is_empty() {
