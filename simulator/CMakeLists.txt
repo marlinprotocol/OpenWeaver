@@ -58,3 +58,23 @@ install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinSimulatorConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinSimulator
 )
+
+
+##########################################################
+# Examples
+##########################################################
+
+set(EXAMPLE_SOURCES
+	examples/main.cpp
+)
+
+add_custom_target(simulator_examples)
+foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
+	get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
+	add_executable(${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
+	target_link_libraries(${EXAMPLE_NAME}_example PUBLIC simulator)
+	target_compile_options(${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
+
+	add_dependencies(simulator_examples ${EXAMPLE_NAME}_example)
+endforeach(EXAMPLE_SOURCE)
