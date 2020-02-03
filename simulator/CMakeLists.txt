@@ -65,7 +65,7 @@ install(FILES
 ##########################################################
 
 set(EXAMPLE_SOURCES
-	examples/main.cpp
+	examples/basic.cpp
 )
 
 add_custom_target(simulator_examples)
