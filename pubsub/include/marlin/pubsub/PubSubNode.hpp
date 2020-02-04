@@ -522,9 +522,9 @@ void PubSubNode<
 
 	// Check subscribe/unsubscribe response
 	if(message.rfind("UNSUBSCRIBED", 0) == 0) {
-		delegate->did_unsubscribe(*this, message);
+		delegate->did_unsubscribe(*this, delegate->channels[0]);
 	} else if(message.rfind("SUBSCRIBED", 0) == 0) {
-		delegate->did_subscribe(*this, message);
+		delegate->did_subscribe(*this, delegate->channels[0]);
 	}
 
 	SPDLOG_DEBUG(
