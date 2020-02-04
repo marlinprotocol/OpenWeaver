@@ -100,7 +100,14 @@ target_include_directories(discovery_example
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
+
+IF(APPLE)
+target_link_libraries(discovery_example PUBLIC beacon c++)
+
+ELSE()
 target_link_libraries(discovery_example PUBLIC beacon stdc++fs)
+ENDIF()
+
 target_compile_options(discovery_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 add_executable(server
