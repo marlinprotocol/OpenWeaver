@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <uv.h>
 #include <memory>
+//! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
+#include <array>
 
 namespace marlin {
 namespace net {
