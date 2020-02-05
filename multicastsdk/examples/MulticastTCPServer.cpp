@@ -4,11 +4,13 @@
 */
 
 #include <sodium.h>
+#include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
+
 
 using namespace marlin::multicast;
 using namespace marlin::net;
@@ -147,14 +149,40 @@ public:
 	) {}
 };
 
-int main(int , char **argv) {
+int main(int argc, char **argv) {
 
-	std::string beacon_addr = std::string(argv[1]);
-	std::string discovery_addr, pubsub_addr, lpftcp_server_addr;
+	std::string beacon_addr = "0.0.0.0:90002";
+	std::string discovery_addr = "0.0.0.0:15002";
+	std::string pubsub_addr = "0.0.0.0:15000";
+	std::string lpftcp_server_addr = "0.0.0.0:15003";
 
-	discovery_addr = "0.0.0.0:15002";
-	pubsub_addr = "0.0.0.0:15000";
-	lpftcp_server_addr = "0.0.0.0:15003";
+	char c;
+	while ((c = getopt (argc, argv, "b::d::p::l::")) != -1) {
+		switch (c) {
+			case 'b':
+				beacon_addr = std::string(optarg);
+				break;
+			case 'd':
+				discovery_addr = std::string(optarg);
+				break;
+			case 'p':
+				pubsub_addr = std::string(optarg);
+				break;
+			case 'l':
+				lpftcp_server_addr = std::string(optarg);
+				break;
+			default:
+			return 1;
+		}
+	}
+
+	SPDLOG_INFO(
+		"Beacon: {}, Discovery: {}, PubSub: {} TcpServer: {}",
+		beacon_addr,
+		discovery_addr,
+		pubsub_addr,
+		lpftcp_server_addr
+	);
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -172,3 +200,4 @@ int main(int , char **argv) {
 
 	return DefaultMulticastClient<MulticastDelegate>::run_event_loop();
 }
+
