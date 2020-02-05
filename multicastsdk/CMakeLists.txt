@@ -69,18 +69,18 @@ add_executable(msggen
 
 target_link_libraries(msggen PUBLIC multicastsdk)
 
-add_executable(multicastTcpServer
-	examples/MulticastTcpServer.cpp
+add_executable(multicastTcpBridge
+	examples/MulticastTcpBridge.cpp
 )
 
-target_link_libraries(multicastTcpServer PUBLIC multicastsdk)
+target_link_libraries(multicastTcpBridge PUBLIC multicastsdk)
 
 
 # MarlinLpf
-target_link_libraries(multicastTcpServer PUBLIC marlin::lpf)
+target_link_libraries(multicastTcpBridge PUBLIC marlin::lpf)
 
 # MarlinStream
-target_link_libraries(multicastTcpServer PUBLIC marlin::stream)
+target_link_libraries(multicastTcpBridge PUBLIC marlin::stream)
 
 
 ##########################################################

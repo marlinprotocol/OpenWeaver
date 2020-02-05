@@ -41,12 +41,12 @@ public:
 	LpfTcpTransport* tcpClient = nullptr;
 	LpfTcpTransportFactory f;
 
-	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_server_addr) {
+	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr) {
 		multicastClient = new DefaultMulticastClient<MulticastDelegate> (clop);
 		multicastClient->delegate = this;
 
 		// bind to address and start listening on tcpserver
-		f.bind(SocketAddress::from_string(lpftcp_server_addr));
+		f.bind(SocketAddress::from_string(lpftcp_bridge_addr));
 		f.listen(*this);
 	}
 
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
 	std::string beacon_addr = "0.0.0.0:90002";
 	std::string discovery_addr = "0.0.0.0:15002";
 	std::string pubsub_addr = "0.0.0.0:15000";
-	std::string lpftcp_server_addr = "0.0.0.0:15003";
+	std::string lpftcp_bridge_addr = "0.0.0.0:15003";
 
 	char c;
 	while ((c = getopt (argc, argv, "b::d::p::l::")) != -1) {
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 				pubsub_addr = std::string(optarg);
 				break;
 			case 'l':
-				lpftcp_server_addr = std::string(optarg);
+				lpftcp_bridge_addr = std::string(optarg);
 				break;
 			default:
 			return 1;
@@ -177,11 +177,11 @@ int main(int argc, char **argv) {
 	}
 
 	SPDLOG_INFO(
-		"Beacon: {}, Discovery: {}, PubSub: {} TcpServer: {}",
+		"Beacon: {}, Discovery: {}, PubSub: {} TcpBridge: {}",
 		beacon_addr,
 		discovery_addr,
 		pubsub_addr,
-		lpftcp_server_addr
+		lpftcp_bridge_addr
 	);
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
 		pubsub_addr
 	};
 
-	MulticastDelegate del(clop, lpftcp_server_addr);
+	MulticastDelegate del(clop, lpftcp_bridge_addr);
 
 	return DefaultMulticastClient<MulticastDelegate>::run_event_loop();
 }
