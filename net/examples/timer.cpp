@@ -6,15 +6,15 @@ using namespace marlin::net;
 
 
 struct Delegate {
-	void callback();
-	using TimerType = Timer<Delegate, &Delegate::callback>;
+	void timer_callback();
+	using TimerType = Timer<Delegate, &Delegate::timer_callback>;
 
 	TimerType timer;
 
 	Delegate() : timer(this) {}
 };
 
-void Delegate::callback() {
+void Delegate::timer_callback() {
 	SPDLOG_INFO("Timer fired: {}", EventLoop::now());
 	timer.start(1000, 0);
 }

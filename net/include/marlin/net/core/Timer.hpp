@@ -27,7 +27,7 @@ private:
 
 	static void timer_cb(uv_timer_t* handle) {
 		auto& timer = *(Self*)handle->data;
-		timer.delegate->callback();
+		(timer.delegate->*callback)();
 	}
 public:
 	DelegateType* delegate;
