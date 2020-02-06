@@ -98,6 +98,7 @@ endforeach(TEST_SOURCE)
 set(EXAMPLE_SOURCES
 	examples/udp.cpp
 	examples/tcp.cpp
+	examples/timer.cpp
 )
 
 add_custom_target(net_examples)
