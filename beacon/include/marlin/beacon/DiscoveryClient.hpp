@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
+#include <marlin/net/core/Timer.hpp>
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <map>
 
@@ -24,6 +25,8 @@ namespace beacon {
 template<typename DiscoveryClientDelegate>
 class DiscoveryClient {
 private:
+	using Self = DiscoveryClient<DiscoveryClientDelegate>;
+
 	using BaseTransportFactory = net::UdpTransportFactory<
 		DiscoveryClient<DiscoveryClientDelegate>,
 		DiscoveryClient<DiscoveryClientDelegate>
@@ -50,11 +53,11 @@ private:
 	*/
 	BaseTransport *beacon = nullptr;
 
-	uv_timer_t beacon_timer;
-	static void beacon_timer_cb(uv_timer_t *handle);
+	void beacon_timer_cb();
+	net::Timer<Self, &Self::beacon_timer_cb> beacon_timer;
 
-	uv_timer_t heartbeat_timer;
-	static void heartbeat_timer_cb(uv_timer_t *handle);
+	void heartbeat_timer_cb();
+	net::Timer<Self, &Self::heartbeat_timer_cb> heartbeat_timer;
 
 public:
 	// Listen delegate
@@ -275,22 +278,18 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	callback to periodically send DISCPEER sending in search of new peers
 */
 template<typename DiscoveryClientDelegate>
-void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb(uv_timer_t *handle) {
-	auto &client = *(DiscoveryClient<DiscoveryClientDelegate> *)handle->data;
-
+void DiscoveryClient<DiscoveryClientDelegate>::beacon_timer_cb() {
 	// Discover new peers
-	client.send_DISCPEER(*client.beacon);
+	send_DISCPEER(*beacon);
 }
 
 /*!
 	callback to periodically send HEARTBEAT to refresh the entry at beacon server
 */
 template<typename DiscoveryClientDelegate>
-void DiscoveryClient<DiscoveryClientDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
-	auto &client = *(DiscoveryClient<DiscoveryClientDelegate> *)handle->data;
-
-	if(client.is_discoverable) {
-		client.send_HEARTBEAT(*client.beacon);
+void DiscoveryClient<DiscoveryClientDelegate>::heartbeat_timer_cb() {
+	if(is_discoverable) {
+		send_HEARTBEAT(*beacon);
 	}
 }
 
@@ -325,19 +324,9 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 	if(beacon == nullptr) {
 		beacon = &transport;
 		send_DISCPEER(*beacon);
-		uv_timer_start(
-			&beacon_timer,
-			&beacon_timer_cb,
-			60000,
-			60000
-		);
+		beacon_timer.start(60000, 60000);
 		if(is_discoverable) {
-			uv_timer_start(
-				&heartbeat_timer,
-				&heartbeat_timer_cb,
-				0,
-				10000
-			);
+			heartbeat_timer.start(60000, 60000);
 		}
 	} else {
 		send_DISCPROTO(transport);
@@ -415,15 +404,9 @@ template<typename DiscoveryClientDelegate>
 DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 	net::SocketAddress const &addr,
 	uint8_t const* static_sk
-) {
+) : beacon_timer(this), heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
-
-	uv_timer_init(uv_default_loop(), &beacon_timer);
-	beacon_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &heartbeat_timer);
-	heartbeat_timer.data = this;
 
 	if(sodium_init() == -1) {
 		throw;

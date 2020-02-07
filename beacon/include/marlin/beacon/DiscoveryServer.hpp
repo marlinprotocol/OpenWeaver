@@ -5,6 +5,8 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
+#include <marlin/net/core/Timer.hpp>
+#include <marlin/net/core/EventLoop.hpp>
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <map>
 
@@ -25,6 +27,8 @@ namespace beacon {
 template<typename DiscoveryServerDelegate>
 class DiscoveryServer {
 private:
+	using Self = DiscoveryServer<DiscoveryServerDelegate>;
+
 	using BaseTransportFactory = net::UdpTransportFactory<
 		DiscoveryServer<DiscoveryServerDelegate>,
 		DiscoveryServer<DiscoveryServerDelegate>
@@ -44,10 +48,10 @@ private:
 
 	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&bytes);
 
-	static void heartbeat_timer_cb(uv_timer_t *handle);
+	void heartbeat_timer_cb();
+	net::Timer<Self, &Self::heartbeat_timer_cb> heartbeat_timer;
 
 	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
-	uv_timer_t heartbeat_timer;
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -182,7 +186,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
 	);
 
-	peers[&transport].first = uv_now(uv_default_loop());
+	peers[&transport].first = net::EventLoop::now();
 	std::memcpy(peers[&transport].second.data(), bytes.data()+2, crypto_box_PUBLICKEYBYTES);
 }
 
@@ -191,16 +195,14 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	callback to periodically cleanup the old peers which have been inactive for more than a minute (inactive = not received heartbeat)
 */
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb(uv_timer_t *handle) {
-	auto &beacon = *(DiscoveryServer<DiscoveryServerDelegate> *)handle->data;
+void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
+	auto now = net::EventLoop::now();
 
-	auto now = uv_now(uv_default_loop());
-
-	auto iter = beacon.peers.begin();
-	while(iter != beacon.peers.end()) {
+	auto iter = peers.begin();
+	while(iter != peers.end()) {
 		// Remove stale peers if inactive for a minute
 		if(now - iter->second.first > 60000) {
-			iter = beacon.peers.erase(iter);
+			iter = peers.erase(iter);
 		} else {
 			iter++;
 		}
@@ -307,19 +309,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	net::SocketAddress const &addr
-) {
+) : heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
 
-	uv_timer_init(uv_default_loop(), &heartbeat_timer);
-	heartbeat_timer.data = this;
-
-	uv_timer_start(
-		&heartbeat_timer,
-		&heartbeat_timer_cb,
-		10000,
-		10000
-	);
+	heartbeat_timer.start(10000, 10000);
 }
 
 } // namespace beacon

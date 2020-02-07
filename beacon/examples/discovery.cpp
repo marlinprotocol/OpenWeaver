@@ -2,7 +2,7 @@
 
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <uv.h>
+#include <marlin/net/core/EventLoop.hpp>
 #include <cstring>
 #include <fstream>
 #include <experimental/filesystem>
@@ -77,5 +77,5 @@ int main() {
 	c1->start_discovery(baddr);
 	c2->start_discovery(baddr);
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return net::EventLoop::run();
 }
