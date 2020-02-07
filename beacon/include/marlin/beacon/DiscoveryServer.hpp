@@ -309,19 +309,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	net::SocketAddress const &addr
-) {
+) : heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
 
-	uv_timer_init(uv_default_loop(), &heartbeat_timer);
-	heartbeat_timer.data = this;
-
-	uv_timer_start(
-		&heartbeat_timer,
-		&heartbeat_timer_cb,
-		10000,
-		10000
-	);
+	heartbeat_timer.start(10000, 10000);
 }
 
 } // namespace beacon
