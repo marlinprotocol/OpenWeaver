@@ -404,15 +404,9 @@ template<typename DiscoveryClientDelegate>
 DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 	net::SocketAddress const &addr,
 	uint8_t const* static_sk
-) {
+) : beacon_timer(this), heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
-
-	uv_timer_init(uv_default_loop(), &beacon_timer);
-	beacon_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &heartbeat_timer);
-	heartbeat_timer.data = this;
 
 	if(sodium_init() == -1) {
 		throw;
