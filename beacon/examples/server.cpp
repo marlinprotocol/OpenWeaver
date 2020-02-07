@@ -1,5 +1,5 @@
 #include <marlin/beacon/DiscoveryServer.hpp>
-#include <uv.h>
+#include <marlin/net/core/EventLoop.hpp>
 #include <cstring>
 
 using namespace marlin;
@@ -13,5 +13,5 @@ int main() {
 	auto b = new beacon::DiscoveryServer<BeaconDelegate>(baddr);
 	b->delegate = &del;
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return net::EventLoop::run();
 }
