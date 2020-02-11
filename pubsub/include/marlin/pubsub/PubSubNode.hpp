@@ -20,9 +20,28 @@
 #include <random>
 #include <unordered_set>
 #include <uv.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
+using namespace CryptoPP;
+
+std::string genSignature(std::string msg, ECDSA<ECP, SHA256>::PrivateKey pvk){
+        AutoSeededRandomPool prng;
+	ECDSA<ECP, SHA256>::Signer sgnr(pvk);
+        size_t siglen = sgnr.MaxSignatureLength();
+        std::string sgntr(siglen,0x00);
+        siglen = sgnr.SignMessage(prng, (const byte*)&msg[0], msg.size(), (byte*)&sgntr[0]);
+        sgntr.resize(siglen);
+        return sgntr;
+}
+
+bool vrfSignature(std::string msg,std::string sgntr, ECDSA<ECP, SHA256>::PublicKey pbk){
+        ECDSA<ECP, SHA256>::Verifier vrfr(pbk);
+	bool rslt = vrfr.VerifyMessage((const byte*)&msg[0], msg.size(), (const byte*)&sgntr[0], sgntr.size());
+	return rslt;
+}
 
 namespace marlin {
 
