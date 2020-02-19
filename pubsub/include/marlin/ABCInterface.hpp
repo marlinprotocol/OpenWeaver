@@ -43,9 +43,9 @@ public:
 	LpfTcpTransport* contractInterface = nullptr;
 
 
-	// ABCInterface(SocketAddress const &addr) {
-	// 	f.dial(addr);
-	// }
+	ABCInterface() {
+		// dial(net::SocketAddress::from_string("0.0.0.0:5000"), NULL);
+	}
 
 	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
 
