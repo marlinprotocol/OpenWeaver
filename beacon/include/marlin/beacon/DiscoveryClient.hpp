@@ -10,6 +10,34 @@
 #include <map>
 
 #include <sodium.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/oids.h>
+#include <cryptopp/keccak.h>
+
+using namespace CryptoPP;
+/*
+std::pair<ECDSA<ECP,SHA256>::PublicKey,ECDSA<ECP,SHA256>::PrivateKey> genKeys(std::string pkCryptoAlg){
+        AutoSeededRandomPool prng;
+        ECDSA<ECP,SHA256>::PrivateKey pvk;
+        if (pkCryptoAlg == "secp256k1")
+                pvk.Initialize(prng,ASN1::secp256k1()); 
+        ECDSA<ECP,SHA256>::PublicKey pbk;
+        pvk.MakePublicKey(pbk);
+        std::pair<ECDSA<ECP,SHA256>::PublicKey,ECDSA<ECP,SHA256>::PrivateKey> out;
+        out = std::make_pair(pbk,pvk);
+        return out;
+}
+
+uint8_t getAddr(ECDSA<ECP,SHA256>::PublicKey pbk,size_t sz){
+        std::string = pbkcnvrt(pbk);	
+        Keccak_256 kckHsh;
+        kckHsh.Update((byte *)pbk,sz);
+        uint8_t hash[20];
+        kckHsh.TruncatedFinal(hash,20);
+        return hash;
+}
+*/
 
 namespace marlin {
 namespace beacon {
@@ -69,7 +97,7 @@ public:
 	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
 	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
 
-	DiscoveryClient(net::SocketAddress const &addr, uint8_t const* static_sk);
+	DiscoveryClient(net::SocketAddress const &addr, uint8_t const* static_sk, uint8_t const* stkAddr);
 	~DiscoveryClient();
 
 	DiscoveryClientDelegate *delegate;
@@ -80,8 +108,10 @@ public:
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+	uint8_t nodeStkAddr[20];
 
 	std::unordered_map<net::SocketAddress, std::array<uint8_t, 32>> node_key_map;
+	std::unordered_map<net::SocketAddress, std::array<uint8_t, 20>> node_addr_map;
 };
 
 
@@ -240,12 +270,12 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 
 	for(
 		uint16_t i = 2;
-		i + 7 + crypto_box_PUBLICKEYBYTES < packet.size();
-		i += 8 + crypto_box_PUBLICKEYBYTES
+		i + 7 + crypto_box_PUBLICKEYBYTES + 20 < packet.size();
+		i += 8 + crypto_box_PUBLICKEYBYTES + 20
 	) {
 		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
 		std::memcpy(node_key_map[peer_addr].data(), packet.data()+i+8, crypto_box_PUBLICKEYBYTES);
-
+		std::memcpy(node_addr_map[peer_addr].data(), packet.data()+ i + 8 + crypto_box_PUBLICKEYBYTES, 20);
 		f.dial(peer_addr, *this);
 	}
 }
@@ -267,10 +297,10 @@ template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	char *message = new char[2+crypto_box_PUBLICKEYBYTES] {0, 4};
+	char *message = new char[2+crypto_box_PUBLICKEYBYTES+20] {0, 4};
 	std::memcpy(message + 2, static_pk, crypto_box_PUBLICKEYBYTES);
-
-	net::Buffer p(message, 2+crypto_box_PUBLICKEYBYTES);
+	std::memcpy(message + 2 + crypto_box_PUBLICKEYBYTES, nodeStkAddr, 20);
+	net::Buffer p(message, 2+crypto_box_PUBLICKEYBYTES+20);
 	transport.send(std::move(p));
 }
 
@@ -403,7 +433,8 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_send_packet(
 template<typename DiscoveryClientDelegate>
 DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 	net::SocketAddress const &addr,
-	uint8_t const* static_sk
+	uint8_t const* static_sk,
+	uint8_t const* stkAddr
 ) : beacon_timer(this), heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
@@ -413,6 +444,7 @@ DiscoveryClient<DiscoveryClientDelegate>::DiscoveryClient(
 	}
 
 	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
+	std::memcpy(this->nodeStkAddr, stkAddr, 20);
 	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
 
