@@ -43,6 +43,7 @@ private:
 		TcpTransportFactory<ListenDelegate, TransportDelegate> *factory;
 		ListenDelegate *delegate;
 		SocketAddress addr;
+		uv_tcp_t* socket;
 	};
 public:
 	SocketAddress addr;
@@ -274,7 +275,7 @@ dial_cb(uv_connect_t *req, int status) {
 		addr,
 		factory.addr,
 		addr,
-		factory.socket,
+		payload->socket,
 		factory.transport_manager
 	);
 
@@ -303,7 +304,8 @@ dial(SocketAddress const &addr, ListenDelegate &delegate) {
 	req->data = new DialPayload {
 		this,
 		&delegate,
-		addr
+		addr,
+		socket
 	};
 
 	uv_tcp_connect(
@@ -312,6 +314,9 @@ dial(SocketAddress const &addr, ListenDelegate &delegate) {
 		reinterpret_cast<sockaddr const *>(&addr),
 		dial_cb
 	);
+
+	socket = new uv_tcp_t();
+	bind(this->addr);
 
 	return 0;
 }
