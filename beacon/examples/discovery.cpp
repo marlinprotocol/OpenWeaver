@@ -66,11 +66,19 @@ int main() {
 	auto b = new beacon::DiscoveryServer<BeaconDelegate>(baddr);
 	b->delegate = &del;
 
-	auto c1 = new beacon::DiscoveryClient<BeaconDelegate>(caddr1, static_sk);
+	uint8_t nd1StkAddr[20];
+	for(int i=0;i<20;i++){
+		nd1StkAddr[i] = i+1;
+	}
+	auto c1 = new beacon::DiscoveryClient<BeaconDelegate>(caddr1, static_sk, nd1StkAddr);
 	c1->delegate = &del;
 	c1->is_discoverable = true;
 
-	auto c2 = new beacon::DiscoveryClient<BeaconDelegate>(caddr2, static_sk);
+	uint8_t nd2StkAddr[20];
+	for(int i=0;i<20;i++){
+		nd2StkAddr[i] = i+21;
+	}
+	auto c2 = new beacon::DiscoveryClient<BeaconDelegate>(caddr2, static_sk, nd2StkAddr);
 	c2->delegate = &del;
 	c2->is_discoverable = true;
 
