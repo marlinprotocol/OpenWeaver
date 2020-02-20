@@ -9,6 +9,7 @@ namespace net {
 
 SocketAddress::SocketAddress() {
 	memset(this, 0, sizeof(SocketAddress));
+	reinterpret_cast<sockaddr_in *>(this)->sin_family = AF_INET;
 }
 
 SocketAddress::SocketAddress(const SocketAddress &addr) {
