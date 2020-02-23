@@ -14,9 +14,11 @@
 #include "../core/Network/Node/Miner.h"
 #include "../core/Network/Node/Node.h"
 #include "../core/Network/Node/NodeType.h"
-#include "../models/BlockchainManagementModels/BlockchainManagementBitcoinModel.h"
+#include "../core/Networking/RoutingTable.h"
+#include "../models/BlockchainManagementModels/BitcoinModel.h"
 
-bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, NodeType nodeType) {
+bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, NodeType nodeType,
+				   std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel) {
 	std::vector<double> cumulativeProbabilities;
 
 	// compute cumulative probability vector of node distribution in regions to randomly assign a node's region
@@ -50,7 +52,7 @@ bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, Nod
 				if(nodeType == NodeType::Miner) 
 					network.addNode( std::shared_ptr<Node>( 
 										new Miner(i, true, j, 
-											      std::unique_ptr<BlockchainManagementBitcoinModel>(new BlockchainManagementBitcoinModel()),													
+											      _blockchainManagementModel,													
 												  blockCache) 
 												          ) );
 				break;
@@ -61,8 +63,8 @@ bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, Nod
 	return true;
 }
 
-bool printGeneratedNetwork(Network& network) {
-	LOG(INFO) << "[PRINTING_GENERATED_NETWORK_START]"; 
+bool printGeneratedNetwork(const Network& network) {
+	LOG(INFO) << "[PRINT_GENERATED_NETWORK_START]"; 
 
 	int numNodesPerRegion[NUM_REGIONS] = {0};
 
@@ -86,18 +88,57 @@ bool printGeneratedNetwork(Network& network) {
 								 	  << std::setw(20) << centered(std::to_string(numNodesPerRegion[i]));
 	}
 
-	LOG(INFO) << "[PRINTING_GENERATED_NETWORK_END]"; 
+	LOG(INFO) << "[PRINT_GENERATED_NETWORK_END]"; 
 
 	return true;
 }
 
-Network getRandomNetwork(std::shared_ptr<BlockCache> blockCache) {
+bool initializeRoutingTable(const Network& network) {
+	LOG(INFO) << "[INITIALIZE_ROUTING_TABLE_START]"; 
+
+	const std::vector<std::shared_ptr<Node>> nodes = network.getNodes();
+
+	for(auto node: nodes) {
+		
+	}	
+
+	LOG(INFO) << "[INITIALIZE_ROUTING_TABLE_END]"; 
+
+	return true;
+}
+
+Network getRandomNetwork(std::shared_ptr<BlockCache> _blockCache, 
+						 std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel) {
 	Network network;
 
-	generateNodes(network, blockCache, NodeType::Miner);
+	generateNodes(network, _blockCache, NodeType::Miner, _blockchainManagementModel);
 	printGeneratedNetwork(network);
 
+	initializeRoutingTable(network);
+
 	return network;
+}
+
+void sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId, EventManager& eventManager) {
+	for(auto nodePtr: network.getNodes()) {
+		int nodeId = nodePtr->getNodeId();
+		eventManager.addEvent(std::shared_ptr<Event>(
+								new MessageToNodeEvent( 
+									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId, 0
+								)
+							 ));
+	}
+	
+	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
+}
+
+void scheduleBlockProduction(std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
+							 const Network& _network, std::shared_ptr<BlockCache> _blockCache,
+							 EventManager& eventManager) {
+	std::shared_ptr<Block> genesisBlock = _blockchainManagementModel->createGenesisBlock();
+	_blockCache->insert(genesisBlock);
+
+	sendGenesisBlockToAllNodes(_network, genesisBlock->getBlockId(), eventManager);
 }
 
 #endif /*INITIALIZENETWORK_H_*/
