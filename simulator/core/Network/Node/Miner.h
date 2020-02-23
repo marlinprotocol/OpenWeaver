@@ -16,7 +16,7 @@ private:
 public:
 	Miner(int _nodeId, bool _isAlive, int _region, 
 		  std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
-		  std::shared_ptr<BlockCache> _blockCache);
+		  std::shared_ptr<BlockCache> _blockCache, long long _hashpower);
 	long long getHashPower();
 	void onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message, EventManager* _eventManager);
 	void onNewBlockMinedMessage(std::shared_ptr<NewBlockMinedMessage> _message, EventManager* _eventManager, uint64_t _currentTick);

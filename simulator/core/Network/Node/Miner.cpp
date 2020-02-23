@@ -6,8 +6,8 @@
 
 Miner::Miner(int _nodeId, bool _isAlive, int _region, 
 			 std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
-			 std::shared_ptr<BlockCache> _blockCache) 
-	  : Node(_nodeId, _isAlive, _region, _blockchainManagementModel, _blockCache), miningEventId(-1) {
+			 std::shared_ptr<BlockCache> _blockCache, long long _hashpower) 
+	  : Node(_nodeId, _isAlive, _region, _blockchainManagementModel, _blockCache), miningEventId(-1), hashpower(_hashpower) {
 }
 
 long long Miner::getHashPower() {
