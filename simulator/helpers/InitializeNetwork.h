@@ -53,7 +53,7 @@ bool generateNodes(Network& network, std::shared_ptr<BlockCache> blockCache, Nod
 					network.addNode( std::shared_ptr<Node>( 
 										new Miner(i, true, j, 
 											      _blockchainManagementModel,													
-												  blockCache) 
+												  blockCache, 1) 
 												          ) );
 				break;
 			}
@@ -132,6 +132,12 @@ void sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId, Even
 	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
 }
 
+void scheduleNextBlock(EventManager& _eventManager, uint64_t _firstBlockInterval, 
+					   std::shared_ptr<Node> _firstBlockProducer) {
+	// int nodeId = _firstBlockProducer->getNodeId();
+
+}
+
 void scheduleBlockProduction(std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
 							 const Network& _network, std::shared_ptr<BlockCache> _blockCache,
 							 EventManager& eventManager) {
@@ -139,6 +145,11 @@ void scheduleBlockProduction(std::shared_ptr<BlockchainManagementModel> _blockch
 	_blockCache->insert(genesisBlock);
 
 	sendGenesisBlockToAllNodes(_network, genesisBlock->getBlockId(), eventManager);
+
+	uint64_t firstBlockInterval = _blockchainManagementModel->getNextBlockTime();
+	std::shared_ptr<Node> firstBlockProducer = _blockchainManagementModel->getNextBlockProducer();
+
+	scheduleNextBlock(eventManager, firstBlockInterval, firstBlockProducer);
 }
 
 #endif /*INITIALIZENETWORK_H_*/

@@ -1,5 +1,5 @@
-#ifndef BLOCKCHAINMGMTBTCMODEL_H_
-#define BLOCKCHAINMGMTBTCMODEL_H_
+#ifndef BTCMODEL_H_
+#define BTCMODEL_H_
 
 #include <random>
 
@@ -11,15 +11,15 @@ class BitcoinModel : public BlockchainManagementModel {
 	std::mt19937_64 rng;
 	std::exponential_distribution<double> exp;
 	std::uniform_real_distribution<double> unif;
-	Network network;
+	Network &network;
 	uint64_t getRandomNumFromExponentialDistribution();
 
 public:
 	BitcoinModel(Network &network);
 	void OnOutOfRangeNewBlockArrival();
 	uint64_t getNextBlockTime();
-	void getNextBlockProducer();
+	std::shared_ptr<Node> getNextBlockProducer();
 	std::shared_ptr<Block> createGenesisBlock();
 };
 
-#endif /*BLOCKCHAINMGMTBTCMODEL_H_*/
+#endif /*BTCMODEL_H_*/
