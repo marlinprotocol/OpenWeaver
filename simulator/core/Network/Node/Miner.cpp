@@ -5,22 +5,13 @@
 #include "../../EventManagement/Event/EventTypes/MessageToNodeEvent.h"
 
 Miner::Miner(int _nodeId, bool _isAlive, int _region, 
-			 std::unique_ptr<BlockchainManagementModel> _blockchainManagementModel,
+			 std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
 			 std::shared_ptr<BlockCache> _blockCache) 
-	  : Node(_nodeId, _isAlive, _region, std::move(_blockchainManagementModel), _blockCache), miningEventId(-1), exp(1.0/600) {
-	// initiaze random number generator, seed fixed to 22 to make it deterministic across runs
-	// else make it time-dependent for randomness	
-	uint64_t seed = 22;
-	std::seed_seq ss{uint32_t(seed & 0xffffffff), uint32_t(seed>>32)};
-    rng.seed(ss);
+	  : Node(_nodeId, _isAlive, _region, _blockchainManagementModel, _blockCache), miningEventId(-1) {
 }
 
-uint64_t Miner::getRandomNumFromExponentialDistribtuion() {
-    return (uint64_t) exp(rng);
-}
-
-uint64_t Miner::getTicksUntilNextBlock() {
-    return getRandomNumFromExponentialDistribtuion();
+long long Miner::getHashPower() {
+	return hashpower;
 }
 
 void Miner::onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message, EventManager* _eventManager) {
@@ -33,19 +24,18 @@ void Miner::onNewBlockIdMessage(std::shared_ptr<NewBlockIdMessage> _message, Eve
 
 	blockchain.addBlock(newBlockHeight, _message->getBlockId());
 
-	int newBlockchainHeight = blockchain.getBlockchainHeight();
+	// int newBlockchainHeight = blockchain.getBlockchainHeight();
 
-	if(newBlockchainHeight == prevBlockchainHeight + 1) {
-		if(miningEventId != -1) {
-			_eventManager->removeEvent(miningEventId);
-		}
+	// if(newBlockchainHeight == prevBlockchainHeight + 1) {
+	// 	if(miningEventId != -1) {
+	// 		_eventManager->removeEvent(miningEventId);
+	// 	}
 
-		miningEventId = _eventManager->addEvent(shared_ptr<Event>(new MessageToNodeEvent( 
-																 	 std::shared_ptr<Message>(new NewBlockMinedMessage(_message->getBlockId())), 
-																	 getNodeId(), getNodeId(), getTicksUntilNextBlock()
-																  )));
-	}
-
+	// 	miningEventId = _eventManager->addEvent(std::shared_ptr<Event>(new MessageToNodeEvent( 
+	// 															 	 std::shared_ptr<Message>(new NewBlockMinedMessage(_message->getBlockId())), 
+	// 																 getNodeId(), getNodeId(), getTicksUntilNextBlock()
+	// 															  )));
+	// }
 }
 
 void Miner::onNewBlockMinedMessage(std::shared_ptr<NewBlockMinedMessage> _message, EventManager* _eventManager, uint64_t _currentTick) {
@@ -58,9 +48,8 @@ void Miner::onNewBlockMinedMessage(std::shared_ptr<NewBlockMinedMessage> _messag
 
 	blockchain.addBlock(newBlockHeight, _message->getBlockId());
 
-	miningEventId = _eventManager->addEvent(shared_ptr<Event>(new MessageToNodeEvent( 
-															 	 std::shared_ptr<Message>(new NewBlockMinedMessage(_message->getBlockId())), 
-																 getNodeId(), getNodeId(), getTicksUntilNextBlock()
-															  )));
-
+	// miningEventId = _eventManager->addEvent(std::shared_ptr<Event>(new MessageToNodeEvent( 
+	// 														 	 std::shared_ptr<Message>(new NewBlockMinedMessage(_message->getBlockId())), 
+	// 															 getNodeId(), getNodeId(), getTicksUntilNextBlock()
+	// 														  )));
 }
