@@ -119,12 +119,12 @@ Network getRandomNetwork(std::shared_ptr<BlockCache> _blockCache,
 	return network;
 }
 
-void sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId, EventManager& eventManager) {
+void sendGenesisBlockToAllNodes(const Network& network, int _genesisBlockId, EventManager& eventManager) {
 	for(auto nodePtr: network.getNodes()) {
 		int nodeId = nodePtr->getNodeId();
 		eventManager.addEvent(std::shared_ptr<Event>(
 								new MessageToNodeEvent( 
-									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId, 0
+									std::shared_ptr<Message>(new NewBlockIdMessage(_genesisBlockId)), nodeId, nodeId, 0
 								)
 							 ));
 	}
@@ -132,10 +132,18 @@ void sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId, Even
 	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
 }
 
-void scheduleNextBlock(EventManager& _eventManager, uint64_t _firstBlockInterval, 
-					   std::shared_ptr<Node> _firstBlockProducer) {
-	// int nodeId = _firstBlockProducer->getNodeId();
+void scheduleNextBlock(EventManager& eventManager, uint64_t _firstBlockInterval, 
+					   std::shared_ptr<Node> _firstBlockProducer, int _genesisBlockId) {
+	int nodeId = _firstBlockProducer->getNodeId();
 
+	eventManager.addEvent(std::shared_ptr<Event>(
+								new MessageToNodeEvent( 
+									std::shared_ptr<Message>(new NewBlockIdMessage(_genesisBlockId)), 
+									nodeId, nodeId, _firstBlockInterval
+								)
+						  ));
+
+	LOG(INFO) << "[Block 1 added to Node: " << nodeId << " at tickstamp: " << _firstBlockInterval << "]";
 }
 
 void scheduleBlockProduction(std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
@@ -149,7 +157,7 @@ void scheduleBlockProduction(std::shared_ptr<BlockchainManagementModel> _blockch
 	uint64_t firstBlockInterval = _blockchainManagementModel->getNextBlockTime();
 	std::shared_ptr<Node> firstBlockProducer = _blockchainManagementModel->getNextBlockProducer();
 
-	scheduleNextBlock(eventManager, firstBlockInterval, firstBlockProducer);
+	scheduleNextBlock(eventManager, firstBlockInterval, firstBlockProducer, genesisBlock->getBlockId());
 }
 
 #endif /*INITIALIZENETWORK_H_*/
