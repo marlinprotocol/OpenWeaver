@@ -124,7 +124,8 @@ void sendGenesisBlockToAllNodes(const Network& network, int _genesisBlockId, Eve
 		int nodeId = nodePtr->getNodeId();
 		eventManager.addEvent(std::shared_ptr<Event>(
 								new MessageToNodeEvent( 
-									std::shared_ptr<Message>(new NewBlockIdMessage(_genesisBlockId)), nodeId, nodeId, 0
+									std::shared_ptr<Message>(new NewBlockIdMessage(_genesisBlockId)), 
+									nodeId, -1, 0
 								)
 							 ));
 	}
