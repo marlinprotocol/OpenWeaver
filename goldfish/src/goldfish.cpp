@@ -135,11 +135,7 @@ int main(int argc, char **argv) {
 	g.ps = &ps;
 
 	// Discovery client
-	uint8_t gldStkAddr[20]={0};
-	for(int i=0;i<20;i++){
-		gldStkAddr[i]=i+1;
-	}
-	DiscoveryClient<Goldfish> dc(SocketAddress::from_string(discovery_addr), static_sk,gldStkAddr);
+	DiscoveryClient<Goldfish> dc(SocketAddress::from_string(discovery_addr), static_sk);
 	dc.delegate = &g;
 	dc.is_discoverable = true;
 	g.b = &dc;

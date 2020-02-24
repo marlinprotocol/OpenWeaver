@@ -52,8 +52,6 @@ private:
 	net::Timer<Self, &Self::heartbeat_timer_cb> heartbeat_timer;
 
 	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
-	// Can we change about implementation to tuple instead of tuple and use get<> instead of second?
-	std::unordered_map<BaseTransport *, std::array<uint8_t,20>> peerCrypAddr; 
 public:
 	// Listen delegate
 	bool should_accept(net::SocketAddress const &addr);
@@ -150,24 +148,22 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
-	auto iter = peers.begin(); auto iter0 = peerCrypAddr.begin();
+	auto iter = peers.begin();
 
-	while(iter != peers.end() && iter0 != peerCrypAddr.begin()) {
+	while(iter != peers.end()) {
 		char *message = new char[1100] {0, 3};
 		size_t size = 2;
 
 		for(
 			;
-			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES +20 < 1100 && iter0 != peerCrypAddr.end();
+			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
 			iter++
 		) {
 			if(iter->first == &transport) continue;
 
 			iter->first->dst_addr.serialize(message+size, 8);
 			std::memcpy(message+size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
-			std::memcpy(message+size+8+crypto_box_PUBLICKEYBYTES, iter0->second.data(),20);
-			size += 8 + crypto_box_PUBLICKEYBYTES + 20;
-			iter0++;
+			size += 8 + crypto_box_PUBLICKEYBYTES;
 		}
 
 		net::Buffer p(message, size);
@@ -192,8 +188,6 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 
 	peers[&transport].first = net::EventLoop::now();
 	std::memcpy(peers[&transport].second.data(), bytes.data()+2, crypto_box_PUBLICKEYBYTES);
-	std::memcpy(peerCrypAddr[&transport].data(), bytes.data()+2+crypto_box_PUBLICKEYBYTES, 20);
-	SPDLOG_DEBUG("Received <<< {:spn}",spdlog::to_hex(peerCrypAddr[&transport].data(),peerCrypAddr[&transport].data()+20));
 }
 
 
@@ -204,15 +198,13 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 	auto now = net::EventLoop::now();
 
-	auto iter = peers.begin();auto iter0 = peerCrypAddr.begin();
-	while(iter != peers.end() and iter0 != peerCrypAddr.end()) {
+	auto iter = peers.begin();
+	while(iter != peers.end()) {
 		// Remove stale peers if inactive for a minute
 		if(now - iter->second.first > 60000) {
 			iter = peers.erase(iter);
-			iter0 = peerCrypAddr.erase(iter0);
 		} else {
 			iter++;
-			iter0++;
 		}
 	}
 }
