@@ -59,10 +59,10 @@ set_target_properties(sodium PROPERTIES
 # cryptopp
 include(ExternalProject)
 ExternalProject_Add(libcryptopp
-			SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libcryptopp
-			CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libcryptopp
-			BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libcryptopp && make -j8
-			INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libcryptopp && make DESTDIR=${CMAKE_CURRENT_LIST_DIR}/libcryptopp install
+			SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
+			CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
+			BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make -j8
+			INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make DESTDIR=${CMAKE_CURRENT_LIST_DIR}/libcryptopp install
 		)
 
 	add_library(cryptopp STATIC IMPORTED GLOBAL)
@@ -70,6 +70,6 @@ ExternalProject_Add(libcryptopp
 	add_dependencies(cryptopp libcryptopp)
 
 	set_target_properties(cryptopp PROPERTIES
-			IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/libcryptopp/libcryptopp.a
+			IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/cryptopp/libcryptopp.a
 			INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_LIST_DIR}/libcryptopp
 		)
