@@ -39,8 +39,8 @@ std::shared_ptr<Node> BitcoinModel::getNextBlockProducer() {
 
 	for(int i=0; i<network.getNodes().size(); i++) {
 		hashpowerFraction[i] /= totalHashPower;
-		LOG(DEBUG) << "[" << std::setw(35) << std::left << "BitcoinModel::getNextBlockProducer]" 
-			       << "[NodeId: " << i << ", CumulativeHash: "  << hashpowerFraction[i] << "]";
+		// LOG(DEBUG) << "[" << std::setw(35) << std::left << "BitcoinModel::getNextBlockProducer]" 
+		// 	       << "[NodeId: " << i << ", CumulativeHash: "  << hashpowerFraction[i] << "]";
 	}
 
 	double randomNumber = unif(rng);

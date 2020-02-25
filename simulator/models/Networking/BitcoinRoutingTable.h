@@ -1,8 +1,8 @@
 #ifndef BITCOINROUTINGTABLE_H_
 #define BITCOINROUTINGTABLE_H_
 
-#include "../RoutingTable.h"
-#include "../../../helpers/Logger/easylogging.h"
+#include "../../core/Networking/RoutingTable.h"
+#include "../../helpers/Logger/easylogging.h"
 
 class BitcoinRoutingTable : public RoutingTable {
 public:
