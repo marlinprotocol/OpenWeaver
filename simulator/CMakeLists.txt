@@ -20,9 +20,9 @@ add_executable(simulation
         core/Network/Node/Miner.cpp
         core/Network/Node/Node.cpp   
         core/Networking/RoutingTable.cpp        
-        core/Networking/models/BitcoinRoutingTable.cpp        
         helpers/Logger/easylogging.cpp       
         models/BlockchainManagementModels/BitcoinModel.cpp
+        models/Networking/BitcoinRoutingTable.cpp        
 )
 
 add_definitions(-DELPP_DEFAULT_LOG_FILE="./logs/default.log")
