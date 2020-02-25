@@ -139,7 +139,7 @@ void scheduleNextBlock(EventManager& eventManager, uint64_t _firstBlockInterval,
 
 	eventManager.addEvent(std::shared_ptr<Event>(
 								new MessageToNodeEvent( 
-									std::shared_ptr<Message>(new NewBlockIdMessage(_genesisBlockId)), 
+									std::shared_ptr<Message>(new NewBlockMinedMessage()), 
 									nodeId, nodeId, _firstBlockInterval
 								)
 						  ));

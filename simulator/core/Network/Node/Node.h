@@ -22,6 +22,8 @@ private:
 
 protected:	
 	Blockchain blockchain;
+	std::shared_ptr<BlockCache> blockCache;
+	std::shared_ptr<BlockchainManagementModel> blockchainManagementModel;
 
 public:
 	Node(int _nodeId, bool _isAlive, int _region, 

@@ -7,14 +7,8 @@
 #include "../../Blockchain/Cache/BlockCache.h"
 
 class NewBlockMinedMessage : public Message {
-private:
-	std::shared_ptr<Block> newBlock;
-	int parentBlockId;
-
 public:
-	NewBlockMinedMessage(int _parentBlockId);
-	int createNewBlockObject(std::shared_ptr<BlockCache> _blockCache, int _blockProducerId, uint64_t _tickStamp);
-	int getBlockId();
+	NewBlockMinedMessage();
 	std::string getType();
 };
 
