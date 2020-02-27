@@ -5,6 +5,8 @@ uint64_t EventManager::currentTick = 0;
 EventManager::EventManager(Network& _network, std::shared_ptr<BlockCache> _blockCache) : network(_network), blockCache(_blockCache) {}
 
 int EventManager::addEvent(std::shared_ptr<Event> _event) {
+	LOG(DEBUG) << "[" << std::setw(35) << std::left << "EventManager::addEvent]" 
+			   << "[CurrentTick: " << currentTick << ", EventDuration: "  << _event->getDurationInTicks() << "]";
 	return eventQueue.addEvent(AsyncEvent(_event, currentTick + _event->getDurationInTicks()));
 }
 
@@ -18,6 +20,12 @@ bool EventManager::hasNextEvent() {
 
 bool EventManager::executeNextEvent() {
 	LOG(DEBUG) << "[" << std::setw(35) << std::left << "EventManager::executeNextEvent]";
+
+	if(currentTick>10000) {
+		LOG(DEBUG) << "[" << std::setw(35) << std::left << "EventManager::executeNextEvent exiting]"
+				   << "[Tickstamp: " << currentTick << "]";
+		return false;
+	}
 
 	if(eventQueue.isEmpty()) {
 		LOG(DEBUG) << "[EventQueue empty]";

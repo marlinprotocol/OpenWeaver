@@ -18,14 +18,13 @@ add_executable(simulation
         core/Network/Messages/NewBlockIdMessage.cpp
         core/Network/Messages/NewBlockMinedMessage.cpp
         core/Network/Node/Miner.cpp
-        core/Network/Node/Node.cpp
-        core/Networking/RoutingTable.cpp
+        core/Network/Node/Node.cpp   
+        core/Networking/RoutingTable.cpp        
         helpers/Logger/easylogging.cpp       
-        models/BlockchainManagementModels/BlockchainManagementBitcoinModel.cpp
+        models/BlockchainManagementModels/BitcoinModel.cpp
+        models/Networking/BitcoinRoutingTable.cpp        
 )
 
 add_definitions(-DELPP_DEFAULT_LOG_FILE="./logs/default.log")
 
 set_property(TARGET simulation PROPERTY CXX_STANDARD 11)
-
-
