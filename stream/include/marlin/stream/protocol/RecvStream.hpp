@@ -26,7 +26,11 @@ struct RecvPacketInfo {
 		this->length = length;
 	}
 
-	RecvPacketInfo() : packet(nullptr, 0) {}
+	RecvPacketInfo() : packet(nullptr, 0) {
+		recv_time = 0;
+		offset = 0;
+		length = 0;
+	}
 
 	RecvPacketInfo(const RecvPacketInfo &) = delete;
 
