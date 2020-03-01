@@ -99,6 +99,34 @@ target_link_libraries(stream_example PUBLIC stream)
 target_compile_options(stream_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(stream_example PRIVATE cxx_std_17)
 
+add_executable(stream_server
+	examples/server.cpp
+)
+add_dependencies(stream_examples stream_server)
+
+IF(APPLE)
+target_link_libraries(stream_server PUBLIC stream c++)
+ELSE()
+target_link_libraries(stream_server PUBLIC stream stdc++fs)
+ENDIF()
+
+target_compile_options(stream_server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(stream_server PRIVATE cxx_std_17)
+
+add_executable(stream_client
+	examples/client.cpp
+)
+add_dependencies(stream_examples stream_client)
+
+IF(APPLE)
+target_link_libraries(stream_client PUBLIC stream c++)
+ELSE()
+target_link_libraries(stream_client PUBLIC stream stdc++fs)
+ENDIF()
+
+target_compile_options(stream_client PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(stream_client PRIVATE cxx_std_17)
+
 
 ##########################################################
 # All

@@ -16,22 +16,14 @@ namespace stream {
 
 //! Struct to store data (and its params) which is queued to the output/send stream
 struct DataItem {
-	std::unique_ptr<char[]> data;
-	uint64_t size;
+	net::Buffer data;
 	uint64_t sent_offset = 0;
 	uint64_t stream_offset;
 
 	DataItem(
-		std::unique_ptr<char[]> &&_data,
-		uint64_t _size,
-		uint64_t _stream_offset
-	) : data(std::move(_data)), size(_size), stream_offset(_stream_offset) {}
-
-	DataItem(
 		net::Buffer &&_data,
-		uint64_t _size,
 		uint64_t _stream_offset
-	) : data(_data.release()), size(_size), stream_offset(_stream_offset) {}
+	) : data(std::move(_data)), stream_offset(_stream_offset) {}
 };
 
 struct SendStream;
@@ -58,6 +50,18 @@ struct SentPacketInfo {
 	}
 
 	SentPacketInfo() {}
+
+	bool operator==(SentPacketInfo& other) {
+		return this->sent_time == other.sent_time &&
+			this->stream == other.stream &&
+			this->data_item == other.data_item &&
+			this->offset == other.offset &&
+			this->length == other.length;
+	}
+
+	bool operator!=(SentPacketInfo& other) {
+		return !(*this == other);
+	}
 };
 
 //! Implementation for individual stream in multi-stream transport protocol
