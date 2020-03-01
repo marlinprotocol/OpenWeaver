@@ -12,7 +12,7 @@ Buffer::Buffer(char *const _buf, size_t const size) :
 buf(_buf), capacity(size), start_index(0), end_index(size) {}
 
 Buffer::Buffer(Buffer &&b) :
-buf(b.buf), capacity(b.capacity), start_index(b.start_index), end_index(b.capacity) {
+buf(b.buf), capacity(b.capacity), start_index(b.start_index), end_index(b.end_index) {
 	b.buf = nullptr;
 	b.capacity = 0;
 	b.start_index = 0;
