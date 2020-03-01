@@ -180,7 +180,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	SPDLOG_DEBUG(
+	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
 		transport.dst_addr.to_string(),
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
