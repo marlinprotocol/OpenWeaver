@@ -13,10 +13,13 @@ public:
 		std::string &channel,
 		uint64_t message_id
 	) {
-		SPDLOG_INFO(
-			"Did recv message: {}",
-			message_id
-		);
+		if((message_id & 0xff) == 0) {
+			SPDLOG_INFO(
+				"Received message {} on channel {}",
+				message_id,
+				channel
+			);
+		}
 	}
 
 	void did_subscribe(
@@ -30,20 +33,31 @@ public:
 	) {}
 };
 
-constexpr uint msg_rate = 1;
+constexpr uint msg_rate = 2;
 constexpr uint msg_size = 500;
 
 void msggen_timer_cb(uv_timer_t *handle) {
 	auto &client = *(DefaultMulticastClient<MulticastDelegate> *)handle->data;
 
 	char msg[msg_size];
+	for (uint i = 0; i < msg_size; ++i)
+	{
+		msg[i] = (char)i;
+	}
 
 	for (uint i = 0; i < msg_rate; ++i) {
-		client.ps.send_message_on_channel(
+		auto message_id = client.ps.send_message_on_channel(
 			"eth",
 			msg,
 			msg_size
 		);
+		if((message_id & 0xff) == 0) {
+			SPDLOG_INFO(
+				"Received message {} on channel {}",
+				message_id,
+				"eth"
+			);
+		}
 	}
 }
 
