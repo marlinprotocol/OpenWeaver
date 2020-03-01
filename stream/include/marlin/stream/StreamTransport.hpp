@@ -412,7 +412,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	packet.write_uint64_be(20, data_item.stream_offset + offset);
 	packet.write_uint16_be(28, length);
 
-	std::memcpy(packet.data()+30, data_item.data.get()+offset, length);
+	std::memcpy(packet.data()+30, data_item.data.data()+offset, length);
 
 	uint8_t nonce[12];
 	for(int i = 0; i < 4; i++) {
@@ -519,10 +519,10 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 
 		for(
 			uint64_t i = data_item.sent_offset;
-			i < data_item.size;
+			i < data_item.data.size();
 			i+=DEFAULT_FRAGMENT_SIZE
 		) {
-			auto remaining_bytes = data_item.size - data_item.sent_offset;
+			auto remaining_bytes = data_item.data.size() - data_item.sent_offset;
 			uint16_t dsize = remaining_bytes > DEFAULT_FRAGMENT_SIZE ? DEFAULT_FRAGMENT_SIZE : remaining_bytes;
 
 			if(this->bytes_in_flight > this->congestion_window - dsize)
@@ -1229,25 +1229,27 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		// Read any out of order data
 		auto iter = stream.recv_packets.begin();
 		while(iter != stream.recv_packets.end()) {
-			auto &packet = iter->second.packet;
-
 			// Short circuit if data can't be read immediately
 			if(iter->second.offset > stream.read_offset) {
 				break;
 			}
 
+			auto offset = iter->second.offset;
+			auto length = iter->second.length;
+
 			// Check new data
-			if(iter->second.offset + iter->second.length > stream.read_offset) {
+			if(offset + length > stream.read_offset) {
 				// Cover bytes which have already been read
-				packet.cover(stream.read_offset - iter->second.offset);
+				iter->second.packet.cover(stream.read_offset - offset);
 
 				// Read bytes and update offset
-				auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+				SPDLOG_DEBUG("Out of order: {}, {}, {:spn}", offset, length, spdlog::to_hex(iter->second.packet.data(), iter->second.packet.data() + iter->second.packet.size()));
+				auto res = delegate->did_recv_bytes(*this, std::move(iter->second).packet, stream.stream_id);
 				if(res < 0) {
 					return;
 				}
 
-				stream.read_offset = iter->second.offset + iter->second.length;
+				stream.read_offset = offset + length;
 			}
 
 			// Next iter
@@ -1261,12 +1263,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		}
 	} else {
 		// Queue packet for later processing
+		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
 		stream.recv_packets.try_emplace(
 			offset,
 			uv_now(uv_default_loop()),
 			offset,
 			length,
-			std::move(p)
+			std::move(packet)
 		);
 
 		// Check all data received
@@ -1418,17 +1421,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 					iter != stream.data_queue.end();
 					iter = stream.data_queue.erase(iter)
 				) {
-					if(stream.acked_offset < iter->stream_offset + iter->size) {
+					if(stream.acked_offset < iter->stream_offset + iter->data.size()) {
 						// Still not fully acked, skip erase and abort
 						break;
 					}
 
 					delegate->did_send_bytes(
 						*this,
-						net::Buffer(
-							iter->data.release(),
-							iter->size
-						)
+						std::move(iter->data)
 					);
 				}
 			} else {
@@ -1480,10 +1480,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		high = low;
 	}
 
-	auto sent_iter = sent_packets.cbegin();
+	auto sent_iter = sent_packets.begin();
 
 	// Determine lost packets
-	while(sent_iter != sent_packets.cend()) {
+	while(sent_iter != sent_packets.end()) {
 		// Condition for packet in flight to be considered lost
 		// 1. more than 20 packets before largest acked - disabled for now
 		// 2. more than 25ms before before largest acked
@@ -1508,7 +1508,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		}
 	}
 
-	if(sent_iter == sent_packets.cbegin()) {
+	if(sent_iter == sent_packets.begin()) {
 		// No lost packets, ignore
 	} else {
 		// Lost packets, congestion event
@@ -1543,7 +1543,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		}
 
 		// Pop lost packets from sent
-		sent_packets.erase(sent_packets.cbegin(), sent_iter);
+		sent_packets.erase(sent_packets.begin(), sent_iter);
 	}
 
 	// New packets
@@ -1940,7 +1940,6 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	// Add data to send queue
 	stream.data_queue.emplace_back(
 		std::move(bytes),
-		size,
 		stream.queue_offset
 	);
 
