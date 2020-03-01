@@ -181,11 +181,13 @@ public:
 		std::string &channel __attribute__((unused)),
 		uint64_t message_id __attribute__((unused))
 	) {
-		SPDLOG_INFO(
-			"Received message {} on channel {}",
-			message_id,
-			channel
-		);
+		if((message_id & 0xff) == 0) {
+			SPDLOG_INFO(
+				"Received message {} on channel {}",
+				message_id,
+				channel
+			);
+		}
 	}
 
 	void manage_subscriptions(
