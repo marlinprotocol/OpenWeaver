@@ -3,6 +3,7 @@
 #include <uv.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
+#include <fstream>
 #include <experimental/filesystem>
 
 using namespace marlin::net;
