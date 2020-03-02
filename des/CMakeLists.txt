@@ -68,6 +68,7 @@ enable_testing()
 
 set(TEST_SOURCES
 	test/core/testEvent.cpp
+	test/core/testIndexedStorage.cpp
 )
 
 add_custom_target(simulator_tests)
