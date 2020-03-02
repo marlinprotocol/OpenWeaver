@@ -7,28 +7,58 @@
 namespace marlin {
 namespace simulator {
 
+template<class EventManager>
 class EventQueue {
 private:
 	IndexedStorage<
-		Event<EventQueue>,
+		Event<EventManager>,
 		MapIndex<
-			Event<EventQueue>,
+			Event<EventManager>,
 			uint64_t,
-			&Event<EventQueue>::get_id
+			&Event<EventManager>::get_id
 		>,
 		MultimapIndex<
-			Event<EventQueue>,
+			Event<EventManager>,
 			uint64_t,
-			&Event<EventQueue>::get_tick
+			&Event<EventManager>::get_tick
 		>
 	> storage;
 public:
-	void add_event(std::shared_ptr<Event<EventQueue>> event);
-	void remove_event(std::shared_ptr<Event<EventQueue>> event);
+	void add_event(std::shared_ptr<Event<EventManager>> event);
+	void remove_event(std::shared_ptr<Event<EventManager>> event);
 	void remove_event(uint64_t event_id);
-	std::shared_ptr<Event<EventQueue>> get_next_event();
+	std::shared_ptr<Event<EventManager>> get_next_event();
 	bool is_empty();
 };
+
+
+// Impl
+
+template<typename EventManager>
+void EventQueue<EventManager>::add_event(std::shared_ptr<Event<EventManager>> event) {
+	storage.add(event);
+}
+
+template<typename EventManager>
+void EventQueue<EventManager>::remove_event(std::shared_ptr<Event<EventManager>> event) {
+	storage.remove(event);
+}
+
+template<typename EventManager>
+void EventQueue<EventManager>::remove_event(uint64_t event_id) {
+	storage.remove(storage.template get<0>().at(event_id));
+}
+
+template<typename EventManager>
+bool EventQueue<EventManager>::is_empty() {
+	return storage.is_empty();
+}
+
+template<typename EventManager>
+std::shared_ptr<Event<EventManager>> EventQueue<EventManager>::get_next_event() {
+	return storage.template get<1>().front();
+}
+
 
 } // namespace simulator
 } // namespace marlin
