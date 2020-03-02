@@ -11,6 +11,7 @@
 
 #include <sodium.h>
 
+
 namespace marlin {
 namespace beacon {
 
@@ -269,7 +270,6 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 ) {
 	char *message = new char[2+crypto_box_PUBLICKEYBYTES] {0, 4};
 	std::memcpy(message + 2, static_pk, crypto_box_PUBLICKEYBYTES);
-
 	net::Buffer p(message, 2+crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
