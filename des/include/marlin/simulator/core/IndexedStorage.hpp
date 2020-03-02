@@ -31,7 +31,7 @@ public:
 	}
 
 	std::shared_ptr<T> front() {
-		return index.begin();
+		return index.begin()->second;
 	}
 
 	std::shared_ptr<T> at(MemberType m) {
