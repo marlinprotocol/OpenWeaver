@@ -1,5 +1,5 @@
-#ifndef MARLIN_SIMULATOR_UDP_SIMUDPTRANSPORT_HPP
-#define MARLIN_SIMULATOR_UDP_SIMUDPTRANSPORT_HPP
+#ifndef MARLIN_SIMULATOR_UDP_SIMULATEDTRANSPORT_HPP
+#define MARLIN_SIMULATOR_UDP_SIMULATEDTRANSPORT_HPP
 
 #include "marlin/simulator/network/DataOnLinkEvent.hpp"
 
@@ -12,11 +12,11 @@ namespace marlin {
 namespace simulator {
 
 template<typename DelegateType>
-class SimUdpTransport {
+class SimulatedTransport {
 };
 
 
 } // namespace simulator
 } // namespace marlin
 
-#endif // MARLIN_SIMULATOR_UDP_SIMUDPTRANSPORT_HPP
+#endif // MARLIN_SIMULATOR_UDP_SIMULATEDTRANSPORT_HPP
