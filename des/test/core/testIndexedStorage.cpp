@@ -87,3 +87,42 @@ TEST(MapIndexContainer, CanRemoveById) {
 
 	EXPECT_TRUE(idx.is_empty());
 }
+
+
+TEST(MultimapIndexConstruct, DefaultConstructible) {
+	MultimapIndex<Stub, uint64_t, &Stub::get_id> idx;
+}
+
+TEST(MultimapIndexContainer, CanAddAndRetrieve) {
+	MultimapIndex<Stub, uint64_t, &Stub::get_id> idx;
+	constexpr uint64_t size = 1000;
+
+	std::shared_ptr<Stub> orig[size];
+
+	for(uint64_t i = 0; i < size; i++) {
+		orig[size-i-1] = std::make_shared<Stub>(size-i-1);
+		idx.add(orig[size-i-1]);
+		EXPECT_EQ(orig[size-i-1], idx.front());
+	}
+}
+
+TEST(MultimapIndexContainer, CanRemoveByElement) {
+	MultimapIndex<Stub, uint64_t, &Stub::get_id> idx;
+	constexpr uint64_t size = 1000;
+
+	std::shared_ptr<Stub> orig[size];
+
+	for(uint64_t i = 0; i < size; i++) {
+		orig[size-i-1] = std::make_shared<Stub>(size-i-1);
+		idx.add(orig[size-i-1]);
+	}
+
+	for(uint64_t i = 0; i < size-1; i++) {
+		idx.remove(orig[i]);
+		EXPECT_NE(idx.front(), orig[i]);
+	}
+
+	idx.remove(orig[size - 1]);
+
+	EXPECT_TRUE(idx.is_empty());
+}
