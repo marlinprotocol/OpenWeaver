@@ -5,6 +5,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(vendor)
 
+enable_testing()
 add_subdirectory(net)
 add_subdirectory(beacon)
 add_subdirectory(stream)
