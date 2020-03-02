@@ -62,12 +62,12 @@ int main() {
 	Simulator simulator;
 	PingPongNode n;
 	UniformDelayLink<
-		EventQueue,
+		Simulator,
 		std::vector<uint8_t>,
 		PingPongNode,
 		PingPongNode
 	> link(n, n);
-	link.send_to_src(simulator.queue, 1, {0,1,2,3,4});
+	link.send_to_src(simulator, 1, {0,1,2,3,4});
 
 	cout<<"Simulation start"<<endl;
 

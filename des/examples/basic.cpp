@@ -5,11 +5,11 @@ using namespace marlin::simulator;
 using namespace std;
 
 
-class RepeatedEvent final : public Event<EventQueue> {
+class RepeatedEvent final : public Event<Simulator> {
 public:
-	RepeatedEvent(uint64_t tick) : Event<EventQueue>(tick) {}
+	RepeatedEvent(uint64_t tick) : Event<Simulator>(tick) {}
 
-	void run(EventQueue &manager) override {
+	void run(Simulator &manager) override {
 		cout<<"Event fired: "<<tick<<endl;
 
 		if(tick >= 10) return;
