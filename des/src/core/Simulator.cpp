@@ -22,5 +22,14 @@ void Simulator::run() {
 	}
 }
 
+uint64_t Simulator::current_tick() {
+	if(queue.is_empty()) {
+		return 0;
+	} else {
+		auto event = queue.get_next_event();
+		return event->get_tick();
+	}
+}
+
 } // namespace simulator
 } // namespace marlin
