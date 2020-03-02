@@ -32,8 +32,9 @@ public:
 
 private:
 	NetworkLinkType& link;
-	TransportManager<SelfType> &transport_manager;
+	TransportManager<SelfType>& transport_manager;
 
+	EventManager& manager;
 public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
@@ -44,7 +45,8 @@ public:
 		SocketAddress const& src_addr,
 		SocketAddress const& dst_addr,
 		NetworkLinkType& link,
-		TransportManager<SelfType>& transport_manager
+		TransportManager<SelfType>& transport_manager,
+		EventManager& manager
 	);
 
 	void setup(DelegateType* delegate);
