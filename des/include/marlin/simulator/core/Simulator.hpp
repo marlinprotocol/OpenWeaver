@@ -14,6 +14,8 @@ public:
 
 	void add_event(std::shared_ptr<Event<Simulator>> event);
 	void run();
+
+	uint64_t current_tick();
 };
 
 } // namespace simulator
