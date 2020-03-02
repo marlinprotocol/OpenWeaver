@@ -61,6 +61,29 @@ install(FILES
 
 
 ##########################################################
+# Tests
+##########################################################
+
+enable_testing()
+
+set(TEST_SOURCES
+	test/core/testEvent.cpp
+)
+
+add_custom_target(simulator_tests)
+foreach(TEST_SOURCE ${TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main simulator)
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
+	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(simulator_tests ${TEST_NAME})
+endforeach(TEST_SOURCE)
+
+
+##########################################################
 # Examples
 ##########################################################
 
