@@ -20,36 +20,10 @@
 #include <random>
 #include <unordered_set>
 #include <uv.h>
-#include <cryptopp/eccrypto.h>
-#include <cryptopp/osrng.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
-#include <cryptopp/eccrypto.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/oids.h>
-#include <cryptopp/keccak.h>
 
 using namespace CryptoPP;
-
-/*std::string genAttSignature(std::string msg, ECDSA<ECP, SHA256>::PrivateKey pvk){
-        AutoSeededRandomPool prng;
-		ECDSA<ECP, SHA256>::Signer sgnr(pvk);
-        size_t siglen = sgnr.MaxSignatureLength();
-        std::string sgntr(siglen,0x00);
-        siglen = sgnr.SignMessage(prng, (const byte*)&msg[0], msg.size(), (byte*)&sgntr[0]);
-        sgntr.resize(siglen);
-        return sgntr;
-}
-
-bool vrfSignature(std::string msg,std::string sgntr, ECDSA<ECP, SHA256>::PublicKey pbk){
-        ECDSA<ECP, SHA256>::Verifier vrfr(pbk);
-	bool rslt = vrfr.VerifyMessage((const byte*)&msg[0], msg.size(), (const byte*)&sgntr[0], sgntr.size());
-	// verify signature for 1 hour check
-	time msg.substr(pos,pos+8);
-	if(!check)
-	        return false;
-	return rslt;
-}*/
 
 namespace marlin {
 
@@ -1090,27 +1064,6 @@ uint64_t PubSubNode<
 	return message_id;
 }
 
-/*uint8_t *genAttSgntr(uint64_t msgId, std::string chnl, const char *msg, uint64_t msgSz){
-	uint8_t *attSgntr;
-	// Retreive Private Key from disc
-	std::ifstream attPrivKey("~/.marlin/keys/atts/privkey",std::ios::binary);
-	char privKey[crypto_box_PRIVATEKEYBYTES];
-	if(!sk.read((char *)privKey,crypto_box_HASHBYTES)){
-		throw;
-	}
-
-    AutoSeededRandomPool prng;
-	ECDSA<ECP, SHA256>::Signer sgnr(privKey);
-    size_t siglen = sgnr.MaxSignatureLength();
-    std::string sgntr(siglen,0x00);
-    siglen = sgnr.SignMessage(prng, (const byte*)&msg[0], msg.size(), (byte*)&sgntr[0]);
-    sgntr.resize(siglen);
-
-	attSgntr = new uint8_t[size];
-
-	return attSgntr;
-}*/
-
 //! sends messages over a given channel
 /*!
 	\param channel name of channel to send message on
@@ -1118,7 +1071,6 @@ uint64_t PubSubNode<
 	\param data char* byte sequence of message to send
 	\param size of the message to send
 	\param excluded avoid this address while sending the message
-	\param witness_data is ditched
 */
 template<
 	typename PubSubDelegate,
@@ -1143,9 +1095,6 @@ void PubSubNode<
 	if(witness_data == nullptr) {
 		witness_size = 32;
 	}
-
-	// Generating Attestation Signature
-	// auto attsSgntr = genAttsSgntr(message_id, channel, data, size);
 
 	for (
 		auto it = sol_conns.begin();
