@@ -11,29 +11,52 @@
 namespace marlin {
 namespace simulator {
 
-template<typename DelegateType>
+template<
+	typename EventManager,
+	typename MessageType,
+	typename DelegateType
+>
 class SimulatedTransport {
-private:
-	NetworkLink& link;
 public:
-	using SelfType = SimulatedTransport<DelegateType>;
+	using SelfType = SimulatedTransport<
+		EventManager,
+		MessageType,
+		DelegateType
+	>;
+	using NetworkLinkType = NetworkLink<
+		EventManager,
+		MessageType,
+		SelfType,
+		SelfType
+	>;
 
+private:
+	NetworkLinkType& link;
+	TransportManager<SelfType> &transport_manager;
+
+public:
 	SocketAddress src_addr;
 	SocketAddress dst_addr;
 
 	DelegateType* delegate = nullptr;
 
 	SimulatedTransport(
-		SocketAddress const &src_addr,
-		SocketAddress const &dst_addr,
-		NetworkLink& link,
-		TransportManager<SelfType> &transport_manager
+		SocketAddress const& src_addr,
+		SocketAddress const& dst_addr,
+		NetworkLinkType& link,
+		TransportManager<SelfType>& transport_manager
 	);
 
-	void setup(DelegateType *delegate);
-	void did_recv_packet(Buffer &&packet);
-	int send(Buffer &&packet);
+	void setup(DelegateType* delegate);
 	void close();
+
+	int send(Buffer&& buf);
+	void did_recv(
+		typename NetworkLinkType::SrcEventType& event,
+		typename NetworkLinkType::EventManager& manager,
+		typename NetworkLinkType::MessageType&& message,
+		NetworkLinkType& link
+	);
 };
 
 
