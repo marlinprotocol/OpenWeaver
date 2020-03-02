@@ -55,3 +55,21 @@ set_target_properties(sodium PROPERTIES
 	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/libsodium/lib/libsodium.a
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/libsodium/include
 )
+
+# cryptopp
+include(ExternalProject)
+ExternalProject_Add(libcryptopp
+	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make -j8
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make DESTDIR=${CMAKE_CURRENT_LIST_DIR}/libcryptopp install
+)
+
+add_library(cryptopp STATIC IMPORTED GLOBAL)
+add_library(cryptopp::CryptoPP ALIAS cryptopp)
+add_dependencies(cryptopp libcryptopp)
+
+set_target_properties(cryptopp PROPERTIES
+	IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/cryptopp/libcryptopp.a
+	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_LIST_DIR}/libcryptopp
+)

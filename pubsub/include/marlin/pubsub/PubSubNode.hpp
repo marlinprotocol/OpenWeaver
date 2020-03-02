@@ -23,6 +23,7 @@
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
+using namespace CryptoPP;
 
 namespace marlin {
 
