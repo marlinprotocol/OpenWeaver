@@ -77,8 +77,8 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main simulator)
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
-	add_test(${TEST_NAME} ${TEST_NAME})
 
+	add_test(${TEST_NAME} ${TEST_NAME})
 	add_dependencies(simulator_tests ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
