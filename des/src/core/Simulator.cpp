@@ -7,6 +7,10 @@ namespace simulator {
 Simulator::Simulator() {}
 
 void Simulator::add_event(std::shared_ptr<Event<Simulator>> event) {
+	if(!queue.is_empty() && event->get_tick() < queue.get_next_event()->get_tick()) {
+		// Simulations cannot move backward
+		throw;
+	}
 	queue.add_event(event);
 }
 
