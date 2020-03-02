@@ -25,7 +25,7 @@ public:
 		return id;
 	}
 
-	virtual void run(EventManager &manager) = 0;
+	virtual void run(EventManager&) = 0;
 };
 
 
