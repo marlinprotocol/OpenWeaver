@@ -7,35 +7,66 @@
 namespace marlin {
 namespace simulator {
 
-template<typename EventManager, typename MessageType>
+template<
+	typename EM,
+	typename MT,
+	typename SrcType,
+	typename DstType
+>
 class NetworkLink {
-private:
-	std::function<void(MessageType &&, uint64_t, EventManager&)> f_src_did_recv;
-	std::function<void(MessageType &&, uint64_t, EventManager&)> f_dst_did_recv;
 public:
-	NetworkLink(
-		std::function<void(MessageType &&, uint64_t, EventManager&)> f_src_did_recv,
-		std::function<void(MessageType &&, uint64_t, EventManager&)> f_dst_did_recv
-	) : f_src_did_recv(f_src_did_recv), f_dst_did_recv(f_dst_did_recv) {}
+	using EventManager = EM;
+	using MessageType = MT;
 
-	template<typename EventType = DataOnLinkEvent<EventManager, MessageType>>
-	void send(MessageType &&message, bool direction, uint64_t current_tick, EventManager& manager) {
+	SrcType &src;
+	DstType &dst;
+
+	using SelfType = NetworkLink<
+		EventManager,
+		MessageType,
+		SrcType,
+		DstType
+	>;
+
+	NetworkLink(
+		SrcType &src,
+		DstType &dst
+	) : src(src), dst(dst) {}
+
+	using SrcEventType = DataOnLinkEvent<EventManager, MessageType, SrcType, SelfType&>;
+
+	void send_to_src(
+		EventManager& manager,
+		uint64_t current_tick,
+		MessageType&& message
+	) {
 		auto out_tick = get_out_tick(current_tick);
 		if(out_tick == 0) return;
 
-		if(direction) {
-			manager.add_event(std::make_shared<EventType>(
-				out_tick,
-				std::move(message),
-				f_dst_did_recv
-			));
-		} else {
-			manager.add_event(std::make_shared<EventType>(
-				out_tick,
-				std::move(message),
-				f_src_did_recv
-			));
-		}
+		manager.add_event(std::make_shared<SrcEventType>(
+			out_tick,
+			std::move(message),
+			src,
+			*this
+		));
+	}
+
+	using DstEventType = DataOnLinkEvent<EventManager, MessageType, DstType, SelfType&>;
+
+	void send_to_dst(
+		EventManager& manager,
+		uint64_t current_tick,
+		MessageType&& message
+	) {
+		auto out_tick = get_out_tick(current_tick);
+		if(out_tick == 0) return;
+
+		manager.add_event(std::make_shared<DstEventType>(
+			out_tick,
+			std::move(message),
+			dst,
+			*this
+		));
 	}
 
 	virtual uint64_t get_out_tick(uint64_t in_tick) {
