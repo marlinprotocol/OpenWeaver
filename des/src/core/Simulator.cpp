@@ -6,14 +6,14 @@ namespace simulator {
 
 Simulator::Simulator() {}
 
-void Simulator::add_event(std::shared_ptr<Event<EventQueue>> event) {
+void Simulator::add_event(std::shared_ptr<Event<Simulator>> event) {
 	queue.add_event(event);
 }
 
 void Simulator::run() {
 	while(!queue.is_empty()) {
 		auto event = queue.get_next_event();
-		event->run(queue);
+		event->run(*this);
 		queue.remove_event(event);
 	}
 }

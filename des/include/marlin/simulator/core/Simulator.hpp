@@ -9,10 +9,10 @@ namespace simulator {
 
 class Simulator {
 public:
-	EventQueue queue;
+	EventQueue<Simulator> queue;
 	Simulator();
 
-	void add_event(std::shared_ptr<Event<EventQueue>> event);
+	void add_event(std::shared_ptr<Event<Simulator>> event);
 	void run();
 };
 
