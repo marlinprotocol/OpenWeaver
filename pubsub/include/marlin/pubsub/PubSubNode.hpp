@@ -20,6 +20,7 @@
 #include <random>
 #include <unordered_set>
 #include <uv.h>
+#include <cryptopp/cryptlib.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
