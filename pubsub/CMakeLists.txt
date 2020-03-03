@@ -38,6 +38,9 @@ target_link_libraries(pubsub INTERFACE marlin::net)
 # spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog)
 
+#crytopp
+target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
+
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
