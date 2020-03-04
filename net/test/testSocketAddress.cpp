@@ -34,6 +34,18 @@ TEST(SocketAddressTest, StringConvertible) {
 	EXPECT_EQ(str, "192.168.0.1:8000");
 }
 
+TEST(SocketAddressTest, CanGetIpString) {
+	auto addr = SocketAddress::loopback_ipv4(8000);
+
+	EXPECT_EQ(addr.ip_string(), "127.0.0.1");
+}
+
+TEST(SocketAddressTest, CanGetPort) {
+	auto addr = SocketAddress::loopback_ipv4(8000);
+
+	EXPECT_EQ(addr.port(), 8000);
+}
+
 TEST(SocketAddressTest, LoopbackConstructible) {
 	auto addr = SocketAddress::loopback_ipv4(8000);
 
