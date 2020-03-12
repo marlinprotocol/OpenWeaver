@@ -90,6 +90,7 @@ endforeach(TEST_SOURCE)
 set(EXAMPLE_SOURCES
 	examples/basic.cpp
 	examples/network.cpp
+	examples/transport.cpp
 )
 
 add_custom_target(simulator_examples)
