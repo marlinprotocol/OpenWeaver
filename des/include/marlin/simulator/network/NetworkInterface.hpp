@@ -76,9 +76,7 @@ int NetworkInterface<NetworkType>::send(
 	SocketAddress const& dst_addr,
 	net::Buffer&& packet
 ) {
-	network.send(manager, src_addr, dst_addr, std::move(packet));
-
-	return 0;
+	return network.send(manager, src_addr, dst_addr, std::move(packet));
 }
 
 template<typename NetworkType>

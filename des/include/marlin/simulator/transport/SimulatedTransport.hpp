@@ -1,7 +1,7 @@
 #ifndef MARLIN_SIMULATOR_UDP_SIMULATEDTRANSPORT_HPP
 #define MARLIN_SIMULATOR_UDP_SIMULATEDTRANSPORT_HPP
 
-#include "marlin/simulator/network/NetworkLink.hpp"
+#include "marlin/simulator/network/NetworkInterface.hpp"
 
 #include <marlin/net/Buffer.hpp>
 #include <marlin/net/SocketAddress.hpp>
@@ -12,26 +12,18 @@ namespace marlin {
 namespace simulator {
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename DelegateType
 >
 class SimulatedTransport {
 public:
 	using SelfType = SimulatedTransport<
-		EventManager,
-		MessageType,
+		NetworkInterfaceType,
 		DelegateType
-	>;
-	using NetworkLinkType = NetworkLink<
-		EventManager,
-		MessageType,
-		SelfType,
-		SelfType
 	>;
 
 private:
-	NetworkLinkType& link;
+	NetworkInterfaceType& interface;
 	TransportManager<SelfType>& transport_manager;
 
 	EventManager& manager;
@@ -44,7 +36,7 @@ public:
 	SimulatedTransport(
 		SocketAddress const& src_addr,
 		SocketAddress const& dst_addr,
-		NetworkLinkType& link,
+		NetworkInterfaceType& interface,
 		TransportManager<SelfType>& transport_manager,
 		EventManager& manager
 	);
@@ -52,12 +44,10 @@ public:
 	void setup(DelegateType* delegate);
 	void close();
 
-	int send(Buffer&& buf);
+	int send(net::Buffer&& buf);
 	void did_recv(
-		typename NetworkLinkType::SrcEventType& event,
-		typename NetworkLinkType::EventManager& manager,
-		typename NetworkLinkType::MessageType&& message,
-		NetworkLinkType& link
+		SocketAddress const& addr,
+		net::Buffer&& message
 	);
 };
 
@@ -65,72 +55,61 @@ public:
 // Impl
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename DelegateType
 >
 SimulatedTransport<
-	EventManager,
-	MessageType,
+	NetworkInterfaceType,
 	DelegateType
 >::SimulatedTransport(
 	SocketAddress const& src_addr,
 	SocketAddress const& dst_addr,
-	NetworkLinkType& link,
+	NetworkInterfaceType& interface,
 	TransportManager<Self>& transport_manager,
 	EventManager& manager
-) : link(link), transport_manager(transport_manager),
-	src_addr(src_addr), dst_addr(dst_addr), manager(manager) {}
+) : interface(interface), transport_manager(transport_manager),
+	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {}
 
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename DelegateType
 >
 void SimulatedTransport<
-	EventManager,
-	MessageType,
+	NetworkInterfaceType,
 	DelegateType
 >::setup(DelegateType* delegate) {
 	this->delegate = delegate;
 }
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename DelegateType
 >
 int SimulatedTransport<
-	EventManager,
-	MessageType,
+	NetworkInterfaceType,
 	DelegateType
 >::send(Buffer&& buf) {
-	if(&link.src == this) {
-		link.send_to_dst(manager, manager.current_tick(), std::move(message));
-	} else {
-		link.send_to_src(manager, manager.current_tick(), std::move(message));
-	}
-
-	return 0;
+	return interface.send(
+		manager,
+		this->src_addr,
+		this->dst_addr,
+		std::move(buf)
+	);
 }
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename DelegateType
 >
 void SimulatedTransport<
-	EventManager,
-	MessageType,
+	NetworkInterfaceType,
 	DelegateType
 >::did_recv(
-	typename NetworkLinkType::SrcEventType&,
-	typename NetworkLinkType::EventManager&,
-	typename NetworkLinkType::MessageType&& message,
-	NetworkLinkType&
+	net::SocketAddress const& addr,
+	net::Buffer&& message
 ) {
-	delegate->did_recv_packet(std::move(message));
+	delegate->did_recv_packet(*this, std::move(message));
 }
 
 } // namespace simulator
