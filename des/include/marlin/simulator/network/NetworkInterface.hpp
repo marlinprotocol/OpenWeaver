@@ -2,26 +2,31 @@
 #define MARLIN_SIMULATOR_NETWORK_NETWORKINTERFACE_HPP
 
 #include "marlin/net/SocketAddress.hpp"
+#include "marlin/net/Buffer.hpp"
 
+#include <unordered_map>
 
 namespace marlin {
 namespace simulator {
 
 template<typename NetworkInterfaceType>
 class NetworkListener {
+public:
 	virtual void did_recv(
-		NetworkInterfaceType& interface
+		NetworkInterfaceType& interface,
+		uint16_t port,
 		net::SocketAddress const& addr,
 		net::Buffer&& packet
 	) = 0;
-	virtual void did_close();
-}
+	virtual void did_close() = 0;
+};
 
 template<typename NetworkType>
 class NetworkInterface {
 public:
 	using SelfType = NetworkInterface<NetworkType>;
 	using NetworkListenerType = NetworkListener<SelfType>;
+
 private:
 	std::unordered_map<uint16_t, NetworkListenerType*> listeners;
 	NetworkType& network;
@@ -38,7 +43,7 @@ public:
 	void close(uint16_t port);
 
 	template<typename EventManager>
-	int send(EventManager& manager, uint16_t port, SocketAddress const& addr, net::Buffer&& packet);
+	int send(EventManager& manager, net::SocketAddress const& src_addr, net::SocketAddress const& addr, net::Buffer&& packet);
 	void did_recv(uint16_t port, net::SocketAddress const& addr, net::Buffer&& packet);
 };
 
@@ -77,8 +82,8 @@ template<typename NetworkType>
 template<typename EventManager>
 int NetworkInterface<NetworkType>::send(
 	EventManager& manager,
-	SocketAddress const& src_addr,
-	SocketAddress const& dst_addr,
+	net::SocketAddress const& src_addr,
+	net::SocketAddress const& dst_addr,
 	net::Buffer&& packet
 ) {
 	return network.send(manager, src_addr, dst_addr, std::move(packet));
@@ -87,7 +92,7 @@ int NetworkInterface<NetworkType>::send(
 template<typename NetworkType>
 void NetworkInterface<NetworkType>::did_recv(
 	uint16_t port,
-	SocketAddress const& addr,
+	net::SocketAddress const& addr,
 	net::Buffer&& packet
 ) {
 	if(listeners.find(port) == listeners.end()) {
@@ -95,7 +100,7 @@ void NetworkInterface<NetworkType>::did_recv(
 	}
 
 	auto* listener = listeners[port];
-	listener->did_recv(*this, addr, std::move(packet));
+	listener->did_recv(*this, port, addr, std::move(packet));
 }
 
 } // namespace simulator

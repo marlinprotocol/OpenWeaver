@@ -31,7 +31,7 @@ public:
 	) : Event<EventManager>(tick), dst(dst), src(src), message(std::move(message)), target(target) {}
 	virtual ~DataOnInterfaceEvent() {}
 
-	virtual void run(EventManager& manager) override {
+	virtual void run(EventManager&) override {
 		target.did_recv(dst, src, std::move(message));
 	}
 };
