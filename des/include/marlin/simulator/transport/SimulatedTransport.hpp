@@ -12,32 +12,34 @@ namespace marlin {
 namespace simulator {
 
 template<
+	typename EventManager,
 	typename NetworkInterfaceType,
 	typename DelegateType
 >
 class SimulatedTransport {
 public:
 	using SelfType = SimulatedTransport<
+		EventManager,
 		NetworkInterfaceType,
 		DelegateType
 	>;
 
 private:
 	NetworkInterfaceType& interface;
-	TransportManager<SelfType>& transport_manager;
+	net::TransportManager<SelfType>& transport_manager;
 
 	EventManager& manager;
 public:
-	SocketAddress src_addr;
-	SocketAddress dst_addr;
+	net::SocketAddress src_addr;
+	net::SocketAddress dst_addr;
 
 	DelegateType* delegate = nullptr;
 
 	SimulatedTransport(
-		SocketAddress const& src_addr,
-		SocketAddress const& dst_addr,
+		net::SocketAddress const& src_addr,
+		net::SocketAddress const& dst_addr,
 		NetworkInterfaceType& interface,
-		TransportManager<SelfType>& transport_manager,
+		net::TransportManager<SelfType>& transport_manager,
 		EventManager& manager
 	);
 
@@ -46,9 +48,7 @@ public:
 
 	int send(net::Buffer&& buf);
 	void did_recv(
-		NetworkInterfaceType& interface,
-		uint16_t port,
-		SocketAddress const& addr,
+		net::SocketAddress const& addr,
 		net::Buffer&& message
 	);
 };
@@ -57,27 +57,31 @@ public:
 // Impl
 
 template<
+	typename EventManager,
 	typename NetworkInterfaceType,
 	typename DelegateType
 >
 SimulatedTransport<
+	EventManager,
 	NetworkInterfaceType,
 	DelegateType
 >::SimulatedTransport(
-	SocketAddress const& src_addr,
-	SocketAddress const& dst_addr,
+	net::SocketAddress const& src_addr,
+	net::SocketAddress const& dst_addr,
 	NetworkInterfaceType& interface,
-	TransportManager<Self>& transport_manager,
+	net::TransportManager<SelfType>& transport_manager,
 	EventManager& manager
 ) : interface(interface), transport_manager(transport_manager),
 	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {}
 
 
 template<
+	typename EventManager,
 	typename NetworkInterfaceType,
 	typename DelegateType
 >
 void SimulatedTransport<
+	EventManager,
 	NetworkInterfaceType,
 	DelegateType
 >::setup(DelegateType* delegate) {
@@ -85,13 +89,29 @@ void SimulatedTransport<
 }
 
 template<
+	typename EventManager,
+	typename NetworkInterfaceType,
+	typename DelegateType
+>
+void SimulatedTransport<
+	EventManager,
+	NetworkInterfaceType,
+	DelegateType
+>::close() {
+	delegate->did_close(*this);
+	transport_manager.erase(dst_addr);
+}
+
+template<
+	typename EventManager,
 	typename NetworkInterfaceType,
 	typename DelegateType
 >
 int SimulatedTransport<
+	EventManager,
 	NetworkInterfaceType,
 	DelegateType
->::send(Buffer&& buf) {
+>::send(net::Buffer&& buf) {
 	return interface.send(
 		manager,
 		this->src_addr,
@@ -101,16 +121,16 @@ int SimulatedTransport<
 }
 
 template<
+	typename EventManager,
 	typename NetworkInterfaceType,
 	typename DelegateType
 >
 void SimulatedTransport<
+	EventManager,
 	NetworkInterfaceType,
 	DelegateType
 >::did_recv(
-	NetworkInterfaceType&,
-	uint16_t,
-	net::SocketAddress const& addr,
+	net::SocketAddress const&,
 	net::Buffer&& message
 ) {
 	delegate->did_recv_packet(*this, std::move(message));
