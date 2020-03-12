@@ -32,7 +32,8 @@ public:
 	int bind(NetworkListener& listener, uint16_t port);
 	void close(uint16_t port);
 
-	int send(uint16_t port, SocketAddress const& addr, net::Buffer&& packet);
+	template<typename EventManager>
+	int send(EventManager& manager, uint16_t port, SocketAddress const& addr, net::Buffer&& packet);
 	void did_recv(uint16_t port, net::SocketAddress const& addr, net::Buffer&& packet);
 };
 
@@ -68,15 +69,14 @@ void NetworkInterface<NetworkType>::close(uint16_t port) {
 }
 
 template<typename NetworkType>
+template<typename EventManager>
 int NetworkInterface<NetworkType>::send(
-	uint16_t port,
-	SocketAddress const& addr,
+	EventManager& manager,
+	SocketAddress const& src_addr,
+	SocketAddress const& dst_addr,
 	net::Buffer&& packet
 ) {
-	auto src_addr = this->addr;
-	src_addr.set_port(port);
-
-	network.send(src_addr, addr, std::move(packet));
+	network.send(manager, src_addr, dst_addr, std::move(packet));
 
 	return 0;
 }
