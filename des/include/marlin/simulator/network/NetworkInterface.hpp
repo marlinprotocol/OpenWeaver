@@ -96,10 +96,10 @@ void NetworkInterface<NetworkType>::did_recv(
 	net::Buffer&& packet
 ) {
 	if(listeners.find(port) == listeners.end()) {
-		throw;
+		return;
 	}
 
-	auto* listener = listeners[port];
+	auto* listener = listeners.at(port);
 	listener->did_recv(*this, port, addr, std::move(packet));
 }
 
