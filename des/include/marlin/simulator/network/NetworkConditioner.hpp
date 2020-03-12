@@ -10,15 +10,15 @@ class NetworkConditioner {
 public:
 	bool should_drop(
 		uint64_t in_tick,
-		net::SocketAddress& src,
-		net::SocketAddress& dst,
+		net::SocketAddress const& src,
+		net::SocketAddress const& dst,
 		uint64_t size
 	);
 
 	uint64_t get_out_tick(
 		uint64_t in_tick,
-		net::SocketAddress& src,
-		net::SocketAddress& dst,
+		net::SocketAddress const& src,
+		net::SocketAddress const& dst,
 		uint64_t size
 	);
 };
@@ -28,8 +28,8 @@ public:
 
 bool NetworkConditioner::should_drop(
 	uint64_t,
-	net::SocketAddress&,
-	net::SocketAddress&,
+	net::SocketAddress const&,
+	net::SocketAddress const&,
 	uint64_t
 ) {
 	return false;
@@ -37,8 +37,8 @@ bool NetworkConditioner::should_drop(
 
 uint64_t NetworkConditioner::get_out_tick(
 	uint64_t in_tick,
-	net::SocketAddress&,
-	net::SocketAddress&,
+	net::SocketAddress const&,
+	net::SocketAddress const&,
 	uint64_t
 ) {
 	return in_tick + 1;

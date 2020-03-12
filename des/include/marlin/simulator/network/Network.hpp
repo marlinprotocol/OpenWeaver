@@ -1,25 +1,32 @@
 #ifndef MARLIN_SIMULATOR_NETWORK_NETWORK_HPP
 #define MARLIN_SIMULATOR_NETWORK_NETWORK_HPP
 
-#include "marlin/net/SocketAddress.hpp"
+#include "marlin/simulator/network/NetworkConditioner.hpp"
 
 namespace marlin {
 namespace simulator {
 
+template<typename NetworkConditionerType = NetworkConditioner>
 class Network {
 private:
 	std::unordered_map<
 		net::SocketAddress,
 		NetworkInterface<Network>
 	> interfaces;
+
+	NetworkConditionerType& conditioner;
 public:
-	NetworkInterface<Network>& get_or_create_interface(
+	using SelfType = Network<NetworkConditionerType>;
+
+	Network(NetworkConditionerType& conditioner);
+
+	NetworkInterface<SelfType>& get_or_create_interface(
 		net::SocketAddress addr
 	);
 
 	int send(
 		net::SocketAddress const& src_addr,
-		net::SocketAddress& dst_addr,
+		net::SocketAddress dst_addr,
 		net::Buffer&& packet
 	);
 };
@@ -27,7 +34,14 @@ public:
 
 // Impl
 
-NetworkInterface<Network>& Network::get_or_create_interface(
+template<typename NetworkConditionerType>
+Network<NetworkConditionerType>::Network(
+	NetworkConditionerType& conditioner
+) : conditioner(conditioner) {}
+
+
+template<typename NetworkConditionerType>
+NetworkInterface<Network<NetworkConditionerType>>& Network<NetworkConditionerType>::get_or_create_interface(
 	net::SocketAddress addr
 ) {
 	addr.set_port(0);
@@ -39,9 +53,10 @@ NetworkInterface<Network>& Network::get_or_create_interface(
 	).first->second;
 }
 
-int Network::send(
+template<typename NetworkConditionerType>
+int Network<NetworkConditionerType>::send(
 	net::SocketAddress const& src_addr,
-	net::SocketAddress& dst_addr,
+	net::SocketAddress dst_addr,
 	net::Buffer&& packet
 ) {
 	auto port = dst_addr.port();
