@@ -46,6 +46,8 @@ public:
 
 	int send(net::Buffer&& buf);
 	void did_recv(
+		NetworkInterfaceType& interface,
+		uint16_t port,
 		SocketAddress const& addr,
 		net::Buffer&& message
 	);
@@ -106,6 +108,8 @@ void SimulatedTransport<
 	NetworkInterfaceType,
 	DelegateType
 >::did_recv(
+	NetworkInterfaceType&,
+	uint16_t,
 	net::SocketAddress const& addr,
 	net::Buffer&& message
 ) {
