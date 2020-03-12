@@ -16,6 +16,7 @@ template<
 >
 class DataOnInterfaceEvent : public Event<EventManager> {
 private:
+	uint16_t dst;
 	net::SocketAddress src;
 	MessageType message;
 	TargetType& target;
@@ -23,14 +24,15 @@ private:
 public:
 	DataOnInterfaceEvent(
 		uint64_t tick,
+		uint16_t dst,
 		net::SocketAddress const& src,
 		MessageType &&message,
 		TargetType &target
-	) : Event<EventManager>(tick), src(src), message(std::move(message)), target(target) {}
+	) : Event<EventManager>(tick), dst(dst), src(src), message(std::move(message)), target(target) {}
 	virtual ~DataOnInterfaceEvent() {}
 
 	virtual void run(EventManager& manager) override {
-		target.did_recv(src, std::move(message));
+		target.did_recv(dst, src, std::move(message));
 	}
 };
 
