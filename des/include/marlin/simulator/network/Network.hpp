@@ -72,6 +72,8 @@ int Network<NetworkConditionerType>::send(
 		return -1;
 	}
 
+	auto& interface = interfaces.at(taddr);
+
 	auto should_drop = conditioner.should_drop(
 		manager.current_tick(),
 		src_addr,
@@ -89,19 +91,18 @@ int Network<NetworkConditionerType>::send(
 		dst_addr,
 		packet.size()
 	);
-	auto interface = interfaces[dst_addr];
 
-	auto event = std::make_shared(DataOnInterfaceEvent<
+	auto event = std::make_shared<DataOnInterfaceEvent<
 		EventManager,
 		net::Buffer,
 		NetworkInterface<SelfType>
-	>(
+	>>(
 		out_tick,
 		dst_addr.port(),
 		src_addr,
 		std::move(packet),
 		interface
-	));
+	);
 
 	manager.add_event(event);
 
