@@ -143,7 +143,7 @@ SocketAddress SocketAddress::deserialize(char const* bytes, size_t const size) {
 }
 
 uint16_t SocketAddress::get_port() const {
-	return reinterpret_cast<const sockaddr_in *>(this)->sin_port;
+	return htons(reinterpret_cast<const sockaddr_in *>(this)->sin_port);
 }
 
 } // namespace net
