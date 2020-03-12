@@ -1,6 +1,7 @@
 #ifndef MARLIN_SIMULATOR_NETWORK_NETWORK_HPP
 #define MARLIN_SIMULATOR_NETWORK_NETWORK_HPP
 
+#include "marlin/simulator/network/DataOnInterfaceEvent.hpp"
 #include "marlin/simulator/network/NetworkConditioner.hpp"
 
 namespace marlin {
@@ -8,25 +9,27 @@ namespace simulator {
 
 template<typename NetworkConditionerType = NetworkConditioner>
 class Network {
+public:
+	using SelfType = Network<NetworkConditionerType>;
 private:
 	std::unordered_map<
 		net::SocketAddress,
-		NetworkInterface<Network>
+		NetworkInterface<SelfType>
 	> interfaces;
 
 	NetworkConditionerType& conditioner;
 public:
-	using SelfType = Network<NetworkConditionerType>;
-
 	Network(NetworkConditionerType& conditioner);
 
 	NetworkInterface<SelfType>& get_or_create_interface(
-		net::SocketAddress addr
+		net::SocketAddress const& addr
 	);
 
+	template<typename EventManager>
 	int send(
+		EventManager& manager,
 		net::SocketAddress const& src_addr,
-		net::SocketAddress dst_addr,
+		net::SocketAddress const& dst_addr,
 		net::Buffer&& packet
 	);
 };
@@ -42,32 +45,65 @@ Network<NetworkConditionerType>::Network(
 
 template<typename NetworkConditionerType>
 NetworkInterface<Network<NetworkConditionerType>>& Network<NetworkConditionerType>::get_or_create_interface(
-	net::SocketAddress addr
+	net::SocketAddress const& addr
 ) {
-	addr.set_port(0);
+	net::SocketAddress taddr = addr;
+	taddr.set_port(0);
 
 	return interfaces.try_emplace(
-		addr,
+		taddr,
 		*this,
 		addr
 	).first->second;
 }
 
 template<typename NetworkConditionerType>
+template<typename EventManager>
 int Network<NetworkConditionerType>::send(
+	EventManager& manager,
 	net::SocketAddress const& src_addr,
-	net::SocketAddress dst_addr,
+	net::SocketAddress const& dst_addr,
 	net::Buffer&& packet
 ) {
-	auto port = dst_addr.port();
-	dst_addr.set_port(0);
+	net::SocketAddress taddr = dst_addr;
+	taddr.set_port(0);
 
-	if(interfaces.find(dst_addr) == interfaces.end()) {
+	if(interfaces.find(taddr) == interfaces.end()) {
 		return -1;
 	}
 
+	auto should_drop = conditioner.should_drop(
+		manager.current_tick(),
+		src_addr,
+		dst_addr,
+		packet.size()
+	);
+
+	if(should_drop) {
+		return -2;
+	}
+
+	auto out_tick = conditioner.get_out_tick(
+		manager.current_tick(),
+		src_addr,
+		dst_addr,
+		packet.size()
+	);
 	auto interface = interfaces[dst_addr];
-	interface.did_recv(port, src_addr, std::move(packet));
+
+	auto event = std::make_shared(DataOnInterfaceEvent<
+		EventManager,
+		net::Buffer,
+		NetworkInterface<SelfType>
+	>(
+		out_tick,
+		dst_addr.port(),
+		src_addr,
+		std::move(packet),
+		interface
+	));
+
+	manager.add_event(event);
 
 	return 0;
 }
