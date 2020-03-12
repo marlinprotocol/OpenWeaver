@@ -12,36 +12,33 @@ namespace marlin {
 namespace simulator {
 
 template<
-	typename EventManager,
-	typename MessageType,
+	typename NetworkInterfaceType,
 	typename ListenDelegateType,
 	typename TransportDelegateType
 >
 class SimulatedTransportFactory {
 public:
 	using SelfType = SimulatedTransportFactory<
-		EventManager,
-		MessageType,
+		NetworkInterfaceType,
 		ListenDelegateType,
 		TransportDelegateType
 	>;
-	using NetworkLinkType = NetworkLink<
-		EventManager,
-		MessageType,
-		SelfType,
-		SelfType
+
+	using TransportType = SimulatedTransport<
+		NetworkInterfaceType,
+		TransportDelegateType
 	>;
 
 private:
-	NetworkLinkType& link;
-	TransportManager<SelfType>& transport_manager;
+	NetworkInterfaceType& interface;
+	TransportManager<TransportType>& transport_manager;
 
 	EventManager& manager;
 public:
 	SocketAddress addr;
 
-	SimulatedTransport(
-		NetworkLinkType& link,
+	SimulatedTransportFactory(
+		NetworkInterfaceType& interface,
 		EventManager& manager
 	);
 
@@ -54,7 +51,7 @@ public:
 	template<typename MetadataType>
 	int dial(SocketAddress const& addr, ListenDelegate& delegate, MetadataType&& metadata);
 
-	SelfType* get_transport(SocketAddress const& addr);
+	TransportType* get_transport(SocketAddress const& addr);
 };
 
 
