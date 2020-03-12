@@ -7,8 +7,10 @@
 namespace marlin {
 namespace simulator {
 
+template<typename NetworkInterfaceType>
 class NetworkListener {
 	virtual void did_recv(
+		NetworkInterfaceType& interface
 		net::SocketAddress const& addr,
 		net::Buffer&& packet
 	) = 0;
@@ -17,8 +19,11 @@ class NetworkListener {
 
 template<typename NetworkType>
 class NetworkInterface {
+public:
+	using SelfType = NetworkInterface<NetworkType>;
+	using NetworkListenerType = NetworkListener<SelfType>;
 private:
-	std::unordered_map<uint16_t, NetworkListener*> listeners;
+	std::unordered_map<uint16_t, NetworkListenerType*> listeners;
 	NetworkType& network;
 
 public:
@@ -29,7 +34,7 @@ public:
 		net::SocketAddress const& addr
 	);
 
-	int bind(NetworkListener& listener, uint16_t port);
+	int bind(NetworkListenerType& listener, uint16_t port);
 	void close(uint16_t port);
 
 	template<typename EventManager>
@@ -47,7 +52,7 @@ NetworkInterface<NetworkType>::NetworkInterface(
 ) : network(network), addr(addr) {}
 
 template<typename NetworkType>
-int NetworkInterface<NetworkType>::bind(NetworkListener& listener, uint16_t port) {
+int NetworkInterface<NetworkType>::bind(NetworkListenerType& listener, uint16_t port) {
 	if(listeners.find(port) != listeners.end()) {
 		return -1;
 	}
@@ -90,7 +95,7 @@ void NetworkInterface<NetworkType>::did_recv(
 	}
 
 	auto* listener = listeners[port];
-	listener->did_recv(addr, std::move(packet));
+	listener->did_recv(*this, addr, std::move(packet));
 }
 
 } // namespace simulator
