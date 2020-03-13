@@ -20,113 +20,9 @@
 #include <random>
 #include <unordered_set>
 #include <uv.h>
-#include <cryptopp/cryptlib.h>
-#include <cryptopp/eccrypto.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/oids.h>
-#include <cryptopp/keccak.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
-
-#define cryptopp_SIGNBYTES 64
-
-using namespace CryptoPP;
-
-AutoSeededRandomPool rnd;
-ECDSA<ECP,SHA256>::PrivateKey priv_key;
-ECDSA<ECP,SHA256>::PublicKey pub_key;
-
-//! Helper function to concatenate fields required for Signature generation and verification
-//! Concatenated Entities & Operation := ( Timestamp | Message Id | Channel Length | Channel | Message Length | Message )
-/*! 
- \param msgId unique ID for each message
- \param channel identifier of broadcasting channel
- \param channel_len broadcast channel identifier length 
- \param msg communication information propagated on network
- \param msg_len size of message
- \param time_stamp sender time of sending 
- \param total_len size of all combined fields 
-*/
-char *generate_msg_concate(uint64_t msg_id, char* channel, size_t channel_len, const char *msg, uint64_t msg_len, uint64_t time_stamp, uint64_t total_len){
-	SPDLOG_DEBUG("PUBSUBNODE GENERATE_MSG_CONCATE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, complete size: {}, msg: {}, channel: {}", msg_id, channel_len, msg_len, time_stamp, total_len, std::string(msg,msg_length), std::string(chnl,channel_len));
-	char *concate_out = new char[total_len];
-	uint64_t pos = 0;
-	// Concatenate Individual Fields to byte format
-	memcpy(concate_out+pos,&time_stamp,8); pos=pos+8;
-	memcpy(concate_out+pos,&msg_id,8); pos = pos+8;
-	memcpy(concate_out+pos,&channel_len,8); pos = pos+8;
-	memcpy(concate_out+pos,channel,channel_len); pos = pos+channel_len;
-	memcpy(concate_out+pos,&msg_len,8); pos = pos+8;
-	memcpy(concate_out+pos,msg,msg_len); pos = pos+msg_len;
-	SPDLOG_DEBUG("PUBSUBNODE GENERATE_MSG_CONCATE ### genMsgConcate {}",std::string(cnct,total_len));
-	return concate_out;
-}
-
-//! Verify Signature of Attested Message received
-/*
- \param msg communication information propagated on network
- \param msg_len size of message
- \param time_stamp sender time of sending
- \param sgntr attesation signature sent by sender
- \param sgn_len size of sender attestation signature
- \param pub_key cryptographic public key of sender attestation
- */
-bool verify_signature(char *msg, uint64_t msg_len, uint64_t time_stamp, char *sgntr, size_t sgn_len, ECDSA<ECP, SHA256>::PublicKey pub_key){
-	SPDLOG_DEBUG("PUBSUBNODE VERIFY_SIGNATURE ### signature length: {}, msg size: {}",sgn_len, msg_len);
-	ECDSA<ECP, SHA256>::Verifier vrfr(pub_key);
-	// verify if received signature was generated before atmost 1 hour from time of receival
-	uint64_t current_time = time(NULL);
-	if (current_time-time_stamp>3600)
-		return false;
-
-	std::string tmp(sgntr,sgn_len);
-	// memcpy(tmp,sgntr,sgnLen);
-	std::string tmp1(msg,msg_len);
-	SPDLOG_DEBUG("PUBSUBNODE VERIFY_SIGNATURE ### received message: {}",tmp1);
-	bool reslt = vrfr.VerifyMessage((const byte*)&msg[0], msg_len, (const byte *)&tmp[0], sgn_len);
-	SPDLOG_DEBUG("PUBSUBNODE VERIFY_SIGNATURE ### Signature Verification Result {}", reslt);
-	if(!reslt)
-	    return false;
-	return reslt;
-}
-
-//! Generating Attestaton Signature of Message being sent
-/*
- \param msg_id unique identifier of message
- \param channel identifier of broadcasting channel
- \param msg communication information propagated on network
- \param msg_len size of message
- \param time_stamp time of message attestation signature generation
- */
-char *generate_attst_signature(uint64_t msg_id, std::string channel, const char *msg, uint64_t msg_len, uint64_t time_stamp){
-	SPDLOG_DEBUG("PUBSUBNODE GENERATE_ATTST_SIGNATURE ### Attestation Signing Message concatenated with other fields {}",time_stamp);
-	char *r_channel = new char[channel.length() + 1];
-	strcpy(r_channel, channel.c_str());
-	size_t channel_len = channel.size();
-
-	AutoSeededRandomPool prng;
-	ECDSA<ECP, SHA256>::Signer sgnr(priv_key);
-	size_t siglen = sgnr.MaxSignatureLength();
-	//stores cryptopp generated signature
-	std::string signature(siglen,0x00);
-
-	uint64_t n = 32+channel_len+msg_len;
-	char *cnct = new char[n]; 
-	cnct = generate_msg_concate(msg_id,r_channel,channel_len,msg,msg_len,time_stamp,n);
-
-	// log concatenate hex format message
-	std::string tmp3(cnct,n);
-	SPDLOG_DEBUG("PUBSUBNODE GENERATE_ATTST_SIGNATURE ### Concatenated message: {}",tmp3);
-
-	// signing with private key
-	siglen = sgnr.SignMessage(prng, (const byte*)&cnct[0], n, (byte*)&signature[0]);
-	signature.resize(siglen);
-
-	char *attSgntr = new char[siglen];
-	memcpy(attSgntr,&signature[0],siglen);
-
-	return attSgntr;
-}
+#include <marlin/pubsub/PubSubAttestation.hpp>
 
 namespace marlin {
 
@@ -164,6 +60,7 @@ private:
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 	static constexpr uint64_t DefaultBlacklistTimerInterval = 600000;
+	MessageAttestation attest_manager;
 
 //---------------- Transport types ----------------//
 public:
@@ -765,13 +662,7 @@ int PubSubNode<
 		uint64_t time_stamp=0;
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
-
-		uint64_t agg_len = 32+bytes.size()+channel_length;
-		char *t_bytes = new char[agg_len];
-		// concatenating message with other fields(in generated format) to verify attestation signature integrity
-		t_bytes = generate_msg_concate(message_id, rchannel, channel_length, bytes.data(), bytes.size(), time_stamp, agg_len);
-
-		if (!verify_signature(t_bytes, agg_len, time_stamp, witness, witness_length, pub_key)){
+		if (!attest_manager.verify_signature(transport.dst_addr, time_stamp, message_id, channel_length, channel.data(), bytes.size(), bytes.data(), witness)){
 			SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
 			transport.close();
 			return -1;
@@ -1115,15 +1006,13 @@ PubSubNode<
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
+	attest_manager("/home/kota/.marlin/keys/atts/privKey"),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
 {
 	f.bind(addr);
 	f.listen(*this);
-
-	priv_key.Initialize(rnd,ASN1::secp256k1());
-	priv_key.MakePublicKey(pub_key);
 
 	SPDLOG_DEBUG(
 		"Assymetric Keys for Attestation were loaded from Smart Contract"
@@ -1145,6 +1034,7 @@ PubSubNode<
 	uv_timer_init(uv_default_loop(), &blacklist_timer);
 	this->blacklist_timer.data = (void *)this;
 	uv_timer_start(&blacklist_timer, &blacklist_timer_cb, DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
+
 }
 
 template<
@@ -1226,19 +1116,22 @@ void PubSubNode<
 	char const* witness_data,
 	uint16_t witness_size
 ) {
-	if(witness_data == nullptr || witness_size <= -1) {
+	if(witness_data == nullptr || witness_size <= 0) {
 		witness_size = 32;
 	}
 
-	time_t t = time(NULL);
-	uint64_t time_stamp = (uintmax_t)t;
+	uint64_t time_stamp = 0;
 
+
+	// generating attestation signature
+	std::string attst_signature = "";
+	std::string tmp(data,size);
+	uint64_t t_size = size;
+	attest_manager.generate_attst_signature(time_stamp,message_id, channel, t_size, tmp.data(), attst_signature);
+	// time of signature generation is concatenated to data
 	char *t_data = new char[size+8];
 	memcpy(t_data, &time_stamp, 8);
 	memcpy(t_data+8, data, size);
-
-	// generating attestation signature
-	auto attst_signature = generate_attst_signature(message_id, channel, data, size, time_stamp);
 
 	for (
 		auto it = sol_conns.begin();
@@ -1249,7 +1142,7 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature), cryptopp_SIGNBYTES);
+		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature.data()), cryptopp_SIGNBYTES);
 	}
 
 	for (
@@ -1261,7 +1154,7 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature), cryptopp_SIGNBYTES);
+		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature.data()), cryptopp_SIGNBYTES);
 	}
 }
 
