@@ -19,10 +19,7 @@
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/net/core/EventLoop.hpp>
 
-using namespace marlin;
-using namespace marlin::net;
-using namespace marlin::stream;
-using namespace marlin::lpf;
+namespace marlin {
 
 std::string hexStr(char *data, int len)
 {
@@ -49,16 +46,16 @@ const uint64_t staleThreshold = 30000;
 class ABCInterface;
 
 const bool enable_cut_through = false;
-using LpfTcpTransportFactory = LpfTransportFactory<
+using LpfTcpTransportFactory = lpf::LpfTransportFactory<
 	ABCInterface,
 	ABCInterface,
-	TcpTransportFactory,
-	TcpTransport,
+	net::TcpTransportFactory,
+	net::TcpTransport,
 	enable_cut_through
 >;
-using LpfTcpTransport = LpfTransport<
+using LpfTcpTransport = lpf::LpfTransport<
 	ABCInterface,
-	TcpTransport,
+	net::TcpTransport,
 	enable_cut_through
 >;
 
@@ -78,13 +75,13 @@ public:
 		f.bind(net::SocketAddress());
 		dial(net::SocketAddress::from_string("127.0.0.1:7000"), NULL);
 		lastUpdateTime = 0;
-		latestBlockReceived = -1;
+		latestBlockReceived = 0;
 	}
 
 	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
 
 	// Listen delegate: Not required
-	bool should_accept(SocketAddress const &addr __attribute__((unused))) {
+	bool should_accept(net::SocketAddress const &addr __attribute__((unused))) {
 		return true;
 	}
 
@@ -117,7 +114,7 @@ public:
 	// TODO Size checks and null checks while reading messages from buffer
 	int did_recv_message(
 		LpfTcpTransport &transport __attribute__((unused)),
-		Buffer &&message  __attribute__((unused))
+		net::Buffer &&message  __attribute__((unused))
 	) {
 		SPDLOG_INFO(
 			"Did recv from blockchain client, message with length {}",
@@ -131,9 +128,9 @@ public:
 			case MessageType::StateUpdateMessage:
 
 				auto blockNumber = message.read_uint64_be(0);
-				message.cover(8);
+				message.cover(blockNumberSize);
 
-				if (blockNumber > latestBlockReceived) {
+				if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
 					auto numMapEntries = message.read_uint32_be(0);
 					message.cover(4);
 
@@ -169,7 +166,7 @@ public:
 					}
 
 					latestBlockReceived = blockNumber;
-					lastUpdateTime = EventLoop::now();
+					lastUpdateTime = net::EventLoop::now();
 				}
 
 				send_ack_state_update(transport, latestBlockReceived);
@@ -186,7 +183,7 @@ public:
 		uint8_t ackType = MessageType::StateUpdateMessage;
 
 		uint32_t totalSize = messageTypeSize + AckTypeSize + blockNumberSize;
-		auto dataBuffer = new Buffer(new char[totalSize], totalSize);
+		auto dataBuffer = new net::Buffer(new char[totalSize], totalSize);
 		uint32_t offset = 0;
 
 		dataBuffer->write_uint8(offset, messageType);
@@ -201,7 +198,7 @@ public:
 
 	void did_send_message(
 		LpfTcpTransport &transport __attribute__((unused)),
-		Buffer &&message __attribute__((unused))
+		net::Buffer &&message __attribute__((unused))
 	) {}
 
 	// TODO:
@@ -214,7 +211,7 @@ public:
 		contractInterface = nullptr;
 	}
 
-	int dial(SocketAddress const &addr, uint8_t const *remote_static_pk) {
+	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 		SPDLOG_INFO(
 			"SENDING DIAL TO: {}",
 			addr.to_string()
@@ -244,5 +241,7 @@ public:
 		return stakeAddressMap[address];
 	}
 };
+
+} // namespace marlin
 
 #endif // MARLIN_ABCInterface_HPP
