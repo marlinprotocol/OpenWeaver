@@ -47,6 +47,14 @@ public:
 	/// Return the address and port in standard notation
 	std::string to_string() const;
 
+	/// Return the address
+	std::string ip_string() const;
+
+	/// Return the port
+	uint16_t port() const;
+	/// Set the port
+	void set_port(uint16_t const port);
+
 	/// Loopback IPv4 address
 	static SocketAddress loopback_ipv4(const uint16_t port);
 
