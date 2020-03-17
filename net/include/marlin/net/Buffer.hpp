@@ -28,13 +28,13 @@ public:
 	Buffer(char *const buf, size_t const size);
 
 	/// Move contructor
-	Buffer(Buffer &&b);
+	Buffer(Buffer &&b) noexcept;
 
 	/// Delete copy contructor
 	Buffer(Buffer const &b) = delete;
 
 	/// Move assign
-	Buffer &operator=(Buffer &&b);
+	Buffer &operator=(Buffer &&b) noexcept;
 
 	/// Delete copy assign
 	Buffer &operator=(Buffer const &p) = delete;
