@@ -11,6 +11,13 @@ TEST(BufferConstruct, SizeConstructible) {
 	EXPECT_EQ(buf.size(), 1400);
 }
 
+TEST(BufferConstruct, InitializerListConstructible) {
+	auto buf = Buffer({'0','1','2','3'}, 1400);
+
+	EXPECT_EQ(buf.size(), 1400);
+	EXPECT_TRUE(std::memcmp(buf.data(), "0123", 4) == 0);
+}
+
 TEST(BufferConstruct, UniquePtrConstructible) {
 	std::unique_ptr<char[]> uptr(new char[1400]);
 
