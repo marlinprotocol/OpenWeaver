@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Prerequisites
 *.d
 
@@ -39,3 +38,4 @@ html
 latex
 
 .DS_Store
+.vscode
