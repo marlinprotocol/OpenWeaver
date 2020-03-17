@@ -152,6 +152,29 @@ TEST(BufferResize, CannotExpandWithUnderflow) {
 	EXPECT_EQ(buf.size(), 1390);
 }
 
+TEST(BufferRead, CanReadArbitraryWithoutOverflow) {
+	char *raw_ptr = new char[1400] {'0','1','2','3','4','5','6','7'};
+	auto buf = Buffer(raw_ptr, 1400);
+
+	char out[3];
+
+	auto res = buf.read(4, out, 3);
+
+	EXPECT_EQ(res, true);
+	EXPECT_TRUE(std::memcmp(out, raw_ptr + 4, 3) == 0);
+}
+
+TEST(BufferRead, CannotReadArbitraryWithOverflow) {
+	char *raw_ptr = new char[1400] {'0','1','2','3','4','5','6','7'};
+	auto buf = Buffer(raw_ptr, 1400);
+
+	char out[3];
+
+	auto res = buf.read(1398, out, 3);
+
+	EXPECT_EQ(res, false);
+}
+
 TEST(BufferRead, CanReadUint8WithoutOverflow) {
 	char *raw_ptr = new char[1400];
 	raw_ptr[10] = 1;
@@ -374,6 +397,30 @@ TEST(BufferReadBE, CannotReadUint64BEWithOverflow) {
 
 	EXPECT_EQ(num, uint64_t(-1));
 }
+
+TEST(BufferWrite, CanWriteArbitraryWithoutOverflow) {
+	char *raw_ptr = new char[1400] {'0','1','2','3','4','5','6','7'};
+	auto buf = Buffer(raw_ptr, 1400);
+
+	char in[3] {'a', 'b', 'c'};
+
+	auto res = buf.write(4, in, 3);
+
+	EXPECT_EQ(res, true);
+	EXPECT_TRUE(std::memcmp("0123abc7", raw_ptr, 8) == 0);
+}
+
+TEST(BufferWrite, CannotWriteArbitraryWithOverflow) {
+	char *raw_ptr = new char[1400] {'0','1','2','3','4','5','6','7'};
+	auto buf = Buffer(raw_ptr, 1400);
+
+	char in[3] {'a', 'b', 'c'};
+
+	auto res = buf.write(1398, in, 3);
+
+	EXPECT_EQ(res, false);
+}
+
 
 TEST(BufferWrite, CanWriteUint8WithoutOverflow) {
 	char *raw_ptr = new char[1400];

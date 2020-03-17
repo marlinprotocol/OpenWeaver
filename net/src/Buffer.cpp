@@ -100,6 +100,10 @@ void Buffer::expand_unsafe(size_t const num) {
 	end_index += num;
 }
 
+void Buffer::read_unsafe(size_t const pos, char* const out, size_t const size) const {
+	std::memcpy(out, data()+pos, size);
+}
+
 uint8_t Buffer::read_uint8_unsafe(size_t const pos) const {
 	return data()[pos];
 }
@@ -123,6 +127,16 @@ uint64_t Buffer::read_uint64_unsafe(size_t const pos) const {
 	std::memcpy(&res, data()+pos, 8);
 
 	return res;
+}
+
+bool Buffer::read(size_t const pos, char* const out, size_t const size) const {
+	// Bounds checking
+	if(this->size() < size || this->size() - size < pos)
+		return false;
+
+	read_unsafe(pos, out, size);
+
+	return true;
 }
 
 uint8_t Buffer::read_uint8(size_t const pos) const {
@@ -157,6 +171,10 @@ uint64_t Buffer::read_uint64(size_t const pos) const {
 	return read_uint64_unsafe(pos);
 }
 
+void Buffer::write_unsafe(size_t const pos, char const* const in, size_t const size) {
+	std::memcpy(data()+pos, in, size);
+}
+
 void Buffer::write_uint8_unsafe(size_t const pos, uint8_t const num) {
 	data()[pos] = num;
 }
@@ -171,6 +189,16 @@ void Buffer::write_uint32_unsafe(size_t const pos, uint32_t const num) {
 
 void Buffer::write_uint64_unsafe(size_t const pos, uint64_t const num) {
 	std::memcpy(data()+pos, &num, 8);
+}
+
+bool Buffer::write(size_t const pos, char const* const in, size_t const size) {
+	// Bounds checking
+	if(this->size() < size || this->size() - size < pos)
+		return false;
+
+	write_unsafe(pos, in, size);
+
+	return true;
 }
 
 bool Buffer::write_uint8(size_t const pos, uint8_t const num) {

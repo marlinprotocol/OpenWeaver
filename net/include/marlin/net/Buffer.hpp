@@ -85,6 +85,26 @@ public:
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
 	void expand_unsafe(size_t const num);
 
+	//-------- Arbitrary reads begin --------//
+
+	/// Read arbitrary data starting at given byte
+	bool read(size_t const pos, char* const out, size_t const size) const;
+	/// Read arbitrary data starting at given byte without bounds checking
+	void read_unsafe(size_t const pos, char* const out, size_t const size) const;
+
+	//-------- Arbitrary reads end --------//
+
+
+	//-------- Arbitrary writes begin --------//
+
+	/// Write arbitrary data starting at given byte
+	bool write(size_t const pos, char const* const in, size_t const size);
+	/// Write arbitrary data starting at given byte without bounds checking
+	void write_unsafe(size_t const pos, char const* const in, size_t const size);
+
+	//-------- Arbitrary writes end --------//
+
+
 	//-------- 8 bit reads begin --------//
 
 	/// Read uint8_t starting at given byte
