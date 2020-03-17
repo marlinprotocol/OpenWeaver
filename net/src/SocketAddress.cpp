@@ -85,7 +85,7 @@ std::string SocketAddress::ip_string() const {
 	return std::string(buf);
 }
 
-uint16_t SocketAddress::port() const {
+uint16_t SocketAddress::get_port() const {
 	return ntohs(reinterpret_cast<const sockaddr_in *>(this)->sin_port);
 }
 
@@ -140,10 +140,6 @@ SocketAddress SocketAddress::deserialize(char const* bytes, size_t const size) {
 	reinterpret_cast<sockaddr_in *>(&addr)->sin_port =
 		((uint16_t)bytes[6] << 8) + (uint16_t)bytes[7];
 	return addr;
-}
-
-uint16_t SocketAddress::get_port() const {
-	return htons(reinterpret_cast<const sockaddr_in *>(this)->sin_port);
 }
 
 } // namespace net

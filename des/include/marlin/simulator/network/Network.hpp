@@ -98,7 +98,7 @@ int Network<NetworkConditionerType>::send(
 		NetworkInterface<SelfType>
 	>>(
 		out_tick,
-		dst_addr.port(),
+		dst_addr.get_port(),
 		src_addr,
 		std::move(packet),
 		interface
