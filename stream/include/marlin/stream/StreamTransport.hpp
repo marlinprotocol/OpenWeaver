@@ -399,7 +399,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
 	net::Buffer packet(
-		new char[length + 30 + crypto_aead_aes256gcm_ABYTES] {0, static_cast<char>(is_fin)},
+		{0, static_cast<char>(is_fin)},
 		length + 30 + crypto_aead_aes256gcm_ABYTES
 	);
 
@@ -411,8 +411,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	packet.write_uint64_be(12, this->last_sent_packet);
 	packet.write_uint64_be(20, data_item.stream_offset + offset);
 	packet.write_uint16_be(28, length);
-
-	std::memcpy(packet.data()+30, data_item.data.data()+offset, length);
+	packet.write_unsafe(30, data_item.data.data()+offset, length);
 
 	uint8_t nonce[12];
 	for(int i = 0; i < 4; i++) {
@@ -700,7 +699,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	net::Buffer packet(new char[10 + ct_len] {0, 3}, 10 + ct_len);
+	net::Buffer packet({0, 3}, 10 + ct_len);
 
 	packet.write_uint32_be(2, this->src_conn_id);
 	packet.write_uint32_be(6, this->dst_conn_id);
@@ -846,7 +845,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	net::Buffer packet(new char[10 + ct_len] {0, 4}, 10 + ct_len);
+	net::Buffer packet({0, 4}, 10 + ct_len);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -991,7 +990,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
-	net::Buffer packet(new char[10] {0, 5}, 10);
+	net::Buffer packet({0, 5}, 10);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1071,7 +1070,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	net::Buffer packet(new char[10] {0, 6}, 10);
+	net::Buffer packet({0, 6}, 10);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1283,7 +1282,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 	int size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
-	net::Buffer packet(new char[20+8*size] {0, 2}, 20+8*size);
+	net::Buffer packet({0, 2}, 20+8*size);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1558,7 +1557,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	net::Buffer packet(new char[20] {0, 7}, 20);
+	net::Buffer packet({0, 7}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1616,7 +1615,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	net::Buffer packet(new char[20] {0, 8}, 20);
+	net::Buffer packet({0, 8}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1682,7 +1681,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 	uint16_t stream_id
 ) {
-	net::Buffer packet(new char[12] {0, 9}, 12);
+	net::Buffer packet({0, 9}, 12);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);

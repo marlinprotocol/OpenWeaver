@@ -48,7 +48,7 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType &transport) {
-		auto buf = Buffer(new char[SIZE], SIZE);
+		auto buf = Buffer(SIZE);
 		std::memset(buf.data(), 0, SIZE);
 
 		SPDLOG_INFO("Did dial");
