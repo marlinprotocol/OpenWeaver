@@ -11,7 +11,7 @@ buf(_buf.release()), capacity(size), start_index(0), end_index(size) {}
 Buffer::Buffer(char *const _buf, size_t const size) :
 buf(_buf), capacity(size), start_index(0), end_index(size) {}
 
-Buffer::Buffer(Buffer &&b) :
+Buffer::Buffer(Buffer &&b) noexcept :
 buf(b.buf), capacity(b.capacity), start_index(b.start_index), end_index(b.end_index) {
 	b.buf = nullptr;
 	b.capacity = 0;
@@ -19,7 +19,7 @@ buf(b.buf), capacity(b.capacity), start_index(b.start_index), end_index(b.end_in
 	b.end_index = 0;
 }
 
-Buffer &Buffer::operator=(Buffer &&b) {
+Buffer &Buffer::operator=(Buffer &&b) noexcept {
 	// Destroy old
 	delete[] buf;
 
