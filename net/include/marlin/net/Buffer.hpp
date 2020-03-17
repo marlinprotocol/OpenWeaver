@@ -21,6 +21,9 @@ class Buffer {
 	size_t end_index;
 
 public:
+	/// Construct with given size - preferred constructor
+	Buffer(size_t const size);
+
 	/// Construct from unique_ptr
 	Buffer(std::unique_ptr<char[]> &&buf, size_t const size);
 

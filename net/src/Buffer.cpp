@@ -5,6 +5,9 @@
 namespace marlin {
 namespace net {
 
+Buffer::Buffer(size_t const size) :
+buf(new char[size]), capacity(size), start_index(0), end_index(size) {}
+
 Buffer::Buffer(std::unique_ptr<char[]> &&_buf, size_t const size) :
 buf(_buf.release()), capacity(size), start_index(0), end_index(size) {}
 
