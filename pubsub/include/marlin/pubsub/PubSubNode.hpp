@@ -400,12 +400,8 @@ void PubSubNode<
 	BaseTransport &transport,
 	std::string const channel
 ) {
-	char *message = new char[channel.size()+1];
-
-	message[0] = 0;
-	std::memcpy(message + 1, channel.data(), channel.size());
-
-	net::Buffer bytes(message, channel.size() + 1);
+	net::Buffer bytes({0}, channel.size() + 1);
+	bytes.write(1, channel.data(), channel.size());
 
 	SPDLOG_DEBUG(
 		"Sending subscribe on channel {} to {}",
@@ -482,12 +478,8 @@ void PubSubNode<
 	BaseTransport &transport,
 	std::string const channel
 ) {
-	char *message = new char[channel.size()+1];
-
-	message[0] = 1;
-	std::memcpy(message + 1, channel.data(), channel.size());
-
-	net::Buffer bytes(message, channel.size() + 1);
+	net::Buffer bytes({1}, channel.size() + 1);
+	bytes.write(1, channel.data(), channel.size());
 
 	SPDLOG_DEBUG("Sending unsubscribe on channel {} to {}", channel, transport.dst_addr.to_string());
 
@@ -572,20 +564,13 @@ void PubSubNode<
 ) {
 	// 0 for ERROR
 	// 1 for OK
-	uint64_t tot_msg_size = msg_string.size()+2;
-	char *message = new char[tot_msg_size];
-
-	message[0] = 2;
-	message[1] = success ? 1 : 0;
-
-	std::memcpy(message + 2, msg_string.data(), msg_string.size());
-
-	net::Buffer m(message, tot_msg_size);
+	net::Buffer m({2, static_cast<char>(success ? 1 : 0)}, msg_string.size()+2);
+	m.write(2, msg_string.data(), msg_string.size());
 
 	SPDLOG_DEBUG(
 		"Sending {} response: {}",
 		success == 0 ? "ERROR" : "OK",
-		spdlog::to_hex(message, message + tot_msg_size)
+		spdlog::to_hex(m.data(), m.data() + msg_string.size()+2)
 	);
 	transport.send(std::move(m));
 }
@@ -726,21 +711,17 @@ void PubSubNode<
 	const char* witness_data,
 	uint16_t witness_size
 ) {
-	char *message = new char[11 + channel.size() + 2 + witness_size + size];
-
-	message[0] = 3;
-
-	net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
+	net::Buffer m({3}, 11 + channel.size() + 2 + witness_size + size);
 	m.write_uint64_be(1, message_id);
 	m.write_uint16_be(9, channel.size());
-	std::memcpy(message + 11, channel.data(), channel.size());
+	m.write(11, channel.data(), channel.size());
 	m.write_uint16_be(11 + channel.size(), witness_size);
 	if(witness_data == nullptr) {
-		crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
+		crypto_scalarmult_base((uint8_t*)m.data() + 11 + channel.size() + 2, keys);
 	} else {
-		std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+		m.write(11 + channel.size() + 2, witness_data, witness_size);
 	}
-	std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
+	m.write(11 + channel.size() + 2 + witness_size, data, size);
 
 	transport.send(std::move(m));
 }
@@ -759,11 +740,7 @@ void PubSubNode<
 >::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	char *message = new char[1];
-
-	message[0] = 4;
-
-	net::Buffer m(message, 1);
+	net::Buffer m({4}, 1);
 
 	transport.send(std::move(m));
 }
@@ -1147,21 +1124,17 @@ void PubSubNode<
 	);
 
 	if(size > 50000) {
-		char *message = new char[11 + channel.size() + 2 + witness_size + size];
-
-		message[0] = 3;
-
-		net::Buffer m(message, 11 + channel.size() + 2 + witness_size + size);
+		net::Buffer m({3}, 11 + channel.size() + 2 + witness_size + size);
 		m.write_uint64_be(1, message_id);
 		m.write_uint16_be(9, channel.size());
-		std::memcpy(message + 11, channel.data(), channel.size());
+		m.write(11, channel.data(), channel.size());
 		m.write_uint16_be(11 + channel.size(), witness_size);
 		if(witness_data == nullptr) {
-			crypto_scalarmult_base((uint8_t*)message + 11 + channel.size() + 2, keys);
+			crypto_scalarmult_base((uint8_t*)m.data() + 11 + channel.size() + 2, keys);
 		} else {
-			std::memcpy(message + 11 + channel.size() + 2, witness_data, witness_size);
+			m.write(11 + channel.size() + 2, witness_data, witness_size);
 		}
-		std::memcpy(message + 11 + channel.size() + 2 + witness_size, data, size);
+		m.write(11 + channel.size() + 2 + witness_size, data, size);
 
 		auto res = transport->cut_through_send(std::move(m));
 
@@ -1586,8 +1559,8 @@ int PubSubNode<
 		return cut_through_recv_bytes(transport, id, std::move(bytes));
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
-			auto sub_bytes = net::Buffer(new char[bytes.size()], bytes.size());
-			std::memcpy(sub_bytes.data(), bytes.data(), bytes.size());
+			auto sub_bytes = net::Buffer(bytes.size());
+			sub_bytes.write(0, bytes.data(), bytes.size());
 
 			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
 
