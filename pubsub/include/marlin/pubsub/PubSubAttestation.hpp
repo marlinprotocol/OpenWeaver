@@ -11,18 +11,20 @@
 
 #define cryptopp_SIGNBYTES 64
 
-using namespace CryptoPP;
-
 class MessageAttestation{
+	typedef CryptoPP::ECP ECP;
+	typedef CryptoPP::SHA256 SHA256;
+	typedef CryptoPP::byte byte;
+
 	private :
 		// Prover : 1, Verifier : 2
 		// uint8_t role=1;
 
-		ECDSA<ECP,SHA256>::PrivateKey priv_key;
+		CryptoPP::ECDSA<ECP,SHA256>::PrivateKey priv_key;
 		// can make it a hashmap of transport to public_key
-		std::unordered_map<marlin::net::SocketAddress, ECDSA<ECP,SHA256>::PublicKey> pubkey_map;
+		std::unordered_map<marlin::net::SocketAddress, CryptoPP::ECDSA<CryptoPP::ECP,SHA256>::PublicKey> pubkey_map;
 
-		AutoSeededRandomPool rnd;
+		CryptoPP::AutoSeededRandomPool rnd;
 
 /*
 		void populate_pub_keys(std::string location){
@@ -37,16 +39,16 @@ class MessageAttestation{
 		}
 */
 
-		void Load(const std::string& filename, BufferedTransformation& bt)
+		void Load(const std::string& filename, CryptoPP::BufferedTransformation& bt)
 		{
-        	FileSource file(filename.data(), true);
+        	CryptoPP::FileSource file(filename.data(), true);
  	        file.TransferTo(bt);
     	    bt.MessageEnd();
 		}
 
-		void LoadPrivateKey(const std::string& filename, PrivateKey& key)
+		void LoadPrivateKey(const std::string& filename, CryptoPP::PrivateKey& key)
 		{
-		        ByteQueue queue;
+		        CryptoPP::ByteQueue queue;
 		        Load(filename, queue);
 		        key.Load(queue);
 		}
@@ -75,15 +77,13 @@ class MessageAttestation{
 		 \param msg communication information propagated on network
 		 \param rs contains signature
 		 */
-		void generate_attst_signature(uint64_t &time_stamp, uint64_t msg_id, std::string channel, uint64_t msg_len, char *msg, std::string &rs){
-		
+		void generate_attst_signature(uint64_t &time_stamp, uint64_t msg_id, std::string channel, uint64_t msg_len, const char *msg, char* signature, uint64_t &signature_len){
+
 			time_t t = time(NULL);
 			time_stamp = (uintmax_t)t;
 
-			SPDLOG_INFO("ATTESTATION GENERATE_ATTST_CONCATE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}", msg_id, channel.size(), msg_len, time_stamp, std::string(msg,msg_len), channel);
-
-			ECDSA<ECP,SHA256>::Signer s(priv_key);
-			PK_Signer &acc_signer(s);
+			CryptoPP::ECDSA<ECP,SHA256>::Signer s(priv_key);
+			CryptoPP::PK_Signer &acc_signer(s);
 
 			auto sign_accumulate = acc_signer.NewSignatureAccumulator(rnd);
 			sign_accumulate->Update((byte *)&time_stamp,8);
@@ -94,9 +94,10 @@ class MessageAttestation{
 			sign_accumulate->Update((byte *)&msg_len,8);
 			sign_accumulate->Update((byte *)msg,msg_len);
 
-			acc_signer.Sign(rnd,sign_accumulate,(byte *)rs.data());
-			rs.resize(cryptopp_SIGNBYTES);
-			SPDLOG_INFO("jon snow: {}",rs);
+			signature_len = acc_signer.Sign(rnd,sign_accumulate,(byte *)signature);
+
+			SPDLOG_INFO("ATTESTATION GENERATE_ATTST_CONCATE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}, signature_len: {}, signature: {}", msg_id, channel.size(), msg_len, time_stamp, std::string(msg,msg_len), channel, signature_len, std::string(signature,signature_len));
+
 			return;
 		}
 
@@ -111,20 +112,20 @@ class MessageAttestation{
 		 \param msg communication information propagated on network
 		 \param signature attesation signature sent by sender
 		 */
-		bool verify_signature(marlin::net::SocketAddress addr, uint64_t time_stamp, uint64_t msg_id, uint64_t channel_len, char *channel, uint64_t msg_len, char *msg, char* signature){
+		bool verify_signature(marlin::net::SocketAddress addr, uint64_t time_stamp, uint64_t msg_id, uint64_t channel_len, char *channel, uint64_t msg_len, char *msg, char* signature, uint64_t signature_len){
 			
 			if(addr.to_string() == "127.0.0.0:8043")
 				return false;
 
-			SPDLOG_DEBUG("ATTESTATION VERIFY_SIGNATURE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}", msg_id, channel_len, msg_len, time_stamp, std::string(msg,msg_len), std::string(channel,channel_len));
+			SPDLOG_INFO("ATTESTATION VERIFY_SIGNATURE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}", msg_id, channel_len, msg_len, time_stamp, std::string(msg,msg_len), std::string(channel,channel_len));
 
 			// populate_pub_keys();
 
-			ECDSA<ECP,SHA256>::PublicKey pub_key;
+			CryptoPP::ECDSA<ECP,SHA256>::PublicKey pub_key;
 			// pub_key = key_map.get(transport);
 			priv_key.MakePublicKey(pub_key);
-			ECDSA<ECP, SHA256>::Verifier v(pub_key);
-			PK_Verifier &acc_verifier(v);
+			CryptoPP::ECDSA<ECP, SHA256>::Verifier v(pub_key);
+			CryptoPP::PK_Verifier &acc_verifier(v);
 
 			auto sign_accumulate = acc_verifier.NewVerificationAccumulator();
 			sign_accumulate->Update((byte *)&time_stamp,8);
@@ -134,7 +135,7 @@ class MessageAttestation{
 			sign_accumulate->Update((byte *)&msg_len,8);
 			sign_accumulate->Update((byte *)msg,msg_len);
 
-			acc_verifier.InputSignature(*sign_accumulate,(byte *)signature,cryptopp_SIGNBYTES);
+			acc_verifier.InputSignature(*sign_accumulate,(byte *)signature,signature_len);
 			bool rslt = false;
 			rslt = acc_verifier.Verify(sign_accumulate);
 

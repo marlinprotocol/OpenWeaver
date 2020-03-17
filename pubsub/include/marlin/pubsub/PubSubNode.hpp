@@ -662,7 +662,7 @@ int PubSubNode<
 		uint64_t time_stamp=0;
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
-		if (!attest_manager.verify_signature(transport.dst_addr, time_stamp, message_id, channel_length, channel.data(), bytes.size(), bytes.data(), witness)){
+		if (!attest_manager.verify_signature(transport.dst_addr, time_stamp, message_id, channel_length, channel.data(), bytes.size(), bytes.data(), witness, witness_length)){
 			SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
 			transport.close();
 			return -1;
@@ -1122,12 +1122,11 @@ void PubSubNode<
 
 	uint64_t time_stamp = 0;
 
-
 	// generating attestation signature
-	std::string attst_signature = "";
-	std::string tmp(data,size);
-	uint64_t t_size = size;
-	attest_manager.generate_attst_signature(time_stamp,message_id, channel, t_size, tmp.data(), attst_signature);
+	CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
+	char* attst_signature = new char[64];
+	uint64_t attst_len=0;
+	attest_manager.generate_attst_signature(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
 	// time of signature generation is concatenated to data
 	char *t_data = new char[size+8];
 	memcpy(t_data, &time_stamp, 8);
@@ -1142,7 +1141,7 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature.data()), cryptopp_SIGNBYTES);
+		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 
 	for (
@@ -1154,7 +1153,7 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, (char *)(attst_signature.data()), cryptopp_SIGNBYTES);
+		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 }
 
