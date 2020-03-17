@@ -108,9 +108,7 @@ template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	char *message = new char[2] {0, 0};
-
-	net::Buffer p(message, 2);
+	net::Buffer p({0, 0}, 2);
 	transport.send(std::move(p));
 }
 
@@ -163,7 +161,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 
 	net::Buffer p(
-		new char[3 + protocols.size()*8] {0, 1, (char)protocols.size()},
+		{0, 1, (char)protocols.size()},
 		3 + protocols.size()*8
 	);
 
@@ -222,9 +220,7 @@ template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	char *message = new char[2] {0, 2};
-
-	net::Buffer p(message, 2);
+	net::Buffer p({0, 2}, 2);
 	transport.send(std::move(p));
 }
 
@@ -245,7 +241,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 		i += 8 + crypto_box_PUBLICKEYBYTES
 	) {
 		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
-		std::memcpy(node_key_map[peer_addr].data(), packet.data()+i+8, crypto_box_PUBLICKEYBYTES);
+		packet.read(i+8, (char*)node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
 
 		f.dial(peer_addr, *this);
 	}
@@ -268,9 +264,8 @@ template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	char *message = new char[2+crypto_box_PUBLICKEYBYTES] {0, 4};
-	std::memcpy(message + 2, static_pk, crypto_box_PUBLICKEYBYTES);
-	net::Buffer p(message, 2+crypto_box_PUBLICKEYBYTES);
+	net::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
+	p.write(2, (char*)static_pk, crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
 
@@ -326,7 +321,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 		send_DISCPEER(*beacon);
 		beacon_timer.start(60000, 60000);
 		if(is_discoverable) {
-			heartbeat_timer.start(60000, 60000);
+			heartbeat_timer.start(0, 10000);
 		}
 	} else {
 		send_DISCPROTO(transport);
