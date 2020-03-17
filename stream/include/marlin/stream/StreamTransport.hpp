@@ -2071,7 +2071,7 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(uv_timer_t
 	transport.send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
 
 	stream.state_timer_interval *= 2;
-	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
