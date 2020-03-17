@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <uv.h>
 #include <memory>
+#include <utility>
 //! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
 #include <array>
 
@@ -23,6 +24,12 @@ class Buffer {
 public:
 	/// Construct with given size - preferred constructor
 	Buffer(size_t const size);
+
+	/// Construct with initializer list and given size - preferred constructor
+	Buffer(std::initializer_list<char> il, size_t const size);
+	// Initializer lists are preferable to partially initialized char arrays
+	// Buffer(new char[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
+	// Buffer({'0','1'}, 10) doesn't
 
 	/// Construct from unique_ptr
 	Buffer(std::unique_ptr<char[]> &&buf, size_t const size);
