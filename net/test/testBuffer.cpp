@@ -5,6 +5,12 @@
 
 using namespace marlin::net;
 
+TEST(BufferConstruct, SizeConstructible) {
+	auto buf = Buffer(1400);
+
+	EXPECT_EQ(buf.size(), 1400);
+}
+
 TEST(BufferConstruct, UniquePtrConstructible) {
 	std::unique_ptr<char[]> uptr(new char[1400]);
 
