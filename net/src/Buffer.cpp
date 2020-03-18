@@ -14,9 +14,6 @@ buf(new char[size]), capacity(size), start_index(0), end_index(size) {
 	std::copy(il.begin(), il.end(), buf);
 }
 
-Buffer::Buffer(std::unique_ptr<char[]> &&_buf, size_t const size) :
-buf(_buf.release()), capacity(size), start_index(0), end_index(size) {}
-
 Buffer::Buffer(char *const _buf, size_t const size) :
 buf(_buf), capacity(size), start_index(0), end_index(size) {}
 

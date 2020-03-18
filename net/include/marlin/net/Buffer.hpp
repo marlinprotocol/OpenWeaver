@@ -31,9 +31,6 @@ public:
 	// Buffer(new char[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
 	// Buffer({'0','1'}, 10) doesn't
 
-	/// Construct from unique_ptr
-	Buffer(std::unique_ptr<char[]> &&buf, size_t const size);
-
 	/// Construct from char array - unsafe if char * isn't obtained from new
 	Buffer(char *const buf, size_t const size);
 
