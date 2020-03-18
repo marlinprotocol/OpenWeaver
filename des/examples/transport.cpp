@@ -37,7 +37,7 @@ struct Delegate {
 
 	void did_dial(TransportType& transport) {
 		SPDLOG_INFO("Did dial");
-		transport.send(Buffer(new char[10] {0,0,0,0,0,0,0,0,0,0}, 10));
+		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
 	void did_close(TransportType&) {}
