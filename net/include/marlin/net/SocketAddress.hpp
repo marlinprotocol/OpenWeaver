@@ -51,7 +51,7 @@ public:
 	std::string ip_string() const;
 
 	/// Return the port
-	uint16_t port() const;
+	uint16_t get_port() const;
 	/// Set the port
 	void set_port(uint16_t const port);
 
@@ -68,8 +68,6 @@ public:
 	size_t serialize(char* bytes, size_t size) const;
 	/// Deserialize from bytes
 	static SocketAddress deserialize(char const* bytes, size_t const size);
-
-	uint16_t get_port() const;
 };
 
 } // namespace net

@@ -47,7 +47,7 @@ int main() {
 		simulator,
 		SocketAddress::from_string("192.168.0.1:8000"),
 		SocketAddress::from_string("192.168.0.2:9000"),
-		Buffer(new char[5] {0,1,2,3,4}, 5)
+		Buffer({0,1,2,3,4}, 5)
 	);
 
 	cout<<"Simulation start"<<endl;

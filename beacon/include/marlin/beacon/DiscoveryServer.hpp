@@ -90,9 +90,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	char *message = new char[2] {0, 1};
-
-	net::Buffer p(message, 2);
+	net::Buffer p({0, 1}, 2);
 	transport.send(std::move(p));
 }
 
@@ -151,7 +149,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	auto iter = peers.begin();
 
 	while(iter != peers.end()) {
-		char *message = new char[1100] {0, 3};
+		net::Buffer p({0, 3}, 1100);
 		size_t size = 2;
 
 		for(
@@ -161,12 +159,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 		) {
 			if(iter->first == &transport) continue;
 
-			iter->first->dst_addr.serialize(message+size, 8);
-			std::memcpy(message+size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
+			iter->first->dst_addr.serialize(p.data()+size, 8);
+			p.write(size+8, (char*)iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
 			size += 8 + crypto_box_PUBLICKEYBYTES;
 		}
+		p.truncate_unsafe(1100-size);
 
-		net::Buffer p(message, size);
 		transport.send(std::move(p));
 	}
 }
@@ -187,7 +185,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	);
 
 	peers[&transport].first = net::EventLoop::now();
-	std::memcpy(peers[&transport].second.data(), bytes.data()+2, crypto_box_PUBLICKEYBYTES);
+	bytes.read(2, (char*)peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
 }
 
 
@@ -279,7 +277,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
-	BaseTransport &transport __attribute__((unused)),
+	BaseTransport &transport [[maybe_unused]],
 	net::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
@@ -313,7 +311,7 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	f.bind(addr);
 	f.listen(*this);
 
-	heartbeat_timer.start(10000, 10000);
+	heartbeat_timer.start(0, 10000);
 }
 
 } // namespace beacon

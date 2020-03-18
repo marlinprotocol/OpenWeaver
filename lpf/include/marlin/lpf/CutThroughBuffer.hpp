@@ -54,8 +54,8 @@ public:
 					return -2;
 				}
 			} else { // Full message
-				net::Buffer tbytes(new char[length - size], length - size);
-				std::memcpy(tbytes.data(), bytes.data(), length - size);
+				net::Buffer tbytes(length - size);
+				tbytes.write(0, bytes.data(), length - size);
 				auto res = delegate.cut_through_recv_bytes(id, std::move(tbytes));
 				if(res < 0) {
 					return -2;
