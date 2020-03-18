@@ -26,7 +26,7 @@ struct Delegate {
 	}
 
 	void did_dial(UdpTransport<Delegate> &transport) {
-		transport.send(Buffer(new char[10] {0,0,0,0,0,0,0,0,0,0}, 10));
+		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
 	void did_close(UdpTransport<Delegate> &) {}

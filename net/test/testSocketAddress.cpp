@@ -43,7 +43,7 @@ TEST(SocketAddressTest, CanGetIpString) {
 TEST(SocketAddressTest, CanGetPort) {
 	auto addr = SocketAddress::loopback_ipv4(8000);
 
-	EXPECT_EQ(addr.port(), 8000);
+	EXPECT_EQ(addr.get_port(), 8000);
 }
 
 TEST(SocketAddressTest, LoopbackConstructible) {

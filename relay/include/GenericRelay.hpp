@@ -161,14 +161,14 @@ public:
 
 	void did_unsubscribe(
 		PubSubNodeType &,
-		std::string channel __attribute__((unused))
+		std::string channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(
 		PubSubNodeType &,
-		std::string channel __attribute__((unused))
+		std::string channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 		// ps.send_message_on_channel(channel, "GenericRelay did subs", 21);
@@ -176,10 +176,10 @@ public:
 
 	void did_recv_message(
 		PubSubNodeType &,
-		Buffer &&message __attribute__((unused)),
-		Buffer &&witness __attribute__((unused)),
-		std::string &channel __attribute__((unused)),
-		uint64_t message_id __attribute__((unused))
+		Buffer &&message [[maybe_unused]],
+		Buffer &&witness [[maybe_unused]],
+		std::string &channel [[maybe_unused]],
+		uint64_t message_id [[maybe_unused]]
 	) {
 		if((message_id & 0xff) == 0) {
 			SPDLOG_INFO(
