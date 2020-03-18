@@ -55,11 +55,16 @@ class MessageAttestation{
 
 	public :
 
-		MessageAttestation(std::string priv_key_filename){
+		MessageAttestation(){
+			return;
 			// priv_key.Initialize(rnd,ASN1::secp256k1());
 			// can make it to load private key from a pariticular location
-			LoadPrivateKey(priv_key_filename,priv_key);
+			// LoadPrivateKey(priv_key_filename,priv_key);
 			//SPDLOG_INFO("{}",priv_key);
+		}
+
+		void set_private_key(std::string priv_key_filename){
+			LoadPrivateKey(priv_key_filename,priv_key);
 		}
 
 		/*
