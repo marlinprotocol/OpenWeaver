@@ -277,7 +277,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
-	BaseTransport &transport __attribute__((unused)),
+	BaseTransport &transport [[maybe_unused]],
 	net::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
