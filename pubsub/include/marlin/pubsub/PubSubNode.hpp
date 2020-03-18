@@ -504,7 +504,7 @@ void PubSubNode<
 	BaseTransport &,
 	net::Buffer &&bytes
 ) {
-	bool success __attribute__((unused)) = bytes.data()[0];
+	bool success [[maybe_unused]] = bytes.data()[0];
 
 	// Hide success
 	bytes.cover(1);

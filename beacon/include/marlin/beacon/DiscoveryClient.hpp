@@ -230,7 +230,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_DISCPEER(
 */
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
-	BaseTransport &transport __attribute__((unused)),
+	BaseTransport &transport [[maybe_unused]],
 	net::Buffer &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
@@ -368,7 +368,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_packet(
 
 template<typename DiscoveryClientDelegate>
 void DiscoveryClient<DiscoveryClientDelegate>::did_send_packet(
-	BaseTransport &transport __attribute__((unused)),
+	BaseTransport &transport [[maybe_unused]],
 	net::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
