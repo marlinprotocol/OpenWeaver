@@ -18,17 +18,6 @@ TEST(BufferConstruct, InitializerListConstructible) {
 	EXPECT_TRUE(std::memcmp(buf.data(), "0123", 4) == 0);
 }
 
-TEST(BufferConstruct, UniquePtrConstructible) {
-	std::unique_ptr<char[]> uptr(new char[1400]);
-
-	char *raw_ptr = uptr.get();
-
-	auto buf = Buffer(std::move(uptr), 1400);
-
-	EXPECT_EQ(buf.data(), raw_ptr);
-	EXPECT_EQ(buf.size(), 1400);
-}
-
 TEST(BufferConstruct, RawPtrConstructible) {
 	char *raw_ptr = new char[1400];
 
