@@ -55,6 +55,7 @@ template<
 >
 class PubSubNode {
 private:
+	std::string home_dir;
 	size_t max_sol_conns;
 	size_t max_unsol_conns;
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
@@ -1006,7 +1007,7 @@ PubSubNode<
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
-	attest_manager("/home/kota/.marlin/keys/atts/privKey"),
+	attest_manager(),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
@@ -1022,6 +1023,9 @@ PubSubNode<
 		"PUBSUB LISTENING ON : {}",
 		addr.to_string()
 	);
+
+	home_dir = getenv("HOME");
+	attest_manager.set_private_key(home_dir+"/.marlin/keys/atts/privKey");
 
 	uv_timer_init(uv_default_loop(), &message_id_timer);
 	this->message_id_timer.data = (void *)this;
