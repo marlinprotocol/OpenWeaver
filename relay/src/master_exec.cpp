@@ -1,4 +1,4 @@
-#include "GenericRelay.hpp"
+#include "Relay.hpp"
 
 using namespace marlin::net;
 using namespace marlin::beacon;
@@ -17,7 +17,7 @@ int main(int , char **argv) {
 		beacon_addr
 	);
 
-	GenericRelay<true, true, true> master1(
+	Relay<true, true, true> master1(
 		MASTER_PUBSUB_PROTOCOL_NUMBER,
 		pubsub_port,
 		SocketAddress::from_string("0.0.0.0:4000"),
