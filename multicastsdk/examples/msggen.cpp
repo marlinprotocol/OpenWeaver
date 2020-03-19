@@ -10,7 +10,7 @@ public:
 		DefaultMulticastClient<MulticastDelegate> &client,
 		Buffer &&message,
 		Buffer &&witness,
-		std::string &channel,
+		uint16_t channel,
 		uint64_t message_id
 	) {
 		if((message_id & 0xff) == 0) {
@@ -24,12 +24,12 @@ public:
 
 	void did_subscribe(
 		DefaultMulticastClient<MulticastDelegate> &client,
-		std::string &channel
+		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
 		DefaultMulticastClient<MulticastDelegate> &client,
-		std::string &channel
+		uint16_t channel
 	) {}
 };
 
@@ -47,7 +47,7 @@ void msggen_timer_cb(uv_timer_t *handle) {
 
 	for (uint i = 0; i < msg_rate; ++i) {
 		auto message_id = client.ps.send_message_on_channel(
-			"eth",
+			0,
 			msg,
 			msg_size
 		);
@@ -55,7 +55,7 @@ void msggen_timer_cb(uv_timer_t *handle) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
-				"eth"
+				0
 			);
 		}
 	}
@@ -70,7 +70,7 @@ int main(int , char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
-		{"eth"},
+		{0},
 		std::string(argv[1]),
 		"0.0.0.0:15002",
 		"0.0.0.0:15000"

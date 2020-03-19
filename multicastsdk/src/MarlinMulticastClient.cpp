@@ -23,7 +23,7 @@ struct MarlinMulticastClientDelegate {
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &client,
 		Buffer &&message,
 		Buffer &&,
-		std::string &channel,
+		uint16_t channel,
 		uint64_t message_id
 	) {
 		SPDLOG_DEBUG(
@@ -43,8 +43,7 @@ struct MarlinMulticastClientDelegate {
 				reinterpret_cast<MarlinMulticastClient_t *> (&client),
 				message.data(),
 				message.size(),
-				channel.c_str(),
-				channel.size(),
+				channel,
 				message_id
 			);
 		}
@@ -52,20 +51,19 @@ struct MarlinMulticastClientDelegate {
 
 	void did_subscribe(
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &client,
-		std::string &channel
+		uint16_t channel
 	) {
 		if (this->m_did_subscribe != 0) {
 			this->m_did_subscribe(
 				reinterpret_cast<MarlinMulticastClient_t *> (&client),
-				channel.c_str(),
-				channel.size()
+				channel
 			);
 		}
 	}
 
 	void did_unsubscribe(
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &,
-		std::string &
+		uint16_t
 	) {}
 };
 
@@ -108,10 +106,10 @@ MarlinMulticastClient_t* marlin_multicast_client_create(
 	char* discovery_addr,
 	char* pubsub_addr
 ) {
-	// TODO: edit default goldfish, a list of channels through arguement instead?
+	// TODO: edit default 0 channel, a list of channels through arguement instead?
 	DefaultMulticastClientOptions clop1 {
 		static_sk,
-		{"goldfish"},
+		{0},
 		beacon_addr,
 		discovery_addr,
 		pubsub_addr
@@ -139,8 +137,7 @@ void marlin_multicast_client_set_delegate(
 
 void marlin_multicast_client_send_message_on_channel(
 	MarlinMulticastClient_t* client,
-	const char *channel,
-	uint64_t channel_size,
+	uint16_t channel,
 	char *message,
 	uint64_t size
 ) {
@@ -149,7 +146,7 @@ void marlin_multicast_client_send_message_on_channel(
 	>(client);
 
 	obj->ps.send_message_on_channel(
-		std::string(channel, channel + channel_size),
+		channel,
 		message,
 		size
 	);
@@ -157,15 +154,14 @@ void marlin_multicast_client_send_message_on_channel(
 
 bool marlin_multicast_client_add_channel(
 	MarlinMulticastClient_t* client,
-	const char* channel,
-	uint64_t channel_size
+	uint16_t channel
 ) {
 	auto* obj = reinterpret_cast<
 		DefaultMulticastClient<MarlinMulticastClientDelegate>*
 	>(client);
 
-	if (std::find(obj->channels.begin(), obj->channels.end(), std::string(channel, channel + channel_size)) == obj->channels.end()) {
-		obj->channels.push_back(std::string(channel, channel + channel_size));
+	if (std::find(obj->channels.begin(), obj->channels.end(), channel) == obj->channels.end()) {
+		obj->channels.push_back(channel);
 		return true;
 	}
 
@@ -174,14 +170,13 @@ bool marlin_multicast_client_add_channel(
 
 bool marlin_multicast_client_remove_channel(
 	MarlinMulticastClient_t* client,
-	const char* channel,
-	uint64_t channel_size
+	uint16_t channel
 ) {
 	auto* obj = reinterpret_cast<
 		DefaultMulticastClient<MarlinMulticastClientDelegate>*
 	>(client);
 
-	auto it = std::find(obj->channels.begin(), obj->channels.end(), std::string(channel, channel + channel_size));
+	auto it = std::find(obj->channels.begin(), obj->channels.end(), channel);
 	if (it != obj->channels.end()) {
 		obj->channels.erase(it);
 		return true;

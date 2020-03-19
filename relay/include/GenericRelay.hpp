@@ -157,18 +157,18 @@ public:
 		}
 	}
 
-	std::vector<std::string> channels = {"eth"};
+	std::vector<uint16_t> channels = {0};
 
 	void did_unsubscribe(
 		PubSubNodeType &,
-		std::string channel [[maybe_unused]]
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(
 		PubSubNodeType &,
-		std::string channel [[maybe_unused]]
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 		// ps.send_message_on_channel(channel, "GenericRelay did subs", 21);
@@ -178,7 +178,7 @@ public:
 		PubSubNodeType &,
 		Buffer &&message [[maybe_unused]],
 		Buffer &&witness [[maybe_unused]],
-		std::string &channel [[maybe_unused]],
+		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
 		if((message_id & 0xff) == 0) {
@@ -217,7 +217,7 @@ public:
 				std::for_each(
 					channels.begin(),
 					channels.end(),
-					[&] (std::string const channel) {
+					[&] (uint16_t const channel) {
 						ps->send_UNSUBSCRIBE(*toReplaceTransport, channel);
 					}
 				);
