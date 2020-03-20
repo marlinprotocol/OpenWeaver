@@ -1,6 +1,5 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
-#include <uv.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <fstream>
