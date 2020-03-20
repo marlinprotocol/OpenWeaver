@@ -182,7 +182,7 @@ public:
 	}
 
 	static int run_event_loop() {
-		return EventLoop::run();
+		return net::EventLoop::run();
 	}
 };
 
