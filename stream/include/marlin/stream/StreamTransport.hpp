@@ -132,10 +132,10 @@ private:
 
 	// ACKs
 	AckRanges ack_ranges;
-	uv_timer_t ack_timer;
+	net::Timer<Self> ack_timer;
 	bool ack_timer_active = false;
 
-	static void ack_timer_cb(uv_timer_t *handle);
+	void ack_timer_cb();
 
 	// Protocol
 	void send_DIAL();
@@ -276,7 +276,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	tlp_interval = DEFAULT_TLP_INTERVAL;
 
 	ack_ranges = AckRanges();
-	uv_timer_stop(&ack_timer);
+	ack_timer.stop();
 	ack_timer_active = false;
 }
 
@@ -666,12 +666,10 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 //---------------- ACK functions begin ----------------//
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
+void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb() {
+	send_ACK();
 
-	transport.send_ACK();
-
-	transport.ack_timer_active = false;
+	ack_timer_active = false;
 }
 
 //---------------- ACK functions end ----------------//
@@ -1197,7 +1195,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Start ack delay timer if not already active
 	if(!ack_timer_active) {
 		ack_timer_active = true;
-		uv_timer_start(&ack_timer, &ack_timer_cb, 25, 0);
+		ack_timer.template start<&Self::ack_timer_cb>(25, 0);
 	}
 
 	// Short circuit on no new data
@@ -1861,12 +1859,10 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	state_timer(this),
 	pacing_timer(this),
 	tlp_timer(this),
+	ack_timer(this),
 	src_addr(src_addr),
 	dst_addr(dst_addr),
 	delegate(nullptr) {
-	uv_timer_init(uv_default_loop(), &this->ack_timer);
-	this->ack_timer.data = this;
-
 	if(sodium_init() == -1) {
 		throw;
 	}
