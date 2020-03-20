@@ -125,10 +125,10 @@ private:
 	void pacing_timer_cb();
 
 	// TLP
-	uv_timer_t tlp_timer;
+	net::Timer<Self> tlp_timer;
 	uint64_t tlp_interval = DEFAULT_TLP_INTERVAL;
 
-	static void tlp_timer_cb(uv_timer_t *handle);
+	void tlp_timer_cb();
 
 	// ACKs
 	AckRanges ack_ranges;
@@ -272,7 +272,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	pacing_timer.stop();
 	is_pacing_timer_active = false;
 
-	uv_timer_stop(&tlp_timer);
+	tlp_timer.stop();
 	tlp_interval = DEFAULT_TLP_INTERVAL;
 
 	ack_ranges = AckRanges();
@@ -588,77 +588,75 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb() {
 */
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
-
-	if(transport.sent_packets.size() == 0 && transport.lost_packets.size() == 0 && transport.send_queue.size() == 0) {
+void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
+	if(this->sent_packets.size() == 0 && this->lost_packets.size() == 0 && this->send_queue.size() == 0) {
 		// Idle connection, stop timer
-		uv_timer_stop(&transport.tlp_timer);
-		transport.tlp_interval = DEFAULT_TLP_INTERVAL;
+		tlp_timer.stop();
+		this->tlp_interval = DEFAULT_TLP_INTERVAL;
 		return;
 	}
 
-	auto sent_iter = transport.sent_packets.cbegin();
+	auto sent_iter = this->sent_packets.cbegin();
 
 	// Retry lost packets
 	// No condition necessary, all are considered lost if tail probe fails
-	while(sent_iter != transport.sent_packets.cend()) {
-		transport.bytes_in_flight -= sent_iter->second.length;
+	while(sent_iter != this->sent_packets.cend()) {
+		this->bytes_in_flight -= sent_iter->second.length;
 		sent_iter->second.stream->bytes_in_flight -= sent_iter->second.length;
-		transport.lost_packets[sent_iter->first] = sent_iter->second;
+		this->lost_packets[sent_iter->first] = sent_iter->second;
 
 		sent_iter++;
 	}
 
-	if(sent_iter == transport.sent_packets.cbegin()) {
+	if(sent_iter == this->sent_packets.cbegin()) {
 		// No lost packets, ignore
 	} else {
 		// Lost packets, congestion event
 		auto last_iter = std::prev(sent_iter);
 		auto &sent_packet = last_iter->second;
-		if(sent_packet.sent_time > transport.congestion_start) {
+		if(sent_packet.sent_time > this->congestion_start) {
 			// New congestion event
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
-				transport.src_addr.to_string(),
-				transport.dst_addr.to_string(),
-				transport.congestion_window
+				this->src_addr.to_string(),
+				this->dst_addr.to_string(),
+				this->congestion_window
 			);
-			transport.congestion_start = uv_now(uv_default_loop());
+			this->congestion_start = uv_now(uv_default_loop());
 
-			if(transport.congestion_window < transport.w_max) {
+			if(this->congestion_window < this->w_max) {
 				// Fast convergence
-				transport.w_max = transport.congestion_window;
-				transport.congestion_window *= 0.6;
+				this->w_max = this->congestion_window;
+				this->congestion_window *= 0.6;
 			} else {
-				transport.w_max = transport.congestion_window;
-				transport.congestion_window *= 0.75;
+				this->w_max = this->congestion_window;
+				this->congestion_window *= 0.75;
 			}
 
-			if(transport.congestion_window < 10000) {
-				transport.congestion_window = 10000;
+			if(this->congestion_window < 10000) {
+				this->congestion_window = 10000;
 			}
 
-			transport.ssthresh = transport.congestion_window;
+			this->ssthresh = this->congestion_window;
 
-			transport.k = std::cbrt(transport.w_max / 16)*1000;
+			this->k = std::cbrt(this->w_max / 16)*1000;
 		}
 
 		// Pop lost packets from sent
-		transport.sent_packets.erase(transport.sent_packets.cbegin(), sent_iter);
+		this->sent_packets.erase(this->sent_packets.cbegin(), sent_iter);
 	}
 
 	// New packets
-	transport.send_pending_data();
+	this->send_pending_data();
 
 	// Next timer interval
-	if(transport.tlp_interval < 25000) {
-		transport.tlp_interval *= 2;
-		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
+	if(this->tlp_interval < 25000) {
+		this->tlp_interval *= 2;
+		this->tlp_timer.template start<&Self::tlp_timer_cb>(this->tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
-		transport.close();
+		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
+		this->close();
 	}
 }
 
@@ -1543,7 +1541,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	send_pending_data();
 
 	tlp_interval = DEFAULT_TLP_INTERVAL;
-	uv_timer_start(&tlp_timer, &tlp_timer_cb, tlp_interval, 0);
+	tlp_timer.template start<&Self::tlp_timer_cb>(tlp_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1862,12 +1860,10 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	transport_manager(transport_manager),
 	state_timer(this),
 	pacing_timer(this),
+	tlp_timer(this),
 	src_addr(src_addr),
 	dst_addr(dst_addr),
 	delegate(nullptr) {
-	uv_timer_init(uv_default_loop(), &this->tlp_timer);
-	this->tlp_timer.data = this;
-
 	uv_timer_init(uv_default_loop(), &this->ack_timer);
 	this->ack_timer.data = this;
 
@@ -1945,7 +1941,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	// Handle idle connection
 	if(sent_packets.size() == 0 && lost_packets.size() == 0 && send_queue.size() == 0) {
-		uv_timer_start(&tlp_timer, &tlp_timer_cb, tlp_interval, 0);
+		tlp_timer.template start<&Self::tlp_timer_cb>(tlp_interval, 0);
 	}
 
 	register_send_intent(stream);
