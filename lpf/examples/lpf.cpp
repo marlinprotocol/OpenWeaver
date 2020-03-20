@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/net/core/EventLoop.hpp>
 
 using namespace marlin::net;
 using namespace marlin::lpf;
@@ -68,5 +69,5 @@ int main() {
 
 	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
-	return EventLoop::run();
+	return marlin::net::EventLoop::run();
 }
