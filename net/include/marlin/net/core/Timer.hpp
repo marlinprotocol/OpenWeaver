@@ -12,12 +12,11 @@ namespace net {
 
 
 template<
-	typename DelegateType,
-	void (DelegateType::*callback)()
+	typename DelegateType
 >
 class Timer {
 private:
-	using Self = Timer<DelegateType, callback>;
+	using Self = Timer<DelegateType>;
 
 	uv_timer_t* timer;
 
@@ -25,6 +24,7 @@ private:
 		delete (uv_timer_t*)handle;
 	}
 
+	template<void (DelegateType::*callback)()>
 	static void timer_cb(uv_timer_t* handle) {
 		auto& timer = *(Self*)handle->data;
 		(timer.delegate->*callback)();
@@ -38,8 +38,9 @@ public:
 		uv_timer_init(uv_default_loop(), timer);
 	}
 
+	template<void (DelegateType::*callback)()>
 	void start(uint64_t timeout, uint64_t repeat) {
-		uv_timer_start(timer, timer_cb, timeout, repeat);
+		uv_timer_start(timer, timer_cb<callback>, timeout, repeat);
 	}
 
 	void stop() {
