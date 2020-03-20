@@ -63,7 +63,7 @@ private:
 	uint32_t src_conn_id = 0;
 	uint32_t dst_conn_id = 0;
 	bool dialled = false;
-	net::Timer<Self> state_timer;
+	net::Timer state_timer;
 	uint64_t state_timer_interval = 0;
 
 	void dial_timer_cb();
@@ -119,20 +119,20 @@ private:
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
 
 	// Pacing
-	net::Timer<Self> pacing_timer;
+	net::Timer pacing_timer;
 	bool is_pacing_timer_active = false;
 
 	void pacing_timer_cb();
 
 	// TLP
-	net::Timer<Self> tlp_timer;
+	net::Timer tlp_timer;
 	uint64_t tlp_interval = DEFAULT_TLP_INTERVAL;
 
 	void tlp_timer_cb();
 
 	// ACKs
 	AckRanges ack_ranges;
-	net::Timer<Self> ack_timer;
+	net::Timer ack_timer;
 	bool ack_timer_active = false;
 
 	void ack_timer_cb();
@@ -301,7 +301,7 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 
 	this->send_DIAL();
 	this->state_timer_interval *= 2;
-	this->state_timer.template start<&Self::dial_timer_cb>(
+	this->state_timer.template start<Self, &Self::dial_timer_cb>(
 		this->state_timer_interval,
 		0
 	);
@@ -451,7 +451,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	if(is_pacing_timer_active == false) {
 		is_pacing_timer_active = true;
-		pacing_timer.template start<&Self::pacing_timer_cb>(0, 0);
+		pacing_timer.template start<Self, &Self::pacing_timer_cb>(0, 0);
 	}
 }
 
@@ -468,7 +468,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 		if(bytes_in_flight - initial_bytes_in_flight >= DEFAULT_PACING_LIMIT) {
 			// Pacing limit hit, reschedule timer
 			is_pacing_timer_active = true;
-			pacing_timer.template start<&Self::pacing_timer_cb>(1, 0);
+			pacing_timer.template start<Self, &Self::pacing_timer_cb>(1, 0);
 			return -1;
 		}
 
@@ -569,7 +569,7 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb() {
 		} else if(res == -1) { // Pacing limit hit, reschedule timer
 			// Pacing limit hit, reschedule timer
 			this->is_pacing_timer_active = true;
-			pacing_timer.template start<&Self::pacing_timer_cb>(1, 0);
+			pacing_timer.template start<Self, &Self::pacing_timer_cb>(1, 0);
 			return;
 		} else { // Congestion window exhausted, break
 			return;
@@ -652,7 +652,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 	// Next timer interval
 	if(this->tlp_interval < 25000) {
 		this->tlp_interval *= 2;
-		this->tlp_timer.template start<&Self::tlp_timer_cb>(this->tlp_interval, 0);
+		this->tlp_timer.template start<Self, &Self::tlp_timer_cb>(this->tlp_interval, 0);
 	} else {
 		// Abort on too many retries
 		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
@@ -1195,7 +1195,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Start ack delay timer if not already active
 	if(!ack_timer_active) {
 		ack_timer_active = true;
-		ack_timer.template start<&Self::ack_timer_cb>(25, 0);
+		ack_timer.template start<Self, &Self::ack_timer_cb>(25, 0);
 	}
 
 	// Short circuit on no new data
@@ -1539,7 +1539,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	send_pending_data();
 
 	tlp_interval = DEFAULT_TLP_INTERVAL;
-	tlp_timer.template start<&Self::tlp_timer_cb>(tlp_interval, 0);
+	tlp_timer.template start<Self, &Self::tlp_timer_cb>(tlp_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1734,7 +1734,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	dialled = true;
 
 	state_timer_interval = 1000;
-	state_timer.template start<&Self::dial_timer_cb>(state_timer_interval, 0);
+	state_timer.template start<Self, &Self::dial_timer_cb>(state_timer_interval, 0);
 
 	src_conn_id = (uint32_t)std::random_device()();
 	send_DIAL();
@@ -1937,7 +1937,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	// Handle idle connection
 	if(sent_packets.size() == 0 && lost_packets.size() == 0 && send_queue.size() == 0) {
-		tlp_timer.template start<&Self::tlp_timer_cb>(tlp_interval, 0);
+		tlp_timer.template start<Self, &Self::tlp_timer_cb>(tlp_interval, 0);
 	}
 
 	register_send_intent(stream);
