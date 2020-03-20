@@ -131,18 +131,16 @@ public:
 	// void remove_subscriber_from_channel(uint16_t channel, BaseTransport &transport);
 	// void remove_subscriber_from_potential_channel(uint16_t channel, BaseTransport &transport);
 private:
-	uv_timer_t peer_selection_timer;
+	net::Timer peer_selection_timer;
 
-	static void peer_selection_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
-		node.delegate->manage_subscriptions(node.max_sol_conns, node.sol_conns, node.sol_standby_conns);
+	void peer_selection_timer_cb() {
+		this->delegate->manage_subscriptions(this->max_sol_conns, this->sol_conns, this->sol_standby_conns);
 
 		// std::for_each(
-		// 	node.delegate->channels.begin(),
-		// 	node.delegate->channels.end(),
+		// 	this->delegate->channels.begin(),
+		// 	this->delegate->channels.end(),
 		// 	[&] (uint16_t const channel) {
-		// 		node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+		// 		this->delegate->manage_subscribers(channel, this->channel_subscriptions[channel], this->potential_channel_subscriptions[channel]);
 		// 	}
 		// );
 	}
@@ -950,6 +948,7 @@ PubSubNode<
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
+	peer_selection_timer(this),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
@@ -967,9 +966,7 @@ PubSubNode<
 	this->message_id_timer.data = (void *)this;
 	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 
-	uv_timer_init(uv_default_loop(), &peer_selection_timer);
-	this->peer_selection_timer.data = (void *)this;
-	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
+	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 
 	uv_timer_init(uv_default_loop(), &blacklist_timer);
 	this->blacklist_timer.data = (void *)this;
