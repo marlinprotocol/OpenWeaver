@@ -19,7 +19,6 @@
 #include <spdlog/fmt/bin_to_hex.h>
 #include <random>
 #include <unordered_set>
-#include <uv.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
