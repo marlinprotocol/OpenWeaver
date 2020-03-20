@@ -119,10 +119,10 @@ private:
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
 
 	// Pacing
-	uv_timer_t pacing_timer;
+	net::Timer<Self> pacing_timer;
 	bool is_pacing_timer_active = false;
 
-	static void pacing_timer_cb(uv_timer_t *handle);
+	void pacing_timer_cb();
 
 	// TLP
 	uv_timer_t tlp_timer;
@@ -269,7 +269,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	send_queue_ids.clear();
 	send_queue.clear();
 
-	uv_timer_stop(&pacing_timer);
+	pacing_timer.stop();
 	is_pacing_timer_active = false;
 
 	uv_timer_stop(&tlp_timer);
@@ -451,7 +451,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	if(is_pacing_timer_active == false) {
 		is_pacing_timer_active = true;
-		uv_timer_start(&pacing_timer, &pacing_timer_cb, 0, 0);
+		pacing_timer.template start<&Self::pacing_timer_cb>(0, 0);
 	}
 }
 
@@ -468,7 +468,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 		if(bytes_in_flight - initial_bytes_in_flight >= DEFAULT_PACING_LIMIT) {
 			// Pacing limit hit, reschedule timer
 			is_pacing_timer_active = true;
-			uv_timer_start(&pacing_timer, &pacing_timer_cb, 1, 0);
+			pacing_timer.template start<&Self::pacing_timer_cb>(1, 0);
 			return -1;
 		}
 
@@ -544,33 +544,32 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 //---------------- Pacing functions begin ----------------//
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
-	transport.is_pacing_timer_active = false;
+void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb() {
+	this->is_pacing_timer_active = false;
 
-	auto initial_bytes_in_flight = transport.bytes_in_flight;
+	auto initial_bytes_in_flight = this->bytes_in_flight;
 
-	auto res = transport.send_lost_data(initial_bytes_in_flight);
+	auto res = this->send_lost_data(initial_bytes_in_flight);
 	if(res < 0) {
 		return;
 	}
 
 	// New packets
 	for(
-		auto iter = transport.send_queue.begin();
-		iter != transport.send_queue.end();
+		auto iter = this->send_queue.begin();
+		iter != this->send_queue.end();
 		// Empty
 	) {
 		auto &stream = **iter;
 
-		int res = transport.send_new_data(stream, initial_bytes_in_flight);
+		int res = this->send_new_data(stream, initial_bytes_in_flight);
 		if(res == 0) { // Idle stream, move to next stream
-			transport.send_queue_ids.erase(stream.stream_id);
-			iter = transport.send_queue.erase(iter);
+			this->send_queue_ids.erase(stream.stream_id);
+			iter = this->send_queue.erase(iter);
 		} else if(res == -1) { // Pacing limit hit, reschedule timer
 			// Pacing limit hit, reschedule timer
-			transport.is_pacing_timer_active = true;
-			uv_timer_start(handle, &pacing_timer_cb, 1, 0);
+			this->is_pacing_timer_active = true;
+			pacing_timer.template start<&Self::pacing_timer_cb>(1, 0);
 			return;
 		} else { // Congestion window exhausted, break
 			return;
@@ -1862,6 +1861,7 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 ) : transport(transport),
 	transport_manager(transport_manager),
 	state_timer(this),
+	pacing_timer(this),
 	src_addr(src_addr),
 	dst_addr(dst_addr),
 	delegate(nullptr) {
@@ -1870,9 +1870,6 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 
 	uv_timer_init(uv_default_loop(), &this->ack_timer);
 	this->ack_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &this->pacing_timer);
-	this->pacing_timer.data = this;
 
 	if(sodium_init() == -1) {
 		throw;
