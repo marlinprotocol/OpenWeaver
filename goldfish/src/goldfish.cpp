@@ -44,18 +44,18 @@ public:
 		}
 	}
 
-	std::vector<std::string> channels = {"goldfish"};
+	std::vector<uint16_t> channels = {0};
 
 	void did_unsubscribe(
 		PubSubNodeType &,
-		std::string channel [[maybe_unused]]
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(
 		PubSubNodeType &,
-		std::string channel [[maybe_unused]]
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
@@ -64,7 +64,7 @@ public:
 		PubSubNodeType &,
 		Buffer &&,
 		Buffer &&,
-		std::string &channel [[maybe_unused]],
+		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
 		SPDLOG_INFO(
