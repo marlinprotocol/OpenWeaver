@@ -49,7 +49,7 @@ private:
 	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&bytes);
 
 	void heartbeat_timer_cb();
-	net::Timer<Self, &Self::heartbeat_timer_cb> heartbeat_timer;
+	net::Timer<Self> heartbeat_timer;
 
 	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
 public:
@@ -311,7 +311,7 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	f.bind(addr);
 	f.listen(*this);
 
-	heartbeat_timer.start(0, 10000);
+	heartbeat_timer.template start<&Self::heartbeat_timer_cb>(0, 10000);
 }
 
 } // namespace beacon
