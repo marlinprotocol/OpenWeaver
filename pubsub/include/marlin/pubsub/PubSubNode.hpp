@@ -100,7 +100,7 @@ private:
 //---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
-	typedef std::unordered_map<std::string, TransportSet> TransportSetMap;
+	typedef std::unordered_map<uint16_t, TransportSet> TransportSetMap;
 
 	// TransportSetMap channel_subscriptions;
 	// TransportSetMap potential_channel_subscriptions;
@@ -112,8 +112,8 @@ public:
 	std::unordered_set<net::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
 
-	void send_SUBSCRIBE(BaseTransport &transport, std::string const channel);
-	void send_UNSUBSCRIBE(BaseTransport &transport, std::string const channel);
+	void send_SUBSCRIBE(BaseTransport &transport, uint16_t const channel);
+	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t const channel);
 
 	bool add_sol_conn(net::SocketAddress const &addr);
 	bool add_sol_conn(BaseTransport &transport);
@@ -125,11 +125,11 @@ public:
 
 	bool check_tranport_present(BaseTransport &transport);
 
-	// int get_num_active_subscribers(std::string channel);
-	// void add_subscriber_to_channel(std::string channel, BaseTransport &transport);
-	// void add_subscriber_to_potential_channel(std::string channel, BaseTransport &transport);
-	// void remove_subscriber_from_channel(std::string channel, BaseTransport &transport);
-	// void remove_subscriber_from_potential_channel(std::string channel, BaseTransport &transport);
+	// int get_num_active_subscribers(uint16_t channel);
+	// void add_subscriber_to_channel(uint16_t channel, BaseTransport &transport);
+	// void add_subscriber_to_potential_channel(uint16_t channel, BaseTransport &transport);
+	// void remove_subscriber_from_channel(uint16_t channel, BaseTransport &transport);
+	// void remove_subscriber_from_potential_channel(uint16_t channel, BaseTransport &transport);
 private:
 	uv_timer_t peer_selection_timer;
 
@@ -141,7 +141,7 @@ private:
 		// std::for_each(
 		// 	node.delegate->channels.begin(),
 		// 	node.delegate->channels.end(),
-		// 	[&] (std::string const channel) {
+		// 	[&] (uint16_t const channel) {
 		// 		node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
 		// 	}
 		// );
@@ -173,7 +173,7 @@ private:
 	int did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
-		std::string channel,
+		uint16_t channel,
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
@@ -203,13 +203,13 @@ public:
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
-		std::string channel,
+		uint16_t channel,
 		const char *data,
 		uint64_t size,
 		net::SocketAddress const *excluded = nullptr
 	);
 	void send_message_on_channel(
-		std::string channel,
+		uint16_t channel,
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
@@ -219,7 +219,7 @@ public:
 	);
 	void send_message_with_cut_through_check(
 		BaseTransport *transport,
-		std::string channel,
+		uint16_t channel,
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
@@ -268,7 +268,7 @@ private:
 		// std::for_each(
 		// 	node.delegate->channels.begin(),
 		// 	node.delegate->channels.end(),
-		// 	[&] (std::string const channel) {
+		// 	[&] (uint16_t const channel) {
 		// 		for (auto* transport : node.channel_subscriptions[channel]) {
 		// 			node.send_HEARTBEAT(*transport);
 		// 		}
@@ -338,7 +338,7 @@ int PubSubNode<
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	std::string channel(bytes.data(), bytes.data()+bytes.size());
+	uint16_t channel = bytes.read_uint16_be(0);
 
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
@@ -398,10 +398,10 @@ void PubSubNode<
 	enable_relay
 >::send_SUBSCRIBE(
 	BaseTransport &transport,
-	std::string const channel
+	uint16_t const channel
 ) {
-	net::Buffer bytes({0}, channel.size() + 1);
-	bytes.write(1, channel.data(), channel.size());
+	net::Buffer bytes({0}, 3);
+	bytes.write_uint16_be(1, channel);
 
 	SPDLOG_DEBUG(
 		"Sending subscribe on channel {} to {}",
@@ -432,7 +432,7 @@ void PubSubNode<
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	std::string channel(bytes.data(), bytes.data()+bytes.size());
+	uint16_t channel = bytes.read_uint16_be(0);
 
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
@@ -476,10 +476,10 @@ void PubSubNode<
 	enable_relay
 >::send_UNSUBSCRIBE(
 	BaseTransport &transport,
-	std::string const channel
+	uint16_t const channel
 ) {
-	net::Buffer bytes({1}, channel.size() + 1);
-	bytes.write(1, channel.data(), channel.size());
+	net::Buffer bytes({1}, 3);
+	bytes.write_uint16_be(1, channel);
 
 	SPDLOG_DEBUG("Sending unsubscribe on channel {} to {}", channel, transport.dst_addr.to_string());
 
@@ -597,24 +597,12 @@ int PubSubNode<
 	net::Buffer &&bytes
 ) {
 	auto message_id = bytes.read_uint64_be(0);
-	auto channel_length = bytes.read_uint16_be(8);
+	auto channel = bytes.read_uint16_be(8);
+
+	auto witness_length = bytes.read_uint16_be(10);
 
 	// Check overflow
-	if((uint16_t)bytes.size() < 10 + channel_length)
-		return 0;
-
-	if(channel_length > 10) {
-		SPDLOG_ERROR("Channel too long: {}", channel_length);
-		transport.close();
-		return -1;
-	}
-
-	auto channel = std::string(bytes.data()+10, bytes.data()+10+channel_length);
-
-	auto witness_length = bytes.read_uint16_be(10+channel_length);
-
-	// Check overflow
-	if((uint16_t)bytes.size() < 12 + channel_length + witness_length)
+	if((uint16_t)bytes.size() < 12 + witness_length)
 		return 0;
 
 	if(witness_length > 500) {
@@ -629,9 +617,9 @@ int PubSubNode<
 		message_id_events[message_id_idx].push_back(message_id);
 
 		char *new_witness = new char[witness_length+32];
-		std::memcpy(new_witness, bytes.data()+12+channel_length, witness_length);
+		std::memcpy(new_witness, bytes.data()+12, witness_length);
 
-		bytes.cover(12 + channel_length + witness_length);
+		bytes.cover(12 + witness_length);
 
 		if constexpr (enable_relay) {
 			crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
@@ -704,24 +692,23 @@ void PubSubNode<
 	enable_relay
 >::send_MESSAGE(
 	BaseTransport &transport,
-	std::string channel,
+	uint16_t channel,
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
 	const char* witness_data,
 	uint16_t witness_size
 ) {
-	net::Buffer m({3}, 11 + channel.size() + 2 + witness_size + size);
+	net::Buffer m({3}, 11 + 2 + witness_size + size);
 	m.write_uint64_be(1, message_id);
-	m.write_uint16_be(9, channel.size());
-	m.write(11, channel.data(), channel.size());
-	m.write_uint16_be(11 + channel.size(), witness_size);
+	m.write_uint16_be(9, channel);
+	m.write_uint16_be(11, witness_size);
 	if(witness_data == nullptr) {
-		crypto_scalarmult_base((uint8_t*)m.data() + 11 + channel.size() + 2, keys);
+		crypto_scalarmult_base((uint8_t*)m.data() + 11 + 2, keys);
 	} else {
-		m.write(11 + channel.size() + 2, witness_data, witness_size);
+		m.write(11 + 2, witness_data, witness_size);
 	}
-	m.write(11 + channel.size() + 2 + witness_size, data, size);
+	m.write(11 + 2 + witness_size, data, size);
 
 	transport.send(std::move(m));
 }
@@ -904,7 +891,7 @@ void PubSubNode<
 	// std::for_each(
 	// 	delegate->channels.begin(),
 	// 	delegate->channels.end(),
-	// 	[&] (std::string const channel) {
+	// 	[&] (uint16_t const channel) {
 	// 		channel_subscriptions[channel].erase(&transport);
 	// 		potential_channel_subscriptions[channel].erase(&transport);
 	// 	}
@@ -1029,7 +1016,7 @@ uint64_t PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::send_message_on_channel(
-	std::string channel,
+	uint16_t channel,
 	const char *data,
 	uint64_t size,
 	net::SocketAddress const *excluded
@@ -1060,7 +1047,7 @@ void PubSubNode<
 	accept_unsol_conn,
 	enable_relay
 >::send_message_on_channel(
-	std::string channel,
+	uint16_t channel,
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
@@ -1109,7 +1096,7 @@ void PubSubNode<
 	enable_relay
 >::send_message_with_cut_through_check(
 	BaseTransport *transport,
-	std::string channel,
+	uint16_t channel,
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
@@ -1124,17 +1111,16 @@ void PubSubNode<
 	);
 
 	if(size > 50000) {
-		net::Buffer m({3}, 11 + channel.size() + 2 + witness_size + size);
+		net::Buffer m({3}, 11 + 2 + witness_size + size);
 		m.write_uint64_be(1, message_id);
-		m.write_uint16_be(9, channel.size());
-		m.write(11, channel.data(), channel.size());
-		m.write_uint16_be(11 + channel.size(), witness_size);
+		m.write_uint16_be(9, channel);
+		m.write_uint16_be(11, witness_size);
 		if(witness_data == nullptr) {
-			crypto_scalarmult_base((uint8_t*)m.data() + 11 + channel.size() + 2, keys);
+			crypto_scalarmult_base((uint8_t*)m.data() + 11 + 2, keys);
 		} else {
-			m.write(11 + channel.size() + 2, witness_data, witness_size);
+			m.write(11 + 2, witness_data, witness_size);
 		}
-		m.write(11 + channel.size() + 2 + witness_size, data, size);
+		m.write(11 + 2 + witness_size, data, size);
 
 		auto res = transport->cut_through_send(std::move(m));
 
@@ -1207,7 +1193,7 @@ void PubSubNode<
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
-		[&] (std::string const channel) {
+		[&] (uint16_t const channel) {
 			send_UNSUBSCRIBE(*transport, channel);
 		}
 	);
@@ -1262,7 +1248,7 @@ bool PubSubNode<
 		std::for_each(
 			delegate->channels.begin(),
 			delegate->channels.end(),
-			[&] (std::string const channel) {
+			[&] (uint16_t const channel) {
 				send_SUBSCRIBE(transport, channel);
 			}
 		);
@@ -1446,25 +1432,11 @@ int PubSubNode<
 	// 	id
 	// );
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
-		auto channel_length = bytes.read_uint16_be(9);
+		auto witness_length = bytes.read_uint16_be(11);
 
 		// Check overflow
-		if((uint16_t)bytes.size() < 11 + channel_length) {
-			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), channel_length);
-			transport.close();
-			return -1;
-		}
-
-		auto witness_length = bytes.read_uint16_be(11+channel_length);
-
-		if((uint16_t)bytes.size() < 13 + channel_length + witness_length) {
+		if((uint16_t)bytes.size() < 13 + witness_length) {
 			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), witness_length);
-			transport.close();
-			return -1;
-		}
-
-		if(channel_length > 10) {
-			SPDLOG_ERROR("Channel too long: {}", channel_length);
 			transport.close();
 			return -1;
 		}
@@ -1480,7 +1452,7 @@ int PubSubNode<
 			"Pubsub {} <<<< {}: CTR witness: {}",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
-			spdlog::to_hex(bytes.data() + 13 + channel_length, bytes.data() + 13 + channel_length + witness_length)
+			spdlog::to_hex(bytes.data() + 13, bytes.data() + 13 + witness_length)
 		);
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
 
@@ -1492,12 +1464,11 @@ int PubSubNode<
 			return -1;
 		}
 
-		auto channel = std::string(bytes.data()+11, bytes.data()+11+channel_length);
 		for(auto *subscriber : sol_conns) {
 			if(&transport == subscriber) continue;
 			bool found = false;
 			for(uint i = 0; i < witness_length/32; i++) {
-				if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
+				if(std::memcmp(bytes.data() + 13 + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
 					found = true;
 					break;
 				}
@@ -1521,7 +1492,7 @@ int PubSubNode<
 			if(&transport == subscriber) continue;
 			bool found = false;
 			for(uint i = 0; i < witness_length/32; i++) {
-				if(std::memcmp(bytes.data() + 13 + channel_length + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
+				if(std::memcmp(bytes.data() + 13 + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
 					found = true;
 					break;
 				}
@@ -1541,15 +1512,15 @@ int PubSubNode<
 			);
 		}
 
-		char *new_header = new char[13+channel_length+witness_length+32];
-		std::memcpy(new_header, bytes.data(), 13+channel_length+witness_length);
+		char *new_header = new char[13+witness_length+32];
+		std::memcpy(new_header, bytes.data(), 13+witness_length);
 
-		bytes.cover(13 + channel_length + witness_length);
+		bytes.cover(13 + witness_length);
 
-		crypto_scalarmult_base((uint8_t*)new_header+13+channel_length+witness_length, keys);
+		crypto_scalarmult_base((uint8_t*)new_header+13+witness_length, keys);
 
-		net::Buffer buf(new_header, 13+channel_length+witness_length+32);
-		buf.write_uint16_be(11+channel_length, witness_length + 32);
+		net::Buffer buf(new_header, 13+witness_length+32);
+		buf.write_uint16_be(11, witness_length + 32);
 
 		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
 		if(res < 0) {
