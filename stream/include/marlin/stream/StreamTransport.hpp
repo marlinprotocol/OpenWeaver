@@ -17,6 +17,7 @@
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
+#include <marlin/net/core/EventLoop.hpp>
 #include <marlin/net/core/Timer.hpp>
 #include <marlin/net/core/TransportManager.hpp>
 
@@ -279,9 +280,6 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 // Impl
 
 //! a callback function which sends dial message with exponential interval increases
-/*!
-	\param handle a uv_timer_t handle type
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 	if(this->state_timer_interval >= 64000) { // Abort on too many retries
@@ -429,7 +427,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		std::piecewise_construct,
 		std::forward_as_tuple(this->last_sent_packet),
 		std::forward_as_tuple(
-			uv_now(uv_default_loop()),
+			net::EventLoop::now(),
 			&stream,
 			&data_item,
 			offset,
@@ -620,7 +618,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 				this->dst_addr.to_string(),
 				this->congestion_window
 			);
-			this->congestion_start = uv_now(uv_default_loop());
+			this->congestion_start = net::EventLoop::now();
 
 			if(this->congestion_window < this->w_max) {
 				// Fast convergence
@@ -1253,7 +1251,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
 		stream.recv_packets.try_emplace(
 			offset,
-			uv_now(uv_default_loop()),
+			net::EventLoop::now(),
 			offset,
 			length,
 			std::move(packet)
@@ -1319,7 +1317,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		return;
 	}
 
-	auto now = uv_now(uv_default_loop());
+	auto now = net::EventLoop::now();
 
 	// TODO: Better method names
 	uint16_t size = p.stream_id();

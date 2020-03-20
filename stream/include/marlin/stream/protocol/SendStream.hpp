@@ -6,7 +6,6 @@
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
 #include <memory>
-#include <uv.h>
 #include <list>
 #include <ctime>
 #include <map>
