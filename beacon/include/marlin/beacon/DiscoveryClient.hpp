@@ -55,10 +55,10 @@ private:
 	BaseTransport *beacon = nullptr;
 
 	void beacon_timer_cb();
-	net::Timer<Self, &Self::beacon_timer_cb> beacon_timer;
+	net::Timer beacon_timer;
 
 	void heartbeat_timer_cb();
-	net::Timer<Self, &Self::heartbeat_timer_cb> heartbeat_timer;
+	net::Timer heartbeat_timer;
 
 public:
 	// Listen delegate
@@ -318,10 +318,9 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_dial(
 ) {
 	if(beacon == nullptr) {
 		beacon = &transport;
-		send_DISCPEER(*beacon);
-		beacon_timer.start(60000, 60000);
+		beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
 		if(is_discoverable) {
-			heartbeat_timer.start(0, 10000);
+			heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 		}
 	} else {
 		send_DISCPROTO(transport);

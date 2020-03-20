@@ -1,7 +1,6 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <uv.h>
 #include <unistd.h>
 
 
@@ -142,5 +141,5 @@ int main(int argc, char **argv) {
 
 	dc.start_discovery(SocketAddress::from_string(beacon_addr));
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }

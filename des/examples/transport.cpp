@@ -15,6 +15,8 @@ struct Delegate;
 using TransportType = SimulatedTransport<Simulator, NetworkInterface<Network<NetworkConditioner>>, Delegate>;
 
 struct Delegate {
+	Simulator& simulator;
+
 	void did_recv_packet(TransportType& transport, Buffer&& packet) {
 		SPDLOG_INFO(
 			"Transport: {{Src: {}, Dst: {}}}, Did recv packet: {} bytes",
@@ -22,7 +24,11 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
-		transport.close();
+		if(simulator.current_tick() > 10) {
+			transport.close();
+		} else {
+			transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
+		}
 	}
 
 	void did_send_packet(TransportType& transport, Buffer&& packet) {
@@ -32,7 +38,10 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
-		transport.close();
+
+		if(simulator.current_tick() > 9) {
+			transport.close();
+		}
 	}
 
 	void did_dial(TransportType& transport) {
@@ -40,7 +49,9 @@ struct Delegate {
 		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
-	void did_close(TransportType&) {}
+	void did_close(TransportType&) {
+		SPDLOG_INFO("Did close");
+	}
 
 	bool should_accept(SocketAddress const&) {
 		return true;
@@ -59,10 +70,15 @@ int main() {
 	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
 
 	TransportManager<TransportType> manager;
-	SimulatedTransportFactory<Simulator, NetworkInterface<Network<NetworkConditioner>>, Delegate, Delegate> s(i1, simulator), c(i2, simulator);
+	SimulatedTransportFactory<
+		Simulator,
+		NetworkInterface<Network<NetworkConditioner>>,
+		Delegate,
+		Delegate
+	> s(i1, simulator), c(i2, simulator);
 	s.bind(SocketAddress::from_string("192.168.0.1:8000"));
 
-	Delegate d;
+	Delegate d{simulator};
 
 	s.listen(d);
 

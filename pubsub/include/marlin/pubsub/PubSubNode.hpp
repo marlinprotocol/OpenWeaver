@@ -19,7 +19,6 @@
 #include <spdlog/fmt/bin_to_hex.h>
 #include <random>
 #include <unordered_set>
-#include <uv.h>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
@@ -131,28 +130,24 @@ public:
 	// void remove_subscriber_from_channel(uint16_t channel, BaseTransport &transport);
 	// void remove_subscriber_from_potential_channel(uint16_t channel, BaseTransport &transport);
 private:
-	uv_timer_t peer_selection_timer;
+	net::Timer peer_selection_timer;
 
-	static void peer_selection_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
-		node.delegate->manage_subscriptions(node.max_sol_conns, node.sol_conns, node.sol_standby_conns);
+	void peer_selection_timer_cb() {
+		this->delegate->manage_subscriptions(this->max_sol_conns, this->sol_conns, this->sol_standby_conns);
 
 		// std::for_each(
-		// 	node.delegate->channels.begin(),
-		// 	node.delegate->channels.end(),
+		// 	this->delegate->channels.begin(),
+		// 	this->delegate->channels.end(),
 		// 	[&] (uint16_t const channel) {
-		// 		node.delegate->manage_subscribers(channel, node.channel_subscriptions[channel], node.potential_channel_subscriptions[channel]);
+		// 		this->delegate->manage_subscribers(channel, this->channel_subscriptions[channel], this->potential_channel_subscriptions[channel]);
 		// 	}
 		// );
 	}
 
-	uv_timer_t blacklist_timer;
+	net::Timer blacklist_timer;
 
-	static void blacklist_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
-		node.blacklist_addr.clear();
+	void blacklist_timer_cb() {
+		this->blacklist_addr.clear();
 	}
 
 //---------------- Pubsub protocol ----------------//
@@ -242,38 +237,36 @@ private:
 	uint8_t message_id_idx = 0;
 	std::unordered_set<uint64_t> message_id_set;
 
-	uv_timer_t message_id_timer;
+	net::Timer message_id_timer;
 
-	static void message_id_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
+	void message_id_timer_cb() {
 		// Overflow behaviour desirable
-		node.message_id_idx++;
+		this->message_id_idx++;
 
 		for (
-			auto iter = node.message_id_events[node.message_id_idx].begin();
-			iter != node.message_id_events[node.message_id_idx].end();
-			iter = node.message_id_events[node.message_id_idx].erase(iter)
+			auto iter = this->message_id_events[this->message_id_idx].begin();
+			iter != this->message_id_events[this->message_id_idx].end();
+			iter = this->message_id_events[this->message_id_idx].erase(iter)
 		) {
-			node.message_id_set.erase(*iter);
+			this->message_id_set.erase(*iter);
 		}
 
-		for (auto* transport : node.sol_conns) {
-			node.send_HEARTBEAT(*transport);
+		for (auto* transport : this->sol_conns) {
+			this->send_HEARTBEAT(*transport);
 		}
 
-		for (auto* transport : node.sol_standby_conns) {
-			node.send_HEARTBEAT(*transport);
+		for (auto* transport : this->sol_standby_conns) {
+			this->send_HEARTBEAT(*transport);
 		}
 		// std::for_each(
-		// 	node.delegate->channels.begin(),
-		// 	node.delegate->channels.end(),
+		// 	this->delegate->channels.begin(),
+		// 	this->delegate->channels.end(),
 		// 	[&] (uint16_t const channel) {
-		// 		for (auto* transport : node.channel_subscriptions[channel]) {
-		// 			node.send_HEARTBEAT(*transport);
+		// 		for (auto* transport : this->channel_subscriptions[channel]) {
+		// 			this->send_HEARTBEAT(*transport);
 		// 		}
-		// 		for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
-		// 			node.send_HEARTBEAT(*pot_transport);
+		// 		for (auto* pot_transport : this->potential_channel_subscriptions[channel]) {
+		// 			this->send_HEARTBEAT(*pot_transport);
 		// 		}
 		// 	}
 		// );
@@ -950,8 +943,11 @@ PubSubNode<
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
+	peer_selection_timer(this),
+	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
+	message_id_timer(this),
 	keys(keys)
 {
 	f.bind(addr);
@@ -963,17 +959,11 @@ PubSubNode<
 		addr.to_string()
 	);
 
-	uv_timer_init(uv_default_loop(), &message_id_timer);
-	this->message_id_timer.data = (void *)this;
-	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
+	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 
-	uv_timer_init(uv_default_loop(), &peer_selection_timer);
-	this->peer_selection_timer.data = (void *)this;
-	uv_timer_start(&peer_selection_timer, &peer_selection_timer_cb, DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
+	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 
-	uv_timer_init(uv_default_loop(), &blacklist_timer);
-	this->blacklist_timer.data = (void *)this;
-	uv_timer_start(&blacklist_timer, &blacklist_timer_cb, DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
+	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
 }
 
 template<

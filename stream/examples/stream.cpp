@@ -1,6 +1,5 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
-#include <uv.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 
@@ -97,5 +96,5 @@ int main() {
 	c.bind(SocketAddress::loopback_ipv4(0));
 	c.dial(SocketAddress::loopback_ipv4(8000), d, static_pk);
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }
