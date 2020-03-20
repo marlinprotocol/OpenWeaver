@@ -195,7 +195,7 @@ public:
 	static void skip_timer_cb(uv_timer_t *handle);
 	void skip_stream(uint16_t stream_id);
 
-	static void flush_timer_cb(uv_timer_t *handle);
+	void flush_timer_cb(SendStream& stream);
 	void flush_stream(uint16_t stream_id);
 
 private:
@@ -239,9 +239,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	state_timer_interval = 0;
 
 	for(auto& [_, stream] : send_streams) {
-		delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
-		stream.state_timer.data = nullptr;
-		uv_timer_stop(&stream.state_timer);
+		stream.state_timer.stop();
 	}
 	send_streams.clear();
 	for(auto& [_, stream] : recv_streams) {
@@ -323,7 +321,8 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 ) {
 	auto iter = send_streams.try_emplace(
 		stream_id,
-		stream_id
+		stream_id,
+		this
 	).first;
 
 	return iter->second;
@@ -1711,9 +1710,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto stream_id = p.stream_id();
 	auto &stream = get_or_create_send_stream(stream_id);
 
-	delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
-	stream.state_timer.data = nullptr;
-	uv_timer_stop(&stream.state_timer);
+	stream.state_timer.stop();
 }
 
 //---------------- Protocol functions end ----------------//
@@ -2036,27 +2033,23 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(uv_timer_t *handle) {
-	auto &timer_data = *(std::pair<Self *, SendStream *> *)handle->data;
-	auto &transport = *timer_data.first;
-	auto &stream = *timer_data.second;
-
+void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream& stream) {
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: Flush timeout: {}",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string(),
+			this->src_addr.to_string(),
+			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		transport.close();
+		this->close();
 		return;
 	}
 
-	transport.send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
+	this->send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
 
 	stream.state_timer_interval *= 2;
-	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, SendStream, &Self::flush_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -2099,8 +2092,7 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
 
 	stream.state_timer_interval = 1000;
-	stream.state_timer.data = new std::pair(&transport, &stream);
-	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, SendStream, &Self::flush_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
