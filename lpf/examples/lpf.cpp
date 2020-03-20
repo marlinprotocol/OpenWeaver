@@ -68,5 +68,5 @@ int main() {
 
 	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }
