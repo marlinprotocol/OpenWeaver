@@ -23,14 +23,16 @@ private:
 		delete (uv_timer_t*)handle;
 	}
 
-	template<typename DelegateType, void (DelegateType::*callback)(), typename DataType>
+	template<typename DelegateType, void (DelegateType::*callback)()>
 	static void timer_cb(uv_timer_t* handle) {
 		auto& timer = *(Self*)handle->data;
-		if constexpr (std::is_null_pointer_v<DataType>) {
-			(((DelegateType*)(timer.delegate))->*callback)();
-		} else {
-			(((DelegateType*)(timer.delegate))->*callback)((DataType*)timer.data);
-		}
+		(((DelegateType*)(timer.delegate))->*callback)();
+	}
+
+	template<typename DelegateType, typename DataType, void (DelegateType::*callback)(DataType&)>
+	static void timer_cb(uv_timer_t* handle) {
+		auto& timer = *(Self*)handle->data;
+		(((DelegateType*)(timer.delegate))->*callback)(*(DataType*)timer.data);
 	}
 public:
 	void* delegate;
@@ -47,9 +49,14 @@ public:
 		this->data = (void*)data;
 	}
 
-	template<typename DelegateType, void (DelegateType::*callback)(), typename DataType = std::nullptr_t>
+	template<typename DelegateType, void (DelegateType::*callback)()>
 	void start(uint64_t timeout, uint64_t repeat) {
-		uv_timer_start(timer, timer_cb<DelegateType, callback, DataType>, timeout, repeat);
+		uv_timer_start(timer, timer_cb<DelegateType, callback>, timeout, repeat);
+	}
+
+	template<typename DelegateType, typename DataType, void (DelegateType::*callback)(DataType&)>
+	void start(uint64_t timeout, uint64_t repeat) {
+		uv_timer_start(timer, timer_cb<DelegateType, DataType, callback>, timeout, repeat);
 	}
 
 	void stop() {
