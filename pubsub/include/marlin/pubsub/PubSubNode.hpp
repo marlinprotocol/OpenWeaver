@@ -238,38 +238,36 @@ private:
 	uint8_t message_id_idx = 0;
 	std::unordered_set<uint64_t> message_id_set;
 
-	uv_timer_t message_id_timer;
+	net::Timer message_id_timer;
 
-	static void message_id_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
+	void message_id_timer_cb() {
 		// Overflow behaviour desirable
-		node.message_id_idx++;
+		this->message_id_idx++;
 
 		for (
-			auto iter = node.message_id_events[node.message_id_idx].begin();
-			iter != node.message_id_events[node.message_id_idx].end();
-			iter = node.message_id_events[node.message_id_idx].erase(iter)
+			auto iter = this->message_id_events[this->message_id_idx].begin();
+			iter != this->message_id_events[this->message_id_idx].end();
+			iter = this->message_id_events[this->message_id_idx].erase(iter)
 		) {
-			node.message_id_set.erase(*iter);
+			this->message_id_set.erase(*iter);
 		}
 
-		for (auto* transport : node.sol_conns) {
-			node.send_HEARTBEAT(*transport);
+		for (auto* transport : this->sol_conns) {
+			this->send_HEARTBEAT(*transport);
 		}
 
-		for (auto* transport : node.sol_standby_conns) {
-			node.send_HEARTBEAT(*transport);
+		for (auto* transport : this->sol_standby_conns) {
+			this->send_HEARTBEAT(*transport);
 		}
 		// std::for_each(
-		// 	node.delegate->channels.begin(),
-		// 	node.delegate->channels.end(),
+		// 	this->delegate->channels.begin(),
+		// 	this->delegate->channels.end(),
 		// 	[&] (uint16_t const channel) {
-		// 		for (auto* transport : node.channel_subscriptions[channel]) {
-		// 			node.send_HEARTBEAT(*transport);
+		// 		for (auto* transport : this->channel_subscriptions[channel]) {
+		// 			this->send_HEARTBEAT(*transport);
 		// 		}
-		// 		for (auto* pot_transport : node.potential_channel_subscriptions[channel]) {
-		// 			node.send_HEARTBEAT(*pot_transport);
+		// 		for (auto* pot_transport : this->potential_channel_subscriptions[channel]) {
+		// 			this->send_HEARTBEAT(*pot_transport);
 		// 		}
 		// 	}
 		// );
@@ -950,6 +948,7 @@ PubSubNode<
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
+	message_id_timer(this),
 	keys(keys)
 {
 	f.bind(addr);
@@ -961,9 +960,7 @@ PubSubNode<
 		addr.to_string()
 	);
 
-	uv_timer_init(uv_default_loop(), &message_id_timer);
-	this->message_id_timer.data = (void *)this;
-	uv_timer_start(&message_id_timer, &message_id_timer_cb, DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
+	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 
