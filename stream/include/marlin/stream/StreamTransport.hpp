@@ -17,6 +17,7 @@
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
+#include <marlin/net/core/Timer.hpp>
 #include <marlin/net/core/TransportManager.hpp>
 
 #include "protocol/SendStream.hpp"
@@ -62,10 +63,10 @@ private:
 	uint32_t src_conn_id = 0;
 	uint32_t dst_conn_id = 0;
 	bool dialled = false;
-	uv_timer_t state_timer;
+	net::Timer<Self> state_timer;
 	uint64_t state_timer_interval = 0;
 
-	static void dial_timer_cb(uv_timer_t *handle);
+	void dial_timer_cb();
 
 	// Streams
 	std::unordered_map<uint16_t, SendStream> send_streams;
@@ -234,7 +235,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	src_conn_id = 0;
 	dst_conn_id = 0;
 	dialled = false;
-	uv_timer_stop(&state_timer);
+	state_timer.stop();
 	state_timer_interval = 0;
 
 	for(auto& [_, stream] : send_streams) {
@@ -286,28 +287,22 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	\param handle a uv_timer_t handle type
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
-	uv_timer_t *handle
-) {
-	auto &transport = *(Self *)handle->data;
-
-	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
-		transport.state_timer_interval = 0;
+void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
+	if(this->state_timer_interval >= 64000) { // Abort on too many retries
+		this->state_timer_interval = 0;
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: Dial timeout",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string()
+			this->src_addr.to_string(),
+			this->dst_addr.to_string()
 		);
-		transport.close();
+		this->close();
 		return;
 	}
 
-	transport.send_DIAL();
-	transport.state_timer_interval *= 2;
-	uv_timer_start(
-		&transport.state_timer,
-		dial_timer_cb,
-		transport.state_timer_interval,
+	this->send_DIAL();
+	this->state_timer_interval *= 2;
+	this->state_timer.template start<&Self::dial_timer_cb>(
+		this->state_timer_interval,
 		0
 	);
 }
@@ -821,7 +816,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 		this->dst_conn_id = packet.read_uint32_be(2);
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		send_DIALCONF();
@@ -916,7 +911,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		this->dst_conn_id = packet.read_uint32_be(2);
@@ -949,7 +944,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		send_CONF();
@@ -1744,7 +1739,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	dialled = true;
 
 	state_timer_interval = 1000;
-	uv_timer_start(&state_timer, dial_timer_cb, state_timer_interval, 0);
+	state_timer.template start<&Self::dial_timer_cb>(state_timer_interval, 0);
 
 	src_conn_id = (uint32_t)std::random_device()();
 	send_DIAL();
@@ -1864,10 +1859,12 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	BaseTransport &transport,
 	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
 	uint8_t const* remote_static_pk
-) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
-	uv_timer_init(uv_default_loop(), &this->state_timer);
-	this->state_timer.data = this;
-
+) : transport(transport),
+	transport_manager(transport_manager),
+	state_timer(this),
+	src_addr(src_addr),
+	dst_addr(dst_addr),
+	delegate(nullptr) {
 	uv_timer_init(uv_default_loop(), &this->tlp_timer);
 	this->tlp_timer.data = this;
 
