@@ -145,12 +145,10 @@ private:
 		// );
 	}
 
-	uv_timer_t blacklist_timer;
+	net::Timer blacklist_timer;
 
-	static void blacklist_timer_cb(uv_timer_t *handle) {
-		auto &node = *(Self *)handle->data;
-
-		node.blacklist_addr.clear();
+	void blacklist_timer_cb() {
+		this->blacklist_addr.clear();
 	}
 
 //---------------- Pubsub protocol ----------------//
@@ -949,6 +947,7 @@ PubSubNode<
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
 	peer_selection_timer(this),
+	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
@@ -968,9 +967,7 @@ PubSubNode<
 
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 
-	uv_timer_init(uv_default_loop(), &blacklist_timer);
-	this->blacklist_timer.data = (void *)this;
-	uv_timer_start(&blacklist_timer, &blacklist_timer_cb, DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
+	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
 }
 
 template<
