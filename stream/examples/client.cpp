@@ -1,6 +1,5 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
-#include <uv.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <fstream>
@@ -112,5 +111,5 @@ int main() {
 	c.bind(SocketAddress::from_string("0.0.0.0:0"));
 	c.dial(SocketAddress::from_string("127.0.0.1:8000"), d, static_pk);
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }

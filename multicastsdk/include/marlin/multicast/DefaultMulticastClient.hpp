@@ -3,7 +3,6 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <uv.h>
 
 
 namespace marlin {
@@ -183,7 +182,7 @@ public:
 	}
 
 	static int run_event_loop() {
-		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+		return EventLoop::run();
 	}
 };
 

@@ -17,6 +17,8 @@
 
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/Buffer.hpp>
+#include <marlin/net/core/EventLoop.hpp>
+#include <marlin/net/core/Timer.hpp>
 #include <marlin/net/core/TransportManager.hpp>
 
 #include "protocol/SendStream.hpp"
@@ -62,10 +64,10 @@ private:
 	uint32_t src_conn_id = 0;
 	uint32_t dst_conn_id = 0;
 	bool dialled = false;
-	uv_timer_t state_timer;
+	net::Timer state_timer;
 	uint64_t state_timer_interval = 0;
 
-	static void dial_timer_cb(uv_timer_t *handle);
+	void dial_timer_cb();
 
 	// Streams
 	std::unordered_map<uint16_t, SendStream> send_streams;
@@ -118,23 +120,23 @@ private:
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
 
 	// Pacing
-	uv_timer_t pacing_timer;
+	net::Timer pacing_timer;
 	bool is_pacing_timer_active = false;
 
-	static void pacing_timer_cb(uv_timer_t *handle);
+	void pacing_timer_cb();
 
 	// TLP
-	uv_timer_t tlp_timer;
+	net::Timer tlp_timer;
 	uint64_t tlp_interval = DEFAULT_TLP_INTERVAL;
 
-	static void tlp_timer_cb(uv_timer_t *handle);
+	void tlp_timer_cb();
 
 	// ACKs
 	AckRanges ack_ranges;
-	uv_timer_t ack_timer;
+	net::Timer ack_timer;
 	bool ack_timer_active = false;
 
-	static void ack_timer_cb(uv_timer_t *handle);
+	void ack_timer_cb();
 
 	// Protocol
 	void send_DIAL();
@@ -191,10 +193,10 @@ public:
 	bool is_active();
 	double get_rtt();
 
-	static void skip_timer_cb(uv_timer_t *handle);
+	void skip_timer_cb(RecvStream& stream);
 	void skip_stream(uint16_t stream_id);
 
-	static void flush_timer_cb(uv_timer_t *handle);
+	void flush_timer_cb(SendStream& stream);
 	void flush_stream(uint16_t stream_id);
 
 private:
@@ -234,19 +236,15 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	src_conn_id = 0;
 	dst_conn_id = 0;
 	dialled = false;
-	uv_timer_stop(&state_timer);
+	state_timer.stop();
 	state_timer_interval = 0;
 
 	for(auto& [_, stream] : send_streams) {
-		delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
-		stream.state_timer.data = nullptr;
-		uv_timer_stop(&stream.state_timer);
+		stream.state_timer.stop();
 	}
 	send_streams.clear();
 	for(auto& [_, stream] : recv_streams) {
-		delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
-		stream.state_timer.data = nullptr;
-		uv_timer_stop(&stream.state_timer);
+		stream.state_timer.stop();
 	}
 	recv_streams.clear();
 
@@ -268,46 +266,37 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	send_queue_ids.clear();
 	send_queue.clear();
 
-	uv_timer_stop(&pacing_timer);
+	pacing_timer.stop();
 	is_pacing_timer_active = false;
 
-	uv_timer_stop(&tlp_timer);
+	tlp_timer.stop();
 	tlp_interval = DEFAULT_TLP_INTERVAL;
 
 	ack_ranges = AckRanges();
-	uv_timer_stop(&ack_timer);
+	ack_timer.stop();
 	ack_timer_active = false;
 }
 
 // Impl
 
 //! a callback function which sends dial message with exponential interval increases
-/*!
-	\param handle a uv_timer_t handle type
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb(
-	uv_timer_t *handle
-) {
-	auto &transport = *(Self *)handle->data;
-
-	if(transport.state_timer_interval >= 64000) { // Abort on too many retries
-		transport.state_timer_interval = 0;
+void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
+	if(this->state_timer_interval >= 64000) { // Abort on too many retries
+		this->state_timer_interval = 0;
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: Dial timeout",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string()
+			this->src_addr.to_string(),
+			this->dst_addr.to_string()
 		);
-		transport.close();
+		this->close();
 		return;
 	}
 
-	transport.send_DIAL();
-	transport.state_timer_interval *= 2;
-	uv_timer_start(
-		&transport.state_timer,
-		dial_timer_cb,
-		transport.state_timer_interval,
+	this->send_DIAL();
+	this->state_timer_interval *= 2;
+	this->state_timer.template start<Self, &Self::dial_timer_cb>(
+		this->state_timer_interval,
 		0
 	);
 }
@@ -328,7 +317,8 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 ) {
 	auto iter = send_streams.try_emplace(
 		stream_id,
-		stream_id
+		stream_id,
+		this
 	).first;
 
 	return iter->second;
@@ -348,7 +338,8 @@ RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv
 ) {
 	auto iter = recv_streams.try_emplace(
 		stream_id,
-		stream_id
+		stream_id,
+		this
 	).first;
 
 	return iter->second;
@@ -436,7 +427,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		std::piecewise_construct,
 		std::forward_as_tuple(this->last_sent_packet),
 		std::forward_as_tuple(
-			uv_now(uv_default_loop()),
+			net::EventLoop::now(),
 			&stream,
 			&data_item,
 			offset,
@@ -456,7 +447,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	if(is_pacing_timer_active == false) {
 		is_pacing_timer_active = true;
-		uv_timer_start(&pacing_timer, &pacing_timer_cb, 0, 0);
+		pacing_timer.template start<Self, &Self::pacing_timer_cb>(0, 0);
 	}
 }
 
@@ -473,7 +464,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 		if(bytes_in_flight - initial_bytes_in_flight >= DEFAULT_PACING_LIMIT) {
 			// Pacing limit hit, reschedule timer
 			is_pacing_timer_active = true;
-			uv_timer_start(&pacing_timer, &pacing_timer_cb, 1, 0);
+			pacing_timer.template start<Self, &Self::pacing_timer_cb>(1, 0);
 			return -1;
 		}
 
@@ -549,33 +540,32 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 //---------------- Pacing functions begin ----------------//
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
-	transport.is_pacing_timer_active = false;
+void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb() {
+	this->is_pacing_timer_active = false;
 
-	auto initial_bytes_in_flight = transport.bytes_in_flight;
+	auto initial_bytes_in_flight = this->bytes_in_flight;
 
-	auto res = transport.send_lost_data(initial_bytes_in_flight);
+	auto res = this->send_lost_data(initial_bytes_in_flight);
 	if(res < 0) {
 		return;
 	}
 
 	// New packets
 	for(
-		auto iter = transport.send_queue.begin();
-		iter != transport.send_queue.end();
+		auto iter = this->send_queue.begin();
+		iter != this->send_queue.end();
 		// Empty
 	) {
 		auto &stream = **iter;
 
-		int res = transport.send_new_data(stream, initial_bytes_in_flight);
+		int res = this->send_new_data(stream, initial_bytes_in_flight);
 		if(res == 0) { // Idle stream, move to next stream
-			transport.send_queue_ids.erase(stream.stream_id);
-			iter = transport.send_queue.erase(iter);
+			this->send_queue_ids.erase(stream.stream_id);
+			iter = this->send_queue.erase(iter);
 		} else if(res == -1) { // Pacing limit hit, reschedule timer
 			// Pacing limit hit, reschedule timer
-			transport.is_pacing_timer_active = true;
-			uv_timer_start(handle, &pacing_timer_cb, 1, 0);
+			this->is_pacing_timer_active = true;
+			pacing_timer.template start<Self, &Self::pacing_timer_cb>(1, 0);
 			return;
 		} else { // Congestion window exhausted, break
 			return;
@@ -594,77 +584,75 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb(uv_timer_
 */
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
-
-	if(transport.sent_packets.size() == 0 && transport.lost_packets.size() == 0 && transport.send_queue.size() == 0) {
+void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
+	if(this->sent_packets.size() == 0 && this->lost_packets.size() == 0 && this->send_queue.size() == 0) {
 		// Idle connection, stop timer
-		uv_timer_stop(&transport.tlp_timer);
-		transport.tlp_interval = DEFAULT_TLP_INTERVAL;
+		tlp_timer.stop();
+		this->tlp_interval = DEFAULT_TLP_INTERVAL;
 		return;
 	}
 
-	auto sent_iter = transport.sent_packets.cbegin();
+	auto sent_iter = this->sent_packets.cbegin();
 
 	// Retry lost packets
 	// No condition necessary, all are considered lost if tail probe fails
-	while(sent_iter != transport.sent_packets.cend()) {
-		transport.bytes_in_flight -= sent_iter->second.length;
+	while(sent_iter != this->sent_packets.cend()) {
+		this->bytes_in_flight -= sent_iter->second.length;
 		sent_iter->second.stream->bytes_in_flight -= sent_iter->second.length;
-		transport.lost_packets[sent_iter->first] = sent_iter->second;
+		this->lost_packets[sent_iter->first] = sent_iter->second;
 
 		sent_iter++;
 	}
 
-	if(sent_iter == transport.sent_packets.cbegin()) {
+	if(sent_iter == this->sent_packets.cbegin()) {
 		// No lost packets, ignore
 	} else {
 		// Lost packets, congestion event
 		auto last_iter = std::prev(sent_iter);
 		auto &sent_packet = last_iter->second;
-		if(sent_packet.sent_time > transport.congestion_start) {
+		if(sent_packet.sent_time > this->congestion_start) {
 			// New congestion event
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
-				transport.src_addr.to_string(),
-				transport.dst_addr.to_string(),
-				transport.congestion_window
+				this->src_addr.to_string(),
+				this->dst_addr.to_string(),
+				this->congestion_window
 			);
-			transport.congestion_start = uv_now(uv_default_loop());
+			this->congestion_start = net::EventLoop::now();
 
-			if(transport.congestion_window < transport.w_max) {
+			if(this->congestion_window < this->w_max) {
 				// Fast convergence
-				transport.w_max = transport.congestion_window;
-				transport.congestion_window *= 0.6;
+				this->w_max = this->congestion_window;
+				this->congestion_window *= 0.6;
 			} else {
-				transport.w_max = transport.congestion_window;
-				transport.congestion_window *= 0.75;
+				this->w_max = this->congestion_window;
+				this->congestion_window *= 0.75;
 			}
 
-			if(transport.congestion_window < 10000) {
-				transport.congestion_window = 10000;
+			if(this->congestion_window < 10000) {
+				this->congestion_window = 10000;
 			}
 
-			transport.ssthresh = transport.congestion_window;
+			this->ssthresh = this->congestion_window;
 
-			transport.k = std::cbrt(transport.w_max / 16)*1000;
+			this->k = std::cbrt(this->w_max / 16)*1000;
 		}
 
 		// Pop lost packets from sent
-		transport.sent_packets.erase(transport.sent_packets.cbegin(), sent_iter);
+		this->sent_packets.erase(this->sent_packets.cbegin(), sent_iter);
 	}
 
 	// New packets
-	transport.send_pending_data();
+	this->send_pending_data();
 
 	// Next timer interval
-	if(transport.tlp_interval < 25000) {
-		transport.tlp_interval *= 2;
-		uv_timer_start(&transport.tlp_timer, &tlp_timer_cb, transport.tlp_interval, 0);
+	if(this->tlp_interval < 25000) {
+		this->tlp_interval *= 2;
+		this->tlp_timer.template start<Self, &Self::tlp_timer_cb>(this->tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_ERROR("Lost peer: {}", transport.dst_addr.to_string());
-		transport.close();
+		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
+		this->close();
 	}
 }
 
@@ -674,12 +662,10 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb(uv_timer_t *
 //---------------- ACK functions begin ----------------//
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb(uv_timer_t *handle) {
-	auto &transport = *(Self *)handle->data;
+void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb() {
+	send_ACK();
 
-	transport.send_ACK();
-
-	transport.ack_timer_active = false;
+	ack_timer_active = false;
 }
 
 //---------------- ACK functions end ----------------//
@@ -821,7 +807,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 		this->dst_conn_id = packet.read_uint32_be(2);
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		send_DIALCONF();
@@ -916,7 +902,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		this->dst_conn_id = packet.read_uint32_be(2);
@@ -949,7 +935,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		uv_timer_stop(&state_timer);
+		state_timer.stop();
 		state_timer_interval = 0;
 
 		send_CONF();
@@ -1205,7 +1191,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Start ack delay timer if not already active
 	if(!ack_timer_active) {
 		ack_timer_active = true;
-		uv_timer_start(&ack_timer, &ack_timer_cb, 25, 0);
+		ack_timer.template start<Self, &Self::ack_timer_cb>(25, 0);
 	}
 
 	// Short circuit on no new data
@@ -1265,7 +1251,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
 		stream.recv_packets.try_emplace(
 			offset,
-			uv_now(uv_default_loop()),
+			net::EventLoop::now(),
 			offset,
 			length,
 			std::move(packet)
@@ -1331,7 +1317,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		return;
 	}
 
-	auto now = uv_now(uv_default_loop());
+	auto now = net::EventLoop::now();
 
 	// TODO: Better method names
 	uint16_t size = p.stream_id();
@@ -1549,7 +1535,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	send_pending_data();
 
 	tlp_interval = DEFAULT_TLP_INTERVAL;
-	uv_timer_start(&tlp_timer, &tlp_timer_cb, tlp_interval, 0);
+	tlp_timer.template start<Self, &Self::tlp_timer_cb>(tlp_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1664,9 +1650,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 		return;
 	}
 
-	delete (std::pair<Self *, RecvStream *> *)stream.state_timer.data;
-	stream.state_timer.data = nullptr;
-	uv_timer_stop(&stream.state_timer);
+	stream.state_timer.stop();
 
 	stream.recv_packets.clear();
 	stream.read_offset = offset;
@@ -1721,9 +1705,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto stream_id = p.stream_id();
 	auto &stream = get_or_create_send_stream(stream_id);
 
-	delete (std::pair<Self *, SendStream *> *)stream.state_timer.data;
-	stream.state_timer.data = nullptr;
-	uv_timer_stop(&stream.state_timer);
+	stream.state_timer.stop();
 }
 
 //---------------- Protocol functions end ----------------//
@@ -1744,7 +1726,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	dialled = true;
 
 	state_timer_interval = 1000;
-	uv_timer_start(&state_timer, dial_timer_cb, state_timer_interval, 0);
+	state_timer.template start<Self, &Self::dial_timer_cb>(state_timer_interval, 0);
 
 	src_conn_id = (uint32_t)std::random_device()();
 	send_DIAL();
@@ -1864,19 +1846,15 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	BaseTransport &transport,
 	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
 	uint8_t const* remote_static_pk
-) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
-	uv_timer_init(uv_default_loop(), &this->state_timer);
-	this->state_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &this->tlp_timer);
-	this->tlp_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &this->ack_timer);
-	this->ack_timer.data = this;
-
-	uv_timer_init(uv_default_loop(), &this->pacing_timer);
-	this->pacing_timer.data = this;
-
+) : transport(transport),
+	transport_manager(transport_manager),
+	state_timer(this),
+	pacing_timer(this),
+	tlp_timer(this),
+	ack_timer(this),
+	src_addr(src_addr),
+	dst_addr(dst_addr),
+	delegate(nullptr) {
 	if(sodium_init() == -1) {
 		throw;
 	}
@@ -1951,7 +1929,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	// Handle idle connection
 	if(sent_packets.size() == 0 && lost_packets.size() == 0 && send_queue.size() == 0) {
-		uv_timer_start(&tlp_timer, &tlp_timer_cb, tlp_interval, 0);
+		tlp_timer.template start<Self, &Self::tlp_timer_cb>(tlp_interval, 0);
 	}
 
 	register_send_intent(stream);
@@ -1994,20 +1972,16 @@ double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(uv_timer_t *handle) {
-	auto &timer_data = *(std::pair<Self *, RecvStream *> *)handle->data;
-	auto &transport = *timer_data.first;
-	auto &stream = *timer_data.second;
-
+void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream& stream) {
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: Skip timeout: {}",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string(),
+			this->src_addr.to_string(),
+			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		transport.close();
+		this->close();
 		return;
 	}
 
@@ -2020,10 +1994,10 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(uv_timer_t 
 		offset = stream.read_offset;
 	}
 
-	transport.send_SKIPSTREAM(stream.stream_id, offset);
+	this->send_SKIPSTREAM(stream.stream_id, offset);
 
 	stream.state_timer_interval *= 2;
-	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, RecvStream, &Self::skip_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -2044,33 +2018,28 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
 
 	send_SKIPSTREAM(stream_id, offset);
 
-	stream.state_timer.data = new std::pair(&transport, &stream);
 	stream.state_timer_interval = 1000;
-	uv_timer_start(&stream.state_timer, skip_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, RecvStream, &Self::skip_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(uv_timer_t *handle) {
-	auto &timer_data = *(std::pair<Self *, SendStream *> *)handle->data;
-	auto &transport = *timer_data.first;
-	auto &stream = *timer_data.second;
-
+void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream& stream) {
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: Flush timeout: {}",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string(),
+			this->src_addr.to_string(),
+			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		transport.close();
+		this->close();
 		return;
 	}
 
-	transport.send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
+	this->send_FLUSHSTREAM(stream.stream_id, stream.sent_offset);
 
 	stream.state_timer_interval *= 2;
-	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, SendStream, &Self::flush_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -2113,8 +2082,7 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
 
 	stream.state_timer_interval = 1000;
-	stream.state_timer.data = new std::pair(&transport, &stream);
-	uv_timer_start(&stream.state_timer, flush_timer_cb, stream.state_timer_interval, 0);
+	stream.state_timer.template start<Self, SendStream, &Self::flush_timer_cb>(stream.state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
