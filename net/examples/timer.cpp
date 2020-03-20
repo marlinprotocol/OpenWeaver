@@ -7,7 +7,7 @@ using namespace marlin::net;
 
 struct Delegate {
 	void timer_callback();
-	using TimerType = Timer<Delegate, &Delegate::timer_callback>;
+	using TimerType = Timer<Delegate>;
 
 	TimerType timer;
 
@@ -16,7 +16,7 @@ struct Delegate {
 
 void Delegate::timer_callback() {
 	SPDLOG_INFO("Timer fired: {}", EventLoop::now());
-	timer.start(1000, 0);
+	timer.template start<&Delegate::timer_callback>(1000, 0);
 }
 
 
@@ -25,7 +25,7 @@ int main() {
 
 	SPDLOG_INFO("Now: {}", EventLoop::now());
 
-	d.timer.start(1000, 0);
+	d.timer.template start<&Delegate::timer_callback>(1000, 0);
 
 	return EventLoop::run();
 }
