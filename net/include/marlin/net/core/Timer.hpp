@@ -12,12 +12,9 @@ namespace marlin {
 namespace net {
 
 
-template<
-	typename DelegateType
->
 class Timer {
 private:
-	using Self = Timer<DelegateType>;
+	using Self = Timer;
 
 	uv_timer_t* timer;
 	void* data = nullptr;
@@ -26,18 +23,19 @@ private:
 		delete (uv_timer_t*)handle;
 	}
 
-	template<void (DelegateType::*callback)(), typename DataType>
+	template<typename DelegateType, void (DelegateType::*callback)(), typename DataType>
 	static void timer_cb(uv_timer_t* handle) {
 		auto& timer = *(Self*)handle->data;
 		if constexpr (std::is_null_pointer_v<DataType>) {
-			(timer.delegate->*callback)();
+			(((DelegateType*)(timer.delegate))->*callback)();
 		} else {
-			(timer.delegate->*callback)((DataType*)timer.data);
+			(((DelegateType*)(timer.delegate))->*callback)((DataType*)timer.data);
 		}
 	}
 public:
-	DelegateType* delegate;
+	void* delegate;
 
+	template<typename DelegateType>
 	Timer(DelegateType* delegate) : delegate(delegate) {
 		timer = new uv_timer_t();
 		timer->data = this;
@@ -49,9 +47,9 @@ public:
 		this->data = (void*)data;
 	}
 
-	template<void (DelegateType::*callback)(), typename DataType = std::nullptr_t>
+	template<typename DelegateType, void (DelegateType::*callback)(), typename DataType = std::nullptr_t>
 	void start(uint64_t timeout, uint64_t repeat) {
-		uv_timer_start(timer, timer_cb<callback, DataType>, timeout, repeat);
+		uv_timer_start(timer, timer_cb<DelegateType, callback, DataType>, timeout, repeat);
 	}
 
 	void stop() {
