@@ -331,7 +331,7 @@ int PubSubNode<
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	uint16_t channel = bytes.read_uint16_be(0);
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
 
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
@@ -425,7 +425,7 @@ void PubSubNode<
 	BaseTransport &transport,
 	net::Buffer &&bytes
 ) {
-	uint16_t channel = bytes.read_uint16_be(0);
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
 
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
