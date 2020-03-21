@@ -49,6 +49,7 @@ namespace pubsub {
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false
@@ -67,6 +68,7 @@ private:
 public:
 	using Self = PubSubNode<
 		PubSubDelegate,
+		AttestPrivateKey,
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay
@@ -201,7 +203,7 @@ public:
 	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, size_t max_unsol, uint8_t const *keys);
+	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, size_t max_unsol, AttestPrivateKey priv_key, uint8_t const *keys);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -327,12 +329,14 @@ private:
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 int PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -389,12 +393,14 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -425,12 +431,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -471,12 +479,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -501,12 +511,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -558,12 +570,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -600,12 +614,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 int PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -629,9 +645,6 @@ int PubSubNode<
 	}
 
 	auto channel = std::string(bytes.data()+10, bytes.data()+10+channel_length);
-
-	char *rchannel = new char[channel_length+1];
-	strcpy(rchannel,channel.c_str());
 
 	auto witness_length = bytes.read_uint16_be(10+channel_length);
 
@@ -663,7 +676,7 @@ int PubSubNode<
 		uint64_t time_stamp=0;
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
-		if (!attest_manager.verify_signature(transport.dst_addr, time_stamp, message_id, channel_length, channel.data(), bytes.size(), bytes.data(), witness, witness_length)){
+		if (!attest_manager.verify( time_stamp, message_id, channel_length, channel.data(), bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
 			SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
 			transport.close();
 			return -1;
@@ -729,12 +742,14 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -768,12 +783,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -796,12 +813,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -811,12 +830,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -838,12 +859,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -873,12 +896,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 int PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -918,12 +943,14 @@ int PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -934,12 +961,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -991,12 +1020,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1004,10 +1035,11 @@ PubSubNode<
 	const net::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
+	AttestPrivateKey priv_key,
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
-	attest_manager(),
+	attest_manager(priv_key),
 	message_id_gen(std::random_device()()),
 	message_id_events(256),
 	keys(keys)
@@ -1023,9 +1055,6 @@ PubSubNode<
 		"PUBSUB LISTENING ON : {}",
 		addr.to_string()
 	);
-
-	home_dir = getenv("HOME");
-	attest_manager.set_private_key(home_dir+"/.marlin/keys/atts/privKey");
 
 	uv_timer_init(uv_default_loop(), &message_id_timer);
 	this->message_id_timer.data = (void *)this;
@@ -1043,12 +1072,14 @@ PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 int PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1071,12 +1102,14 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 uint64_t PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1102,12 +1135,14 @@ uint64_t PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1130,7 +1165,7 @@ void PubSubNode<
 	CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
 	char* attst_signature = new char[64];
 	uint64_t attst_len=0;
-	attest_manager.generate_attst_signature(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
+	attest_manager.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
 	// time of signature generation is concatenated to data
 	char *t_data = new char[size+8];
 	memcpy(t_data, &time_stamp, 8);
@@ -1164,12 +1199,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1224,12 +1261,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1258,12 +1297,14 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1285,12 +1326,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1307,12 +1350,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1353,12 +1398,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1379,12 +1426,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1412,12 +1461,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1443,12 +1494,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 bool PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1467,12 +1520,14 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1495,12 +1550,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 int PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1647,12 +1704,14 @@ int PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1673,12 +1732,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
@@ -1699,12 +1760,14 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
+	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay
 >
 void PubSubNode<
 	PubSubDelegate,
+	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay
