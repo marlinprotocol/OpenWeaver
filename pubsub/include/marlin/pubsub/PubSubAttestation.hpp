@@ -39,23 +39,10 @@ class MessageAttestation{
 		}
 */
 
-		void Load(const std::string& filename, CryptoPP::BufferedTransformation& bt)
-		{
-        	CryptoPP::FileSource file(filename.data(), true);
- 	        file.TransferTo(bt);
-    	    bt.MessageEnd();
-		}
-
-		void LoadPrivateKey(const std::string& filename, CryptoPP::PrivateKey& key)
-		{
-		        CryptoPP::ByteQueue queue;
-		        Load(filename, queue);
-		        key.Load(queue);
-		}
-
 	public :
 
-		MessageAttestation(){
+		MessageAttestation(CryptoPP::ECDSA<ECP,SHA256>::PrivateKey pk){
+			priv_key = pk;
 			return;
 			// priv_key.Initialize(rnd,ASN1::secp256k1());
 			// can make it to load private key from a pariticular location
@@ -63,8 +50,8 @@ class MessageAttestation{
 			//SPDLOG_INFO("{}",priv_key);
 		}
 
-		void set_private_key(std::string priv_key_filename){
-			LoadPrivateKey(priv_key_filename,priv_key);
+		void set_private_key(CryptoPP::ECDSA<ECP,SHA256>::PrivateKey pk){
+			priv_key = pk;
 		}
 
 		/*
@@ -80,9 +67,9 @@ class MessageAttestation{
 		 \param channel identifier of broadcasting channel
 		 \param msg_len size of message
 		 \param msg communication information propagated on network
-		 \param rs contains signature
+		 \param signature contains signature
 		 */
-		void generate_attst_signature(uint64_t &time_stamp, uint64_t msg_id, std::string channel, uint64_t msg_len, const char *msg, char* signature, uint64_t &signature_len){
+		void attest(uint64_t &time_stamp, uint64_t msg_id, std::string channel, uint64_t msg_len, const char *msg, char* signature, uint64_t &signature_len){
 
 			time_t t = time(NULL);
 			time_stamp = (uintmax_t)t;
@@ -117,11 +104,8 @@ class MessageAttestation{
 		 \param msg communication information propagated on network
 		 \param signature attesation signature sent by sender
 		 */
-		bool verify_signature(marlin::net::SocketAddress addr, uint64_t time_stamp, uint64_t msg_id, uint64_t channel_len, char *channel, uint64_t msg_len, char *msg, char* signature, uint64_t signature_len){
+		bool verify(uint64_t time_stamp, uint64_t msg_id, uint64_t channel_len, char *channel, uint64_t msg_len, char *msg, char* signature, uint64_t signature_len){ // add marlin::net::SocketAddress addr to arguments to retrieve it's pub key
 			
-			if(addr.to_string() == "127.0.0.0:8043")
-				return false;
-
 			SPDLOG_INFO("ATTESTATION VERIFY_SIGNATURE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}", msg_id, channel_len, msg_len, time_stamp, std::string(msg,msg_len), std::string(channel,channel_len));
 
 			// populate_pub_keys();

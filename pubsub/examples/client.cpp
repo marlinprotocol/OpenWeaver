@@ -5,17 +5,21 @@
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <sodium.h>
-
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/oids.h>
 
 using namespace marlin::net;
 using namespace marlin::stream;
 using namespace marlin::pubsub;
 using namespace std;
 
+using namespace CryptoPP;
 
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, ECDSA<ECP,SHA256>::PrivateKey, true, true, true>;
 
 public:
 	std::vector<std::string> channels = {"some_chan", "other_chan"};
@@ -60,11 +64,15 @@ int main() {
 	size_t max_unsol_conn = 1;
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true>(addr, max_sol_conn, max_unsol_conn, static_sk);
+	ECDSA<ECP,SHA256>::PrivateKey priv_key1,priv_key2;
+	AutoSeededRandomPool rnd1,rnd2;
+	priv_key1.Initialize(rnd1,ASN1::secp256k1());
+	priv_key2.Initialize(rnd2,ASN1::secp256k1());
+	auto b = new PubSubNode<PubSubNodeDelegate, ECDSA<ECP,SHA256>::PrivateKey,true, true, true>(addr, max_sol_conn, max_unsol_conn, priv_key1, static_sk);
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true>(addr2, max_sol_conn, max_unsol_conn, static_sk);
+	auto b2 = new PubSubNode<PubSubNodeDelegate, ECDSA<ECP,SHA256>::PrivateKey,true, true, true>(addr2, max_sol_conn, max_unsol_conn, priv_key1, static_sk);
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
