@@ -6,8 +6,8 @@
 	5. Convert to server?
 	6. int for balance
 */
-#ifndef MARLIN_ABCInterface_HPP
-#define MARLIN_ABCInterface_HPP
+#ifndef MARLIN_PUBSUB_ABCINTERFACE_HPP
+#define MARLIN_PUBSUB_ABCINTERFACE_HPP
 
 #include <fstream>
 #include <experimental/filesystem>
@@ -82,7 +82,7 @@ public:
 	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
 
 	// Listen delegate: Not required
-	bool should_accept(net::SocketAddress const &addr __attribute__((unused))) {
+	bool should_accept(net::SocketAddress const &addr [[maybe_unused]]) {
 		return true;
 	}
 
@@ -100,7 +100,7 @@ public:
 	// Transport delegate
 
 	// TODO?
-	void did_dial(LpfTcpTransport &transport __attribute__((unused))) {
+	void did_dial(LpfTcpTransport &transport [[maybe_unused]]) {
 		SPDLOG_DEBUG(
 			"DID DIAL: {}",
 			transport.dst_addr.to_string()
@@ -114,8 +114,8 @@ public:
 
 	// TODO Size checks and null checks while reading messages from buffer
 	int did_recv_message(
-		LpfTcpTransport &transport __attribute__((unused)),
-		net::Buffer &&message  __attribute__((unused))
+		LpfTcpTransport &transport [[maybe_unused]],
+		net::Buffer &&message  [[maybe_unused]]
 	) {
 		SPDLOG_INFO(
 			"Did recv from blockchain client, message with length {}",
@@ -177,7 +177,7 @@ public:
 	}
 
 	void send_ack_state_update(
-		LpfTcpTransport &transport __attribute__((unused)),
+		LpfTcpTransport &transport [[maybe_unused]],
 		uint64_t blockNumber) {
 
 		auto messageType = MessageType::AckMessage;
@@ -198,12 +198,12 @@ public:
 	}
 
 	void did_send_message(
-		LpfTcpTransport &transport __attribute__((unused)),
-		net::Buffer &&message __attribute__((unused))
+		LpfTcpTransport &transport [[maybe_unused]],
+		net::Buffer &&message [[maybe_unused]]
 	) {}
 
 	// TODO:
-	void did_close(LpfTcpTransport &transport  __attribute__((unused))) {
+	void did_close(LpfTcpTransport &transport  [[maybe_unused]]) {
 		SPDLOG_DEBUG(
 			"Closed connection with client: {}",
 			transport.dst_addr.to_string()
@@ -223,9 +223,9 @@ public:
 
 
 	void send_message(
-		std::string channel __attribute__((unused)),
-		uint64_t message_id __attribute__((unused)),
-		const char *data __attribute__((unused))
+		std::string channel [[maybe_unused]],
+		uint64_t message_id [[maybe_unused]],
+		const char *data [[maybe_unused]]
 	) {}
 
 	// Enquiry calls by
@@ -246,4 +246,4 @@ public:
 } // namespace pubsub
 } // namespace marlin
 
-#endif // MARLIN_ABCInterface_HPP
+#endif // MARLIN_PUBSUB_ABCINTERFACE_HPP
