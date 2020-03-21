@@ -20,7 +20,7 @@ using namespace marlin::lpf;
 class MulticastDelegate;
 
 const bool enable_cut_through = false;
-std::string blockchainChannel = "tendermint";
+uint16_t blockchainChannel = 0;
 
 using LpfTcpTransportFactory = LpfTransportFactory<
 	MulticastDelegate,
@@ -121,7 +121,7 @@ public:
 		DefaultMulticastClient<MulticastDelegate> &client,
 		Buffer &&message,
 		Buffer &&witness,
-		std::string &channel,
+		uint16_t channel,
 		uint64_t message_id
 	) {
 		SPDLOG_DEBUG(
@@ -140,12 +140,12 @@ public:
 
 	void did_subscribe(
 		DefaultMulticastClient<MulticastDelegate> &client,
-		std::string &channel
+		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
 		DefaultMulticastClient<MulticastDelegate> &client,
-		std::string &channel
+		uint16_t channel
 	) {}
 };
 
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
-		std::vector<std::string>(1, blockchainChannel),
+		std::vector<uint16_t>(1, blockchainChannel),
 		beacon_addr,
 		discovery_addr,
 		pubsub_addr
@@ -200,4 +200,3 @@ int main(int argc, char **argv) {
 
 	return DefaultMulticastClient<MulticastDelegate>::run_event_loop();
 }
-

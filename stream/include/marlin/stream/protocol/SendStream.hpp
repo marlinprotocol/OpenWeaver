@@ -6,10 +6,10 @@
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
 #include <memory>
-#include <uv.h>
 #include <list>
 #include <ctime>
 #include <map>
+#include <marlin/net/core/Timer.hpp>
 
 namespace marlin {
 namespace stream {
@@ -81,14 +81,14 @@ struct SendStream {
 	};
 	State state;
 
-	SendStream(uint16_t stream_id) {
+	template<typename DelegateType>
+	SendStream(uint16_t stream_id, DelegateType* delegate) : state_timer(delegate) {
 		this->stream_id = stream_id;
 		this->state = State::Ready;
 
 		this->next_item_iterator = this->data_queue.end();
 
-		uv_timer_init(uv_default_loop(), &state_timer);
-		state_timer.data = nullptr;
+		state_timer.set_data(this);
 	}
 
 	std::list<DataItem> data_queue;
@@ -109,7 +109,7 @@ struct SendStream {
 	std::map<uint64_t, uint16_t> outstanding_acks;
 
 	uint64_t state_timer_interval = 1000;
-	uv_timer_t state_timer;
+	net::Timer state_timer;
 };
 
 } // namespace stream

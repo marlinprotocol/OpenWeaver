@@ -1,6 +1,5 @@
 #include <marlin/net/udp/UdpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
-#include <uv.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <fstream>
@@ -24,9 +23,9 @@ uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
 struct Delegate {
 	int did_recv_bytes(
-		TransportType &transport __attribute__((unused)),
-		Buffer &&packet __attribute__((unused)),
-		uint8_t stream_id __attribute__((unused))
+		TransportType &transport [[maybe_unused]],
+		Buffer &&packet [[maybe_unused]],
+		uint8_t stream_id [[maybe_unused]]
 	) {
 		// SPDLOG_INFO(
 		// 	"Transport {{ Src: {}, Dst: {} }}: Did recv packet: {} bytes",
@@ -48,7 +47,7 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType &transport) {
-		auto buf = Buffer(new char[SIZE], SIZE);
+		auto buf = Buffer(SIZE);
 		std::memset(buf.data(), 0, SIZE);
 
 		SPDLOG_INFO("Did dial");
@@ -112,5 +111,5 @@ int main() {
 	c.bind(SocketAddress::from_string("0.0.0.0:0"));
 	c.dial(SocketAddress::from_string("127.0.0.1:8000"), d, static_pk);
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }

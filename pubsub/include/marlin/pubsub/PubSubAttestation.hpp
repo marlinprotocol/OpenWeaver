@@ -69,7 +69,7 @@ class MessageAttestation{
 		 \param msg communication information propagated on network
 		 \param signature contains signature
 		 */
-		void attest(uint64_t &time_stamp, uint64_t msg_id, std::string channel, uint64_t msg_len, const char *msg, char* signature, uint64_t &signature_len){
+		void attest(uint64_t &time_stamp, uint64_t msg_id, uint16_t channel, uint64_t msg_len, const char *msg, char* signature, uint64_t &signature_len){
 
 			time_t t = time(NULL);
 			time_stamp = (uintmax_t)t;
@@ -80,15 +80,13 @@ class MessageAttestation{
 			auto sign_accumulate = acc_signer.NewSignatureAccumulator(rnd);
 			sign_accumulate->Update((byte *)&time_stamp,8);
 			sign_accumulate->Update((byte *)&msg_id,8);
-			uint64_t channel_len = channel.size();
-			sign_accumulate->Update((byte *)&channel_len,8);
-			sign_accumulate->Update((byte *)channel.data(),channel.size());
+			sign_accumulate->Update((byte *)&channel,2);
 			sign_accumulate->Update((byte *)&msg_len,8);
 			sign_accumulate->Update((byte *)msg,msg_len);
 
 			signature_len = acc_signer.Sign(rnd,sign_accumulate,(byte *)signature);
 
-			SPDLOG_INFO("ATTESTATION GENERATE_ATTST_CONCATE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}, signature_len: {}, signature: {}", msg_id, channel.size(), msg_len, time_stamp, std::string(msg,msg_len), channel, signature_len, std::string(signature,signature_len));
+			SPDLOG_DEBUG("ATTESTATION GENERATE_ATTST_CONCATE ### msg id: {}, channel: {}, msg size: {}, time stamp: {}, msg: {}, signature_len: {}, signature: {}", msg_id, channel, msg_len, time_stamp, std::string(msg,msg_len), signature_len, std::string(signature,signature_len));
 
 			return;
 		}
@@ -104,9 +102,9 @@ class MessageAttestation{
 		 \param msg communication information propagated on network
 		 \param signature attesation signature sent by sender
 		 */
-		bool verify(uint64_t time_stamp, uint64_t msg_id, uint64_t channel_len, char *channel, uint64_t msg_len, char *msg, char* signature, uint64_t signature_len){ // add marlin::net::SocketAddress addr to arguments to retrieve it's pub key
+		bool verify(uint64_t time_stamp, uint64_t msg_id, uint16_t channel, uint64_t msg_len, char *msg, char* signature, uint64_t signature_len){ // add marlin::net::SocketAddress addr to arguments to retrieve it's pub key
 			
-			SPDLOG_INFO("ATTESTATION VERIFY_SIGNATURE ### msg id: {}, channel size: {}, msg size: {}, time stamp: {}, msg: {}, channel: {}", msg_id, channel_len, msg_len, time_stamp, std::string(msg,msg_len), std::string(channel,channel_len));
+			SPDLOG_DEBUG("ATTESTATION VERIFY_SIGNATURE ### msg id: {}, channel, msg size: {}, time stamp: {}, msg: {} ", msg_id, channel, msg_len, time_stamp, std::string(msg,msg_len) );
 
 			// populate_pub_keys();
 
@@ -119,8 +117,7 @@ class MessageAttestation{
 			auto sign_accumulate = acc_verifier.NewVerificationAccumulator();
 			sign_accumulate->Update((byte *)&time_stamp,8);
 			sign_accumulate->Update((byte *)&msg_id,8);
-			sign_accumulate->Update((byte *)&channel_len,8);
-			sign_accumulate->Update((byte *)channel,channel_len);
+			sign_accumulate->Update((byte *)&channel,2);
 			sign_accumulate->Update((byte *)&msg_len,8);
 			sign_accumulate->Update((byte *)msg,msg_len);
 

@@ -1,7 +1,6 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <uv.h>
 #include <unistd.h>
 
 
@@ -44,18 +43,18 @@ public:
 		}
 	}
 
-	std::vector<std::string> channels = {"goldfish"};
+	std::vector<uint16_t> channels = {0};
 
 	void did_unsubscribe(
 		PubSubNodeType &,
-		std::string channel __attribute__((unused))
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 	}
 
 	void did_subscribe(
 		PubSubNodeType &,
-		std::string channel __attribute__((unused))
+		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
@@ -64,8 +63,8 @@ public:
 		PubSubNodeType &,
 		Buffer &&,
 		Buffer &&,
-		std::string &channel __attribute__((unused)),
-		uint64_t message_id __attribute__((unused))
+		uint16_t channel [[maybe_unused]],
+		uint64_t message_id [[maybe_unused]]
 	) {
 		SPDLOG_INFO(
 			"Received message {} on channel {}",
@@ -142,5 +141,5 @@ int main(int argc, char **argv) {
 
 	dc.start_discovery(SocketAddress::from_string(beacon_addr));
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return EventLoop::run();
 }

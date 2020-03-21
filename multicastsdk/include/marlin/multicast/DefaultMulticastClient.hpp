@@ -3,7 +3,6 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <uv.h>
 
 
 namespace marlin {
@@ -13,7 +12,7 @@ namespace multicast {
 
 struct DefaultMulticastClientOptions {
 	uint8_t* static_sk;
-	std::vector<std::string> channels = {"default"};
+	std::vector<uint16_t> channels = {0};
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
 	std::string pubsub_addr = "127.0.0.1:8000";
@@ -51,7 +50,7 @@ public:
 
 	void did_unsubscribe(
 		PubSubNodeType &,
-		std::string channel
+		uint16_t channel
 	) {
 		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
 		delegate->did_unsubscribe(*this, channel);
@@ -59,7 +58,7 @@ public:
 
 	void did_subscribe(
 		PubSubNodeType &,
-		std::string channel
+		uint16_t channel
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 		delegate->did_subscribe(*this, channel);
@@ -69,7 +68,7 @@ public:
 		PubSubNodeType &,
 		net::Buffer &&message,
 		net::Buffer &&witness,
-		std::string &channel,
+		uint16_t channel,
 		uint64_t message_id
 	) {
 		SPDLOG_DEBUG(
@@ -106,7 +105,7 @@ public:
 				std::for_each(
 					channels.begin(),
 					channels.end(),
-					[&] (std::string const channel) {
+					[&] (uint16_t const channel) {
 						ps.send_UNSUBSCRIBE(*toReplaceTransport, channel);
 					}
 				);
@@ -154,7 +153,7 @@ public:
 	}
 
 	Delegate *delegate = nullptr;
-	std::vector<std::string> channels = {"default"};
+	std::vector<uint16_t> channels = {0};
 
 	DefaultMulticastClient(
 		DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions()
@@ -183,7 +182,7 @@ public:
 	}
 
 	static int run_event_loop() {
-		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+		return net::EventLoop::run();
 	}
 };
 
