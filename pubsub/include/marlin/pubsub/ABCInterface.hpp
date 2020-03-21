@@ -20,6 +20,7 @@
 #include <marlin/net/core/EventLoop.hpp>
 
 namespace marlin {
+namespace pubsub {
 
 std::string hexStr(char *data, int len)
 {
@@ -242,6 +243,7 @@ public:
 	}
 };
 
+} // namespace pubsub
 } // namespace marlin
 
 #endif // MARLIN_ABCInterface_HPP
