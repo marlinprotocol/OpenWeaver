@@ -77,6 +77,22 @@ std::string SocketAddress::to_string() const {
 	return addrString.str();
 }
 
+std::string SocketAddress::ip_string() const {
+	// TODO: Add support for other formats
+	char buf[100];
+	inet_ntop(AF_INET, &reinterpret_cast<const sockaddr_in *>(this)->sin_addr, buf, 100);
+
+	return std::string(buf);
+}
+
+uint16_t SocketAddress::get_port() const {
+	return ntohs(reinterpret_cast<const sockaddr_in *>(this)->sin_port);
+}
+
+void SocketAddress::set_port(uint16_t const port) {
+	reinterpret_cast<sockaddr_in *>(this)->sin_port = ntohs(port);
+}
+
 SocketAddress SocketAddress::loopback_ipv4(const uint16_t port) {
 	return from_string(std::string("127.0.0.1:").append(std::to_string(port)));
 }
@@ -124,10 +140,6 @@ SocketAddress SocketAddress::deserialize(char const* bytes, size_t const size) {
 	reinterpret_cast<sockaddr_in *>(&addr)->sin_port =
 		((uint16_t)bytes[6] << 8) + (uint16_t)bytes[7];
 	return addr;
-}
-
-uint16_t SocketAddress::get_port() const {
-	return reinterpret_cast<const sockaddr_in *>(this)->sin_port;
 }
 
 } // namespace net

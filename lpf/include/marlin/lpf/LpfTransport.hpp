@@ -306,10 +306,10 @@ int LpfTransport<
 >::send(
 	net::Buffer &&message
 ) {
-	net::Buffer lpf_message(new char[message.size() + 8], message.size() + 8);
+	net::Buffer lpf_message(message.size() + 8);
 
 	lpf_message.write_uint64_be(0, message.size());
-	std::memcpy(lpf_message.data() + 8, message.data(), message.size());
+	lpf_message.write(8, message.data(), message.size());
 
 	return transport.send(std::move(lpf_message));
 }
@@ -405,7 +405,7 @@ uint16_t LpfTransport<
 	cut_through_reserve_ids.pop_front();
 	cut_through_used_ids.insert(id);
 
-	net::Buffer m(new char[8], 8);
+	net::Buffer m(8);
 	m.write_uint64_be(0, length);
 	auto res = transport.send(std::move(m), id);
 

@@ -5,16 +5,18 @@
 
 #include "../Blockchain/Cache/BlockCache.h"
 #include "../EventManagement/EventManager/EventManager.h"
+#include "../../models/BlockchainManagementModels/BitcoinModel.h"
+#include "../../models/BlockchainManagementModels/BlockchainManagementModel.h"
 #include "../Network/Network.h"
 #include "../../helpers/Logger/easylogging.h"
 
 class Simulator {
 private:
 	std::shared_ptr<BlockCache> blockCache;
-	Network network;
+	std::shared_ptr<BlockchainManagementModel> blockchainManagementModel;
 	EventManager eventManager;
+	Network network;
 
-	int createGenesisBlock();
 	void sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId);
 
 public:

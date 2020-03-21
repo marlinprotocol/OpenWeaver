@@ -51,10 +51,10 @@ public:
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
-				std::memcpy(buf + size, bytes.data(), bytes.size());
+				bytes.read(0, buf + size, bytes.size());
 				size += bytes.size();
 			} else { // Full message
-				std::memcpy(buf + size, bytes.data(), length - size);
+				bytes.read(0, buf + size, length - size);
 				bytes.cover(length - size);
 
 				auto *tbuf = buf;
