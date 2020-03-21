@@ -53,7 +53,7 @@ TEST(UdpTransport, CanRecv) {
 
 	t.setup(&td);
 	t.did_recv_packet(
-		Buffer(new char[10] {'1','2','3','4','5','6','7','8','9',0}, 10)
+		Buffer({'1','2','3','4','5','6','7','8','9',0}, 10)
 	);
 
 	EXPECT_TRUE(did_call_delegate);
@@ -92,7 +92,7 @@ TEST(UdpTransport, CanSend) {
 
 	t.setup(&td);
 	auto res = t.send(
-		Buffer(new char[10] {'1','2','3','4','5','6','7','8','9',0}, 10)
+		Buffer({'1','2','3','4','5','6','7','8','9',0}, 10)
 	);
 
 	EXPECT_EQ(res, 0);

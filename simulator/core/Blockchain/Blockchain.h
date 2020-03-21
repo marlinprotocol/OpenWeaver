@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "./Block/PoWBlock.h"
+#include "./Block/Block.h"
 #include "./Cache/BlockCache.h"
 #include "../../helpers/CircularArray.h"
 #include "../../models/BlockchainManagementModels/BlockchainManagementModel.h"
@@ -18,12 +18,14 @@ private:
 	std::unique_ptr<BlockchainManagementModel> blockchainManagementModel;
 
 public:
-	Blockchain(std::shared_ptr<const BlockCache> _blockCache);
+	Blockchain(std::shared_ptr<const BlockCache> _blockCache);	
 	int getBlockchainHeight();
+	std::vector<int> getLatestBlockIds();
 	int oldestBlockHeightInCache();
 	int getBlockchainStorageSize();
 	bool hasBlock(int blockHeight, int blockId);
 	bool addBlock(int newBlockHeight, int newBlockId);
+	std::vector<int> getBlockIdsAtHeight(int blockHeight);
 };
 
 #endif /*BLOCKCHAIN_H_*/

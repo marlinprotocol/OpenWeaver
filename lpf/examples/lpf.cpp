@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/net/core/EventLoop.hpp>
 
 using namespace marlin::net;
 using namespace marlin::lpf;
@@ -34,7 +35,7 @@ struct Delegate {
 	}
 
 	void did_dial(TransportType<Delegate> &transport) {
-		transport.send(Buffer(new char[10] {0,0,0,0,0,0,0,0,0,0}, 10));
+		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
 	bool should_accept(SocketAddress const &) {
@@ -68,5 +69,5 @@ int main() {
 
 	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
-	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	return marlin::net::EventLoop::run();
 }

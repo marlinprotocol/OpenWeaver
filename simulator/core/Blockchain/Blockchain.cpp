@@ -9,6 +9,11 @@ int Blockchain::getBlockchainHeight() {
 	return blockchain.getTotalInsertions() - 1;
 }
 
+std::vector<int> Blockchain::getLatestBlockIds() {
+	int blockchainHeight = getBlockchainHeight();
+	return getBlockIdsAtHeight(blockchainHeight);
+}
+
 int Blockchain::oldestBlockHeightInCache() {
 	int indexOfEarliestInsertion = blockchain.getOldestItemIndex();
 
@@ -71,4 +76,12 @@ bool Blockchain::addBlock(int newBlockHeight, int newBlockId) {
 	}
 
 	return true;
+}
+
+std::vector<int> Blockchain::getBlockIdsAtHeight(int blockHeight) {
+	if (blockHeight<0) {
+		return std::vector<int>();
+	}
+
+	return blockchain.getItemAtIndex(blockHeight % blockchain.getQueueSize());
 }

@@ -6,32 +6,24 @@
 #define MARLIN_STREAM_SENDSTREAM_HPP
 
 #include <memory>
-#include <uv.h>
 #include <list>
 #include <ctime>
 #include <map>
+#include <marlin/net/core/Timer.hpp>
 
 namespace marlin {
 namespace stream {
 
 //! Struct to store data (and its params) which is queued to the output/send stream
 struct DataItem {
-	std::unique_ptr<char[]> data;
-	uint64_t size;
+	net::Buffer data;
 	uint64_t sent_offset = 0;
 	uint64_t stream_offset;
 
 	DataItem(
-		std::unique_ptr<char[]> &&_data,
-		uint64_t _size,
-		uint64_t _stream_offset
-	) : data(std::move(_data)), size(_size), stream_offset(_stream_offset) {}
-
-	DataItem(
 		net::Buffer &&_data,
-		uint64_t _size,
 		uint64_t _stream_offset
-	) : data(_data.release()), size(_size), stream_offset(_stream_offset) {}
+	) : data(std::move(_data)), stream_offset(_stream_offset) {}
 };
 
 struct SendStream;
@@ -58,6 +50,18 @@ struct SentPacketInfo {
 	}
 
 	SentPacketInfo() {}
+
+	bool operator==(SentPacketInfo& other) {
+		return this->sent_time == other.sent_time &&
+			this->stream == other.stream &&
+			this->data_item == other.data_item &&
+			this->offset == other.offset &&
+			this->length == other.length;
+	}
+
+	bool operator!=(SentPacketInfo& other) {
+		return !(*this == other);
+	}
 };
 
 //! Implementation for individual stream in multi-stream transport protocol
@@ -77,14 +81,14 @@ struct SendStream {
 	};
 	State state;
 
-	SendStream(uint16_t stream_id) {
+	template<typename DelegateType>
+	SendStream(uint16_t stream_id, DelegateType* delegate) : state_timer(delegate) {
 		this->stream_id = stream_id;
 		this->state = State::Ready;
 
 		this->next_item_iterator = this->data_queue.end();
 
-		uv_timer_init(uv_default_loop(), &state_timer);
-		state_timer.data = nullptr;
+		state_timer.set_data(this);
 	}
 
 	std::list<DataItem> data_queue;
@@ -105,7 +109,7 @@ struct SendStream {
 	std::map<uint64_t, uint16_t> outstanding_acks;
 
 	uint64_t state_timer_interval = 1000;
-	uv_timer_t state_timer;
+	net::Timer state_timer;
 };
 
 } // namespace stream

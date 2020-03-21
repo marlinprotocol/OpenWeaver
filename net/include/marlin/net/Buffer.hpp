@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <uv.h>
 #include <memory>
+#include <utility>
 //! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
 #include <array>
 
@@ -21,20 +22,26 @@ class Buffer {
 	size_t end_index;
 
 public:
-	/// Construct from unique_ptr
-	Buffer(std::unique_ptr<char[]> &&buf, size_t const size);
+	/// Construct with given size - preferred constructor
+	Buffer(size_t const size);
+
+	/// Construct with initializer list and given size - preferred constructor
+	Buffer(std::initializer_list<char> il, size_t const size);
+	// Initializer lists are preferable to partially initialized char arrays
+	// Buffer(new char[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
+	// Buffer({'0','1'}, 10) doesn't
 
 	/// Construct from char array - unsafe if char * isn't obtained from new
 	Buffer(char *const buf, size_t const size);
 
 	/// Move contructor
-	Buffer(Buffer &&b);
+	Buffer(Buffer &&b) noexcept;
 
 	/// Delete copy contructor
 	Buffer(Buffer const &b) = delete;
 
 	/// Move assign
-	Buffer &operator=(Buffer &&b);
+	Buffer &operator=(Buffer &&b) noexcept;
 
 	/// Delete copy assign
 	Buffer &operator=(Buffer const &p) = delete;
@@ -81,6 +88,26 @@ public:
 	bool expand(size_t const num);
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
 	void expand_unsafe(size_t const num);
+
+	//-------- Arbitrary reads begin --------//
+
+	/// Read arbitrary data starting at given byte
+	bool read(size_t const pos, char* const out, size_t const size) const;
+	/// Read arbitrary data starting at given byte without bounds checking
+	void read_unsafe(size_t const pos, char* const out, size_t const size) const;
+
+	//-------- Arbitrary reads end --------//
+
+
+	//-------- Arbitrary writes begin --------//
+
+	/// Write arbitrary data starting at given byte
+	bool write(size_t const pos, char const* const in, size_t const size);
+	/// Write arbitrary data starting at given byte without bounds checking
+	void write_unsafe(size_t const pos, char const* const in, size_t const size);
+
+	//-------- Arbitrary writes end --------//
+
 
 	//-------- 8 bit reads begin --------//
 

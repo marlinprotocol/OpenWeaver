@@ -11,41 +11,14 @@
 #include "../../config/Config.h"
 #include "../../helpers/InitializeNetwork.h"
 
-Simulator::Simulator() : blockCache(make_shared<BlockCache>()), eventManager(network, blockCache) {
-}
-
-int Simulator::createGenesisBlock() {
-	int genesisBlockId;
-
-	if(CONSENSUS_TYPE == "PoW") {
-		shared_ptr<Block> genesisBlock = getGenesisPoWBlock();
-		genesisBlockId = genesisBlock->getBlockId();
-		blockCache->insert(genesisBlock);
-	}
-
-	LOG(INFO) << "[GenesisBlock Type " << CONSENSUS_TYPE << " with id " << genesisBlockId << " created]";
-
-	return genesisBlockId;
-}
-
-void Simulator::sendGenesisBlockToAllNodes(const Network& network, int genesisBlockId) {
-	for(auto nodePtr: network.getNodes()) {
-		int nodeId = nodePtr->getNodeId();
-		eventManager.addEvent(shared_ptr<Event>(
-								new MessageToNodeEvent( 
-									std::shared_ptr<Message>(new NewBlockIdMessage(genesisBlockId)), nodeId, nodeId, 0
-								)
-							 ));
-	}
-	
-	LOG(INFO) << "[GenesisBlockEvent added to all nodes]";
+Simulator::Simulator() : blockCache(std::make_shared<BlockCache>()), eventManager(network, blockCache) {
+	blockchainManagementModel = std::shared_ptr<BlockchainManagementModel>(new BitcoinModel(network));
 }
 
 bool Simulator::setup() {
-	network = getRandomNetwork(blockCache);
+	network = getRandomNetwork(blockCache, blockchainManagementModel);
 
-	int genesisBlockId = createGenesisBlock();
-	sendGenesisBlockToAllNodes(network, genesisBlockId);
+	scheduleBlockProduction(blockchainManagementModel, network, blockCache, eventManager);
 
 	return true;
 }
@@ -54,7 +27,8 @@ void Simulator::start() {
 	LOG(INFO) << "[Simulator started]"; 
 
 	while(eventManager.hasNextEvent()) {
-		eventManager.executeNextEvent();
+		bool toContinue = eventManager.executeNextEvent();
+		if(!toContinue) break;
 	}
 
 	LOG(INFO) << "[Simulator stopped]"; 

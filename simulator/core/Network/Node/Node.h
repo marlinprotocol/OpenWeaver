@@ -8,6 +8,7 @@
 #include "../Messages/NewBlockIdMessage.h"
 #include "../Messages/NewBlockMinedMessage.h"
 #include "../../Blockchain/Blockchain.h"
+#include "../../Networking/RoutingTable.h"
 #include "../../../helpers/Logger/easylogging.h"
 
 class EventManager;
@@ -17,14 +18,16 @@ private:
 	int nodeId;
 	bool isAlive;
 	int region;
-	std::vector<long long> latencyToOtherNodes;
+	std::shared_ptr<RoutingTable> routingTable;
 
 protected:	
 	Blockchain blockchain;
+	std::shared_ptr<BlockCache> blockCache;
+	std::shared_ptr<BlockchainManagementModel> blockchainManagementModel;
 
 public:
 	Node(int _nodeId, bool _isAlive, int _region, 
-		 std::unique_ptr<BlockchainManagementModel> _blockchainManagementModel,
+		 std::shared_ptr<BlockchainManagementModel> _blockchainManagementModel,
 		 std::shared_ptr<BlockCache> _blockCache);
 	int getRegion() const;
 	int getNodeId() const;

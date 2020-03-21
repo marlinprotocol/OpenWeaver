@@ -24,7 +24,6 @@ int main() {
 
 	LOG(INFO) << "[NetworkSimulator " << "v0.1 started]";
 	
-
 	Simulator simulator;
     simulator.setup();
     simulator.start();

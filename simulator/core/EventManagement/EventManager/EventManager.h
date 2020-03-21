@@ -10,8 +10,6 @@
 #include "../../Network/Network.h"
 #include "../../../helpers/Logger/easylogging.h"
 
-using namespace std;
-
 class EventManager {
 private:
 	static uint64_t currentTick;
@@ -21,7 +19,7 @@ private:
 
 public:
 	EventManager(Network& _network, std::shared_ptr<BlockCache> _blockCache);
-	int addEvent(shared_ptr<Event> _event);
+	int addEvent(std::shared_ptr<Event> _event);
 	// AsyncEvent getNextEvent() const;
 	bool removeEvent(int _id);
 	bool hasNextEvent();
@@ -29,4 +27,4 @@ public:
 	std::shared_ptr<BlockCache> getBlockCachePtr();
 };
 
-#endif /*EVENTMANAGER_H_*/
+#endif /*EVENTMANAGER_H_*/ 

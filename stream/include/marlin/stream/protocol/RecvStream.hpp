@@ -2,6 +2,7 @@
 #define MARLIN_STREAM_RECVSTREAM_HPP
 
 #include "StreamPacket.hpp"
+#include <marlin/net/core/Timer.hpp>
 
 #include <ctime>
 #include <memory>
@@ -26,7 +27,11 @@ struct RecvPacketInfo {
 		this->length = length;
 	}
 
-	RecvPacketInfo() : packet(nullptr, 0) {}
+	RecvPacketInfo() : packet(nullptr, 0) {
+		recv_time = 0;
+		offset = 0;
+		length = 0;
+	}
 
 	RecvPacketInfo(const RecvPacketInfo &) = delete;
 
@@ -60,12 +65,12 @@ struct RecvStream {
 
 	uint64_t size = 0;
 
-	RecvStream(uint16_t stream_id) {
+	template<typename DelegateType>
+	RecvStream(uint16_t stream_id, DelegateType* delegate) : state_timer(delegate) {
 		this->stream_id = stream_id;
 		this->state = State::Recv;
 
-		uv_timer_init(uv_default_loop(), &state_timer);
-		state_timer.data = nullptr;
+		state_timer.set_data(this);
 	}
 
 	std::map<uint64_t, RecvPacketInfo> recv_packets;
@@ -103,7 +108,7 @@ struct RecvStream {
 	}
 
 	uint64_t state_timer_interval = 1000;
-	uv_timer_t state_timer;
+	net::Timer state_timer;
 };
 
 } // namespace stream

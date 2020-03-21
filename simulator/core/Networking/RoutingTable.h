@@ -1,19 +1,31 @@
+#ifndef ROUTINGTABLE_H_
+#define ROUTINGTABLE_H_
+
 #include <set>
-#include <unordered_map>
 
 #include "../../helpers/Logger/easylogging.h"
 
 class RoutingTable {
 private:
 	int nodeOwnerId;
-	int numActiveConnections;
-	std::unordered_map<int, int> nodeIdLatencyMap;
-	std::set<int> activePeers;
+	int maxOutConnections;
+	int maxInConnections;
+	std::set<int> outConnections;
+	std::set<int> inConnections;
 
 public:
 	RoutingTable();
-	bool setNumActiveConnections(int _numActiveConnections);
-	int getNumActiveConnections();
-	bool addNeighbour(int nodeId);
-	bool removeNeighbour(int nodeId);
+	bool setup();
+	int getOutConnections();
+	int getInConnections();
+	bool setMaxOutConnections(int _maxOutConnections);
+	int getMaxOutConnections();
+	bool setMaxInConnections(int _maxInConnections);
+	int getMaxInConnections();
+	bool addOutConnection(int nodeId);
+	bool removeOutConnection(int nodeId);
+	bool addInConnection(int nodeId);
+	bool removeInConnection(int nodeId);
 };
+
+#endif /*ROUTINGTABLE_H_*/
