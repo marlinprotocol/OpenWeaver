@@ -30,8 +30,6 @@ set_target_properties(simulator PROPERTIES
 	OUTPUT_NAME "marlin-simulator"
 )
 
-find_package(spdlog REQUIRED)
-
 install(TARGETS simulator
 	EXPORT marlin-simulator-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
