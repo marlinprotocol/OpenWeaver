@@ -46,13 +46,21 @@ struct AttesterBase<AttesterType, true> {
 	AttesterType attester;
 };
 
+template<typename WitnesserType, bool b>
+struct WitnesserBase {};
+
+template<typename WitnesserType>
+struct WitnesserBase<WitnesserType, true> {
+	WitnesserType witnesser;
+};
+
 template<bool>
 struct WitnessHeader {};
 
 template<>
 struct WitnessHeader<true> {
 	char const* witness_data = nullptr;
-	uint64_t witness_size;
+	uint64_t witness_size = 0;
 };
 
 struct ChainWitnesser {
@@ -76,9 +84,12 @@ template<
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
-	typename AttesterType = void
+	typename AttesterType = void,
+	typename WitnesserType = void
 >
-class PubSubNode : private AttesterBase<AttesterType, !std::is_void_v<AttesterType>> {
+class PubSubNode :
+	private AttesterBase<AttesterType, !std::is_void_v<AttesterType>>,
+	private WitnesserBase<WitnesserType, !std::is_void_v<WitnesserType>> {
 private:
 	std::string home_dir;
 	size_t max_sol_conns;
@@ -94,11 +105,13 @@ public:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		AttesterType
+		AttesterType,
+		WitnesserType
 	>;
-	using BaseType = AttesterBase<AttesterType, !std::is_void_v<AttesterType>>;
+	using AttesterBaseType = AttesterBase<AttesterType, !std::is_void_v<AttesterType>>;
+	using WitnesserBaseType = WitnesserBase<WitnesserType, !std::is_void_v<WitnesserType>>;
 
-	using MessageHeaserType = MessageHeader<ChainWitnesser>;
+	using MessageHeaderType = MessageHeader<WitnesserType>;
 
 	template<typename ListenDelegate, typename TransportDelegate>
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
@@ -367,14 +380,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -431,14 +446,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_SUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
@@ -465,14 +482,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -513,14 +532,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_UNSUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
@@ -541,14 +562,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_recv_RESPONSE(
 	BaseTransport &,
 	net::Buffer &&bytes
@@ -600,14 +623,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_RESPONSE(
 	BaseTransport &transport,
 	bool success,
@@ -637,14 +662,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_recv_MESSAGE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -685,7 +712,7 @@ int PubSubNode<
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
 		if constexpr (!std::is_void_v<AttesterType>) {
-			if (!BaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
+			if (!AttesterBaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
 				SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
 				transport.close();
 				return -1;
@@ -755,14 +782,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_MESSAGE(
 	BaseTransport &transport,
 	uint16_t channel,
@@ -791,14 +820,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
@@ -817,14 +848,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::should_accept(net::SocketAddress const &) {
 	return accept_unsol_conn;
 }
@@ -834,14 +867,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_create_transport(
 	BaseTransport &transport
 ) {
@@ -863,14 +898,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_dial(BaseTransport &transport) {
 
 	SPDLOG_DEBUG(
@@ -900,14 +937,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_recv_message(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -947,14 +986,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_send_message(
 	BaseTransport &,
 	net::Buffer &&
@@ -965,14 +1006,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::did_close(BaseTransport &transport) {
 	// Remove from subscribers
 	// std::for_each(
@@ -1023,7 +1066,8 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 template<typename, typename>
 PubSubNode<
@@ -1031,7 +1075,8 @@ PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::PubSubNode(
 	const net::SocketAddress &addr,
 	size_t max_sol,
@@ -1072,7 +1117,8 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 template<typename, typename, typename KeyType>
 PubSubNode<
@@ -1080,14 +1126,15 @@ PubSubNode<
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::PubSubNode(
 	const net::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
 	KeyType priv_key
-) : BaseType{priv_key},
+) : AttesterBaseType{priv_key},
 	max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
 	peer_selection_timer(this),
@@ -1122,14 +1169,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 	SPDLOG_DEBUG(
 		"SENDING DIAL TO: {}",
@@ -1152,14 +1201,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 uint64_t PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_message_on_channel(
 	uint16_t channel,
 	const char *data,
@@ -1185,14 +1236,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
@@ -1212,7 +1265,7 @@ void PubSubNode<
 	// CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
 	char* attst_signature = new char[64];
 	uint64_t attst_len=0;
-	// BaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
+	// AttesterBaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
 	// time of signature generation is concatenated to data
 	char *t_data = new char[size+8];
 	memcpy(t_data, &time_stamp, 8);
@@ -1249,14 +1302,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::send_message_with_cut_through_check(
 	BaseTransport *transport,
 	uint16_t channel,
@@ -1306,14 +1361,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 
 
@@ -1342,14 +1399,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::unsubscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
 
@@ -1371,14 +1430,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::add_sol_conn(net::SocketAddress const &addr) {
 
 	auto *transport = f.get_transport(addr);
@@ -1395,14 +1456,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::add_sol_conn(BaseTransport &transport) {
 
 	//TODO: size check.
@@ -1443,14 +1506,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::add_sol_standby_conn(BaseTransport &transport) {
 
 	if(!check_tranport_present(transport)) {
@@ -1471,14 +1536,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::add_unsol_conn(BaseTransport &transport) {
 
 	if (unsol_conns.size() >= max_unsol_conns) {
@@ -1506,14 +1573,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::remove_conn(TransportSet &t_set, BaseTransport &transport) {
 
 	if (t_set.check_tranport_in_set(transport)) {
@@ -1539,14 +1608,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 bool PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::check_tranport_present(BaseTransport &transport) {
 
 	if (
@@ -1565,14 +1636,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::cut_through_recv_start(
 	BaseTransport &transport,
 	uint16_t id,
@@ -1595,14 +1668,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 int PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::cut_through_recv_bytes(
 	BaseTransport &transport,
 	uint16_t id,
@@ -1734,14 +1809,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::cut_through_recv_end(
 	BaseTransport &transport,
 	uint16_t id
@@ -1762,14 +1839,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::cut_through_recv_flush(
 	BaseTransport &transport,
 	uint16_t id
@@ -1790,14 +1869,16 @@ template<
 	bool enable_cut_through,
 	bool accept_unsol_conn,
 	bool enable_relay,
-	typename AttesterType
+	typename AttesterType,
+	typename WitnesserType
 >
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
 	accept_unsol_conn,
 	enable_relay,
-	AttesterType
+	AttesterType,
+	WitnesserType
 >::cut_through_recv_skip(
 	BaseTransport &transport,
 	uint16_t id
