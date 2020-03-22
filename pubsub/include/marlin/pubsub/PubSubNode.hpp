@@ -19,6 +19,7 @@
 #include <spdlog/fmt/bin_to_hex.h>
 #include <random>
 #include <unordered_set>
+#include <type_traits>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 #include <marlin/pubsub/PubSubAttestation.hpp>
@@ -37,6 +38,15 @@ struct IsTransportEncrypted<stream::StreamTransport<
 
 namespace pubsub {
 
+template<typename AttesterType, bool b>
+class AttesterBase {};
+
+template<typename AttesterType>
+class AttesterBase<AttesterType, false> {
+public:
+	AttesterType attester;
+};
+
 //! Class containing the Pub-Sub functionality
 /*!
 	Uses the custom marlin-StreamTransport for message delivery
@@ -48,12 +58,12 @@ namespace pubsub {
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
-	bool enable_relay = false
+	bool enable_relay = false,
+	typename AttesterType = void
 >
-class PubSubNode {
+class PubSubNode : private AttesterBase<AttesterType, std::is_void_v<AttesterType>> {
 private:
 	std::string home_dir;
 	size_t max_sol_conns;
@@ -61,17 +71,17 @@ private:
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 	static constexpr uint64_t DefaultBlacklistTimerInterval = 600000;
-	MessageAttestation attest_manager;
 
 //---------------- Transport types ----------------//
 public:
 	using Self = PubSubNode<
 		PubSubDelegate,
-		AttestPrivateKey,
 		enable_cut_through,
 		accept_unsol_conn,
-		enable_relay
+		enable_relay,
+		AttesterType
 	>;
+	using BaseType = AttesterBase<AttesterType, std::is_void_v<AttesterType>>;
 
 	template<typename ListenDelegate, typename TransportDelegate>
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
@@ -198,7 +208,22 @@ public:
 	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
 //---------------- Public Interface ----------------//
-	PubSubNode(const net::SocketAddress &_addr, size_t max_sol, size_t max_unsol, AttestPrivateKey priv_key, uint8_t const *keys);
+public:
+	template<typename T = AttesterType, typename = std::enable_if_t<std::is_void_v<T>>>
+	PubSubNode(
+		const net::SocketAddress &_addr,
+		size_t max_sol,
+		size_t max_unsol,
+		uint8_t const *keys
+	);
+	template<typename T = AttesterType, typename = std::enable_if_t<!std::is_void_v<T>>, typename KeyType = typename T::KeyType>
+	PubSubNode(
+		const net::SocketAddress &_addr,
+		size_t max_sol,
+		size_t max_unsol,
+		uint8_t const *keys,
+		KeyType priv_key
+	);
 	PubSubDelegate *delegate;
 
 	uint64_t send_message_on_channel(
@@ -322,17 +347,17 @@ private:
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 int PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -386,17 +411,17 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_SUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
@@ -420,17 +445,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -468,17 +493,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_UNSUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
@@ -496,17 +521,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_recv_RESPONSE(
 	BaseTransport &,
 	net::Buffer &&bytes
@@ -555,17 +580,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_RESPONSE(
 	BaseTransport &transport,
 	bool success,
@@ -592,17 +617,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 int PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_recv_MESSAGE(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -624,7 +649,7 @@ int PubSubNode<
 		return -1;
 	}
 
-	// concatenated to message & generate signed attestation 
+	// concatenated to message & generate signed attestation
 	char *witness = new char[witness_length];
 	memcpy(witness,bytes.data()+12,witness_length);
 
@@ -642,11 +667,11 @@ int PubSubNode<
 		uint64_t time_stamp=0;
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
-		if (!attest_manager.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
-			SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
-			transport.close();
-			return -1;
-		}
+		// if (!BaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
+		// 	SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
+		// 	transport.close();
+		// 	return -1;
+		// }
 
 		if constexpr (enable_relay) {
 			crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
@@ -708,17 +733,17 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_MESSAGE(
 	BaseTransport &transport,
 	uint16_t channel,
@@ -744,17 +769,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
@@ -770,34 +795,34 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::should_accept(net::SocketAddress const &) {
 	return accept_unsol_conn;
 }
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_create_transport(
 	BaseTransport &transport
 ) {
@@ -816,17 +841,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_dial(BaseTransport &transport) {
 
 	SPDLOG_DEBUG(
@@ -853,17 +878,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 int PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_recv_message(
 	BaseTransport &transport,
 	net::Buffer &&bytes
@@ -900,17 +925,17 @@ int PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_send_message(
 	BaseTransport &,
 	net::Buffer &&
@@ -918,17 +943,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::did_close(BaseTransport &transport) {
 	// Remove from subscribers
 	// std::for_each(
@@ -974,29 +999,78 @@ void PubSubNode<
 
 //---------------- Transport delegate functions end ----------------//
 
-
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
+template<typename, typename>
 PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::PubSubNode(
 	const net::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
-	AttestPrivateKey priv_key,
 	uint8_t const* keys
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
-	attest_manager(priv_key),
+	peer_selection_timer(this),
+	blacklist_timer(this),
+	message_id_gen(std::random_device()()),
+	message_id_events(256),
+	message_id_timer(this),
+	keys(keys)
+{
+	f.bind(addr);
+	f.listen(*this);
+
+	SPDLOG_DEBUG(
+		"Assymetric Keys for Attestation were loaded from Smart Contract"
+	);
+
+	SPDLOG_DEBUG(
+		"PUBSUB LISTENING ON : {}",
+		addr.to_string()
+	);
+
+	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
+
+	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
+
+	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
+
+}
+
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay,
+	typename AttesterType
+>
+template<typename, typename, typename KeyType>
+PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay,
+	AttesterType
+>::PubSubNode(
+	const net::SocketAddress &addr,
+	size_t max_sol,
+	size_t max_unsol,
+	uint8_t const* keys,
+	KeyType priv_key
+) : BaseType{priv_key},
+	max_sol_conns(max_sol),
+	max_unsol_conns(max_unsol),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
@@ -1026,17 +1100,17 @@ PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 int PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 	SPDLOG_DEBUG(
 		"SENDING DIAL TO: {}",
@@ -1056,17 +1130,17 @@ int PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 uint64_t PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_message_on_channel(
 	uint16_t channel,
 	const char *data,
@@ -1089,17 +1163,17 @@ uint64_t PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
@@ -1116,10 +1190,10 @@ void PubSubNode<
 	uint64_t time_stamp = 0;
 
 	// generating attestation signature
-	CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
+	// CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
 	char* attst_signature = new char[64];
 	uint64_t attst_len=0;
-	attest_manager.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
+	// BaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
 	// time of signature generation is concatenated to data
 	char *t_data = new char[size+8];
 	memcpy(t_data, &time_stamp, 8);
@@ -1153,17 +1227,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::send_message_with_cut_through_check(
 	BaseTransport *transport,
 	uint16_t channel,
@@ -1210,17 +1284,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 
 
@@ -1246,17 +1320,17 @@ void PubSubNode<
 */
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::unsubscribe(net::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
 
@@ -1275,17 +1349,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::add_sol_conn(net::SocketAddress const &addr) {
 
 	auto *transport = f.get_transport(addr);
@@ -1299,17 +1373,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::add_sol_conn(BaseTransport &transport) {
 
 	//TODO: size check.
@@ -1347,17 +1421,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::add_sol_standby_conn(BaseTransport &transport) {
 
 	if(!check_tranport_present(transport)) {
@@ -1375,17 +1449,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::add_unsol_conn(BaseTransport &transport) {
 
 	if (unsol_conns.size() >= max_unsol_conns) {
@@ -1410,17 +1484,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::remove_conn(TransportSet &t_set, BaseTransport &transport) {
 
 	if (t_set.check_tranport_in_set(transport)) {
@@ -1443,17 +1517,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 bool PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::check_tranport_present(BaseTransport &transport) {
 
 	if (
@@ -1469,17 +1543,17 @@ bool PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::cut_through_recv_start(
 	BaseTransport &transport,
 	uint16_t id,
@@ -1499,17 +1573,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 int PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::cut_through_recv_bytes(
 	BaseTransport &transport,
 	uint16_t id,
@@ -1638,17 +1712,17 @@ int PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::cut_through_recv_end(
 	BaseTransport &transport,
 	uint16_t id
@@ -1666,17 +1740,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::cut_through_recv_flush(
 	BaseTransport &transport,
 	uint16_t id
@@ -1694,17 +1768,17 @@ void PubSubNode<
 
 template<
 	typename PubSubDelegate,
-	typename AttestPrivateKey,
 	bool enable_cut_through,
 	bool accept_unsol_conn,
-	bool enable_relay
+	bool enable_relay,
+	typename AttesterType
 >
 void PubSubNode<
 	PubSubDelegate,
-	AttestPrivateKey,
 	enable_cut_through,
 	accept_unsol_conn,
-	enable_relay
+	enable_relay,
+	AttesterType
 >::cut_through_recv_skip(
 	BaseTransport &transport,
 	uint16_t id
