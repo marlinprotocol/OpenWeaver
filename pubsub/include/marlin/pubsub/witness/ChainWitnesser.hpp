@@ -8,17 +8,18 @@
 namespace marlin {
 namespace pubsub {
 
-template<typename HeaderType>
 struct ChainWitnesser {
 	using KeyType = uint8_t const*;
 	KeyType secret_key;
 
+	template<typename HeaderType>
 	constexpr uint64_t witness_size(
 		HeaderType prev_witness_header
 	) {
 		return prev_witness_header.witness_size == 0 ? 2 + 32 : (prev_witness_header.witness_size + 32);
 	}
 
+	template<typename HeaderType>
 	int witness(
 		HeaderType prev_witness_header,
 		net::Buffer& out,
