@@ -57,12 +57,10 @@ struct WitnessHeader<true> {
 	uint64_t witness_size = 0;
 };
 
-struct ChainWitnesser {
-
-};
-
 template<typename WitnesserType>
-struct MessageHeader : public WitnessHeader<!std::is_void_v<WitnesserType>> {};
+struct MessageHeader : public WitnessHeader<!std::is_void_v<WitnesserType>> {
+	using WitnessHeaderType = WitnessHeader<!std::is_void_v<WitnesserType>>;
+};
 
 //! Class containing the Pub-Sub functionality
 /*!
@@ -699,15 +697,15 @@ int PubSubNode<
 			if constexpr (std::is_void_v<WitnesserType>) {
 				return MessageHeaderType {};
 			} else {
-				auto witness_length = bytes.read_uint16_be(10);
-				return MessageHeaderType { bytes.data()+12, witness_length };
+				uint64_t witness_length = bytes.read_uint16_be(10);
+				return MessageHeaderType { { bytes.data()+10, witness_length+2 } };
 			}
 		}();
 
 		if constexpr (std::is_void_v<WitnesserType>) {
-			bytes.cover(12);
+			bytes.cover(10);
 		} else {
-			bytes.cover(12 + header.witness_length);
+			bytes.cover(10 + static_cast<typename MessageHeaderType::WitnessHeaderType>(header).witness_size);
 		}
 
 		// // received msg sequence: (Time Stamp | Message)
@@ -802,7 +800,7 @@ net::Buffer PubSubNode<
 ) {
 	uint64_t buf_size = 11 + size;
 	if constexpr (!std::is_void_v<WitnesserType>) {
-		buf_size += prev_header.witness_size;
+		buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
 	}
 	net::Buffer m({3}, buf_size);
 	m.write_uint64_be(1, message_id);
@@ -810,8 +808,8 @@ net::Buffer PubSubNode<
 
 	uint64_t offset = 11;
 	if constexpr (!std::is_void_v<WitnesserType>) {
-		offset += prev_header.witness_size;
-		m.write(11, prev_header.witness_data, prev_header.witness_size);
+		WitnesserBaseType::witnesser.witness(prev_header, m, offset);
+		offset += WitnesserBaseType::witnesser.witness_size(prev_header);
 	}
 	m.write(offset, data, size);
 
@@ -1198,6 +1196,9 @@ PubSubNode<
 
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
 
+	if constexpr (!std::is_void_v<WitnesserType>) {
+		WitnesserBaseType::witnesser.secret_key = keys;
+	}
 }
 
 template<
