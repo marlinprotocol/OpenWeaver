@@ -13,7 +13,9 @@ class MessageAttestation{
 	typedef CryptoPP::ECP ECP;
 	typedef CryptoPP::SHA256 SHA256;
 	typedef CryptoPP::byte byte;
-
+public:
+	using KeyType = CryptoPP::ECDSA<ECP, SHA256>::PrivateKey;
+	static constexpr size_t signature_size = 64;
 private :
 	// Prover : 1, Verifier : 2
 	// uint8_t role=1;
@@ -87,7 +89,7 @@ public :
 
 	//! Verify Signature of Attested Message received
 	/*
-	 \param transport socket on which message is received 
+	 \param transport socket on which message is received
 	 \param time_stamp sender time of sending
 	 \param msg_id unique identifier of message
 	 \param channel_len size of sender attestation signature
