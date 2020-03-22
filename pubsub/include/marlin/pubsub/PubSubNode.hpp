@@ -24,6 +24,8 @@
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 #include <marlin/pubsub/PubSubAttestation.hpp>
 
+#include "marlin/pubsub/witness/Base.hpp"
+
 namespace marlin {
 
 namespace lpf {
@@ -44,14 +46,6 @@ struct AttesterBase {};
 template<typename AttesterType>
 struct AttesterBase<AttesterType, true> {
 	AttesterType attester;
-};
-
-template<typename WitnesserType, bool b>
-struct WitnesserBase {};
-
-template<typename WitnesserType>
-struct WitnesserBase<WitnesserType, true> {
-	WitnesserType witnesser;
 };
 
 template<bool>
