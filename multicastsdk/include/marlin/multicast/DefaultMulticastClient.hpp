@@ -67,7 +67,7 @@ public:
 	void did_recv_message(
 		PubSubNodeType &,
 		net::Buffer &&message,
-		net::Buffer &&witness,
+		typename PubSubNodeType::MessageHeaderType header,
 		uint16_t channel,
 		uint64_t message_id
 	) {
@@ -79,7 +79,7 @@ public:
 		delegate->did_recv_message(
 			*this,
 			std::move(message),
-			std::move(witness),
+			header,
 			channel,
 			message_id
 		);

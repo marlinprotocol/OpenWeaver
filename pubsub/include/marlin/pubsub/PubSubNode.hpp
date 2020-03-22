@@ -192,6 +192,14 @@ private:
 private:
 	BaseTransportFactory f;
 
+	net::Buffer create_MESSAGE(
+		uint16_t channel,
+		uint64_t message_id,
+		const char *data,
+		uint64_t size,
+		MessageHeaderType prev_header
+	);
+
 	int did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
 
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
@@ -210,8 +218,7 @@ private:
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
-		char const* witness_data,
-		uint16_t witness_size
+		MessageHeaderType prev_header
 	);
 
 	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&message);
@@ -262,8 +269,7 @@ public:
 		const char *data,
 		uint64_t size,
 		net::SocketAddress const *excluded = nullptr,
-		char const* witness_data = nullptr,
-		uint16_t witness_size = 0
+		MessageHeaderType prev_header = {}
 	);
 	void send_message_with_cut_through_check(
 		BaseTransport *transport,
@@ -271,8 +277,7 @@ public:
 		uint64_t message_id,
 		const char *data,
 		uint64_t size,
-		char const* witness_data,
-		uint16_t witness_size
+		MessageHeaderType prev_header = {}
 	);
 
 	void subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
@@ -675,54 +680,56 @@ int PubSubNode<
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
 
-	auto witness_length = bytes.read_uint16_be(10);
-
 	// Check overflow
-	if((uint16_t)bytes.size() < 12 + witness_length)
-		return 0;
+	// if((uint16_t)bytes.size() < 12 + witness_length)
+	// 	return 0;
 
-	if(witness_length > 500) {
-		SPDLOG_ERROR("Witness too long: {}", witness_length);
-		transport.close();
-		return -1;
-	}
-
-	// concatenated to message & generate signed attestation
-	char *witness = new char[witness_length];
-	memcpy(witness,bytes.data()+12,witness_length);
+	// if(witness_length > 500) {
+	// 	SPDLOG_ERROR("Witness too long: {}", witness_length);
+	// 	transport.close();
+	// 	return -1;
+	// }
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
 
-		char *new_witness = new char[witness_length+32];
-		std::memcpy(new_witness, bytes.data()+12, witness_length);
-
-		bytes.cover(12 + witness_length);
-
-		// received msg sequence: (Time Stamp | Message)
-		uint64_t time_stamp=0;
-		memcpy(&time_stamp,bytes.data(),8);
-		bytes.cover(8);
-		if constexpr (!std::is_void_v<AttesterType>) {
-			if (!AttesterBaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
-				SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
-				transport.close();
-				return -1;
+		auto header = [&] {
+			if constexpr (std::is_void_v<WitnesserType>) {
+				return MessageHeaderType {};
+			} else {
+				auto witness_length = bytes.read_uint16_be(10);
+				return MessageHeaderType { bytes.data()+12, witness_length };
 			}
+		}();
+
+		if constexpr (std::is_void_v<WitnesserType>) {
+			bytes.cover(12);
+		} else {
+			bytes.cover(12 + header.witness_length);
 		}
 
+		// // received msg sequence: (Time Stamp | Message)
+		// uint64_t time_stamp=0;
+		// memcpy(&time_stamp,bytes.data(),8);
+		// bytes.cover(8);
+		// if constexpr (!std::is_void_v<AttesterType>) {
+		// 	if (!AttesterBaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
+		// 		SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
+		// 		transport.close();
+		// 		return -1;
+		// 	}
+		// }
+
 		if constexpr (enable_relay) {
-			crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);
 			send_message_on_channel(
 				channel,
 				message_id,
 				bytes.data(),
 				bytes.size(),
 				&transport.dst_addr,
-				new_witness,
-				witness_length + 32
+				header
 			);
 		}
 
@@ -730,7 +737,7 @@ int PubSubNode<
 		delegate->did_recv_message(
 			*this,
 			std::move(bytes),
-			net::Buffer(new_witness, witness_length),
+			header,
 			channel,
 			message_id
 		);
@@ -779,6 +786,46 @@ template<
 	typename AttesterType,
 	typename WitnesserType
 >
+net::Buffer PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay,
+	AttesterType,
+	WitnesserType
+>::create_MESSAGE(
+	uint16_t channel,
+	uint64_t message_id,
+	const char *data,
+	uint64_t size,
+	MessageHeaderType prev_header
+) {
+	uint64_t buf_size = 11 + size;
+	if constexpr (!std::is_void_v<WitnesserType>) {
+		buf_size += prev_header.witness_size;
+	}
+	net::Buffer m({3}, buf_size);
+	m.write_uint64_be(1, message_id);
+	m.write_uint16_be(9, channel);
+
+	uint64_t offset = 11;
+	if constexpr (!std::is_void_v<WitnesserType>) {
+		offset += prev_header.witness_size;
+		m.write(11, prev_header.witness_data, prev_header.witness_size);
+	}
+	m.write(offset, data, size);
+
+	return m;
+}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay,
+	typename AttesterType,
+	typename WitnesserType
+>
 void PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
@@ -792,20 +839,15 @@ void PubSubNode<
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
-	const char* witness_data,
-	uint16_t witness_size
+	MessageHeaderType prev_header
 ) {
-	net::Buffer m({3}, 11 + 2 + witness_size + size);
-	m.write_uint64_be(1, message_id);
-	m.write_uint16_be(9, channel);
-	m.write_uint16_be(11, witness_size);
-	if(witness_data == nullptr) {
-		crypto_scalarmult_base((uint8_t*)m.data() + 11 + 2, keys);
-	} else {
-		m.write(11 + 2, witness_data, witness_size);
-	}
-	m.write(11 + 2 + witness_size, data, size);
-
+	auto m = create_MESSAGE(
+		channel,
+		message_id,
+		data,
+		size,
+		prev_header
+	);
 	transport.send(std::move(m));
 }
 
@@ -1246,24 +1288,19 @@ void PubSubNode<
 	const char *data,
 	uint64_t size,
 	net::SocketAddress const *excluded,
-	char const* witness_data,
-	uint16_t witness_size
+	MessageHeaderType prev_header
 ) {
-	if(witness_data == nullptr || witness_size <= 0) {
-		witness_size = 32;
-	}
+	// uint64_t time_stamp = 0;
 
-	uint64_t time_stamp = 0;
-
-	// generating attestation signature
-	// CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
-	char* attst_signature = new char[64];
-	uint64_t attst_len=0;
-	// AttesterBaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
-	// time of signature generation is concatenated to data
-	char *t_data = new char[size+8];
-	memcpy(t_data, &time_stamp, 8);
-	memcpy(t_data+8, data, size);
+	// // generating attestation signature
+	// // CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
+	// char* attst_signature = new char[64];
+	// uint64_t attst_len=0;
+	// // AttesterBaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
+	// // time of signature generation is concatenated to data
+	// char *t_data = new char[size+8];
+	// memcpy(t_data, &time_stamp, 8);
+	// memcpy(t_data+8, data, size);
 
 	for (
 		auto it = sol_conns.begin();
@@ -1273,8 +1310,8 @@ void PubSubNode<
 		// Exclude given address, usually sender tp prevent loops
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
-		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
+		send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+		// send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 
 	for (
@@ -1285,8 +1322,8 @@ void PubSubNode<
 		// Exclude given address, usually sender tp prevent loops
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
-		// send_message_with_cut_through_check(*it, channel, message_id, data, size, witness_data, witness_size);
-		send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
+		send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+		// send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 }
 
@@ -1312,8 +1349,7 @@ void PubSubNode<
 	uint64_t message_id,
 	const char *data,
 	uint64_t size,
-	char const* witness_data,
-	uint16_t witness_size
+	MessageHeaderType prev_header
 ) {
 	SPDLOG_DEBUG(
 		"Sending message {} on channel {} to {}",
@@ -1323,16 +1359,13 @@ void PubSubNode<
 	);
 
 	if(size > 50000) {
-		net::Buffer m({3}, 11 + 2 + witness_size + size);
-		m.write_uint64_be(1, message_id);
-		m.write_uint16_be(9, channel);
-		m.write_uint16_be(11, witness_size);
-		if(witness_data == nullptr) {
-			crypto_scalarmult_base((uint8_t*)m.data() + 11 + 2, keys);
-		} else {
-			m.write(11 + 2, witness_data, witness_size);
-		}
-		m.write(11 + 2 + witness_size, data, size);
+		auto m = create_MESSAGE(
+			channel,
+			message_id,
+			data,
+			size,
+			prev_header
+		);
 
 		auto res = transport->cut_through_send(std::move(m));
 
@@ -1342,7 +1375,7 @@ void PubSubNode<
 			transport->close();
 		}
 	} else {
-		send_MESSAGE(*transport, channel, message_id, data, size, witness_data, witness_size);
+		send_MESSAGE(*transport, channel, message_id, data, size, prev_header);
 	}
 }
 

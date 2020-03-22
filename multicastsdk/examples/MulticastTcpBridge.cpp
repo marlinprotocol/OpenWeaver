@@ -117,10 +117,11 @@ public:
 
 	//-----------------------delegates for DefaultMultiCastClient-------------------------------
 
+	template<typename T> // TODO: Code smell, remove later
 	void did_recv_message(
 		DefaultMulticastClient<MulticastDelegate> &client,
 		Buffer &&message,
-		Buffer &&witness,
+		T header,
 		uint16_t channel,
 		uint64_t message_id
 	) {
