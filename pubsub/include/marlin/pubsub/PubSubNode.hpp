@@ -667,11 +667,13 @@ int PubSubNode<
 		uint64_t time_stamp=0;
 		memcpy(&time_stamp,bytes.data(),8);
 		bytes.cover(8);
-		// if (!BaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
-		// 	SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
-		// 	transport.close();
-		// 	return -1;
-		// }
+		if constexpr (!std::is_void_v<AttesterType>) {
+			if (!BaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
+				SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
+				transport.close();
+				return -1;
+			}
+		}
 
 		if constexpr (enable_relay) {
 			crypto_scalarmult_base((uint8_t*)new_witness+witness_length, keys);

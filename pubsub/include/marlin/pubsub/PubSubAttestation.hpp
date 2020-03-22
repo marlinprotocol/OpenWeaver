@@ -15,8 +15,8 @@ class MessageAttestation{
 	typedef CryptoPP::byte byte;
 public:
 	using KeyType = CryptoPP::ECDSA<ECP, SHA256>::PrivateKey;
-	static constexpr size_t signature_size = 64;
-private :
+	static constexpr size_t attestation_size = 73;
+private:
 	// Prover : 1, Verifier : 2
 	// uint8_t role=1;
 	CryptoPP::ECDSA<ECP,SHA256>::PrivateKey priv_key;
@@ -37,7 +37,7 @@ private :
 	}
 */
 
-public :
+public:
 	MessageAttestation(CryptoPP::ECDSA<ECP,SHA256>::PrivateKey pk){
 		priv_key = pk;
 		return;
