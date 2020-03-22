@@ -37,8 +37,9 @@ std::string hexStr(char *data, int len)
 	return hexstring;
 }
 
-const uint8_t addressLength = 32;
+const uint8_t addressLength = 20;
 const uint8_t balanceLength = 32;
+const uint8_t privateKeyLength = 32;
 const uint8_t messageTypeSize = 1;
 const uint8_t AckTypeSize = 1;
 const uint8_t blockNumberSize = 8;
@@ -62,6 +63,7 @@ using LpfTcpTransport = lpf::LpfTransport<
 
 class ABCInterface {
 
+std::string privateKey;
 std::map<std::string, std::string> stakeAddressMap;
 uint64_t lastUpdateTime;
 uint64_t latestBlockReceived;
@@ -109,7 +111,8 @@ public:
 
 	enum MessageType {
 		StateUpdateMessage = 1,
-		AckMessage = 2
+		AckMessage = 2,
+		PrivateKeyMessage = 3
 	};
 
 	// TODO Size checks and null checks while reading messages from buffer
@@ -127,53 +130,77 @@ public:
 
 		switch (messageType) {
 			case MessageType::StateUpdateMessage:
+				did_recv_state_update(transport, message);
+				break;
 
-				auto blockNumber = message.read_uint64_be(0);
-				message.cover(blockNumberSize);
-
-				if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
-					auto numMapEntries = message.read_uint32_be(0);
-					message.cover(4);
-
-					SPDLOG_INFO(
-						"BlockNumber {}",
-						blockNumber
-					);
-
-					SPDLOG_INFO(
-						"NumEntries {}",
-						numMapEntries
-					);
-
-					for (uint i=0; i<numMapEntries; i++) {
-
-						std::string addressString = hexStr(message.data(), addressLength);
-						message.cover(addressLength);
-
-						std::string balanceString = hexStr(message.data(), balanceLength);
-						message.cover(balanceLength);
-
-						stakeAddressMap[addressString] = balanceString;
-
-						SPDLOG_INFO(
-							"address {}",
-							addressString
-						);
-
-						SPDLOG_INFO(
-							"balance {}",
-							balanceString
-						);
-					}
-
-					latestBlockReceived = blockNumber;
-					lastUpdateTime = net::EventLoop::now();
-				}
-
-				send_ack_state_update(transport, latestBlockReceived);
+			case MessageType::PrivateKeyMessage:
+				did_recv_private_key(transport, message);
+				break;
 		}
 
 		return 0;
+	}
+
+
+	void did_recv_state_update (
+		LpfTcpTransport &transport [[maybe_unused]],
+		net::Buffer &message  [[maybe_unused]]
+	) {
+
+		auto blockNumber = message.read_uint64_be(0);
+		message.cover(blockNumberSize);
+
+		if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
+			auto numMapEntries = message.read_uint32_be(0);
+			message.cover(4);
+
+			SPDLOG_INFO(
+				"BlockNumber {}",
+				blockNumber
+			);
+
+			SPDLOG_INFO(
+				"NumEntries {}",
+				numMapEntries
+			);
+
+			for (uint i=0; i<numMapEntries; i++) {
+
+				std::string addressString = hexStr(message.data(), addressLength);
+				message.cover(addressLength);
+
+				std::string balanceString = hexStr(message.data(), balanceLength);
+				message.cover(balanceLength);
+
+				stakeAddressMap[addressString] = balanceString;
+
+				SPDLOG_INFO(
+					"address {}",
+					addressString
+				);
+
+				SPDLOG_INFO(
+					"balance {}",
+					balanceString
+				);
+			}
+
+			latestBlockReceived = blockNumber;
+			lastUpdateTime = net::EventLoop::now();
+		}
+
+		send_ack_state_update(transport, latestBlockReceived);
+	}
+
+	void did_recv_private_key(
+		LpfTcpTransport &transport [[maybe_unused]],
+		net::Buffer &message  [[maybe_unused]]
+	) {
+		privateKey = hexStr(message.data(), privateKeyLength);
+		SPDLOG_INFO(
+			"private key {}",
+			privateKey
+		);
 	}
 
 	void send_ack_state_update(
