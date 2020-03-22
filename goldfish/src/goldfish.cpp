@@ -1,13 +1,19 @@
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/ChainWitnesser.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <unistd.h>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/oids.h>
 
 
 using namespace marlin;
 using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
+using namespace CryptoPP;
 
 #define PUBSUB_PROTOCOL_NUMBER 0x10000000
 
@@ -18,7 +24,9 @@ public:
 		Self,
 		true,
 		true,
-		true
+		true,
+		MessageAttestation,
+		ChainWitnesser<WitnessHeader<true>>
 	>;
 
 	DiscoveryClient<Goldfish> *b;
@@ -123,13 +131,19 @@ int main(int argc, char **argv) {
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 	crypto_box_keypair(static_pk, static_sk);
 
+	ECDSA<ECP,SHA256>::PrivateKey priv_key1,priv_key2;
+	AutoSeededRandomPool rnd1,rnd2;
+	priv_key1.Initialize(rnd1,ASN1::secp256k1());
+
 	// Pubsub
 	PubSubNode<
 		Goldfish,
 		true,
 		true,
-		true
-	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
+		true,
+		MessageAttestation,
+		ChainWitnesser<WitnessHeader<true>>
+	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, priv_key1);
 	ps.delegate = &g;
 	g.ps = &ps;
 

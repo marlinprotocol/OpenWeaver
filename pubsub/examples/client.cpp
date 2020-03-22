@@ -3,6 +3,7 @@
 #include <cstring>
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/ChainWitnesser.hpp>
 #include <sodium.h>
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/eccrypto.h>
@@ -18,7 +19,7 @@ using namespace CryptoPP;
 
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation, ChainWitnesser<WitnessHeader<true>>>;
 
 public:
 	std::vector<uint16_t> channels = {100, 101};
@@ -34,12 +35,17 @@ public:
 
 	void did_recv_message(
 		PubSubNodeType &,
-		Buffer &&message,
-		typename PubSubNodeType::MessageHeaderType,
+		Buffer &&,
+		typename PubSubNodeType::MessageHeaderType header,
 		uint16_t channel,
 		uint64_t message_id
 	) {
-		SPDLOG_INFO("Received message {} on channel {}", message_id, channel, std::string(message.data(), message.size()));
+		SPDLOG_INFO(
+			"Received message {} on channel {} with witness {}",
+			message_id,
+			channel,
+			std::string(static_cast<typename PubSubNodeType::MessageHeaderType::WitnessHeaderType>(header).witness_data, static_cast<typename PubSubNodeType::MessageHeaderType::WitnessHeaderType>(header).witness_size)
+		);
 	}
 
 	void manage_subscriptions(
@@ -67,11 +73,11 @@ int main() {
 	AutoSeededRandomPool rnd1,rnd2;
 	priv_key1.Initialize(rnd1,ASN1::secp256k1());
 	priv_key2.Initialize(rnd2,ASN1::secp256k1());
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation>(addr, max_sol_conn, max_unsol_conn, static_sk, priv_key1);
+	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation, ChainWitnesser<WitnessHeader<true>>>(addr, max_sol_conn, max_unsol_conn, static_sk, priv_key1);
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation>(addr2, max_sol_conn, max_unsol_conn, static_sk, priv_key1);
+	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, MessageAttestation, ChainWitnesser<WitnessHeader<true>>>(addr2, max_sol_conn, max_unsol_conn, static_sk, priv_key1);
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
