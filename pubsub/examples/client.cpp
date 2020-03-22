@@ -35,7 +35,7 @@ public:
 	void did_recv_message(
 		PubSubNodeType &,
 		Buffer &&message,
-		Buffer &&,
+		typename PubSubNodeType::MessageHeaderType,
 		uint16_t channel,
 		uint64_t message_id
 	) {
