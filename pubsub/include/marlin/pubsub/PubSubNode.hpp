@@ -39,13 +39,28 @@ struct IsTransportEncrypted<stream::StreamTransport<
 namespace pubsub {
 
 template<typename AttesterType, bool b>
-class AttesterBase {};
+struct AttesterBase {};
 
 template<typename AttesterType>
-class AttesterBase<AttesterType, false> {
-public:
+struct AttesterBase<AttesterType, true> {
 	AttesterType attester;
 };
+
+template<bool>
+struct WitnessHeader {};
+
+template<>
+struct WitnessHeader<true> {
+	char const* witness_data = nullptr;
+	uint64_t witness_size;
+};
+
+struct ChainWitnesser {
+
+};
+
+template<typename WitnesserType>
+struct MessageHeader : public WitnessHeader<!std::is_void_v<WitnesserType>> {};
 
 //! Class containing the Pub-Sub functionality
 /*!
@@ -63,7 +78,7 @@ template<
 	bool enable_relay = false,
 	typename AttesterType = void
 >
-class PubSubNode : private AttesterBase<AttesterType, std::is_void_v<AttesterType>> {
+class PubSubNode : private AttesterBase<AttesterType, !std::is_void_v<AttesterType>> {
 private:
 	std::string home_dir;
 	size_t max_sol_conns;
@@ -81,7 +96,9 @@ public:
 		enable_relay,
 		AttesterType
 	>;
-	using BaseType = AttesterBase<AttesterType, std::is_void_v<AttesterType>>;
+	using BaseType = AttesterBase<AttesterType, !std::is_void_v<AttesterType>>;
+
+	using MessageHeaserType = MessageHeader<ChainWitnesser>;
 
 	template<typename ListenDelegate, typename TransportDelegate>
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
