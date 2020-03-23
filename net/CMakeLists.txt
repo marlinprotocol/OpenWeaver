@@ -73,6 +73,7 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+	test/testBN.cpp
 	test/testBuffer.cpp
 	test/testEndian.cpp
 	test/testSocketAddress.cpp
