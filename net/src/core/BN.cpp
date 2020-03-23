@@ -4,10 +4,10 @@
 namespace marlin {
 namespace net {
 
-uint256_t::uint256_t(uint8_t const& other) : lo(other) {}
-uint256_t::uint256_t(uint16_t const& other) : lo(other) {}
-uint256_t::uint256_t(uint32_t const& other) : lo(other) {}
-uint256_t::uint256_t(uint64_t const& other) : lo(other) {}
+uint256_t::uint256_t(uint8_t const& other) : lo(other), lohi(0), hilo(0), hi(0) {}
+uint256_t::uint256_t(uint16_t const& other) : lo(other), lohi(0), hilo(0), hi(0) {}
+uint256_t::uint256_t(uint32_t const& other) : lo(other), lohi(0), hilo(0), hi(0) {}
+uint256_t::uint256_t(uint64_t const& other) : lo(other), lohi(0), hilo(0), hi(0) {}
 
 uint256_t uint256_t::operator+(uint256_t const& other) const {
     uint256_t temp;
