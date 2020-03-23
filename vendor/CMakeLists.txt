@@ -56,7 +56,7 @@ set_target_properties(sodium PROPERTIES
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/libsodium/include
 )
 
-# cryptopp
+#-------- cryptopp --------#
 include(ExternalProject)
 ExternalProject_Add(libcryptopp
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
