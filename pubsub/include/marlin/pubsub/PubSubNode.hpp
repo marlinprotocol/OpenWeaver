@@ -1143,6 +1143,9 @@ PubSubNode<
 
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
 
+	if constexpr (!std::is_void_v<WitnesserType>) {
+		WitnesserBaseType::witnesser.secret_key = keys;
+	}
 }
 
 

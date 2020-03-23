@@ -25,7 +25,7 @@ public:
 		true,
 		true,
 		true,
-		MessageAttestation,
+		void,
 		ChainWitnesser
 	>;
 
@@ -141,9 +141,9 @@ int main(int argc, char **argv) {
 		true,
 		true,
 		true,
-		MessageAttestation,
+		void,
 		ChainWitnesser
-	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, priv_key1);
+	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
 	ps.delegate = &g;
 	g.ps = &ps;
 
