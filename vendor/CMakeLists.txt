@@ -73,3 +73,7 @@ set_target_properties(cryptopp PROPERTIES
 	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/lib/libcryptopp.a
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/include
 )
+
+
+#-------- intx --------#
+add_subdirectory(intx)
