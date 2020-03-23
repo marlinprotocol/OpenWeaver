@@ -4,10 +4,10 @@
 namespace marlin {
 namespace net {
 
-uint256_t::uint256_t() noexcept = default;
-uint256_t::uint256_t(uint256_t const& other) noexcept = default;
-
-uint256_t::uint256_t(char const* buf, size_t size);
+uint256_t::uint256_t(uint8_t const& other) : lo(other) {}
+uint256_t::uint256_t(uint16_t const& other) : lo(other) {}
+uint256_t::uint256_t(uint32_t const& other) : lo(other) {}
+uint256_t::uint256_t(uint64_t const& other) : lo(other) {}
 
 uint256_t uint256_t::operator+(uint256_t const& other) const {
     uint256_t temp;

@@ -13,6 +13,7 @@ namespace marlin {
 namespace net {
 
 struct __attribute__((packed)) alignas(32) uint256_t {
+private:
 #if MARLIN_NET_ENDIANNESS == MARLIN_NET_BIG_ENDIAN
     uint64_t hi;
     uint64_t hilo;
@@ -24,9 +25,14 @@ struct __attribute__((packed)) alignas(32) uint256_t {
     uint64_t hilo;
     uint64_t hi;
 #endif
-
+public:
     uint256_t() = default;
     uint256_t(uint256_t const& other) = default;
+
+    uint256_t(uint8_t const& other);
+    uint256_t(uint16_t const& other);
+    uint256_t(uint32_t const& other);
+    uint256_t(uint64_t const& other);
 
     uint256_t operator+(uint256_t const& other) const;
     uint256_t& operator+=(uint256_t const& other);
