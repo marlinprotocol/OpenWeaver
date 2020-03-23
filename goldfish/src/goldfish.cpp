@@ -1,13 +1,19 @@
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/ChainWitnesser.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <unistd.h>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/oids.h>
 
 
 using namespace marlin;
 using namespace marlin::net;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
+using namespace CryptoPP;
 
 #define PUBSUB_PROTOCOL_NUMBER 0x10000000
 
@@ -62,7 +68,7 @@ public:
 	void did_recv_message(
 		PubSubNodeType &,
 		Buffer &&,
-		Buffer &&,
+		typename PubSubNodeType::MessageHeaderType,
 		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
@@ -122,6 +128,10 @@ int main(int argc, char **argv) {
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 	crypto_box_keypair(static_pk, static_sk);
+
+	ECDSA<ECP,SHA256>::PrivateKey priv_key1,priv_key2;
+	AutoSeededRandomPool rnd1,rnd2;
+	priv_key1.Initialize(rnd1,ASN1::secp256k1());
 
 	// Pubsub
 	PubSubNode<
