@@ -24,9 +24,7 @@ public:
 		Self,
 		true,
 		true,
-		true,
-		void,
-		ChainWitnesser
+		true
 	>;
 
 	DiscoveryClient<Goldfish> *b;
@@ -140,9 +138,7 @@ int main(int argc, char **argv) {
 		Goldfish,
 		true,
 		true,
-		true,
-		void,
-		ChainWitnesser
+		true
 	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
 	ps.delegate = &g;
 	g.ps = &ps;
