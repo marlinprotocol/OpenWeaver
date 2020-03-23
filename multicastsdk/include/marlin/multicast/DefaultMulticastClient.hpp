@@ -28,9 +28,7 @@ public:
 		Self,
 		false,
 		false,
-		false,
-		void,
-		pubsub::ChainWitnesser
+		false
 	>;
 
 	beacon::DiscoveryClient<Self> b;
