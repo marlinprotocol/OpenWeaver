@@ -1,0 +1,3 @@
+[submodule "vendor/intx"]
+	path = vendor/intx
+	url = https://github.com/chfast/intx.git
