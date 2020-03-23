@@ -62,7 +62,7 @@ ExternalProject_Add(libcryptopp
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make -j8
-	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make DESTDIR=${CMAKE_CURRENT_BINARY_DIR}/libcryptopp install
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make install PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cryptopp
 )
 
 add_library(cryptopp STATIC IMPORTED GLOBAL)
@@ -70,6 +70,6 @@ add_library(cryptopp::CryptoPP ALIAS cryptopp)
 add_dependencies(cryptopp libcryptopp)
 
 set_target_properties(cryptopp PROPERTIES
-	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/libcryptopp/lib/libcryptopp.a
-	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/libcryptopp/include
+	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/lib/libcryptopp.a
+	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/include
 )
