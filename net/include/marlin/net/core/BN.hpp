@@ -29,10 +29,12 @@ public:
     uint256_t() = default;
     uint256_t(uint256_t const& other) = default;
 
-    uint256_t(uint8_t const& other);
-    uint256_t(uint16_t const& other);
-    uint256_t(uint32_t const& other);
-    uint256_t(uint64_t const& other);
+    uint256_t(
+        uint64_t const& lo,
+        uint64_t const& lohi = 0,
+        uint64_t const& hilo = 0,
+        uint64_t const& hi = 0
+    );
 
     uint256_t operator+(uint256_t const& other) const;
     uint256_t& operator+=(uint256_t const& other);
