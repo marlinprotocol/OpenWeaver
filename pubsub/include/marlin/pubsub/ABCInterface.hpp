@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/net/core/BN.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/net/core/EventLoop.hpp>
@@ -64,7 +65,7 @@ using LpfTcpTransport = lpf::LpfTransport<
 class ABCInterface {
 
 std::string privateKey;
-std::map<std::string, std::string> stakeAddressMap;
+std::map<std::string, net::uint256_t> stakeAddressMap;
 uint64_t lastUpdateTime;
 uint64_t latestBlockReceived;
 
@@ -169,19 +170,34 @@ public:
 				std::string addressString = hexStr(message.data(), addressLength);
 				message.cover(addressLength);
 
-				std::string balanceString = hexStr(message.data(), balanceLength);
-				message.cover(balanceLength);
-
-				stakeAddressMap[addressString] = balanceString;
-
 				SPDLOG_INFO(
 					"address {}",
 					addressString
 				);
 
+				uint64_t hi = message.read_uint64_be(0);
+				message.cover(8);
+				uint64_t hilo = message.read_uint64_be(0);
+				message.cover(8);
+				uint64_t lohi = message.read_uint64_be(0);
+				message.cover(8);
+				uint64_t lo = message.read_uint64_be(0);
+				message.cover(8);
+
+				auto balance = net::uint256_t(lo, lohi, hilo, hi);
+				stakeAddressMap[addressString] = balance;
+
+				// std::string balanceString = hexStr(message.data(), balanceLength);
+				// message.cover(balanceLength);
+				// stakeAddressMap[addressString] = balanceString
+				// SPDLOG_INFO(
+				// 	"balance {}",
+				// 	balanceString
+				// );
+
 				SPDLOG_INFO(
-					"balance {}",
-					balanceString
+					"balance {} {} {} {}",
+					hi, hilo, lohi, lo
 				);
 			}
 
@@ -263,10 +279,14 @@ public:
 	}
 
 	// TODO check if entry is new
-	std::string getStake(std::string address) {
+	net::uint256_t getStake(std::string address) {
 		if (! is_alive() || (stakeAddressMap.find(address) == stakeAddressMap.end()))
-			return "";
+			return NULL;
 		return stakeAddressMap[address];
+	}
+
+	std::string getPrivateKey() {
+		return privateKey;
 	}
 };
 
