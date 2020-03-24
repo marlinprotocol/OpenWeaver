@@ -57,8 +57,20 @@ struct WitnessHeader<true> {
 	uint64_t witness_size = 0;
 };
 
-template<typename WitnesserType>
-struct MessageHeader : public WitnessHeader<!std::is_void_v<WitnesserType>> {
+template<bool>
+struct AttestationHeader {};
+
+template<>
+struct AttestationHeader<true> {
+	char const* attestation_data = nullptr;
+	uint64_t attestation_size = 0;
+};
+
+template<typename AttesterType, typename WitnesserType>
+struct MessageHeader :
+	public AttestationHeader<!std::is_void_v<AttesterType>>,
+	public WitnessHeader<!std::is_void_v<WitnesserType>> {
+	using AttestationHeaderType = AttestationHeader<!std::is_void_v<AttesterType>>;
 	using WitnessHeaderType = WitnessHeader<!std::is_void_v<WitnesserType>>;
 };
 
@@ -103,7 +115,7 @@ public:
 	using AttesterBaseType = AttesterBase<AttesterType, !std::is_void_v<AttesterType>>;
 	using WitnesserBaseType = WitnesserBase<WitnesserType, !std::is_void_v<WitnesserType>>;
 
-	using MessageHeaderType = MessageHeader<WitnesserType>;
+	using MessageHeaderType = MessageHeader<AttesterType, WitnesserType>;
 
 	template<typename ListenDelegate, typename TransportDelegate>
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
