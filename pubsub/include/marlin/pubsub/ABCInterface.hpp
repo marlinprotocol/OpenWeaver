@@ -64,10 +64,10 @@ using LpfTcpTransport = lpf::LpfTransport<
 
 class ABCInterface {
 
-std::string privateKey;
-std::map<std::string, net::uint256_t> stakeAddressMap;
-uint64_t lastUpdateTime;
-uint64_t latestBlockReceived;
+	std::string privateKey;
+	std::map<std::string, net::uint256_t> stakeAddressMap;
+	uint64_t lastUpdateTime;
+	uint64_t latestBlockReceived;
 
 public:
 	LpfTcpTransportFactory f;
