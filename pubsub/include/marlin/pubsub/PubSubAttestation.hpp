@@ -1,3 +1,10 @@
+/*! \file PubSubAttestation.hpp
+    \brief for attesting(by prover) and verifying(by verifier) PubSub messages
+*/
+
+#ifndef MARLIN_PUBSUB_PUBSUBATTESTATION_HPP
+#define MARLIN_PUBSUB_PUBSUBATTESTATION_HPP
+
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/eccrypto.h>
 #include <cryptopp/osrng.h>
@@ -8,6 +15,9 @@
 #include <map>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
+
+namespace marlin{
+namespace pubsub{
 
 class MessageAttestation{
 	typedef CryptoPP::ECP ECP;
@@ -130,3 +140,8 @@ public:
 	}
 
 };
+
+} // namespace pubsub
+} // namespace marlin
+
+#endif // MARLIN_PUBSUB_PUBSUBATTESTATION_HPP
