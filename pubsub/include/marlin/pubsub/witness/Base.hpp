@@ -7,14 +7,6 @@
 namespace marlin {
 namespace pubsub {
 
-template<typename WitnesserType, bool b>
-struct WitnesserBase {};
-
-template<typename WitnesserType>
-struct WitnesserBase<WitnesserType, true> {
-	WitnesserType witnesser;
-};
-
 template<bool>
 struct WitnessHeader {};
 

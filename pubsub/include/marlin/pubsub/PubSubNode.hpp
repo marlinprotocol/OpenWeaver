@@ -68,11 +68,8 @@ template<
 	typename AttesterType = EmptyAttester,
 	typename WitnesserType = EmptyWitnesser
 >
-class PubSubNode :
-	private AttesterBase<AttesterType, !std::is_void_v<AttesterType>>,
-	private WitnesserBase<WitnesserType, !std::is_void_v<WitnesserType>> {
+class PubSubNode {
 private:
-	std::string home_dir;
 	size_t max_sol_conns;
 	size_t max_unsol_conns;
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
@@ -89,8 +86,6 @@ public:
 		AttesterType,
 		WitnesserType
 	>;
-	using AttesterBaseType = AttesterBase<AttesterType, !std::is_void_v<AttesterType>>;
-	using WitnesserBaseType = WitnesserBase<WitnesserType, !std::is_void_v<WitnesserType>>;
 
 	using MessageHeaderType = MessageHeader<AttesterType, WitnesserType>;
 
@@ -120,7 +115,8 @@ public:
 		enable_cut_through
 	>;
 private:
-
+	AttesterType attester;
+	WitnesserType witnesser;
 //---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -677,14 +673,14 @@ int PubSubNode<
 		MessageHeaderType header = {};
 
 		header.attestation_data = bytes.data();
-		header.attestation_size = AttesterBaseType::attester.parse_size(bytes, 0);
+		header.attestation_size = attester.parse_size(bytes, 0);
 		bytes.cover(header.attestation_size);
 
 		header.witness_data = bytes.data();
-		header.witness_size = WitnesserBaseType::witnesser.parse_size(bytes, 0);
+		header.witness_size = witnesser.parse_size(bytes, 0);
 		bytes.cover(header.witness_size);
 
-		if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
+		if(!attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
 			SPDLOG_ERROR("Attestation verification failed");
 			transport.close();
 			return -1;
@@ -772,17 +768,17 @@ net::Buffer PubSubNode<
 	MessageHeaderType prev_header
 ) {
 	uint64_t buf_size = 11 + size;
-	buf_size += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
+	buf_size += attester.attestation_size(message_id, channel, data, size, prev_header);
+	buf_size += witnesser.witness_size(prev_header);
 	net::Buffer m({3}, buf_size);
 	m.write_uint64_be(1, message_id);
 	m.write_uint16_be(9, channel);
 
 	uint64_t offset = 11;
-	AttesterBaseType::attester.attest(message_id, channel, data, size, prev_header, m, offset);
-	offset += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	WitnesserBaseType::witnesser.witness(prev_header, m, offset);
-	offset += WitnesserBaseType::witnesser.witness_size(prev_header);
+	attester.attest(message_id, channel, data, size, prev_header, m, offset);
+	offset += attester.attestation_size(message_id, channel, data, size, prev_header);
+	witnesser.witness(prev_header, m, offset);
+	offset += witnesser.witness_size(prev_header);
 	m.write(offset, data, size);
 
 	return m;
@@ -1090,10 +1086,10 @@ PubSubNode<
 	uint8_t const* keys,
 	std::tuple<AttesterArgs...> attester_args,
 	std::tuple<WitnesserArgs...> witnesser_args
-) : AttesterBaseType(std::get<std::index_sequence_for<AttesterArgs>>(attester_args)...),
-	WitnesserBaseType(std::get<std::index_sequence_for<WitnesserArgs>>(witnesser_args)...),
-	max_sol_conns(max_sol),
+) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
+	attester(std::get<std::index_sequence_for<AttesterArgs>>(attester_args)...),
+	witnesser(std::get<std::index_sequence_for<WitnesserArgs>>(witnesser_args)...),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),

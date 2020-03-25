@@ -7,14 +7,6 @@
 namespace marlin {
 namespace pubsub {
 
-template<typename AttesterType, bool b>
-struct AttesterBase {};
-
-template<typename AttesterType>
-struct AttesterBase<AttesterType, true> {
-	AttesterType attester;
-};
-
 template<bool>
 struct AttestationHeader {};
 
