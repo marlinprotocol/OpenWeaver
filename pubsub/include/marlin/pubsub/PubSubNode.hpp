@@ -26,6 +26,7 @@
 
 #include "marlin/pubsub/attestation/Base.hpp"
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
+#include "marlin/pubsub/witness/EmptyWitnesser.hpp"
 #include "marlin/pubsub/witness/Base.hpp"
 
 namespace marlin {
@@ -65,7 +66,7 @@ template<
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
-	typename WitnesserType = void
+	typename WitnesserType = EmptyWitnesser
 >
 class PubSubNode :
 	private AttesterBase<AttesterType, !std::is_void_v<AttesterType>>,
@@ -679,11 +680,9 @@ int PubSubNode<
 		header.attestation_size = AttesterBaseType::attester.parse_size(bytes, 0);
 		bytes.cover(header.attestation_size);
 
-		if constexpr (!std::is_void_v<WitnesserType>) {
-			header.witness_data = bytes.data();
-			header.witness_size = WitnesserBaseType::witnesser.parse_size(bytes, 0);
-			bytes.cover(header.witness_size);
-		}
+		header.witness_data = bytes.data();
+		header.witness_size = WitnesserBaseType::witnesser.parse_size(bytes, 0);
+		bytes.cover(header.witness_size);
 
 		if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
 			SPDLOG_ERROR("Attestation verification failed");
@@ -774,9 +773,7 @@ net::Buffer PubSubNode<
 ) {
 	uint64_t buf_size = 11 + size;
 	buf_size += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	if constexpr (!std::is_void_v<WitnesserType>) {
-		buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
-	}
+	buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
 	net::Buffer m({3}, buf_size);
 	m.write_uint64_be(1, message_id);
 	m.write_uint16_be(9, channel);
@@ -784,10 +781,8 @@ net::Buffer PubSubNode<
 	uint64_t offset = 11;
 	AttesterBaseType::attester.attest(message_id, channel, data, size, prev_header, m, offset);
 	offset += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	if constexpr (!std::is_void_v<WitnesserType>) {
-		WitnesserBaseType::witnesser.witness(prev_header, m, offset);
-		offset += WitnesserBaseType::witnesser.witness_size(prev_header);
-	}
+	WitnesserBaseType::witnesser.witness(prev_header, m, offset);
+	offset += WitnesserBaseType::witnesser.witness_size(prev_header);
 	m.write(offset, data, size);
 
 	return m;
@@ -1119,14 +1114,8 @@ PubSubNode<
 	);
 
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
-
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
-
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
-
-	if constexpr (!std::is_void_v<WitnesserType>) {
-		WitnesserBaseType::witnesser.secret_key = keys;
-	}
 }
 
 template<
