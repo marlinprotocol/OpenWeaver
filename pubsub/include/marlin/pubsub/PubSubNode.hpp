@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <type_traits>
 #include <utility>
+#include <tuple>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
@@ -220,7 +221,10 @@ public:
 
 //---------------- Public Interface ----------------//
 public:
-	template<typename ...AttesterArgs, typename ...WitnesserArgs>
+	template<
+		typename ...AttesterArgs,
+		typename ...WitnesserArgs
+	>
 	PubSubNode(
 		const net::SocketAddress &_addr,
 		size_t max_sol,
@@ -257,6 +261,23 @@ public:
 	void subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void unsubscribe(net::SocketAddress const &addr);
 private:
+	template<
+		typename ...AttesterArgs,
+		typename ...WitnesserArgs,
+		size_t ...AI,
+		size_t ...WI
+	>
+	PubSubNode(
+		const net::SocketAddress &_addr,
+		size_t max_sol,
+		size_t max_unsol,
+		uint8_t const *keys,
+		std::tuple<AttesterArgs...> attester_args,
+		std::tuple<WitnesserArgs...> witnesser_args,
+		// Need the below args for tuple destructuring
+		std::index_sequence<AI...>,
+		std::index_sequence<WI...>
+	);
 
 //---------------- Message deduplication ----------------//
 public:
@@ -1068,7 +1089,10 @@ template<
 	typename AttesterType,
 	typename WitnesserType
 >
-template<typename ...AttesterArgs, typename ...WitnesserArgs>
+template<
+	typename ...AttesterArgs,
+	typename ...WitnesserArgs
+>
 PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
@@ -1083,10 +1107,51 @@ PubSubNode<
 	uint8_t const* keys,
 	std::tuple<AttesterArgs...> attester_args,
 	std::tuple<WitnesserArgs...> witnesser_args
+) : PubSubNode(
+	addr,
+	max_sol,
+	max_unsol,
+	keys,
+	std::move(attester_args),
+	std::move(witnesser_args),
+	std::index_sequence_for<AttesterArgs...>{},
+	std::index_sequence_for<WitnesserArgs...>{}
+) {}
+
+template<
+	typename PubSubDelegate,
+	bool enable_cut_through,
+	bool accept_unsol_conn,
+	bool enable_relay,
+	typename AttesterType,
+	typename WitnesserType
+>
+template<
+	typename ...AttesterArgs,
+	typename ...WitnesserArgs,
+	size_t ...AI,
+	size_t ...WI
+>
+PubSubNode<
+	PubSubDelegate,
+	enable_cut_through,
+	accept_unsol_conn,
+	enable_relay,
+	AttesterType,
+	WitnesserType
+>::PubSubNode(
+	const net::SocketAddress &addr,
+	size_t max_sol,
+	size_t max_unsol,
+	uint8_t const* keys,
+	std::tuple<AttesterArgs...> attester_args,
+	std::tuple<WitnesserArgs...> witnesser_args,
+	std::index_sequence<AI...>,
+	std::index_sequence<WI...>
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
-	attester(std::get<std::index_sequence_for<AttesterArgs>>(attester_args)...),
-	witnesser(std::get<std::index_sequence_for<WitnesserArgs>>(witnesser_args)...),
+	attester(std::get<AI>(attester_args)...),
+	witnesser(std::get<WI>(witnesser_args)...),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),

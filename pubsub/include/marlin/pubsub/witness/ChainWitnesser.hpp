@@ -12,6 +12,8 @@ struct ChainWitnesser {
 	using KeyType = uint8_t const*;
 	KeyType secret_key;
 
+	ChainWitnesser(KeyType secret_key) : secret_key(secret_key) {}
+
 	template<typename HeaderType>
 	constexpr uint64_t witness_size(
 		HeaderType prev_witness_header
