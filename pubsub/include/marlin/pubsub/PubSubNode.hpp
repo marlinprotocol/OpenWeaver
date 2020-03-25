@@ -24,10 +24,8 @@
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
-#include "marlin/pubsub/attestation/Base.hpp"
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
-#include "marlin/pubsub/witness/Base.hpp"
 
 namespace marlin {
 
@@ -43,12 +41,11 @@ struct IsTransportEncrypted<stream::StreamTransport<
 
 namespace pubsub {
 
-template<typename AttesterType, typename WitnesserType>
-struct MessageHeader :
-	public AttestationHeader<!std::is_void_v<AttesterType>>,
-	public WitnessHeader<!std::is_void_v<WitnesserType>> {
-	using AttestationHeaderType = AttestationHeader<!std::is_void_v<AttesterType>>;
-	using WitnessHeaderType = WitnessHeader<!std::is_void_v<WitnesserType>>;
+struct MessageHeader {
+	char const* attestation_data = nullptr;
+	uint64_t attestation_size = 0;
+	char const* witness_data = nullptr;
+	uint64_t witness_size = 0;
 };
 
 //! Class containing the Pub-Sub functionality
@@ -87,7 +84,7 @@ public:
 		WitnesserType
 	>;
 
-	using MessageHeaderType = MessageHeader<AttesterType, WitnesserType>;
+	using MessageHeaderType = MessageHeader;
 
 	template<typename ListenDelegate, typename TransportDelegate>
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
