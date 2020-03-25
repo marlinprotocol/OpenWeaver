@@ -17,6 +17,8 @@ struct StakeAttester {
 	using KeyType = CryptoType::PrivateKey;
 	KeyType secret_key;
 
+	StakeAttester(KeyType secret_key) : secret_key(secret_key) {}
+
 	template<typename HeaderType>
 	constexpr uint64_t attestation_size(
 		uint64_t,

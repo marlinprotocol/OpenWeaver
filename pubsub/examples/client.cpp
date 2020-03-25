@@ -17,7 +17,7 @@ using namespace CryptoPP;
 
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, EmptyWitnesser>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>;
 
 public:
 	std::vector<uint16_t> channels = {100, 101};
@@ -71,11 +71,11 @@ int main() {
 	AutoSeededRandomPool rnd1,rnd2;
 	priv_key1.Initialize(rnd1,ASN1::secp256k1());
 	priv_key2.Initialize(rnd2,ASN1::secp256k1());
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, EmptyWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk);
+	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, std::tuple(priv_key1), std::tuple(static_sk));
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, EmptyWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk);
+	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, std::tuple(priv_key2), std::tuple(static_sk));
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
