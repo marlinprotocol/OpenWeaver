@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_WITNESS_CHAINWITNESSER_HPP
 
 #include <stdint.h>
-#include <cstring>
+#include <marlin/net/Buffer.hpp>
 
 
 namespace marlin {
@@ -34,7 +34,7 @@ struct ChainWitnesser {
 		return 0;
 	}
 
-	uint64_t parse_length(net::Buffer& in, uint64_t offset = 0) {
+	uint64_t parse_size(net::Buffer& in, uint64_t offset = 0) {
 		return in.read_uint16_be(offset) + 2;
 	}
 };

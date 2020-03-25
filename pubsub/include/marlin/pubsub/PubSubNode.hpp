@@ -22,8 +22,8 @@
 #include <type_traits>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
-#include <marlin/pubsub/PubSubAttestation.hpp>
 
+#include "marlin/pubsub/attestation/Base.hpp"
 #include "marlin/pubsub/witness/Base.hpp"
 
 namespace marlin {
@@ -39,32 +39,6 @@ struct IsTransportEncrypted<stream::StreamTransport<
 }
 
 namespace pubsub {
-
-template<typename AttesterType, bool b>
-struct AttesterBase {};
-
-template<typename AttesterType>
-struct AttesterBase<AttesterType, true> {
-	AttesterType attester;
-};
-
-template<bool>
-struct WitnessHeader {};
-
-template<>
-struct WitnessHeader<true> {
-	char const* witness_data = nullptr;
-	uint64_t witness_size = 0;
-};
-
-template<bool>
-struct AttestationHeader {};
-
-template<>
-struct AttestationHeader<true> {
-	char const* attestation_data = nullptr;
-	uint64_t attestation_size = 0;
-};
 
 template<typename AttesterType, typename WitnesserType>
 struct MessageHeader :
@@ -702,35 +676,29 @@ int PubSubNode<
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
-		message_id_set.insert(message_id);
-		message_id_events[message_id_idx].push_back(message_id);
+		bytes.cover(10);
+		MessageHeaderType header = {};
 
-		auto header = [&] {
-			if constexpr (std::is_void_v<WitnesserType>) {
-				return MessageHeaderType {};
-			} else {
-				uint64_t witness_length = bytes.read_uint16_be(10);
-				return MessageHeaderType { { bytes.data()+10, witness_length+2 } };
-			}
-		}();
-
-		if constexpr (std::is_void_v<WitnesserType>) {
-			bytes.cover(10);
-		} else {
-			bytes.cover(10 + static_cast<typename MessageHeaderType::WitnessHeaderType>(header).witness_size);
+		if constexpr (!std::is_void_v<AttesterType>) {
+			header.attestation_data = bytes.data();
+			header.attestation_size = AttesterBaseType::attester.parse_size(bytes, 0);
+			bytes.cover(header.attestation_size);
 		}
 
-		// // received msg sequence: (Time Stamp | Message)
-		// uint64_t time_stamp=0;
-		// memcpy(&time_stamp,bytes.data(),8);
-		// bytes.cover(8);
-		// if constexpr (!std::is_void_v<AttesterType>) {
-		// 	if (!AttesterBaseType::attester.verify( time_stamp, message_id, channel, bytes.size(), bytes.data(), witness, witness_length)){ // add transport.dst_addr to arguments to get specific pub key
-		// 		SPDLOG_ERROR("PUBSUBNODE did_recv_MESSAGE ### Attestation Unsuccessful");
-		// 		transport.close();
-		// 		return -1;
-		// 	}
-		// }
+		if constexpr (!std::is_void_v<WitnesserType>) {
+			header.witness_data = bytes.data();
+			header.witness_size = WitnesserBaseType::witnesser.parse_size(bytes, 0);
+			bytes.cover(header.witness_size);
+		}
+
+		if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
+			SPDLOG_ERROR("Attestation verification failed");
+			transport.close();
+			return -1;
+		}
+
+		message_id_set.insert(message_id);
+		message_id_events[message_id_idx].push_back(message_id);
 
 		if constexpr (enable_relay) {
 			send_message_on_channel(
@@ -811,6 +779,9 @@ net::Buffer PubSubNode<
 	MessageHeaderType prev_header
 ) {
 	uint64_t buf_size = 11 + size;
+	if constexpr (!std::is_void_v<AttesterType>) {
+		buf_size += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
+	}
 	if constexpr (!std::is_void_v<WitnesserType>) {
 		buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
 	}
@@ -819,6 +790,10 @@ net::Buffer PubSubNode<
 	m.write_uint16_be(9, channel);
 
 	uint64_t offset = 11;
+	if constexpr (!std::is_void_v<AttesterType>) {
+		AttesterBaseType::attester.attest(message_id, channel, data, size, prev_header, m, offset);
+		offset += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
+	}
 	if constexpr (!std::is_void_v<WitnesserType>) {
 		WitnesserBaseType::witnesser.witness(prev_header, m, offset);
 		offset += WitnesserBaseType::witnesser.witness_size(prev_header);
@@ -1306,18 +1281,6 @@ void PubSubNode<
 	net::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
-	// uint64_t time_stamp = 0;
-
-	// // generating attestation signature
-	// // CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer s;
-	// char* attst_signature = new char[64];
-	// uint64_t attst_len=0;
-	// // AttesterBaseType::attester.attest(time_stamp, message_id, channel, size, data, attst_signature, attst_len);
-	// // time of signature generation is concatenated to data
-	// char *t_data = new char[size+8];
-	// memcpy(t_data, &time_stamp, 8);
-	// memcpy(t_data+8, data, size);
-
 	for (
 		auto it = sol_conns.begin();
 		it != sol_conns.end();
@@ -1327,7 +1290,6 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
-		// send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 
 	for (
@@ -1339,7 +1301,6 @@ void PubSubNode<
 		if(excluded != nullptr && (*it)->dst_addr == *excluded)
 			continue;
 		send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
-		// send_message_with_cut_through_check(*it, channel, message_id, t_data, size+8, attst_signature, attst_len);
 	}
 }
 
