@@ -42,7 +42,7 @@ public:
 			"Received message {} on channel {} with witness {}",
 			message_id,
 			channel,
-			std::string(static_cast<typename PubSubNodeType::MessageHeaderType::WitnessHeaderType>(header).witness_data, static_cast<typename PubSubNodeType::MessageHeaderType::WitnessHeaderType>(header).witness_size)
+			std::string(header.witness_data, header.witness_size)
 		);
 	}
 
