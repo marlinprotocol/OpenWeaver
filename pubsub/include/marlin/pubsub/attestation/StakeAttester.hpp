@@ -19,40 +19,40 @@ struct StakeAttester {
 
 	template<typename HeaderType>
 	constexpr uint64_t attestation_size(
-		uint64_t message_id,
-		uint16_t channel,
-		char const* message_data,
-		uint64_t message_size,
-		HeaderType prev_attestation_header
+		uint64_t,
+		uint16_t,
+		char const*,
+		uint64_t,
+		HeaderType
 	) {
 		return 0;
 	}
 
 	template<typename HeaderType>
 	int attest(
-		uint64_t message_id,
-		uint16_t channel,
-		char const* message_data,
-		uint64_t message_size,
-		HeaderType prev_attestation_header,
-		net::Buffer& out,
-		uint64_t offset = 0
+		uint64_t,
+		uint16_t,
+		char const*,
+		uint64_t,
+		HeaderType,
+		net::Buffer&,
+		uint64_t = 0
 	) {
 		return 0;
 	}
 
 	template<typename HeaderType>
-	int verify(
-		uint64_t message_id,
-		uint16_t channel,
-		char const* message_data,
-		uint64_t message_size,
-		HeaderType prev_attestation_header
+	bool verify(
+		uint64_t,
+		uint16_t,
+		char const*,
+		uint64_t,
+		HeaderType
 	) {
-		return 0;
+		return true;
 	}
 
-	uint64_t parse_size(net::Buffer& in, uint64_t offset = 0) {
+	uint64_t parse_size(net::Buffer&, uint64_t = 0) {
 		return 0;
 	}
 };

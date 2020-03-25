@@ -691,10 +691,12 @@ int PubSubNode<
 			bytes.cover(header.witness_size);
 		}
 
-		if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
-			SPDLOG_ERROR("Attestation verification failed");
-			transport.close();
-			return -1;
+		if constexpr (!std::is_void_v<AttesterType>) {
+			if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
+				SPDLOG_ERROR("Attestation verification failed");
+				transport.close();
+				return -1;
+			}
 		}
 
 		message_id_set.insert(message_id);
