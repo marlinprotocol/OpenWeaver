@@ -20,10 +20,12 @@
 #include <random>
 #include <unordered_set>
 #include <type_traits>
+#include <utility>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
 
 #include "marlin/pubsub/attestation/Base.hpp"
+#include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/Base.hpp"
 
 namespace marlin {
@@ -62,7 +64,7 @@ template<
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
-	typename AttesterType = void,
+	typename AttesterType = EmptyAttester,
 	typename WitnesserType = void
 >
 class PubSubNode :
@@ -224,20 +226,14 @@ public:
 
 //---------------- Public Interface ----------------//
 public:
-	template<typename T = AttesterType, typename = std::enable_if_t<std::is_void_v<T>>>
-	PubSubNode(
-		const net::SocketAddress &_addr,
-		size_t max_sol,
-		size_t max_unsol,
-		uint8_t const *keys
-	);
-	template<typename T = AttesterType, typename = std::enable_if_t<!std::is_void_v<T>>, typename KeyType = typename T::KeyType>
+	template<typename ...AttesterArgs, typename ...WitnesserArgs>
 	PubSubNode(
 		const net::SocketAddress &_addr,
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
-		KeyType priv_key
+		std::tuple<AttesterArgs...> attester_args = {},
+		std::tuple<WitnesserArgs...> witnesser_args = {}
 	);
 	PubSubDelegate *delegate;
 
@@ -679,11 +675,9 @@ int PubSubNode<
 		bytes.cover(10);
 		MessageHeaderType header = {};
 
-		if constexpr (!std::is_void_v<AttesterType>) {
-			header.attestation_data = bytes.data();
-			header.attestation_size = AttesterBaseType::attester.parse_size(bytes, 0);
-			bytes.cover(header.attestation_size);
-		}
+		header.attestation_data = bytes.data();
+		header.attestation_size = AttesterBaseType::attester.parse_size(bytes, 0);
+		bytes.cover(header.attestation_size);
 
 		if constexpr (!std::is_void_v<WitnesserType>) {
 			header.witness_data = bytes.data();
@@ -691,12 +685,10 @@ int PubSubNode<
 			bytes.cover(header.witness_size);
 		}
 
-		if constexpr (!std::is_void_v<AttesterType>) {
-			if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
-				SPDLOG_ERROR("Attestation verification failed");
-				transport.close();
-				return -1;
-			}
+		if(!AttesterBaseType::attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
+			SPDLOG_ERROR("Attestation verification failed");
+			transport.close();
+			return -1;
 		}
 
 		message_id_set.insert(message_id);
@@ -781,9 +773,7 @@ net::Buffer PubSubNode<
 	MessageHeaderType prev_header
 ) {
 	uint64_t buf_size = 11 + size;
-	if constexpr (!std::is_void_v<AttesterType>) {
-		buf_size += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	}
+	buf_size += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
 	if constexpr (!std::is_void_v<WitnesserType>) {
 		buf_size += WitnesserBaseType::witnesser.witness_size(prev_header);
 	}
@@ -792,10 +782,8 @@ net::Buffer PubSubNode<
 	m.write_uint16_be(9, channel);
 
 	uint64_t offset = 11;
-	if constexpr (!std::is_void_v<AttesterType>) {
-		AttesterBaseType::attester.attest(message_id, channel, data, size, prev_header, m, offset);
-		offset += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
-	}
+	AttesterBaseType::attester.attest(message_id, channel, data, size, prev_header, m, offset);
+	offset += AttesterBaseType::attester.attestation_size(message_id, channel, data, size, prev_header);
 	if constexpr (!std::is_void_v<WitnesserType>) {
 		WitnesserBaseType::witnesser.witness(prev_header, m, offset);
 		offset += WitnesserBaseType::witnesser.witness_size(prev_header);
@@ -1092,61 +1080,7 @@ template<
 	typename AttesterType,
 	typename WitnesserType
 >
-template<typename, typename>
-PubSubNode<
-	PubSubDelegate,
-	enable_cut_through,
-	accept_unsol_conn,
-	enable_relay,
-	AttesterType,
-	WitnesserType
->::PubSubNode(
-	const net::SocketAddress &addr,
-	size_t max_sol,
-	size_t max_unsol,
-	uint8_t const* keys
-) : max_sol_conns(max_sol),
-	max_unsol_conns(max_unsol),
-	peer_selection_timer(this),
-	blacklist_timer(this),
-	message_id_gen(std::random_device()()),
-	message_id_events(256),
-	message_id_timer(this),
-	keys(keys)
-{
-	f.bind(addr);
-	f.listen(*this);
-
-	SPDLOG_DEBUG(
-		"Assymetric Keys for Attestation were loaded from Smart Contract"
-	);
-
-	SPDLOG_DEBUG(
-		"PUBSUB LISTENING ON : {}",
-		addr.to_string()
-	);
-
-	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
-
-	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
-
-	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
-
-	if constexpr (!std::is_void_v<WitnesserType>) {
-		WitnesserBaseType::witnesser.secret_key = keys;
-	}
-}
-
-
-template<
-	typename PubSubDelegate,
-	bool enable_cut_through,
-	bool accept_unsol_conn,
-	bool enable_relay,
-	typename AttesterType,
-	typename WitnesserType
->
-template<typename, typename, typename KeyType>
+template<typename ...AttesterArgs, typename ...WitnesserArgs>
 PubSubNode<
 	PubSubDelegate,
 	enable_cut_through,
@@ -1159,8 +1093,10 @@ PubSubNode<
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	KeyType priv_key
-) : AttesterBaseType{priv_key},
+	std::tuple<AttesterArgs...> attester_args,
+	std::tuple<WitnesserArgs...> witnesser_args
+) : AttesterBaseType(std::get<std::index_sequence_for<AttesterArgs>>(attester_args)...),
+	WitnesserBaseType(std::get<std::index_sequence_for<WitnesserArgs>>(witnesser_args)...),
 	max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
 	peer_selection_timer(this),
