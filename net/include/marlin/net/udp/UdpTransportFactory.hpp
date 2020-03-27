@@ -54,6 +54,8 @@ public:
 	UdpTransportFactory();
 	~UdpTransportFactory();
 
+	UdpTransportFactory(UdpTransportFactory const&) = delete;
+
 	int bind(SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 

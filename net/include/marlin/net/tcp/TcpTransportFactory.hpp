@@ -51,6 +51,8 @@ public:
 	TcpTransportFactory();
 	~TcpTransportFactory();
 
+	TcpTransportFactory(TcpTransportFactory const&) = delete;
+
 	int bind(SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 	int dial(SocketAddress const &addr, ListenDelegate &delegate);
