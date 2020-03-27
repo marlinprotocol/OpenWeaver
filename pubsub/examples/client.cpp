@@ -69,13 +69,16 @@ int main() {
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 	ECDSA<ECP,SHA256>::PrivateKey priv_key1,priv_key2;
 	AutoSeededRandomPool rnd1,rnd2;
-	priv_key1.Initialize(rnd1,ASN1::secp256k1());
-	priv_key2.Initialize(rnd2,ASN1::secp256k1());
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, std::make_tuple(priv_key1), std::make_tuple(static_sk));
+	// priv_key1.Initialize(rnd1,ASN1::secp256k1());
+	// priv_key2.Initialize(rnd2,ASN1::secp256k1());
+
+	ABCInterface abcIface;
+
+	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, std::make_tuple(priv_key2), std::make_tuple(static_sk));
+	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
