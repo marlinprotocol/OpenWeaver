@@ -20,6 +20,11 @@
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/net/core/EventLoop.hpp>
 
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/oids.h>
+
 namespace marlin {
 namespace pubsub {
 
@@ -63,8 +68,12 @@ using LpfTcpTransport = lpf::LpfTransport<
 >;
 
 class ABCInterface {
+	using CryptoType = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
+	using KeyType = CryptoType::PrivateKey;
+	KeyType secretKey;
+	unsigned char* pkRawBytes = nullptr;
+	// std::string privateKey;
 
-	std::string privateKey;
 	std::map<std::string, net::uint256_t> stakeAddressMap;
 	uint64_t lastUpdateTime;
 	uint64_t latestBlockReceived;
@@ -212,11 +221,24 @@ public:
 		LpfTcpTransport &transport [[maybe_unused]],
 		net::Buffer &message  [[maybe_unused]]
 	) {
-		privateKey = hexStr(message.data(), privateKeyLength);
+		delete []pkRawBytes;
+		pkRawBytes = new unsigned char[privateKeyLength];
+		memcpy(pkRawBytes, message.data(), privateKeyLength);
+
+		// privateKey = hexStr(message.data(), privateKeyLength);
 		SPDLOG_INFO(
 			"private key {}",
-			privateKey
+			pkRawBytes
 		);
+
+		CryptoPP::Integer keyInt(
+			pkRawBytes,
+			privateKeyLength,
+			CryptoPP::Integer::Signedness::UNSIGNED,
+			CryptoPP::ByteOrder::BIG_ENDIAN_ORDER
+		);
+
+		secretKey.Initialize(CryptoPP::ASN1::secp256k1(), keyInt);
 	}
 
 	void send_ack_state_update(
@@ -279,15 +301,23 @@ public:
 	}
 
 	// TODO check if entry is new
-	net::uint256_t getStake(std::string address) {
+	net::uint256_t get_stake(std::string address) {
 		if (! is_alive() || (stakeAddressMap.find(address) == stakeAddressMap.end()))
 			return NULL;
 		return stakeAddressMap[address];
 	}
 
-	std::string getPrivateKey() {
-		return privateKey;
+	KeyType* get_private_key() {
+		if (pkRawBytes == nullptr)
+			return nullptr;
+
+		return &secretKey;
 	}
+
+	~ABCInterface() {
+		delete []pkRawBytes;
+	}
+
 };
 
 } // namespace pubsub

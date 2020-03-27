@@ -8,16 +8,15 @@
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
 
+#include "marlin/pubsub/ABCInterface.hpp"
 
 namespace marlin {
 namespace pubsub {
 
 struct StakeAttester {
-	using CryptoType = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
-	using KeyType = CryptoType::PrivateKey;
-	KeyType secret_key;
+	ABCInterface& abci;
 
-	StakeAttester(KeyType secret_key) : secret_key(secret_key) {}
+	StakeAttester (ABCInterface& abci) : abci(abci) {}
 
 	template<typename HeaderType>
 	constexpr uint64_t attestation_size(
