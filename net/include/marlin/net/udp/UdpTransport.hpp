@@ -50,6 +50,7 @@ public:
 		uv_udp_t *socket,
 		TransportManager<UdpTransport<DelegateType>> &transport_manager
 	);
+	UdpTransport(UdpTransport const&) = delete;
 
 	void setup(DelegateType *delegate);
 	void did_recv_packet(Buffer &&packet);
