@@ -71,7 +71,7 @@ class ABCInterface {
 	using CryptoType = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
 	using KeyType = CryptoType::PrivateKey;
 	KeyType secretKey;
-	unsigned char* pkRawBytes = nullptr;
+	unsigned char pkRawBytes[privateKeyLength];
 	// std::string privateKey;
 
 	std::map<std::string, net::uint256_t> stakeAddressMap;
@@ -221,15 +221,13 @@ public:
 		LpfTcpTransport &transport [[maybe_unused]],
 		net::Buffer &message  [[maybe_unused]]
 	) {
-		delete []pkRawBytes;
-		pkRawBytes = new unsigned char[privateKeyLength];
-		memcpy(pkRawBytes, message.data(), privateKeyLength);
+		message.read(0, reinterpret_cast<char*> (pkRawBytes), privateKeyLength);
 
 		// privateKey = hexStr(message.data(), privateKeyLength);
-		SPDLOG_INFO(
-			"private key {}",
-			pkRawBytes
-		);
+		// SPDLOG_INFO(
+		// 	"private key {}",
+		// 	pkRawBytes
+		// );
 
 		CryptoPP::Integer keyInt(
 			pkRawBytes,
@@ -308,16 +306,8 @@ public:
 	}
 
 	KeyType* get_private_key() {
-		if (pkRawBytes == nullptr)
-			return nullptr;
-
 		return &secretKey;
 	}
-
-	~ABCInterface() {
-		delete []pkRawBytes;
-	}
-
 };
 
 } // namespace pubsub
