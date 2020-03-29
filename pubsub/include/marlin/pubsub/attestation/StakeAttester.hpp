@@ -7,7 +7,7 @@
 
 #include "marlin/pubsub/ABCInterface.hpp"
 
-#include <secp256k1_preallocated.h>
+#include <secp256k1_recovery.h>
 
 namespace marlin {
 namespace pubsub {
@@ -60,7 +60,7 @@ struct StakeAttester {
 		out.write_uint64_be(offset+8, stake_offset);
 		stake_offset += message_size;
 
-		// TODO: Rotate stake_offset at epochs
+		// TODO: Reset stake_offset at epochs
 
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
@@ -81,8 +81,8 @@ struct StakeAttester {
 		}
 
 		// Sign
-		secp256k1_ecdsa_signature sig;
-		secp256k1_ecdsa_sign(
+		secp256k1_ecdsa_recoverable_signature sig;
+		auto res = secp256k1_ecdsa_sign_recoverable(
 			ctx_signer,
 			&sig,
 			hash,
@@ -91,14 +91,21 @@ struct StakeAttester {
 			nullptr
 		);
 
+		if(res == 0) {
+			// Sign failed
+			return false;
+		}
+
 		// Output
-		secp256k1_ecdsa_signature_serialize_compact(
+		int recid;
+		secp256k1_ecdsa_recoverable_signature_serialize_compact(
 			ctx_signer,
 			(uint8_t*)out.data()+offset+16,
+			&recid,
 			&sig
 		);
 
-		// TODO: Output recovery
+		out.data()[80] = (char)recid;
 
 		return 0;
 	}
@@ -111,10 +118,6 @@ struct StakeAttester {
 		uint64_t message_size,
 		HeaderType prev_header
 	) {
-		if(prev_header.attestation_size < 81) {
-			return false;
-		}
-
 		// Extract data
 		net::Buffer attestation((char*)prev_header.attestation_data, prev_header.attestation_size);
 		auto timestamp = attestation.read_uint64_be(0);
@@ -144,24 +147,25 @@ struct StakeAttester {
 		hasher.Update(hash, 32);
 
 		// Parse signature
-		secp256k1_ecdsa_signature sig;
-		secp256k1_ecdsa_signature_parse_compact(
+		secp256k1_ecdsa_recoverable_signature sig;
+		secp256k1_ecdsa_recoverable_signature_parse_compact(
 			ctx_verifier,
 			&sig,
-			(uint8_t*)prev_header.attestation_data + 10
+			(uint8_t*)prev_header.attestation_data + 16,
+			(uint8_t)prev_header.attestation_data[80]
 		);
 
 		// Verify signature
 		secp256k1_pubkey pubkey;
-		auto res = secp256k1_ecdsa_verify(
+		auto res = secp256k1_ecdsa_recover(
 			ctx_verifier,
+			&pubkey,
 			&sig,
-			hash,
-			&pubkey
+			hash
 		);
 
 		if(res == 0) {
-			// Verification failed
+			// Recovery failed
 			return false;
 		}
 
