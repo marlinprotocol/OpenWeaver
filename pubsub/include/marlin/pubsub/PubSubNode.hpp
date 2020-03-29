@@ -19,8 +19,6 @@
 #include <spdlog/fmt/bin_to_hex.h>
 #include <random>
 #include <unordered_set>
-#include <type_traits>
-#include <utility>
 #include <tuple>
 
 #include <marlin/pubsub/PubSubTransportSet.hpp>
@@ -598,16 +596,6 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
 
-	// Check overflow
-	// if((uint16_t)bytes.size() < 12 + witness_length)
-	// 	return 0;
-
-	// if(witness_length > 500) {
-	// 	SPDLOG_ERROR("Witness too long: {}", witness_length);
-	// 	transport.close();
-	// 	return -1;
-	// }
-
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
 		bytes.cover(10);
@@ -615,11 +603,23 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 		header.attestation_data = bytes.data();
 		header.attestation_size = attester.parse_size(bytes, 0);
-		bytes.cover(header.attestation_size);
+		auto res = bytes.cover(header.attestation_size);
+
+		if(!res) {
+			SPDLOG_ERROR("Attestation too long: {}", header.attestation_size);
+			transport.close();
+			return -1;
+		}
 
 		header.witness_data = bytes.data();
 		header.witness_size = witnesser.parse_size(bytes, 0);
-		bytes.cover(header.witness_size);
+		res = bytes.cover(header.witness_size);
+
+		if(!res) {
+			SPDLOG_ERROR("Witness too long: {}", header.witness_size);
+			transport.close();
+			return -1;
+		}
 
 		if(!attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
 			SPDLOG_ERROR("Attestation verification failed");
@@ -930,15 +930,6 @@ PUBSUBNODETYPE::PubSubNode(
 {
 	f.bind(addr);
 	f.listen(*this);
-
-	SPDLOG_DEBUG(
-		"Assymetric Keys for Attestation were loaded from Smart Contract"
-	);
-
-	SPDLOG_DEBUG(
-		"PUBSUB LISTENING ON : {}",
-		addr.to_string()
-	);
 
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
