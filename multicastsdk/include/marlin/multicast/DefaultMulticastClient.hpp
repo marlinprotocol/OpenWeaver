@@ -2,7 +2,6 @@
 #define MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/ChainWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 
 
