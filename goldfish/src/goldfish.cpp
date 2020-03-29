@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/eccrypto.h>
+#include <cryptopp/keccak.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
 
@@ -129,7 +130,7 @@ int main(int argc, char **argv) {
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 	crypto_box_keypair(static_pk, static_sk);
 
-	ECDSA<ECP,SHA256>::PrivateKey priv_key1,priv_key2;
+	ECDSA<ECP,Keccak_256>::PrivateKey priv_key1,priv_key2;
 	AutoSeededRandomPool rnd1,rnd2;
 	priv_key1.Initialize(rnd1,ASN1::secp256k1());
 

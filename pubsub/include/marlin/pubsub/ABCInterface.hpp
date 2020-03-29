@@ -1,11 +1,3 @@
-/*
-	1. loop to retry connection to contract interface on restart broken connection
-	2. maps to store balance
-	3. Null checks
-	4. Acks
-	5. Convert to server?
-	6. int for balance
-*/
 #ifndef MARLIN_PUBSUB_ABCINTERFACE_HPP
 #define MARLIN_PUBSUB_ABCINTERFACE_HPP
 
@@ -20,28 +12,12 @@
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/net/core/EventLoop.hpp>
 
-#include <cryptopp/cryptlib.h>
 #include <cryptopp/eccrypto.h>
-#include <cryptopp/osrng.h>
+#include <cryptopp/keccak.h>
 #include <cryptopp/oids.h>
 
 namespace marlin {
 namespace pubsub {
-
-std::string hexStr(char *data, int len)
-{
-	char* hexchar = new char[2*len + 1];
-	int i;
-	for (i=0; i<len; i++) {
-		sprintf(hexchar+i*2, "%02hhx", data[i]);
-	}
-	hexchar[i*2] = 0;
-
-	std::string hexstring = std::string(hexchar);
-	delete[] hexchar;
-
-	return hexstring;
-}
 
 const uint8_t addressLength = 20;
 const uint8_t balanceLength = 32;
@@ -68,11 +44,8 @@ using LpfTcpTransport = lpf::LpfTransport<
 >;
 
 class ABCInterface {
-	using CryptoType = CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>;
-	using KeyType = CryptoType::PrivateKey;
-	KeyType secretKey;
-	unsigned char* pkRawBytes = nullptr;
-	// std::string privateKey;
+	uint8_t private_key[32];
+	bool have_key = false;
 
 	std::map<std::string, net::uint256_t> stakeAddressMap;
 	uint64_t lastUpdateTime;
@@ -176,7 +149,7 @@ public:
 
 			for (uint i=0; i<numMapEntries; i++) {
 
-				std::string addressString = hexStr(message.data(), addressLength);
+				std::string addressString(message.data(), addressLength);
 				message.cover(addressLength);
 
 				SPDLOG_INFO(
@@ -196,14 +169,6 @@ public:
 				auto balance = net::uint256_t(lo, lohi, hilo, hi);
 				stakeAddressMap[addressString] = balance;
 
-				// std::string balanceString = hexStr(message.data(), balanceLength);
-				// message.cover(balanceLength);
-				// stakeAddressMap[addressString] = balanceString
-				// SPDLOG_INFO(
-				// 	"balance {}",
-				// 	balanceString
-				// );
-
 				SPDLOG_INFO(
 					"balance {} {} {} {}",
 					hi, hilo, lohi, lo
@@ -221,24 +186,8 @@ public:
 		LpfTcpTransport &transport [[maybe_unused]],
 		net::Buffer &message  [[maybe_unused]]
 	) {
-		delete []pkRawBytes;
-		pkRawBytes = new unsigned char[privateKeyLength];
-		memcpy(pkRawBytes, message.data(), privateKeyLength);
-
-		// privateKey = hexStr(message.data(), privateKeyLength);
-		SPDLOG_INFO(
-			"private key {}",
-			pkRawBytes
-		);
-
-		CryptoPP::Integer keyInt(
-			pkRawBytes,
-			privateKeyLength,
-			CryptoPP::Integer::Signedness::UNSIGNED,
-			CryptoPP::ByteOrder::BIG_ENDIAN_ORDER
-		);
-
-		secretKey.Initialize(CryptoPP::ASN1::secp256k1(), keyInt);
+		message.read(0, (char*)private_key, privateKeyLength);
+		have_key = true;
 	}
 
 	void send_ack_state_update(
@@ -307,15 +256,10 @@ public:
 		return stakeAddressMap[address];
 	}
 
-	KeyType* get_private_key() {
-		if (pkRawBytes == nullptr)
-			return nullptr;
-
-		return &secretKey;
-	}
-
-	~ABCInterface() {
-		delete []pkRawBytes;
+	uint8_t* get_key() {
+		if (have_key)
+			return private_key;
+		return nullptr;
 	}
 
 };
