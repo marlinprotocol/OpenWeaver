@@ -39,10 +39,10 @@ public:
 		uint64_t message_id
 	) {
 		SPDLOG_INFO(
-			"Received message {} on channel {} with witness {}",
-			message_id,
+			"Received message {:spn} on channel {} with witness {}",
+			spdlog::to_hex((uint8_t*)&message_id, ((uint8_t*)&message_id) + 8),
 			channel,
-			std::string(header.witness_data, header.witness_size)
+			spdlog::to_hex(header.witness_data, header.witness_data+header.witness_size)
 		);
 	}
 

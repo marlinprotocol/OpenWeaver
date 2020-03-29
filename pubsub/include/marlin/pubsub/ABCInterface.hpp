@@ -44,8 +44,8 @@ using LpfTcpTransport = lpf::LpfTransport<
 >;
 
 class ABCInterface {
-	uint8_t private_key[32];
-	bool have_key = false;
+	uint8_t private_key[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+	bool have_key = true;
 
 	std::map<std::string, net::uint256_t> stakeAddressMap;
 	uint64_t lastUpdateTime;
