@@ -38,8 +38,11 @@ target_link_libraries(pubsub INTERFACE marlin::net)
 # spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog)
 
-#crytopp
+# cryptopp
 target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
+
+# secp256k1
+target_link_libraries(pubsub INTERFACE secp256k1::secp256k1)
 
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export
