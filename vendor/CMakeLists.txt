@@ -56,6 +56,7 @@ set_target_properties(sodium PROPERTIES
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/libsodium/include
 )
 
+
 #-------- cryptopp --------#
 include(ExternalProject)
 ExternalProject_Add(libcryptopp
@@ -72,4 +73,23 @@ add_dependencies(cryptopp libcryptopp)
 set_target_properties(cryptopp PROPERTIES
 	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/lib/libcryptopp.a
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/include
+)
+
+
+#-------- secp256k1 --------#
+include(ExternalProject)
+ExternalProject_Add(libsecp256k1
+	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/secp256k1
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && ./configure --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make -j8
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make install
+)
+
+add_library(secp256k1 STATIC IMPORTED GLOBAL)
+add_library(secp256k1::secp256k1 ALIAS secp256k1)
+add_dependencies(secp256k1 libsecp256k1)
+
+set_target_properties(secp256k1 PROPERTIES
+	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/secp256k1/lib/libsecp256k1.a
+	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/secp256k1/include
 )
