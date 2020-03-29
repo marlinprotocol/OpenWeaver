@@ -5,7 +5,6 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/ChainWitnesser.hpp>
 #include <marlin/pubsub/attestation/StakeAttester.hpp>
-#include <marlin/pubsub/attestation/EmptyAttester.hpp>
 #include <sodium.h>
 
 using namespace marlin::net;
@@ -67,10 +66,6 @@ int main() {
 	size_t max_unsol_conn = 1;
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
-	// ECDSA<ECP,Keccak_256>::PrivateKey priv_key1,priv_key2;
-	// AutoSeededRandomPool rnd1,rnd2;
-	// priv_key1.Initialize(rnd1,ASN1::secp256k1());
-	// priv_key2.Initialize(rnd2,ASN1::secp256k1());
 
 	ABCInterface abcIface;
 

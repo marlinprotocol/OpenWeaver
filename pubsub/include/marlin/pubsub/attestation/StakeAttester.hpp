@@ -8,6 +8,8 @@
 #include "marlin/pubsub/ABCInterface.hpp"
 
 #include <secp256k1_recovery.h>
+#include <cryptopp/keccak.h>
+
 
 namespace marlin {
 namespace pubsub {

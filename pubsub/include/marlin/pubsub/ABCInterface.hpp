@@ -12,10 +12,6 @@
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/net/core/EventLoop.hpp>
 
-#include <cryptopp/eccrypto.h>
-#include <cryptopp/keccak.h>
-#include <cryptopp/oids.h>
-
 namespace marlin {
 namespace pubsub {
 
@@ -44,8 +40,8 @@ using LpfTcpTransport = lpf::LpfTransport<
 >;
 
 class ABCInterface {
-	uint8_t private_key[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-	bool have_key = true;
+	uint8_t private_key[32] = {};
+	bool have_key = false;
 
 	std::map<std::string, net::uint256_t> stakeAddressMap;
 	uint64_t lastUpdateTime;
@@ -59,7 +55,7 @@ public:
 
 	ABCInterface() {
 		f.bind(net::SocketAddress());
-		dial(net::SocketAddress::from_string("127.0.0.1:7000"), NULL);
+		f.dial(net::SocketAddress::from_string("127.0.0.1:7000"), *this);
 		lastUpdateTime = 0;
 		latestBlockReceived = 0;
 	}
@@ -67,7 +63,7 @@ public:
 	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
 
 	// Listen delegate: Not required
-	bool should_accept(net::SocketAddress const &addr [[maybe_unused]]) {
+	bool should_accept(net::SocketAddress const &) {
 		return true;
 	}
 
@@ -77,7 +73,7 @@ public:
 			transport.dst_addr.to_string()
 		);
 
-		transport.setup(this, NULL);
+		transport.setup(this);
 
 		contractInterface = &transport;
 	}
@@ -100,8 +96,8 @@ public:
 
 	// TODO Size checks and null checks while reading messages from buffer
 	int did_recv_message(
-		LpfTcpTransport &transport [[maybe_unused]],
-		net::Buffer &&message  [[maybe_unused]]
+		LpfTcpTransport &transport,
+		net::Buffer &&message
 	) {
 		SPDLOG_INFO(
 			"Did recv from blockchain client, message with length {}",
@@ -126,8 +122,8 @@ public:
 
 
 	void did_recv_state_update (
-		LpfTcpTransport &transport [[maybe_unused]],
-		net::Buffer &message  [[maybe_unused]]
+		LpfTcpTransport &transport,
+		net::Buffer &message
 	) {
 
 		auto blockNumber = message.read_uint64_be(0);
@@ -183,15 +179,15 @@ public:
 	}
 
 	void did_recv_private_key(
-		LpfTcpTransport &transport [[maybe_unused]],
-		net::Buffer &message  [[maybe_unused]]
+		LpfTcpTransport &,
+		net::Buffer &message
 	) {
 		message.read(0, (char*)private_key, privateKeyLength);
 		have_key = true;
 	}
 
 	void send_ack_state_update(
-		LpfTcpTransport &transport [[maybe_unused]],
+		LpfTcpTransport &transport,
 		uint64_t blockNumber) {
 
 		auto messageType = MessageType::AckMessage;
@@ -212,8 +208,8 @@ public:
 	}
 
 	void did_send_message(
-		LpfTcpTransport &transport [[maybe_unused]],
-		net::Buffer &&message [[maybe_unused]]
+		LpfTcpTransport &,
+		net::Buffer &&
 	) {}
 
 	// TODO:
@@ -225,22 +221,6 @@ public:
 
 		contractInterface = nullptr;
 	}
-
-	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
-		SPDLOG_INFO(
-			"SENDING DIAL TO: {}",
-			addr.to_string()
-		);
-
-		return f.dial(addr, *this, remote_static_pk);
-	};
-
-
-	void send_message(
-		std::string channel [[maybe_unused]],
-		uint64_t message_id [[maybe_unused]],
-		const char *data [[maybe_unused]]
-	) {}
 
 	// Enquiry calls by
 	//checkBalance(xyz)
