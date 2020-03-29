@@ -20,9 +20,9 @@ struct StakeAttester {
 		uint64_t message_id;
 		uint64_t timestamp;
 		uint64_t stake_offset;
-		uint16_t channel_id;
+		uint16_t channel;
 		uint8_t message_hash[32];
-		uint8_t sig[65];
+		secp256k1_ecdsa_recoverable_signature sig;
 	};
 	std::vector<Attestation> attestation_cache;
 	std::unordered_map<std::string, std::map<uint64_t, Attestation*>> stake_caches;
@@ -132,6 +132,8 @@ struct StakeAttester {
 		HeaderType prev_header
 	) {
 		auto& attestation = attestation_cache.emplace_back();
+		attestation.message_id = message_id;
+		attestation.channel = channel;
 
 		// Extract data
 		net::Buffer buf((char*)prev_header.attestation_data, prev_header.attestation_size);
@@ -164,10 +166,9 @@ struct StakeAttester {
 		hasher.TruncatedFinal(hash, 32);
 
 		// Parse signature
-		secp256k1_ecdsa_recoverable_signature sig;
 		secp256k1_ecdsa_recoverable_signature_parse_compact(
 			ctx_verifier,
-			&sig,
+			&attestation.sig,
 			(uint8_t*)prev_header.attestation_data + 16,
 			(uint8_t)prev_header.attestation_data[80]
 		);
@@ -178,7 +179,7 @@ struct StakeAttester {
 			auto res = secp256k1_ecdsa_recover(
 				ctx_verifier,
 				&pubkey,
-				&sig,
+				&attestation.sig,
 				hash
 			);
 
@@ -197,7 +198,7 @@ struct StakeAttester {
 		);
 
 		if(!res_begin) {
-			// TODO: Handle overlap
+			// TODO: Handle overlap for iter_begin
 			return false;
 		}
 
@@ -207,16 +208,17 @@ struct StakeAttester {
 		);
 
 		if(!res_end) {
-			// TODO: Handle overlap
+			// TODO: Handle overlap for iter_end
 			return false;
 		}
 
+		bool overlap = false;
 		for(iter_begin++; iter_begin != iter_end; iter_begin++) {
-			// TODO: Handle overlap
-			return false;
+			// TODO: Handle overlap for all iters
+			overlap = true;
 		}
 
-		return true;
+		return !overlap;
 	}
 
 	uint64_t parse_size(net::Buffer&, uint64_t = 0) {
