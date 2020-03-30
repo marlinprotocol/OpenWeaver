@@ -55,6 +55,7 @@ struct StakeAttester {
 		uint64_t message_id;
 		uint64_t timestamp;
 		uint64_t stake_offset;
+		uint64_t message_size;
 		uint16_t channel;
 		uint8_t message_hash[32];
 		secp256k1_ecdsa_recoverable_signature sig;
@@ -177,6 +178,7 @@ struct StakeAttester {
 		auto& attestation = attestation_cache.emplace_back();
 		attestation.message_id = message_id;
 		attestation.channel = channel;
+		attestation.message_size = message_size;
 
 		// Extract data
 		net::Buffer buf((char*)prev_header.attestation_data, prev_header.attestation_size);
@@ -243,7 +245,22 @@ struct StakeAttester {
 		);
 
 		if(!res_begin) {
-			// TODO: Handle overlap for iter_begin
+			abci.send_duplicate_stake_msg(
+				attestation.message_id,
+				attestation.channel,
+				attestation.timestamp,
+				attestation.stake_offset,
+				attestation.message_size,
+				attestation.message_hash,
+				attestation.sig.data,
+				iter_begin->second->message_id,
+				iter_begin->second->channel,
+				iter_begin->second->timestamp,
+				iter_begin->second->stake_offset,
+				iter_begin->second->message_size,
+				iter_begin->second->message_hash,
+				iter_begin->second->sig.data
+			);
 			return false;
 		}
 
@@ -253,13 +270,43 @@ struct StakeAttester {
 		);
 
 		if(!res_end) {
-			// TODO: Handle overlap for iter_end
+			abci.send_duplicate_stake_msg(
+				attestation.message_id,
+				attestation.channel,
+				attestation.timestamp,
+				attestation.stake_offset,
+				attestation.message_size,
+				attestation.message_hash,
+				attestation.sig.data,
+				iter_end->second->message_id,
+				iter_end->second->channel,
+				iter_end->second->timestamp,
+				iter_end->second->stake_offset,
+				iter_end->second->message_size,
+				iter_end->second->message_hash,
+				iter_end->second->sig.data
+			);
 			return false;
 		}
 
 		bool overlap = false;
 		for(iter_begin++; iter_begin != iter_end; iter_begin++) {
-			// TODO: Handle overlap for all iters
+			abci.send_duplicate_stake_msg(
+				attestation.message_id,
+				attestation.channel,
+				attestation.timestamp,
+				attestation.stake_offset,
+				attestation.message_size,
+				attestation.message_hash,
+				attestation.sig.data,
+				iter_begin->second->message_id,
+				iter_begin->second->channel,
+				iter_begin->second->timestamp,
+				iter_begin->second->stake_offset,
+				iter_begin->second->message_size,
+				iter_begin->second->message_hash,
+				iter_begin->second->sig.data
+			);
 			overlap = true;
 		}
 
