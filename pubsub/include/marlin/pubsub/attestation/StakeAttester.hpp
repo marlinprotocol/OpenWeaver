@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <marlin/net/Buffer.hpp>
 #include <ctime>
+#include <optional>
 
 #include "marlin/pubsub/ABCInterface.hpp"
 
@@ -18,6 +19,39 @@ struct StakeAttester {
 	ABCInterface& abci;
 	uint64_t stake_offset = 0;
 
+//---------------- Self stake management start ----------------//
+
+	// Circular allocator
+	// NOTE: Never let free_stake_offset == used_stake_offset, always has to be atleast 1 ahead
+	uint64_t free_stake_offset = 0;
+	uint64_t used_stake_offset = -1;
+	// Timestamp -> Size
+	std::map<uint64_t, uint64_t> used_stake;
+
+	void stake_reclaim(uint64_t timestamp) {
+		auto end = used_stake.lower_bound(timestamp);
+		for(auto iter = used_stake.begin(); iter != end; iter = used_stake.erase(iter)) {
+			used_stake_offset += iter->second;
+		}
+	}
+
+	std::optional<uint64_t> stake_alloc(uint64_t size) {
+		if(used_stake_offset - free_stake_offset > size) {  // Overflow behaviour desirable
+			// TODO: Check if stake offset is within bounds
+			auto ret = std::make_optional(free_stake_offset);
+			free_stake_offset += size;
+
+			return ret;
+		}
+
+		return std::nullopt;
+	}
+
+//---------------- Self stake management end ----------------//
+
+
+//---------------- Other stake management start ----------------//
+
 	struct Attestation {
 		uint64_t message_id;
 		uint64_t timestamp;
@@ -28,6 +62,8 @@ struct StakeAttester {
 	};
 	std::vector<Attestation> attestation_cache;
 	std::unordered_map<std::string, std::map<uint64_t, Attestation*>> stake_caches;
+
+//---------------- Other stake management end ----------------//
 
 	secp256k1_context* ctx_signer = nullptr;
 	secp256k1_context* ctx_verifier = nullptr;
