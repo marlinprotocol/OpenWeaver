@@ -107,7 +107,7 @@ struct StakeAttester {
 
 		// TODO: Should I be calling reclaim everytime? Better ways? Periodic timer?
 		stake_reclaim(timestamp - 60);
-		auto stake_offset_opt = alloc(message_size);
+		auto stake_offset_opt = stake_alloc(message_size);
 		if(!stake_offset_opt.has_value()) {
 			return -1;
 		}
@@ -238,7 +238,7 @@ struct StakeAttester {
 		auto& stake_cache = stake_caches[std::string(pubkey.data, pubkey.data + 64)];
 
 		auto [iter_begin, res_begin] = stake_cache.try_emplace(
-			stake_offset,
+			attestation.stake_offset,
 			&attestation
 		);
 
@@ -248,7 +248,7 @@ struct StakeAttester {
 		}
 
 		auto [iter_end, res_end] = stake_cache.try_emplace(
-			stake_offset + message_size - 1,
+			attestation.stake_offset + message_size - 1,
 			&attestation
 		);
 
