@@ -17,7 +17,6 @@ namespace pubsub {
 
 struct StakeAttester {
 	ABCInterface& abci;
-	uint64_t stake_offset = 0;
 
 //---------------- Self stake management start ----------------//
 
@@ -29,7 +28,7 @@ struct StakeAttester {
 	std::map<uint64_t, uint64_t> used_stake;
 
 	void stake_reclaim(uint64_t timestamp) {
-		auto end = used_stake.lower_bound(timestamp);
+		auto end = used_stake.upper_bound(timestamp);
 		for(auto iter = used_stake.begin(); iter != end; iter = used_stake.erase(iter)) {
 			used_stake_offset += iter->second;
 		}
@@ -104,14 +103,18 @@ struct StakeAttester {
 			return 1;
 		}
 
-		// TODO: Check if stake offset within bounds
-
 		uint64_t timestamp = std::time(nullptr);
+
+		// TODO: Should I be calling reclaim everytime? Better ways? Periodic timer?
+		stake_reclaim(timestamp - 60);
+		auto stake_offset_opt = alloc(message_size);
+		if(!stake_offset_opt.has_value()) {
+			return -1;
+		}
+		auto stake_offset = stake_offset_opt.value();
+
 		out.write_uint64_be(offset, timestamp);
 		out.write_uint64_be(offset+8, stake_offset);
-		stake_offset += message_size;
-
-		// TODO: Reset stake_offset and attestation cache at epochs
 
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
@@ -130,7 +133,7 @@ struct StakeAttester {
 		// Get key
 		auto* key = abci.get_key();
 		if(key == nullptr) {
-			return -1;
+			return -2;
 		}
 
 		// Sign
@@ -146,7 +149,7 @@ struct StakeAttester {
 
 		if(res == 0) {
 			// Sign failed
-			return -2;
+			return -3;
 		}
 
 		// Output
