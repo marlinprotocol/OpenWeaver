@@ -21,6 +21,15 @@ const uint8_t privateKeyLength = 32;
 const uint8_t messageTypeSize = 1;
 const uint8_t AckTypeSize = 1;
 const uint8_t blockNumberSize = 8;
+
+const uint8_t  messageIDSize = 8;
+const uint8_t channelSize = 2;
+const uint8_t timestampSize = 8 ;
+const uint8_t stakeOffsetSize = 8;
+const uint8_t messageSize = 8;
+const uint8_t hashSize = 32;
+const uint8_t signatureSize = 64;
+
 const uint64_t staleThreshold = 30000;
 
 class ABCInterface;
@@ -91,7 +100,8 @@ public:
 	enum MessageType {
 		StateUpdateMessage = 1,
 		AckMessage = 2,
-		PrivateKeyMessage = 3
+		PrivateKeyMessage = 3,
+		DuplicateStakeMessage = 4
 	};
 
 	// TODO Size checks and null checks while reading messages from buffer
@@ -188,7 +198,8 @@ public:
 
 	void send_ack_state_update(
 		LpfTcpTransport &transport,
-		uint64_t blockNumber) {
+		uint64_t blockNumber
+	) {
 
 		auto messageType = MessageType::AckMessage;
 		uint8_t ackType = MessageType::StateUpdateMessage;
@@ -205,6 +216,84 @@ public:
 		offset += blockNumberSize;
 
 		transport.send(std::move(*dataBuffer));
+	}
+
+
+	// |  Message Id |  Channel Id |  Timestamp  | StakeOffset | MessageSize |  Chunk Hash  | Attestation Signature |
+
+	void send_duplicate_stake_msg(
+		uint64_t& messageId1,
+		uint16_t& chId1,
+		uint64_t& timestamp1,
+		uint64_t& stakeOffset1,
+		uint64_t& messageSize1,
+	 	uint8_t* messageHash1,
+		uint8_t* signature1,
+		uint64_t& messageId2,
+		uint16_t chId2,
+		uint64_t& timestamp2,
+		uint64_t& stakeOffset2,
+		uint64_t& messageSize2,
+		uint8_t* messageHash2,
+		uint8_t* signature2
+	) {
+		if (contractInterface == nullptr)
+			return;
+
+		auto messageType = MessageType::DuplicateStakeMessage;
+
+		uint32_t mSize = messageIDSize + channelSize + timestampSize + stakeOffsetSize + messageSize + hashSize + signatureSize;
+
+		uint32_t totalSize = messageTypeSize + 2 * (mSize);
+		auto dataBuffer = new net::Buffer(new char[totalSize], totalSize);
+		uint32_t offset = 0;
+
+		dataBuffer->write_uint8(offset, messageType);
+		offset += messageTypeSize;
+
+		dataBuffer->write_uint64_be(offset, messageId1);
+		offset += messageIDSize;
+
+		dataBuffer->write_uint16_be(offset, chId1);
+		offset += channelSize;
+
+		dataBuffer->write_uint64_be(offset, timestamp1);
+		offset += timestampSize;
+
+		dataBuffer->write_uint64_be(offset, stakeOffset1);
+		offset += stakeOffsetSize;
+
+		dataBuffer->write_uint64_be(offset, messageSize1);
+		offset += messageSize;
+
+		dataBuffer->write(offset, (char*) messageHash1, hashSize);
+		offset += hashSize;
+
+		dataBuffer->write(offset, (char*) signature1, signatureSize);
+		offset += signatureSize;
+
+		dataBuffer->write_uint64_be(offset, messageId2);
+		offset += messageIDSize;
+
+		dataBuffer->write_uint16_be(offset, chId2);
+		offset += channelSize;
+
+		dataBuffer->write_uint64_be(offset, timestamp2);
+		offset += timestampSize;
+
+		dataBuffer->write_uint64_be(offset, stakeOffset2);
+		offset += stakeOffsetSize;
+
+		dataBuffer->write_uint64_be(offset, messageSize2);
+		offset += messageSize;
+
+		dataBuffer->write(offset, (char*) messageHash2, hashSize);
+		offset += hashSize;
+
+		dataBuffer->write(offset, (char*) signature2, signatureSize);
+		offset += signatureSize;
+
+		contractInterface->send(std::move(*dataBuffer));
 	}
 
 	void did_send_message(
