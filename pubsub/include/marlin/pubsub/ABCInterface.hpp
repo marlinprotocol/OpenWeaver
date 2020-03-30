@@ -222,18 +222,18 @@ public:
 	// |  Message Id |  Channel Id |  Timestamp  | StakeOffset | MessageSize |  Chunk Hash  | Attestation Signature |
 
 	void send_duplicate_stake_msg(
-		uint64_t& messageId1,
-		uint16_t& chId1,
-		uint64_t& timestamp1,
-		uint64_t& stakeOffset1,
-		uint64_t& messageSize1,
+		uint64_t messageId1,
+		uint16_t chId1,
+		uint64_t timestamp1,
+		uint64_t stakeOffset1,
+		uint64_t messageSize1,
 	 	uint8_t* messageHash1,
 		uint8_t* signature1,
-		uint64_t& messageId2,
+		uint64_t messageId2,
 		uint16_t chId2,
-		uint64_t& timestamp2,
-		uint64_t& stakeOffset2,
-		uint64_t& messageSize2,
+		uint64_t timestamp2,
+		uint64_t stakeOffset2,
+		uint64_t messageSize2,
 		uint8_t* messageHash2,
 		uint8_t* signature2
 	) {
