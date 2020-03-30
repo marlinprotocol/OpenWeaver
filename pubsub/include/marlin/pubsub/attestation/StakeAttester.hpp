@@ -68,6 +68,8 @@ struct StakeAttester {
 			return 1;
 		}
 
+		// TODO: Check if stake offset within bounds
+
 		uint64_t timestamp = std::time(nullptr);
 		out.write_uint64_be(offset, timestamp);
 		out.write_uint64_be(offset+8, stake_offset);
@@ -152,6 +154,8 @@ struct StakeAttester {
 			// Too new
 			return false;
 		}
+
+		// TODO: Check if stake offset within bounds
 
 		CryptoPP::Keccak_256 hasher;
 		// Hash message
