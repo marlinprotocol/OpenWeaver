@@ -324,9 +324,9 @@ public:
 	}
 
 	// TODO check if entry is new
-	net::uint256_t get_stake(std::string address) {
+	uint64_t get_stake(std::string address) {
 		if (! is_alive() || (stakeAddressMap.find(address) == stakeAddressMap.end()))
-			return NULL;
+			return 0;
 		return stakeAddressMap[address];
 	}
 
