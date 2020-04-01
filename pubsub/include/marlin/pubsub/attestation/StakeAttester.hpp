@@ -18,6 +18,9 @@ namespace pubsub {
 struct StakeAttester {
 	ABCInterface& abci;
 
+	secp256k1_context* ctx_signer = nullptr;
+	secp256k1_context* ctx_verifier = nullptr;
+
 //---------------- Self stake management start ----------------//
 
 	// Circular allocator
@@ -35,10 +38,43 @@ struct StakeAttester {
 	}
 
 	std::optional<uint64_t> stake_alloc(uint64_t size) {
-		if(used_stake_offset - free_stake_offset > size) {  // Overflow behaviour desirable
+		// Get key
+		auto* key = abci.get_key();
+		if(key == nullptr) {
+			return std::nullopt;
+		}
+
+		// Get pubkey
+		secp256k1_pubkey pubkey;
+		auto res = secp256k1_ec_pubkey_create(
+			ctx_signer,
+			&pubkey,
+			key
+		);
+		if(res == 0) {
+			// Pubkey failed
+			return std::nullopt;
+		}
+
+		// Get address
+		uint8_t hash[32];
+		CryptoPP::Keccak_256 hasher;
+		hasher.CalculateTruncatedDigest(hash, 32, pubkey.data, 64);
+		// address is in hash[12..31]
+
+		// Check if stake_offset is within stake
+		auto stake = abci.get_stake(std::string((char*)hash+12, 20));
+		if(used_stake_offset > stake) {
+			used_stake_offset = stake;
+		}
+		if(free_stake_offset >= used_stake_offset) {
+			free_stake_offset = (used_stake_offset + 1) % stake;
+		}
+
+		if(used_stake_offset > (free_stake_offset + size) % stake) {  // Overflow behaviour desirable
 			// TODO: Check if stake offset is within bounds
 			auto ret = std::make_optional(free_stake_offset);
-			free_stake_offset += size;
+			free_stake_offset = (free_stake_offset + size) % stake;
 
 			return ret;
 		}
@@ -64,9 +100,6 @@ struct StakeAttester {
 	std::unordered_map<std::string, std::map<uint64_t, Attestation*>> stake_caches;
 
 //---------------- Other stake management end ----------------//
-
-	secp256k1_context* ctx_signer = nullptr;
-	secp256k1_context* ctx_verifier = nullptr;
 
 	StakeAttester(ABCInterface& abci) : abci(abci) {
 		ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -236,10 +269,10 @@ struct StakeAttester {
 
 		// Get address
 		hasher.CalculateTruncatedDigest(hash, 32, pubkey.data, 64);
-		// addres in in hash[12..31]
+		// address is in hash[12..31]
 
 		// Check if stake_offset is within stake
-		auto stake = abci.get_stake(std::string(hash+12, 20));
+		auto stake = abci.get_stake(std::string((char*)hash+12, 20));
 		if(attestation.stake_offset > stake || attestation.stake_offset + attestation.message_size > stake) {
 			return false;
 		}

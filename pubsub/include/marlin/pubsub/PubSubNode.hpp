@@ -702,7 +702,10 @@ net::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	m.write_uint16_be(9, channel);
 
 	uint64_t offset = 11;
-	attester.attest(message_id, channel, data, size, prev_header, m, offset);
+	auto res = attester.attest(message_id, channel, data, size, prev_header, m, offset);
+	if(res < 0) {
+		SPDLOG_ERROR("Attestation failed: {}", res);
+	}
 	offset += attester.attestation_size(message_id, channel, data, size, prev_header);
 	witnesser.witness(prev_header, m, offset);
 	offset += witnesser.witness_size(prev_header);
