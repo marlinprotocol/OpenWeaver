@@ -52,7 +52,7 @@ class ABCInterface {
 	uint8_t private_key[32] = {};
 	bool have_key = false;
 
-	std::map<std::string, net::uint256_t> stakeAddressMap;
+	std::map<std::string, uint64_t> stakeAddressMap;
 	uint64_t lastUpdateTime;
 	uint64_t latestBlockReceived;
 
@@ -163,22 +163,27 @@ public:
 					addressString
 				);
 
-				uint64_t hi = message.read_uint64_be(0);
-				message.cover(8);
-				uint64_t hilo = message.read_uint64_be(0);
-				message.cover(8);
-				uint64_t lohi = message.read_uint64_be(0);
-				message.cover(8);
-				uint64_t lo = message.read_uint64_be(0);
-				message.cover(8);
+				// uint64_t hi = message.read_uint64_be(0);
+				// message.cover(8);
+				// uint64_t hilo = message.read_uint64_be(0);
+				// message.cover(8);
+				// uint64_t lohi = message.read_uint64_be(0);
+				// message.cover(8);
+				// uint64_t lo = message.read_uint64_be(0);
+				// message.cover(8);
 
-				auto balance = net::uint256_t(lo, lohi, hilo, hi);
-				stakeAddressMap[addressString] = balance;
+				// auto balance = net::uint256_t(lo, lohi, hilo, hi);
+
+				uint64_t balance = message.read_uint64_be(0);
+				message.cover(8);
 
 				SPDLOG_INFO(
-					"balance {} {} {} {}",
-					hi, hilo, lohi, lo
+					"balance {} ",
+					balance
 				);
+
+				stakeAddressMap[addressString] = balance;
+
 			}
 
 			latestBlockReceived = blockNumber;
