@@ -80,7 +80,7 @@ set_target_properties(cryptopp PROPERTIES
 include(ExternalProject)
 ExternalProject_Add(libsecp256k1
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/secp256k1
-	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && ./configure --enable-module-recovery --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && ./configure --with-bignum=no --enable-module-recovery --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make -j8
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make install
 )
