@@ -28,7 +28,7 @@ const uint8_t timestampSize = 8 ;
 const uint8_t stakeOffsetSize = 8;
 const uint8_t messageSize = 8;
 const uint8_t hashSize = 32;
-const uint8_t signatureSize = 64;
+const uint8_t signatureSize = 65;
 
 const uint64_t staleThreshold = 30000;
 
