@@ -196,8 +196,6 @@ struct StakeAttester {
 			return false;
 		}
 
-		// TODO: Check if stake offset within bounds
-
 		CryptoPP::Keccak_256 hasher;
 		// Hash message
 		hasher.CalculateTruncatedDigest(attestation.message_hash, 32, (uint8_t*)message_data, message_size);
@@ -235,8 +233,18 @@ struct StakeAttester {
 				return false;
 			}
 		}
-		// SPDLOG_INFO("Signature verified");
 
+		// Get address
+		hasher.CalculateTruncatedDigest(hash, 32, pubkey.data, 64);
+		// addres in in hash[12..31]
+
+		// Check if stake_offset is within stake
+		auto stake = abci.get_stake(std::string(hash+12, 20));
+		if(attestation.stake_offset > stake || attestation.stake_offset + attestation.message_size > stake) {
+			return false;
+		}
+
+		// Check for overlaps
 		auto& stake_cache = stake_caches[std::string(pubkey.data, pubkey.data + 64)];
 
 		auto [iter_begin, res_begin] = stake_cache.try_emplace(
