@@ -390,7 +390,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
 	net::Buffer packet(
-		{0, static_cast<char>(is_fin)},
+		{0, static_cast<uint8_t>(is_fin)},
 		length + 30 + crypto_aead_aes256gcm_ABYTES
 	);
 
