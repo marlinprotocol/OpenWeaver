@@ -114,7 +114,7 @@ struct StakeAttester {
 	constexpr uint64_t attestation_size(
 		uint64_t,
 		uint16_t,
-		char const*,
+		uint8_t const*,
 		uint64_t,
 		HeaderType
 	) {
@@ -125,7 +125,7 @@ struct StakeAttester {
 	int attest(
 		uint64_t message_id,
 		uint16_t channel,
-		char const* message_data,
+		uint8_t const* message_data,
 		uint64_t message_size,
 		HeaderType prev_header,
 		net::Buffer& out,
@@ -203,7 +203,7 @@ struct StakeAttester {
 	bool verify(
 		uint64_t message_id,
 		uint16_t channel,
-		char const* message_data,
+		uint8_t const* message_data,
 		uint64_t message_size,
 		HeaderType prev_header
 	) {
@@ -213,7 +213,7 @@ struct StakeAttester {
 		attestation.message_size = message_size;
 
 		// Extract data
-		net::Buffer buf((char*)prev_header.attestation_data, prev_header.attestation_size);
+		net::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
 		attestation.timestamp = buf.read_uint64_be(0);
 		attestation.stake_offset = buf.read_uint64_be(8);
 		buf.release();
@@ -235,7 +235,7 @@ struct StakeAttester {
 		// Hash for signature
 		hasher.Update((uint8_t*)&message_id, 8);  // FIXME: Fix endian
 		hasher.Update((uint8_t*)&channel, 2);  // FIXME: Fix endian
-		hasher.Update((uint8_t*)prev_header.attestation_data, 16);
+		hasher.Update(prev_header.attestation_data, 16);
 		hasher.Update((uint8_t*)&message_size, 8);  // FIXME: Fix endian
 		hasher.Update(attestation.message_hash, 32);
 
@@ -246,8 +246,8 @@ struct StakeAttester {
 		secp256k1_ecdsa_recoverable_signature_parse_compact(
 			ctx_verifier,
 			&attestation.sig,
-			(uint8_t*)prev_header.attestation_data + 16,
-			(uint8_t)prev_header.attestation_data[80]
+			prev_header.attestation_data + 16,
+			prev_header.attestation_data[80]
 		);
 
 		// Verify signature

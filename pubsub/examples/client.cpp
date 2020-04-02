@@ -26,7 +26,7 @@ public:
 	}
 
 	void did_subscribe(PubSubNodeType &ps, uint16_t channel) {
-		ps.send_message_on_channel(channel, "hey", 3);
+		ps.send_message_on_channel(channel, (uint8_t const*)"hey", 3);
 		SPDLOG_INFO("Did subscribe: {}", channel);
 	}
 
