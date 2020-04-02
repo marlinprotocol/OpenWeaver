@@ -161,7 +161,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 
 	net::Buffer p(
-		{0, 1, protocols.size()},
+		{0, 1, static_cast<uint8_t>(protocols.size())},
 		3 + protocols.size()*8
 	);
 
@@ -241,7 +241,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::did_recv_LISTPEER(
 		i += 8 + crypto_box_PUBLICKEYBYTES
 	) {
 		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
-		packet.read(i+8, (char*)node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
+		packet.read(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
 
 		f.dial(peer_addr, *this);
 	}
