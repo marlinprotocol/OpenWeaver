@@ -28,7 +28,7 @@ const uint8_t timestampSize = 8 ;
 const uint8_t stakeOffsetSize = 8;
 const uint8_t messageSize = 8;
 const uint8_t hashSize = 32;
-const uint8_t signatureSize = 64;
+const uint8_t signatureSize = 65;
 
 const uint64_t staleThreshold = 30000;
 
@@ -322,9 +322,9 @@ public:
 	}
 
 	// TODO check if entry is new
-	net::uint256_t get_stake(std::string address) {
+	uint64_t get_stake(std::string address) {
 		if (! is_alive() || (stakeAddressMap.find(address) == stakeAddressMap.end()))
-			return NULL;
+			return 0;
 		return stakeAddressMap[address];
 	}
 
