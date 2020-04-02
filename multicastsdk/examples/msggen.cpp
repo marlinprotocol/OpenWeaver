@@ -40,10 +40,10 @@ constexpr uint msg_size = 500;
 void msggen_timer_cb(uv_timer_t *handle) {
 	auto &client = *(DefaultMulticastClient<MulticastDelegate> *)handle->data;
 
-	char msg[msg_size];
+	uint8_t msg[msg_size];
 	for (uint i = 0; i < msg_size; ++i)
 	{
-		msg[i] = (char)i;
+		msg[i] = (uint8_t)i;
 	}
 
 	for (uint i = 0; i < msg_rate; ++i) {

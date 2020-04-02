@@ -19,7 +19,7 @@ void marlin_multicast_clientdelegate_destroy(
 
 typedef void (*did_recv_message_func) (
 	MarlinMulticastClient_t* client,
-	const char* message,
+	const uint8_t* message,
 	uint64_t message_length,
 	uint16_t channel,
 	uint64_t message_id
@@ -64,7 +64,7 @@ void marlin_multicast_client_set_delegate(
 void marlin_multicast_client_send_message_on_channel(
 	MarlinMulticastClient_t* client,
 	uint16_t channel,
-	char *message,
+	uint8_t *message,
 	uint64_t size
 );
 
