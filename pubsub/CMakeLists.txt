@@ -38,6 +38,12 @@ target_link_libraries(pubsub INTERFACE marlin::net)
 # spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog)
 
+# cryptopp
+target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
+
+# secp256k1
+target_link_libraries(pubsub INTERFACE secp256k1::secp256k1)
+
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -100,6 +106,14 @@ add_dependencies(pubsub_examples testclient)
 
 target_link_libraries(testclient PUBLIC pubsub)
 target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+
+add_executable(abci_example
+	examples/abciTest.cpp
+)
+
+target_link_libraries(abci_example PUBLIC net)
+target_link_libraries(abci_example PUBLIC pubsub)
+target_compile_options(abci_example PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 
 
 ##########################################################

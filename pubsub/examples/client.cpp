@@ -3,18 +3,20 @@
 #include <cstring>
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/ChainWitnesser.hpp>
+#include <marlin/pubsub/attestation/StakeAttester.hpp>
 #include <sodium.h>
-
 
 using namespace marlin::net;
 using namespace marlin::stream;
 using namespace marlin::pubsub;
 using namespace std;
 
+using namespace CryptoPP;
 
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>;
 
 public:
 	std::vector<uint16_t> channels = {100, 101};
@@ -30,12 +32,17 @@ public:
 
 	void did_recv_message(
 		PubSubNodeType &,
-		Buffer &&message,
 		Buffer &&,
+		typename PubSubNodeType::MessageHeaderType header,
 		uint16_t channel,
 		uint64_t message_id
 	) {
-		SPDLOG_INFO("Received message {} on channel {}: {}", message_id, channel, spdlog::to_hex(message.data(), message.data() + message.size()));
+		SPDLOG_INFO(
+			"Received message {:spn} on channel {} with witness {}",
+			spdlog::to_hex((uint8_t*)&message_id, ((uint8_t*)&message_id) + 8),
+			channel,
+			spdlog::to_hex(header.witness_data, header.witness_data+header.witness_size)
+		);
 	}
 
 	void manage_subscriptions(
@@ -59,11 +66,14 @@ int main() {
 	size_t max_unsol_conn = 1;
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true>(addr, max_sol_conn, max_unsol_conn, static_sk);
+
+	ABCInterface abcIface;
+
+	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true>(addr2, max_sol_conn, max_unsol_conn, static_sk);
+	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");

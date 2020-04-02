@@ -176,8 +176,8 @@ public:
 
 	void did_recv_message(
 		PubSubNodeType &,
-		Buffer &&message [[maybe_unused]],
-		Buffer &&witness [[maybe_unused]],
+		Buffer &&,
+		typename PubSubNodeType::MessageHeaderType,
 		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {

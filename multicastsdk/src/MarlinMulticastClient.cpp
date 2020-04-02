@@ -19,10 +19,11 @@ struct MarlinMulticastClientDelegate {
 	did_subscribe_func m_did_subscribe = 0;
 	did_unsubscribe_func m_did_unsubscribe = 0;
 
+	template<typename T> // TODO: Code smell, remove later
 	void did_recv_message(
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &client,
 		Buffer &&message,
-		Buffer &&,
+		T,
 		uint16_t channel,
 		uint64_t message_id
 	) {
