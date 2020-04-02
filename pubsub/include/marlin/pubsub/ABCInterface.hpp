@@ -314,11 +314,8 @@ public:
 		contractInterface = nullptr;
 	}
 
-	// Enquiry calls by
-	//checkBalance(xyz)
 	bool is_alive() {
- 		// return (EventLoop::now() - lastUpdateTime) > staleThreshold;
-		return true;
+ 		return (net::EventLoop::now() - lastUpdateTime) < staleThreshold;
 	}
 
 	// TODO check if entry is new
