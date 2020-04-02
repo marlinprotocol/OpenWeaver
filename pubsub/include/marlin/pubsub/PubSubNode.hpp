@@ -1331,7 +1331,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 
 		bytes.cover(13 + witness_length);
 
-		crypto_scalarmult_base((uint8_t*)new_header+13+witness_length, keys);
+		crypto_scalarmult_base(new_header+13+witness_length, keys);
 
 		net::Buffer buf(new_header, 13+witness_length+32);
 		buf.write_uint16_be(11, witness_length + 32);

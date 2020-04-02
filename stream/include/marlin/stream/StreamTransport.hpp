@@ -412,11 +412,11 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
 	}
 	crypto_aead_aes256gcm_encrypt_afternm(
-		(uint8_t*)packet.data() + 20,
+		packet.data() + 20,
 		nullptr,
-		(uint8_t*)packet.data() + 20,
+		packet.data() + 20,
 		10 + length,
-		(uint8_t*)packet.data() + 2,
+		packet.data() + 2,
 		18,
 		nullptr,
 		nonce,
@@ -694,7 +694,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	std::memcpy(pt, static_pk, crypto_box_PUBLICKEYBYTES);
 	std::memcpy(pt + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
 
-	crypto_box_seal((uint8_t*)packet.data() + 10, pt, pt_len, remote_static_pk);
+	crypto_box_seal(packet.data() + 10, pt, pt_len, remote_static_pk);
 
 	transport.send(std::move(packet));
 }
@@ -725,7 +725,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -776,7 +776,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -836,7 +836,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
 
-	crypto_box_seal((uint8_t*)packet.data() + 10, ephemeral_pk, pt_len, remote_static_pk);
+	crypto_box_seal(packet.data() + 10, ephemeral_pk, pt_len, remote_static_pk);
 
 	transport.send(std::move(packet));
 
@@ -877,7 +877,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-		if (crypto_box_seal_open(remote_ephemeral_pk, (uint8_t *)packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+		if (crypto_box_seal_open(remote_ephemeral_pk, packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
 				src_addr.to_string(),
@@ -1126,12 +1126,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		nonce[4+i] = rx_IV[4+i] ^ packet.data()[12+i];
 	}
 	auto res = crypto_aead_aes256gcm_decrypt_afternm(
-		(uint8_t*)p.data() + 20,
+		p.data() + 20,
 		nullptr,
 		nullptr,
-		(uint8_t*)p.data() + 20,
+		p.data() + 20,
 		p.size() - 20,
-		(uint8_t*)p.data() + 2,
+		p.data() + 2,
 		18,
 		nonce,
 		&rx_ctx

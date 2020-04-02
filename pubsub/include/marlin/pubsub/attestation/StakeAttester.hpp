@@ -152,12 +152,12 @@ struct StakeAttester {
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
 		// Hash message
-		hasher.CalculateTruncatedDigest(hash, 32, (uint8_t*)message_data, message_size);
+		hasher.CalculateTruncatedDigest(hash, 32, message_data, message_size);
 
 		// Hash for signature
 		hasher.Update((uint8_t*)&message_id, 8);  // FIXME: Fix endian
 		hasher.Update((uint8_t*)&channel, 2);  // FIXME: Fix endian
-		hasher.Update((uint8_t*)out.data()+offset, 16);
+		hasher.Update(out.data()+offset, 16);
 		hasher.Update((uint8_t*)&message_size, 8);  // FIXME: Fix endian
 		hasher.Update(hash, 32);
 
@@ -189,7 +189,7 @@ struct StakeAttester {
 		int recid;
 		secp256k1_ecdsa_recoverable_signature_serialize_compact(
 			ctx_signer,
-			(uint8_t*)out.data()+offset+16,
+			out.data()+offset+16,
 			&recid,
 			&sig
 		);
@@ -230,7 +230,7 @@ struct StakeAttester {
 
 		CryptoPP::Keccak_256 hasher;
 		// Hash message
-		hasher.CalculateTruncatedDigest(attestation.message_hash, 32, (uint8_t*)message_data, message_size);
+		hasher.CalculateTruncatedDigest(attestation.message_hash, 32, message_data, message_size);
 
 		// Hash for signature
 		hasher.Update((uint8_t*)&message_id, 8);  // FIXME: Fix endian
