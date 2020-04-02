@@ -160,7 +160,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 			if(iter->first == &transport) continue;
 
 			iter->first->dst_addr.serialize(p.data()+size, 8);
-			p.write(size+8, (char*)iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
+			p.write(size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
 			size += 8 + crypto_box_PUBLICKEYBYTES;
 		}
 		p.truncate_unsafe(1100-size);
@@ -185,7 +185,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	);
 
 	peers[&transport].first = net::EventLoop::now();
-	bytes.read(2, (char*)peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
+	bytes.read(2, peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
 }
 
 
