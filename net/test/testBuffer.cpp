@@ -19,7 +19,7 @@ TEST(BufferConstruct, InitializerListConstructible) {
 }
 
 TEST(BufferConstruct, RawPtrConstructible) {
-	char *raw_ptr = new char[1400];
+	uint8_t *raw_ptr = new uint8_t[1400];
 
 	auto buf = Buffer(raw_ptr, 1400);
 
@@ -30,7 +30,7 @@ TEST(BufferConstruct, RawPtrConstructible) {
 TEST(BufferConstruct, MoveConstructible) {
 	auto buf = Buffer(1400);
 
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
 	auto nbuf(std::move(buf));
 
@@ -43,7 +43,7 @@ TEST(BufferConstruct, MoveConstructible) {
 
 TEST(BufferConstruct, MoveAssignable) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
 	Buffer nbuf(nullptr, 0);
 	nbuf = std::move(buf);
@@ -57,7 +57,7 @@ TEST(BufferConstruct, MoveAssignable) {
 
 TEST(BufferResize, CanCoverWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
 	bool res = buf.cover(10);
 
@@ -68,7 +68,7 @@ TEST(BufferResize, CanCoverWithoutOverflow) {
 
 TEST(BufferResize, CannotCoverWithOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.cover(10);
 
 	bool res = buf.cover(1391);
@@ -80,7 +80,7 @@ TEST(BufferResize, CannotCoverWithOverflow) {
 
 TEST(BufferResize, CanUncoverWithoutUnderflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.cover(10);
 
 	bool res = buf.uncover(10);
@@ -92,7 +92,7 @@ TEST(BufferResize, CanUncoverWithoutUnderflow) {
 
 TEST(BufferResize, CannotUncoverWithUnderflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.cover(10);
 
 	bool res = buf.uncover(11);
@@ -104,7 +104,7 @@ TEST(BufferResize, CannotUncoverWithUnderflow) {
 
 TEST(BufferResize, CanTruncateWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
 	bool res = buf.truncate(10);
 
@@ -115,7 +115,7 @@ TEST(BufferResize, CanTruncateWithoutOverflow) {
 
 TEST(BufferResize, CannotTruncateWithOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.truncate(10);
 
 	bool res = buf.truncate(1391);
@@ -127,7 +127,7 @@ TEST(BufferResize, CannotTruncateWithOverflow) {
 
 TEST(BufferResize, CanExpandWithoutUnderflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.truncate(10);
 
 	bool res = buf.expand(10);
@@ -139,7 +139,7 @@ TEST(BufferResize, CanExpandWithoutUnderflow) {
 
 TEST(BufferResize, CannotExpandWithUnderflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	buf.truncate(10);
 
 	bool res = buf.expand(11);
@@ -151,9 +151,9 @@ TEST(BufferResize, CannotExpandWithUnderflow) {
 
 TEST(BufferRead, CanReadArbitraryWithoutOverflow) {
 	auto buf = Buffer({'0','1','2','3','4','5','6','7'}, 1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
-	char out[3];
+	uint8_t out[3];
 
 	auto res = buf.read(4, out, 3);
 
@@ -164,7 +164,7 @@ TEST(BufferRead, CanReadArbitraryWithoutOverflow) {
 TEST(BufferRead, CannotReadArbitraryWithOverflow) {
 	auto buf = Buffer({'0','1','2','3','4','5','6','7'}, 1400);
 
-	char out[3];
+	uint8_t out[3];
 
 	auto res = buf.read(1398, out, 3);
 
@@ -173,7 +173,7 @@ TEST(BufferRead, CannotReadArbitraryWithOverflow) {
 
 TEST(BufferRead, CanReadUint8WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 
 	auto num = buf.read_uint8(10);
@@ -191,7 +191,7 @@ TEST(BufferRead, CannotReadUint8WithOverflow) {
 
 TEST(BufferRead, CanReadUint16WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 
@@ -210,7 +210,7 @@ TEST(BufferRead, CannotReadUint16WithOverflow) {
 
 TEST(BufferReadLE, CanReadUint16LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 
@@ -229,7 +229,7 @@ TEST(BufferReadLE, CannotReadUint16LEWithOverflow) {
 
 TEST(BufferReadBE, CanReadUint16BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 
@@ -248,7 +248,7 @@ TEST(BufferReadBE, CannotReadUint16BEWithOverflow) {
 
 TEST(BufferRead, CanReadUint32WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -269,7 +269,7 @@ TEST(BufferRead, CannotReadUint32WithOverflow) {
 
 TEST(BufferReadLE, CanReadUint32LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -290,7 +290,7 @@ TEST(BufferReadLE, CannotReadUint32LEWithOverflow) {
 
 TEST(BufferReadBE, CanReadUint32BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -311,7 +311,7 @@ TEST(BufferReadBE, CannotReadUint32BEWithOverflow) {
 
 TEST(BufferRead, CanReadUint64WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -336,7 +336,7 @@ TEST(BufferRead, CannotReadUint64WithOverflow) {
 
 TEST(BufferReadLE, CanReadUint64LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -361,7 +361,7 @@ TEST(BufferReadLE, CannotReadUint64LEWithOverflow) {
 
 TEST(BufferReadBE, CanReadUint64BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	raw_ptr[10] = 1;
 	raw_ptr[11] = 2;
 	raw_ptr[12] = 3;
@@ -386,9 +386,9 @@ TEST(BufferReadBE, CannotReadUint64BEWithOverflow) {
 
 TEST(BufferWrite, CanWriteArbitraryWithoutOverflow) {
 	auto buf = Buffer({'0','1','2','3','4','5','6','7'}, 1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
-	char in[3] {'a', 'b', 'c'};
+	uint8_t in[3] {'a', 'b', 'c'};
 
 	auto res = buf.write(4, in, 3);
 
@@ -398,9 +398,9 @@ TEST(BufferWrite, CanWriteArbitraryWithoutOverflow) {
 
 TEST(BufferWrite, CannotWriteArbitraryWithOverflow) {
 	auto buf = Buffer({'0','1','2','3','4','5','6','7'}, 1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 
-	char in[3] {'a', 'b', 'c'};
+	uint8_t in[3] {'a', 'b', 'c'};
 
 	auto res = buf.write(1398, in, 3);
 
@@ -411,7 +411,7 @@ TEST(BufferWrite, CannotWriteArbitraryWithOverflow) {
 
 TEST(BufferWrite, CanWriteUint8WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint8_t num = 0x01;
 
 	auto res = buf.write_uint8(10, num);
@@ -430,7 +430,7 @@ TEST(BufferWrite, CannotWriteUint8WithOverflow) {
 
 TEST(BufferWrite, CanWriteUint16WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint16_t num = 0x0102;
 
 	auto res = buf.write_uint16(10, num);
@@ -449,7 +449,7 @@ TEST(BufferWrite, CannotWriteUint16WithOverflow) {
 
 TEST(BufferWriteLE, CanWriteUint16LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint16_t num = 0x0102;
 
 	auto res = buf.write_uint16_le(10, num);
@@ -468,7 +468,7 @@ TEST(BufferWriteLE, CannotWriteUint16LEWithOverflow) {
 
 TEST(BufferWriteBE, CanWriteUint16BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint16_t num = 0x0102;
 
 	auto res = buf.write_uint16_be(10, num);
@@ -487,7 +487,7 @@ TEST(BufferWriteBE, CannotWriteUint16BEWithOverflow) {
 
 TEST(BufferWrite, CanWriteUint32WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint32_t num = 0x01020304;
 
 	auto res = buf.write_uint32(10, num);
@@ -506,7 +506,7 @@ TEST(BufferWrite, CannotWriteUint32WithOverflow) {
 
 TEST(BufferWriteLE, CanWriteUint32LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint32_t num = 0x01020304;
 
 	auto res = buf.write_uint32_le(10, num);
@@ -525,7 +525,7 @@ TEST(BufferWriteLE, CannotWriteUint32LEWithOverflow) {
 
 TEST(BufferWriteBE, CanWriteUint32BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint32_t num = 0x01020304;
 
 	auto res = buf.write_uint32_be(10, num);
@@ -544,7 +544,7 @@ TEST(BufferWriteBE, CannotWriteUint32BEWithOverflow) {
 
 TEST(BufferWrite, CanWriteUint64WithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint64_t num = 0x0102030405060708;
 
 	auto res = buf.write_uint64(10, num);
@@ -563,7 +563,7 @@ TEST(BufferWrite, CannotWriteUint64WithOverflow) {
 
 TEST(BufferWriteLE, CanWriteUint64LEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint64_t num = 0x0102030405060708;
 
 	auto res = buf.write_uint64_le(10, num);
@@ -582,7 +582,7 @@ TEST(BufferWriteLE, CannotWriteUint64LEWithOverflow) {
 
 TEST(BufferWriteBE, CanWriteUint64BEWithoutOverflow) {
 	auto buf = Buffer(1400);
-	char *raw_ptr = buf.data();
+	uint8_t *raw_ptr = buf.data();
 	uint64_t num = 0x0102030405060708;
 
 	auto res = buf.write_uint64_be(10, num);

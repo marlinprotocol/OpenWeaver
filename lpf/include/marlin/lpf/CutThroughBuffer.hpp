@@ -24,12 +24,12 @@ public:
 		if(cut_through == false) { // Read length
 			if(bytes.size() + size < 8) { // Partial length
 				for(size_t i = 0; i < bytes.size(); i++) {
-					length = (length << 8) | (uint8_t)bytes.data()[i];
+					length = (length << 8) | bytes.data()[i];
 				}
 				size += bytes.size();
 			} else { // Full length
 				for(size_t i = 0; i < 8 - size; i++) {
-					length = (length << 8) | (uint8_t)bytes.data()[i];
+					length = (length << 8) | bytes.data()[i];
 				}
 				bytes.cover(8 - size);
 

@@ -126,7 +126,7 @@ void TcpTransport<DelegateType>::recv_cb(
 	}
 
 	transport->did_recv_bytes(
-		Buffer(buf->base, nread)
+		Buffer((uint8_t*)buf->base, nread)
 	);
 }
 
@@ -198,7 +198,7 @@ int TcpTransport<DelegateType>::send(Buffer &&bytes) {
 	auto req_data = new SendPayload { std::move(bytes), *this };
 	req->data = req_data;
 
-	auto buf = uv_buf_init(req_data->bytes.data(), req_data->bytes.size());
+	auto buf = uv_buf_init((char*)req_data->bytes.data(), req_data->bytes.size());
 	int res = uv_write(
 		req,
 		(uv_stream_t *)socket,

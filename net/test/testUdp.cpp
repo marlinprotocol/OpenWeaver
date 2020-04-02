@@ -48,7 +48,7 @@ TEST(UdpTransport, CanRecv) {
 		did_call_delegate = true;
 
 		EXPECT_EQ(&transport, &t);
-		EXPECT_STREQ(packet.data(), "123456789");
+		EXPECT_TRUE(std::memcmp(packet.data(), "123456789", 10) == 0);
 	};
 
 	t.setup(&td);
@@ -85,7 +85,7 @@ TEST(UdpTransport, CanSend) {
 		did_call_delegate = true;
 
 		EXPECT_EQ(&transport, &t);
-		EXPECT_STREQ(packet.data(), "123456789");
+		EXPECT_TRUE(std::memcmp(packet.data(), "123456789", 10) == 0);
 
 		uv_close((uv_handle_t*)sock, close_cb);
 	};
