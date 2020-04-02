@@ -109,17 +109,17 @@ bool SocketAddress::operator<(const SocketAddress &other) const {
 	return this->to_string() < other.to_string();
 }
 
-size_t SocketAddress::serialize(char* bytes, size_t size) const {
+size_t SocketAddress::serialize(uint8_t* bytes, size_t size) const {
 	if(size < 8) {
 		return 0;
 	}
 
 	uint16_t family = reinterpret_cast<const sockaddr_in *>(this)->sin_family;
-	char *start = (char *)&(reinterpret_cast<const sockaddr_in *>(this)->sin_addr);
+	uint8_t *start = (uint8_t *)&(reinterpret_cast<const sockaddr_in *>(this)->sin_addr);
 	uint16_t port = reinterpret_cast<const sockaddr_in *>(this)->sin_port;
 
-	bytes[0] = static_cast<char>(family >> 8);
-	bytes[1] = static_cast<char>(family & 0xff);
+	bytes[0] = static_cast<uint8_t>(family >> 8);
+	bytes[1] = static_cast<uint8_t>(family & 0xff);
 	std::memcpy(bytes+2, start, 4);
 	bytes[6] = port >> 8;
 	bytes[7] = port & 0xff;
@@ -127,7 +127,7 @@ size_t SocketAddress::serialize(char* bytes, size_t size) const {
 	return 8;
 }
 
-SocketAddress SocketAddress::deserialize(char const* bytes, size_t const size) {
+SocketAddress SocketAddress::deserialize(uint8_t const* bytes, size_t const size) {
 	SocketAddress addr;
 
 	if(size < 8) {
