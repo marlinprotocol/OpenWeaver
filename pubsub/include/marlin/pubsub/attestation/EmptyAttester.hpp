@@ -13,7 +13,7 @@ struct EmptyAttester {
 	constexpr uint64_t attestation_size(
 		uint64_t,
 		uint16_t,
-		char const*,
+		uint8_t const*,
 		uint64_t,
 		HeaderType
 	) {
@@ -24,7 +24,7 @@ struct EmptyAttester {
 	constexpr int attest(
 		uint64_t,
 		uint16_t,
-		char const*,
+		uint8_t const*,
 		uint64_t,
 		HeaderType,
 		net::Buffer&,
@@ -37,7 +37,7 @@ struct EmptyAttester {
 	constexpr bool verify(
 		uint64_t,
 		uint16_t,
-		char const*,
+		uint8_t const*,
 		uint64_t,
 		HeaderType
 	) {

@@ -41,9 +41,9 @@ struct IsTransportEncrypted<stream::StreamTransport<
 namespace pubsub {
 
 struct MessageHeader {
-	char const* attestation_data = nullptr;
+	uint8_t const* attestation_data = nullptr;
 	uint64_t attestation_size = 0;
-	char const* witness_data = nullptr;
+	uint8_t const* witness_data = nullptr;
 	uint64_t witness_size = 0;
 };
 
@@ -174,7 +174,7 @@ private:
 	net::Buffer create_MESSAGE(
 		uint16_t channel,
 		uint64_t message_id,
-		const char *data,
+		const uint8_t *data,
 		uint64_t size,
 		MessageHeaderType prev_header
 	);
@@ -195,7 +195,7 @@ private:
 		BaseTransport &transport,
 		uint16_t channel,
 		uint64_t message_id,
-		const char *data,
+		const uint8_t *data,
 		uint64_t size,
 		MessageHeaderType prev_header
 	);
@@ -235,14 +235,14 @@ public:
 
 	uint64_t send_message_on_channel(
 		uint16_t channel,
-		const char *data,
+		const uint8_t *data,
 		uint64_t size,
 		net::SocketAddress const *excluded = nullptr
 	);
 	void send_message_on_channel(
 		uint16_t channel,
 		uint64_t message_id,
-		const char *data,
+		const uint8_t *data,
 		uint64_t size,
 		net::SocketAddress const *excluded = nullptr,
 		MessageHeaderType prev_header = {}
@@ -251,7 +251,7 @@ public:
 		BaseTransport *transport,
 		uint16_t channel,
 		uint64_t message_id,
-		const char *data,
+		const uint8_t *data,
 		uint64_t size,
 		MessageHeaderType prev_header = {}
 	);
@@ -569,8 +569,8 @@ void PUBSUBNODETYPE::send_RESPONSE(
 ) {
 	// 0 for ERROR
 	// 1 for OK
-	net::Buffer m({2, static_cast<char>(success ? 1 : 0)}, msg_string.size()+2);
-	m.write(2, msg_string.data(), msg_string.size());
+	net::Buffer m({2, static_cast<uint8_t>(success ? 1 : 0)}, msg_string.size()+2);
+	m.write(2, (uint8_t*)msg_string.data(), msg_string.size());
 
 	SPDLOG_DEBUG(
 		"Sending {} response: {}",
@@ -690,7 +690,7 @@ template<PUBSUBNODE_TEMPLATE>
 net::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	uint16_t channel,
 	uint64_t message_id,
-	const char *data,
+	const uint8_t *data,
 	uint64_t size,
 	MessageHeaderType prev_header
 ) {
@@ -719,7 +719,7 @@ void PUBSUBNODETYPE::send_MESSAGE(
 	BaseTransport &transport,
 	uint16_t channel,
 	uint64_t message_id,
-	const char *data,
+	const uint8_t *data,
 	uint64_t size,
 	MessageHeaderType prev_header
 ) {
@@ -953,14 +953,14 @@ int PUBSUBNODETYPE::dial(net::SocketAddress const &addr, uint8_t const *remote_s
 //! sends messages over a given channel
 /*!
 	\param channel name of channel to send message on
-	\param data char* byte sequence of message to send
+	\param data uint8_t* byte sequence of message to send
 	\param size of the message to send
 	\param excluded avoid this address while sending the message
 */
 template<PUBSUBNODE_TEMPLATE>
 uint64_t PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
-	const char *data,
+	const uint8_t *data,
 	uint64_t size,
 	net::SocketAddress const *excluded
 ) {
@@ -974,7 +974,7 @@ uint64_t PUBSUBNODETYPE::send_message_on_channel(
 /*!
 	\param channel name of channel to send message on
 	\param message_id msg id
-	\param data char* byte sequence of message to send
+	\param data uint8_t* byte sequence of message to send
 	\param size of the message to send
 	\param excluded avoid this address while sending the message
 */
@@ -982,7 +982,7 @@ template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
-	const char *data,
+	const uint8_t *data,
 	uint64_t size,
 	net::SocketAddress const *excluded,
 	MessageHeaderType prev_header
@@ -1016,7 +1016,7 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 	BaseTransport *transport,
 	uint16_t channel,
 	uint64_t message_id,
-	const char *data,
+	const uint8_t *data,
 	uint64_t size,
 	MessageHeaderType prev_header
 ) {
@@ -1326,7 +1326,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			);
 		}
 
-		char *new_header = new char[13+witness_length+32];
+		uint8_t *new_header = new uint8_t[13+witness_length+32];
 		std::memcpy(new_header, bytes.data(), 13+witness_length);
 
 		bytes.cover(13 + witness_length);
