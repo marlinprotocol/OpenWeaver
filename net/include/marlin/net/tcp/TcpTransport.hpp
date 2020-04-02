@@ -57,6 +57,8 @@ public:
 		TransportManager<TcpTransport<DelegateType>> &transport_manager
 	);
 
+	TcpTransport(TcpTransport const&) = delete;
+
 	void setup(DelegateType *delegate);
 	void did_recv_bytes(Buffer &&bytes);
 	int send(Buffer &&bytes);
