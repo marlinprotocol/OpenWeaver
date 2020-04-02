@@ -89,7 +89,6 @@ public:
 
 	// Transport delegate
 
-	// TODO?
 	void did_dial(LpfTcpTransport &transport [[maybe_unused]]) {
 		SPDLOG_DEBUG(
 			"DID DIAL: {}",
@@ -306,7 +305,6 @@ public:
 		net::Buffer &&
 	) {}
 
-	// TODO:
 	void did_close(LpfTcpTransport &transport  [[maybe_unused]]) {
 		SPDLOG_DEBUG(
 			"Closed connection with client: {}",
