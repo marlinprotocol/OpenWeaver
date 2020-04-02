@@ -139,7 +139,7 @@ void marlin_multicast_client_set_delegate(
 void marlin_multicast_client_send_message_on_channel(
 	MarlinMulticastClient_t* client,
 	uint16_t channel,
-	char *message,
+	uint8_t *message,
 	uint64_t size
 ) {
 	auto* obj = reinterpret_cast<

@@ -3,7 +3,7 @@
 
 void  did_recv_message (
 	MarlinMulticastClient_t* client,
-	const char* message,
+	const uint8_t* message,
 	uint64_t message_length,
 	uint16_t channel,
 	uint64_t message_id
@@ -30,7 +30,7 @@ void did_subscribe (
 	marlin_multicast_client_send_message_on_channel(
 		client,
 		channel,
-		"C Hello!",
+		(uint8_t*)"C Hello!",
 		8
 	);
 }
