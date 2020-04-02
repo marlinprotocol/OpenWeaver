@@ -318,7 +318,6 @@ public:
  		return (net::EventLoop::now() - lastUpdateTime) < staleThreshold;
 	}
 
-	// TODO check if entry is new
 	uint64_t get_stake(std::string address) {
 		if (! is_alive() || (stakeAddressMap.find(address) == stakeAddressMap.end()))
 			return 0;
