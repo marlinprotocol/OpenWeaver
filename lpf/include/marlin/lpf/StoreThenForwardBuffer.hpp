@@ -7,7 +7,7 @@ namespace marlin {
 namespace lpf {
 
 class StoreThenForwardBuffer {
-	char *buf = nullptr;
+	uint8_t *buf = nullptr;
 	uint64_t length = 0;
 	uint64_t size = 0;
 
@@ -43,7 +43,7 @@ public:
 				}
 
 				// Prepare to process message
-				buf = new char[length];
+				buf = new uint8_t[length];
 				size = 0;
 
 				// Process remaining bytes
