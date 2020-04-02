@@ -27,7 +27,7 @@ TEST(uint256Construct, uint8Constructible) {
 	StubBN e;
 	e[0] = 0x12;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint16Constructible) {
@@ -37,7 +37,7 @@ TEST(uint256Construct, uint16Constructible) {
 	e[1] = 0x12;
 	e[0] = 0x34;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint32Constructible) {
@@ -49,7 +49,7 @@ TEST(uint256Construct, uint32Constructible) {
 	e[1] = 0x56;
 	e[0] = 0x78;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint64Constructible) {
@@ -65,7 +65,7 @@ TEST(uint256Construct, uint64Constructible) {
 	e[1] = 0xde;
 	e[0] = 0xf0;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint64x2Constructible) {
@@ -84,7 +84,7 @@ TEST(uint256Construct, uint64x2Constructible) {
 	e[9] = e[1] = 0xde;
 	e[8] = e[0] = 0xf0;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint64x3Constructible) {
@@ -104,7 +104,7 @@ TEST(uint256Construct, uint64x3Constructible) {
 	e[17] = e[9] = e[1] = 0xde;
 	e[16] = e[8] = e[0] = 0xf0;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
 
 TEST(uint256Construct, uint64x4Constructible) {
@@ -125,5 +125,5 @@ TEST(uint256Construct, uint64x4Constructible) {
 	e[25] = e[17] = e[9] = e[1] = 0xde;
 	e[24] = e[16] = e[8] = e[0] = 0xf0;
 
-	EXPECT_TRUE(std::memcmp((char*)&n, (char*)e.mem, 32) == 0);
+	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
 }
