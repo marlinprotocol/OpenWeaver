@@ -72,7 +72,6 @@ struct StakeAttester {
 		}
 
 		if(used_stake_offset > (free_stake_offset + size) % stake) {  // Overflow behaviour desirable
-			// TODO: Check if stake offset is within bounds
 			auto ret = std::make_optional(free_stake_offset);
 			free_stake_offset = (free_stake_offset + size) % stake;
 
