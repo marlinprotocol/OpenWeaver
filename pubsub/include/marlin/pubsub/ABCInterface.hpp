@@ -154,7 +154,7 @@ public:
 
 			for (uint i=0; i<numMapEntries; i++) {
 
-				std::string addressString(message.data(), addressLength);
+				std::string addressString((char*)message.data(), addressLength);
 				message.cover(addressLength);
 
 				SPDLOG_INFO(
@@ -196,7 +196,7 @@ public:
 		LpfTcpTransport &,
 		net::Buffer &message
 	) {
-		message.read(0, (char*)private_key, privateKeyLength);
+		message.read(0, private_key, privateKeyLength);
 		have_key = true;
 	}
 
@@ -209,7 +209,7 @@ public:
 		uint8_t ackType = MessageType::StateUpdateMessage;
 
 		uint32_t totalSize = messageTypeSize + AckTypeSize + blockNumberSize;
-		auto dataBuffer = new net::Buffer(new char[totalSize], totalSize);
+		auto dataBuffer = new net::Buffer(totalSize);
 		uint32_t offset = 0;
 
 		dataBuffer->write_uint8(offset, messageType);
@@ -249,7 +249,7 @@ public:
 		uint32_t mSize = messageIDSize + channelSize + timestampSize + stakeOffsetSize + messageSize + hashSize + signatureSize;
 
 		uint32_t totalSize = messageTypeSize + 2 * (mSize);
-		auto dataBuffer = new net::Buffer(new char[totalSize], totalSize);
+		auto dataBuffer = new net::Buffer(totalSize);
 		uint32_t offset = 0;
 
 		dataBuffer->write_uint8(offset, messageType);
@@ -270,10 +270,10 @@ public:
 		dataBuffer->write_uint64_be(offset, messageSize1);
 		offset += messageSize;
 
-		dataBuffer->write(offset, (char*) messageHash1, hashSize);
+		dataBuffer->write(offset, messageHash1, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, (char*) signature1, signatureSize);
+		dataBuffer->write(offset, signature1, signatureSize);
 		offset += signatureSize;
 
 		dataBuffer->write_uint64_be(offset, messageId2);
@@ -291,10 +291,10 @@ public:
 		dataBuffer->write_uint64_be(offset, messageSize2);
 		offset += messageSize;
 
-		dataBuffer->write(offset, (char*) messageHash2, hashSize);
+		dataBuffer->write(offset, messageHash2, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, (char*) signature2, signatureSize);
+		dataBuffer->write(offset, signature2, signatureSize);
 		offset += signatureSize;
 
 		contractInterface->send(std::move(*dataBuffer));

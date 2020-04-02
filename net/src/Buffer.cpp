@@ -7,14 +7,14 @@ namespace marlin {
 namespace net {
 
 Buffer::Buffer(size_t const size) :
-buf(new char[size]), capacity(size), start_index(0), end_index(size) {}
+buf(new uint8_t[size]), capacity(size), start_index(0), end_index(size) {}
 
-Buffer::Buffer(std::initializer_list<char> il, size_t const size) :
-buf(new char[size]), capacity(size), start_index(0), end_index(size) {
+Buffer::Buffer(std::initializer_list<uint8_t> il, size_t const size) :
+buf(new uint8_t[size]), capacity(size), start_index(0), end_index(size) {
 	std::copy(il.begin(), il.end(), buf);
 }
 
-Buffer::Buffer(char *const _buf, size_t const size) :
+Buffer::Buffer(uint8_t *const _buf, size_t const size) :
 buf(_buf), capacity(size), start_index(0), end_index(size) {}
 
 Buffer::Buffer(Buffer &&b) noexcept :
@@ -103,7 +103,7 @@ void Buffer::expand_unsafe(size_t const num) {
 	end_index += num;
 }
 
-void Buffer::read_unsafe(size_t const pos, char* const out, size_t const size) const {
+void Buffer::read_unsafe(size_t const pos, uint8_t* const out, size_t const size) const {
 	std::memcpy(out, data()+pos, size);
 }
 
@@ -132,7 +132,7 @@ uint64_t Buffer::read_uint64_unsafe(size_t const pos) const {
 	return res;
 }
 
-bool Buffer::read(size_t const pos, char* const out, size_t const size) const {
+bool Buffer::read(size_t const pos, uint8_t* const out, size_t const size) const {
 	// Bounds checking
 	if(this->size() < size || this->size() - size < pos)
 		return false;
@@ -174,7 +174,7 @@ uint64_t Buffer::read_uint64(size_t const pos) const {
 	return read_uint64_unsafe(pos);
 }
 
-void Buffer::write_unsafe(size_t const pos, char const* const in, size_t const size) {
+void Buffer::write_unsafe(size_t const pos, uint8_t const* const in, size_t const size) {
 	std::memcpy(data()+pos, in, size);
 }
 
@@ -194,7 +194,7 @@ void Buffer::write_uint64_unsafe(size_t const pos, uint64_t const num) {
 	std::memcpy(data()+pos, &num, 8);
 }
 
-bool Buffer::write(size_t const pos, char const* const in, size_t const size) {
+bool Buffer::write(size_t const pos, uint8_t const* const in, size_t const size) {
 	// Bounds checking
 	if(this->size() < size || this->size() - size < pos)
 		return false;

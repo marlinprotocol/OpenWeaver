@@ -16,7 +16,7 @@ namespace net {
 
 //! Marlin byte buffer implementation
 class Buffer {
-	char *buf;
+	uint8_t *buf;
 	size_t capacity;
 	size_t start_index;
 	size_t end_index;
@@ -26,13 +26,13 @@ public:
 	Buffer(size_t const size);
 
 	/// Construct with initializer list and given size - preferred constructor
-	Buffer(std::initializer_list<char> il, size_t const size);
-	// Initializer lists are preferable to partially initialized char arrays
-	// Buffer(new char[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
+	Buffer(std::initializer_list<uint8_t> il, size_t const size);
+	// Initializer lists are preferable to partially initialized uint8_t arrays
+	// Buffer(new uint8_t[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
 	// Buffer({'0','1'}, 10) doesn't
 
-	/// Construct from char array - unsafe if char * isn't obtained from new
-	Buffer(char *const buf, size_t const size);
+	/// Construct from uint8_t array - unsafe if uint8_t * isn't obtained from new
+	Buffer(uint8_t *const buf, size_t const size);
 
 	/// Move contructor
 	Buffer(Buffer &&b) noexcept;
@@ -48,8 +48,8 @@ public:
 
 	~Buffer();
 
-	inline char *release() {
-		char *_buf = buf;
+	inline uint8_t *release() {
+		uint8_t *_buf = buf;
 
 		buf = nullptr;
 		capacity = 0;
@@ -60,7 +60,7 @@ public:
 	}
 
 	/// Start of buffer
-	inline char *data() const {
+	inline uint8_t *data() const {
 		return buf + start_index;
 	}
 
@@ -92,9 +92,9 @@ public:
 	//-------- Arbitrary reads begin --------//
 
 	/// Read arbitrary data starting at given byte
-	bool read(size_t const pos, char* const out, size_t const size) const;
+	bool read(size_t const pos, uint8_t* const out, size_t const size) const;
 	/// Read arbitrary data starting at given byte without bounds checking
-	void read_unsafe(size_t const pos, char* const out, size_t const size) const;
+	void read_unsafe(size_t const pos, uint8_t* const out, size_t const size) const;
 
 	//-------- Arbitrary reads end --------//
 
@@ -102,9 +102,9 @@ public:
 	//-------- Arbitrary writes begin --------//
 
 	/// Write arbitrary data starting at given byte
-	bool write(size_t const pos, char const* const in, size_t const size);
+	bool write(size_t const pos, uint8_t const* const in, size_t const size);
 	/// Write arbitrary data starting at given byte without bounds checking
-	void write_unsafe(size_t const pos, char const* const in, size_t const size);
+	void write_unsafe(size_t const pos, uint8_t const* const in, size_t const size);
 
 	//-------- Arbitrary writes end --------//
 

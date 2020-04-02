@@ -65,9 +65,9 @@ public:
 	bool operator<(const SocketAddress &other) const;
 
 	/// Serialize into bytes
-	size_t serialize(char* bytes, size_t size) const;
+	size_t serialize(uint8_t* bytes, size_t size) const;
 	/// Deserialize from bytes
-	static SocketAddress deserialize(char const* bytes, size_t const size);
+	static SocketAddress deserialize(uint8_t const* bytes, size_t const size);
 };
 
 } // namespace net

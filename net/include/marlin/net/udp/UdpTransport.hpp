@@ -130,7 +130,7 @@ int UdpTransport<DelegateType>::send(Buffer &&packet) {
 
 	pending_req.push_back(req);
 
-	auto buf = uv_buf_init(req_data->packet.data(), req_data->packet.size());
+	auto buf = uv_buf_init((char*)req_data->packet.data(), req_data->packet.size());
 	int res = uv_udp_send(
 		req,
 		socket,

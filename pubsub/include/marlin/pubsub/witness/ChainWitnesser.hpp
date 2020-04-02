@@ -32,7 +32,7 @@ struct ChainWitnesser {
 			offset += 2;
 		}
 		out.write(offset, prev_witness_header.witness_data, prev_witness_header.witness_size);
-		crypto_scalarmult_base((uint8_t*)out.data()+offset+prev_witness_header.witness_size, secret_key);
+		crypto_scalarmult_base(out.data()+offset+prev_witness_header.witness_size, secret_key);
 		return 0;
 	}
 
