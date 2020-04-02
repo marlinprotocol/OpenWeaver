@@ -161,7 +161,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 
 	net::Buffer p(
-		{0, 1, (char)protocols.size()},
+		{0, 1, protocols.size()},
 		3 + protocols.size()*8
 	);
 
@@ -265,7 +265,7 @@ void DiscoveryClient<DiscoveryClientDelegate>::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
 	net::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
-	p.write(2, (char*)static_pk, crypto_box_PUBLICKEYBYTES);
+	p.write(2, static_pk, crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
 
