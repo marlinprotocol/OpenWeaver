@@ -73,7 +73,12 @@ public:
 	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
 	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
 
-	DiscoveryClient(net::SocketAddress const &addr, uint8_t const* static_sk);
+	template<typename ...Args>
+	DiscoveryClient(
+		net::SocketAddress const &addr,
+		uint8_t const* static_sk,
+		Args&&... args
+	);
 	~DiscoveryClient();
 
 	DiscoveryClientDelegate *delegate;
@@ -413,10 +418,12 @@ void DISCOVERYCLIENT::did_send_packet(
 //---------------- Transport delegate functions end ----------------//
 
 template<DISCOVERYCLIENT_TEMPLATE>
+template<typename ...Args>
 DISCOVERYCLIENT::DiscoveryClient(
 	net::SocketAddress const &addr,
-	uint8_t const* static_sk
-) : beacon_timer(this), heartbeat_timer(this) {
+	uint8_t const* static_sk,
+	Args&&... args
+) : f(std::forward<args>(args)...), beacon_timer(this), heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
 
