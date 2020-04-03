@@ -69,13 +69,14 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+	test/testDiscoveryClient.cpp
 )
 
 add_custom_target(beacon_tests)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
-	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon marlin::simulator)
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	add_test(${TEST_NAME} ${TEST_NAME})
 
