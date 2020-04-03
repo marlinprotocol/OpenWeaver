@@ -39,6 +39,9 @@ private:
 	net::TransportManager<StreamTransport<TransportDelegate, DatagramTransport>> transport_manager;
 
 public:
+	template<typename ...Args>
+	StreamTransportFactory(Args&&... args);
+
 	bool should_accept(net::SocketAddress const &addr);
 	void did_create_transport(
 		DatagramTransport<
@@ -62,6 +65,21 @@ public:
 
 
 // Impl
+
+template<
+	typename ListenDelegate,
+	typename TransportDelegate,
+	template<typename, typename> class DatagramTransportFactory,
+	template<typename> class DatagramTransport
+>
+template<typename ...Args>
+StreamTransportFactory<
+	ListenDelegate,
+	TransportDelegate,
+	DatagramTransportFactory,
+	DatagramTransport
+>::StreamTransportFactory(Args&&... args) : f(std::forward<Args>(args)...) {}
+
 
 template<
 	typename ListenDelegate,
