@@ -37,10 +37,57 @@ struct Delegate {
 	};
 };
 
-TEST(DiscoveryClientConstruct, Constructible) {
+TEST(DiscoveryClientTest, Constructible) {
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 	crypto_box_keypair(static_pk, static_sk);
 
 	DiscoveryClient<Delegate> client(SocketAddress::loopback_ipv4(8000), static_sk);
+}
+
+
+struct DiscoveryClientProtocolTest : public ::testing::Test {
+	template<typename Delegate>
+	using TransportType = SimulatedTransport<
+		Simulator,
+		NetworkInterface<Network<NetworkConditioner>>,
+		Delegate
+	>;
+	template<typename ListenDelegate, typename TransportDelegate>
+	using TransportFactoryType = SimulatedTransportFactory<
+		Simulator,
+		NetworkInterface<Network<NetworkConditioner>>,
+		ListenDelegate,
+		TransportDelegate
+	>;
+
+	Simulator simulator;
+	NetworkConditioner nc;
+	Network<NetworkConditioner> network;
+
+	DiscoveryClientProtocolTest() : network(nc) {}
+};
+
+TEST_F(DiscoveryClientProtocolTest, SendsHeartbeatWhenDiscoverable) {
+	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
+	// auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
+
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+	crypto_box_keypair(static_pk, static_sk);
+
+	DiscoveryClient<Delegate, TransportFactoryType, TransportType> client(
+		SocketAddress::from_string("192.168.0.1:8002"),
+		static_sk,
+		i1,
+		simulator
+	);
+	client.is_discoverable = true;
+	client.start_discovery(SocketAddress::from_string("192.168.0.2:8002"));
+
+	SPDLOG_INFO("Simulation start");
+
+	simulator.run();
+
+	SPDLOG_INFO("Simulation end");
 }

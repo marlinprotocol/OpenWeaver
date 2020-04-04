@@ -7,6 +7,8 @@
 #include <marlin/net/SocketAddress.hpp>
 #include <marlin/net/core/TransportManager.hpp>
 
+#include <spdlog/spdlog.h>
+
 
 namespace marlin {
 namespace simulator {
