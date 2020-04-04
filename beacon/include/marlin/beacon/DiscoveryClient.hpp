@@ -423,7 +423,7 @@ DISCOVERYCLIENT::DiscoveryClient(
 	net::SocketAddress const &addr,
 	uint8_t const* static_sk,
 	Args&&... args
-) : f(std::forward<args>(args)...), beacon_timer(this), heartbeat_timer(this) {
+) : f(std::forward<Args>(args)...), beacon_timer(this), heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);
 
