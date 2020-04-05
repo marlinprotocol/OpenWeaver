@@ -1,6 +1,7 @@
 #include "Relay.hpp"
 
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
