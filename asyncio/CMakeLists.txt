@@ -24,6 +24,9 @@ target_compile_features(asyncio INTERFACE cxx_std_17)
 # marlin::core
 target_link_libraries(asyncio INTERFACE marlin::core)
 
+# marlin::simulator
+target_link_libraries(asyncio INTERFACE marlin::simulator)
+
 # libuv
 target_link_libraries(asyncio INTERFACE libuv::uv_a)
 
