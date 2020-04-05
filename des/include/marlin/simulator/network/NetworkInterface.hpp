@@ -1,8 +1,8 @@
 #ifndef MARLIN_SIMULATOR_NETWORK_NETWORKINTERFACE_HPP
 #define MARLIN_SIMULATOR_NETWORK_NETWORKINTERFACE_HPP
 
-#include "marlin/net/SocketAddress.hpp"
-#include "marlin/net/Buffer.hpp"
+#include "marlin/core/SocketAddress.hpp"
+#include "marlin/core/Buffer.hpp"
 
 #include <unordered_map>
 
@@ -15,8 +15,8 @@ public:
 	virtual void did_recv(
 		NetworkInterfaceType& interface,
 		uint16_t port,
-		net::SocketAddress const& addr,
-		net::Buffer&& packet
+		core::SocketAddress const& addr,
+		core::Buffer&& packet
 	) = 0;
 	virtual void did_close() = 0;
 };
@@ -32,19 +32,19 @@ private:
 	NetworkType& network;
 
 public:
-	net::SocketAddress addr;
+	core::SocketAddress addr;
 
 	NetworkInterface(
 		NetworkType& network,
-		net::SocketAddress const& addr
+		core::SocketAddress const& addr
 	);
 
 	int bind(NetworkListenerType& listener, uint16_t port);
 	void close(uint16_t port);
 
 	template<typename EventManager>
-	int send(EventManager& manager, net::SocketAddress const& src_addr, net::SocketAddress const& addr, net::Buffer&& packet);
-	void did_recv(uint16_t port, net::SocketAddress const& addr, net::Buffer&& packet);
+	int send(EventManager& manager, core::SocketAddress const& src_addr, core::SocketAddress const& addr, core::Buffer&& packet);
+	void did_recv(uint16_t port, core::SocketAddress const& addr, core::Buffer&& packet);
 };
 
 
@@ -53,7 +53,7 @@ public:
 template<typename NetworkType>
 NetworkInterface<NetworkType>::NetworkInterface(
 	NetworkType& network,
-	net::SocketAddress const& addr
+	core::SocketAddress const& addr
 ) : network(network), addr(addr) {}
 
 template<typename NetworkType>
@@ -82,9 +82,9 @@ template<typename NetworkType>
 template<typename EventManager>
 int NetworkInterface<NetworkType>::send(
 	EventManager& manager,
-	net::SocketAddress const& src_addr,
-	net::SocketAddress const& dst_addr,
-	net::Buffer&& packet
+	core::SocketAddress const& src_addr,
+	core::SocketAddress const& dst_addr,
+	core::Buffer&& packet
 ) {
 	return network.send(manager, src_addr, dst_addr, std::move(packet));
 }
@@ -92,8 +92,8 @@ int NetworkInterface<NetworkType>::send(
 template<typename NetworkType>
 void NetworkInterface<NetworkType>::did_recv(
 	uint16_t port,
-	net::SocketAddress const& addr,
-	net::Buffer&& packet
+	core::SocketAddress const& addr,
+	core::Buffer&& packet
 ) {
 	if(listeners.find(port) == listeners.end()) {
 		return;

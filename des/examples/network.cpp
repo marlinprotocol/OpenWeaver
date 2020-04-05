@@ -5,7 +5,7 @@
 #include "marlin/simulator/network/Network.hpp"
 
 using namespace marlin::simulator;
-using namespace marlin::net;
+using namespace marlin::core;
 using namespace std;
 
 template<typename NetworkInterfaceType>
