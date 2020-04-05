@@ -2,7 +2,8 @@
 
 
 using namespace marlin::multicast;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 
 class MulticastDelegate {
 public:

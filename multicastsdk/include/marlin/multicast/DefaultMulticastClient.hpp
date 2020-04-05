@@ -34,7 +34,7 @@ public:
 	PubSubNodeType ps;
 
 	void new_peer(
-		net::SocketAddress const &addr,
+		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
@@ -66,7 +66,7 @@ public:
 
 	void did_recv_message(
 		PubSubNodeType &,
-		net::Buffer &&message,
+		core::Buffer &&message,
 		typename PubSubNodeType::MessageHeaderType header,
 		uint16_t channel,
 		uint64_t message_id
@@ -158,11 +158,11 @@ public:
 	DefaultMulticastClient(
 		DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions()
 	) : b(
-			net::SocketAddress::from_string(options.discovery_addr),
+			core::SocketAddress::from_string(options.discovery_addr),
 			options.static_sk
 		),
 		ps(
-			net::SocketAddress::from_string(options.pubsub_addr),
+			core::SocketAddress::from_string(options.pubsub_addr),
 			options.max_conn,
 			0,
 			options.static_sk
@@ -178,11 +178,11 @@ public:
 		b.delegate = this;
 		ps.delegate = this;
 
-		b.start_discovery(net::SocketAddress::from_string(options.beacon_addr));
+		b.start_discovery(core::SocketAddress::from_string(options.beacon_addr));
 	}
 
 	static int run_event_loop() {
-		return net::EventLoop::run();
+		return asyncio::EventLoop::run();
 	}
 };
 
