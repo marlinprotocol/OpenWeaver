@@ -1,11 +1,12 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
 #include <marlin/simulator/core/Simulator.hpp>
 #include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
 #include <marlin/simulator/network/Network.hpp>
 
 #include <marlin/beacon/DiscoveryClient.hpp>
 
-#include "spdlog/fmt/bin_to_hex.h"
 
 #include <cstring>
 
@@ -62,16 +63,49 @@ struct DiscoveryClientProtocolTest : public ::testing::Test {
 		TransportDelegate
 	>;
 
-	Simulator simulator;
+	Simulator& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
-	Network<NetworkConditioner> network;
+
+	using NetworkType = Network<NetworkConditioner>;
+	NetworkType network;
+
+	using NetworkInterfaceType = NetworkInterface<Network<NetworkConditioner>>;
 
 	DiscoveryClientProtocolTest() : network(nc) {}
 };
 
-TEST_F(DiscoveryClientProtocolTest, SendsHeartbeatWhenDiscoverable) {
+template<typename NetworkInterfaceType>
+struct Listener final : public NetworkListener<NetworkInterfaceType> {
+	std::function<void(
+		NetworkInterfaceType&,
+		uint16_t,
+		SocketAddress const&,
+		Buffer&&
+	)> t_did_recv = [](
+		NetworkInterfaceType&,
+		uint16_t,
+		SocketAddress const&,
+		Buffer&&
+	) {};
+	std::function<void()> t_did_close = []() {};
+
+	void did_recv(
+		NetworkInterfaceType& interface,
+		uint16_t port,
+		SocketAddress const& addr,
+		Buffer&& packet
+	) override {
+		t_did_recv(interface, port, addr, std::move(packet));
+	}
+
+	void did_close() override {
+		t_did_close();
+	}
+};
+
+TEST_F(DiscoveryClientProtocolTest, DiscoversPeers) {
 	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
-	// auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
+	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -83,8 +117,36 @@ TEST_F(DiscoveryClientProtocolTest, SendsHeartbeatWhenDiscoverable) {
 		i1,
 		simulator
 	);
-	client.is_discoverable = true;
+
+	bool listener_called = false;
+	Listener<NetworkInterfaceType> l;
+	l.t_did_recv = [&](
+		NetworkInterfaceType& interface,
+		uint16_t port,
+		SocketAddress const& addr,
+		Buffer&& packet
+	) {
+		listener_called = true;
+
+		// Check src and dst
+		EXPECT_EQ(interface.addr.to_string(), "192.168.0.2:0");
+		EXPECT_EQ(port, 8002);
+		EXPECT_EQ(addr.to_string(), "192.168.0.1:8002");
+
+		// Check packet
+		EXPECT_EQ(packet.size(), 2);  // Size
+		EXPECT_EQ(packet.read_uint8(0), 0);  // Version
+		EXPECT_EQ(packet.read_uint8(1), 2);  // DISCPEER
+
+		if(simulator.current_tick() > 100000) {
+			client.close();
+		}
+	};
+	i2.bind(l, 8002);
+
 	client.start_discovery(SocketAddress::from_string("192.168.0.2:8002"));
 
 	simulator.run();
+
+	EXPECT_TRUE(listener_called);
 }

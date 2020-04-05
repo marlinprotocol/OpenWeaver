@@ -86,6 +86,8 @@ public:
 
 	void start_discovery(core::SocketAddress const &beacon_addr);
 
+	void close();
+
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -448,6 +450,12 @@ void DISCOVERYCLIENT::start_discovery(
 	const core::SocketAddress &beacon_addr
 ) {
 	f.dial(beacon_addr, *this);
+}
+
+template<DISCOVERYCLIENT_TEMPLATE>
+void DISCOVERYCLIENT::close() {
+	beacon_timer.stop();
+	heartbeat_timer.stop();
 }
 
 
