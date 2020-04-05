@@ -5,9 +5,9 @@
 #include <unordered_set>
 #include <spdlog/spdlog.h>
 
-#include <marlin/net/SocketAddress.hpp>
-#include <marlin/net/Buffer.hpp>
-#include <marlin/net/core/TransportManager.hpp>
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/Buffer.hpp>
+#include <marlin/core/TransportManager.hpp>
 
 #include <marlin/lpf/CutThroughBuffer.hpp>
 #include <marlin/lpf/StoreThenForwardBuffer.hpp>
@@ -39,54 +39,54 @@ private:
 	using BaseTransport = StreamTransportType<Self>;
 
 	BaseTransport &transport;
-	net::TransportManager<Self> &transport_manager;
+	core::TransportManager<Self> &transport_manager;
 
 	std::unordered_map<uint16_t, StoreThenForwardBuffer> stf_buffers;
 public:
-	int did_recv_stf_message(uint16_t id, net::Buffer &&message);
+	int did_recv_stf_message(uint16_t id, core::Buffer &&message);
 
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	int did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes, uint16_t stream_id = 0);
-	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
+	int did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes, uint16_t stream_id = 0);
+	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
 	void did_close(BaseTransport& transport);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
 	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
 
-	net::SocketAddress src_addr;
-	net::SocketAddress dst_addr;
+	core::SocketAddress src_addr;
+	core::SocketAddress dst_addr;
 
 	DelegateType *delegate = nullptr;
 
 	LpfTransport(
-		net::SocketAddress const &src_addr,
-		net::SocketAddress const &dst_addr,
+		core::SocketAddress const &src_addr,
+		core::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		net::TransportManager<Self> &transport_manager
+		core::TransportManager<Self> &transport_manager
 	);
 
 	void setup(DelegateType *delegate, uint8_t const* keys = nullptr);
 
-	int send(net::Buffer &&message);
+	int send(core::Buffer &&message);
 	void close();
 
 	bool is_active();
 	double get_rtt();
 
-	int cut_through_send(net::Buffer &&message);
+	int cut_through_send(core::Buffer &&message);
 private:
 	std::unordered_map<uint16_t, CutThroughBuffer> cut_through_buffers;
 	std::list<uint16_t> cut_through_reserve_ids = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
 public:
 	std::unordered_set<uint16_t> cut_through_used_ids;
 	uint16_t cut_through_send_start(uint64_t length);
-	int cut_through_send_bytes(uint16_t id, net::Buffer &&bytes);
+	int cut_through_send_bytes(uint16_t id, core::Buffer &&bytes);
 	void cut_through_send_end(uint16_t id);
 	void cut_through_send_skip(uint16_t id);
 	void cut_through_send_flush(uint16_t id);
 
 	void cut_through_recv_start(uint16_t id, uint64_t length);
-	int cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes);
+	int cut_through_recv_bytes(uint16_t id, core::Buffer &&bytes);
 	void cut_through_recv_end(uint16_t id);
 	void cut_through_recv_skip(uint16_t id);
 	void cut_through_recv_flush(uint16_t id);
@@ -111,7 +111,7 @@ int LpfTransport<
 	prefix_length
 >::did_recv_stf_message(
 	uint16_t,
-	net::Buffer &&message
+	core::Buffer &&message
 ) {
 	return delegate->did_recv_message(*this, std::move(message));
 }
@@ -146,7 +146,7 @@ int LpfTransport<
 	prefix_length
 >::did_recv_bytes(
 	BaseTransport &,
-	net::Buffer &&bytes,
+	core::Buffer &&bytes,
 	uint16_t stream_id
 ) {
 	if constexpr (should_cut_through) {
@@ -196,7 +196,7 @@ void LpfTransport<
 	prefix_length
 >::did_send_bytes(
 	BaseTransport &,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	bytes.cover(8);
 	delegate->did_send_message(*this, std::move(bytes));
@@ -262,10 +262,10 @@ LpfTransport<
 	should_cut_through,
 	prefix_length
 >::LpfTransport(
-	net::SocketAddress const &src_addr,
-	net::SocketAddress const &dst_addr,
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
 	BaseTransport &transport,
-	net::TransportManager<Self> &transport_manager
+	core::TransportManager<Self> &transport_manager
 ) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {}
 
 template<
@@ -304,9 +304,9 @@ int LpfTransport<
 	should_cut_through,
 	prefix_length
 >::send(
-	net::Buffer &&message
+	core::Buffer &&message
 ) {
-	net::Buffer lpf_message(message.size() + 8);
+	core::Buffer lpf_message(message.size() + 8);
 
 	lpf_message.write_uint64_be(0, message.size());
 	lpf_message.write(8, message.data(), message.size());
@@ -326,7 +326,7 @@ int LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send(
-	net::Buffer &&message
+	core::Buffer &&message
 ) {
 	auto id = cut_through_send_start(message.size());
 	if(id == 0) {
@@ -405,7 +405,7 @@ uint16_t LpfTransport<
 	cut_through_reserve_ids.pop_front();
 	cut_through_used_ids.insert(id);
 
-	net::Buffer m(8);
+	core::Buffer m(8);
 	m.write_uint64_be(0, length);
 	auto res = transport.send(std::move(m), id);
 
@@ -425,7 +425,7 @@ int LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::cut_through_send_bytes(uint16_t id, net::Buffer &&bytes) {
+>::cut_through_send_bytes(uint16_t id, core::Buffer &&bytes) {
 	return transport.send(std::move(bytes), id);
 }
 
@@ -502,7 +502,7 @@ int LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::cut_through_recv_bytes(uint16_t id, net::Buffer &&bytes) {
+>::cut_through_recv_bytes(uint16_t id, core::Buffer &&bytes) {
 	return delegate->cut_through_recv_bytes(*this, id, std::move(bytes));
 }
 
