@@ -11,6 +11,7 @@ add_subdirectory(vendor)
 
 enable_testing()
 add_subdirectory(core)
+add_subdirectory(asyncio)
 add_subdirectory(net)
 add_subdirectory(des)
 add_subdirectory(beacon)
