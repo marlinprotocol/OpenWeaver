@@ -20,7 +20,7 @@ public:
 };
 
 int main() {
-	Simulator simulator;
+	auto& simulator = Simulator::default_instance;
 	simulator.add_event(std::make_shared<RepeatedEvent>(1));
 
 	cout<<"Simulation start"<<endl;
