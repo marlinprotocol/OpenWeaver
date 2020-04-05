@@ -96,7 +96,7 @@ add_custom_target(simulator_examples)
 foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
 	get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
 	add_executable(simulator_${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
-	target_link_libraries(simulator_${EXAMPLE_NAME}_example PUBLIC simulator marlin::net)
+	target_link_libraries(simulator_${EXAMPLE_NAME}_example PUBLIC simulator marlin::core)
 	target_compile_options(simulator_${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	target_compile_features(simulator_${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
 
