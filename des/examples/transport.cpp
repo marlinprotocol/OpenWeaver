@@ -15,8 +15,6 @@ struct Delegate;
 using TransportType = SimulatedTransport<Simulator, NetworkInterface<Network<NetworkConditioner>>, Delegate>;
 
 struct Delegate {
-	Simulator& simulator;
-
 	void did_recv_packet(TransportType& transport, Buffer&& packet) {
 		SPDLOG_INFO(
 			"Transport: {{Src: {}, Dst: {}}}, Did recv packet: {} bytes",
@@ -24,7 +22,7 @@ struct Delegate {
 			transport.dst_addr.to_string(),
 			packet.size()
 		);
-		if(simulator.current_tick() > 10) {
+		if(Simulator::default_instance.current_tick() > 10) {
 			transport.close();
 		} else {
 			transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
@@ -39,7 +37,7 @@ struct Delegate {
 			packet.size()
 		);
 
-		if(simulator.current_tick() > 9) {
+		if(Simulator::default_instance.current_tick() > 9) {
 			transport.close();
 		}
 	}
@@ -63,7 +61,7 @@ struct Delegate {
 };
 
 int main() {
-	Simulator simulator;
+	auto& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	Network<NetworkConditioner> network(nc);
 	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
@@ -78,7 +76,7 @@ int main() {
 	> s(i1, simulator), c(i2, simulator);
 	s.bind(SocketAddress::from_string("192.168.0.1:8000"));
 
-	Delegate d{simulator};
+	Delegate d;
 
 	s.listen(d);
 
