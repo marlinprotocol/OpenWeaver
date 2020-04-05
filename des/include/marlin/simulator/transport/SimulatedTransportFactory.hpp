@@ -3,9 +3,9 @@
 
 #include "marlin/simulator/transport/SimulatedTransport.hpp"
 
-#include <marlin/net/Buffer.hpp>
-#include <marlin/net/SocketAddress.hpp>
-#include <marlin/net/core/TransportManager.hpp>
+#include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/TransportManager.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -36,37 +36,37 @@ public:
 
 private:
 	NetworkInterfaceType& interface;
-	net::TransportManager<TransportType> transport_manager;
+	core::TransportManager<TransportType> transport_manager;
 
 	EventManager& manager;
 
 	ListenDelegateType* delegate;
 	bool is_listening = false;
-	std::pair<TransportType*, int> dial_impl(net::SocketAddress const& addr, ListenDelegateType& delegate);
+	std::pair<TransportType*, int> dial_impl(core::SocketAddress const& addr, ListenDelegateType& delegate);
 public:
-	net::SocketAddress addr;
+	core::SocketAddress addr;
 
 	SimulatedTransportFactory(
 		NetworkInterfaceType& interface,
 		EventManager& manager
 	);
 
-	int bind(net::SocketAddress const& addr);
+	int bind(core::SocketAddress const& addr);
 	int listen(ListenDelegateType& delegate);
 
-	int dial(net::SocketAddress const& addr, ListenDelegateType& delegate);
+	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate);
 	template<typename MetadataType>
-	int dial(net::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType* metadata);
+	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType* metadata);
 	template<typename MetadataType>
-	int dial(net::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType&& metadata);
+	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType&& metadata);
 
-	TransportType* get_transport(net::SocketAddress const& addr);
+	TransportType* get_transport(core::SocketAddress const& addr);
 
 	void did_recv(
 		NetworkInterfaceType& interface,
 		uint16_t port,
-		net::SocketAddress const& addr,
-		net::Buffer&& message
+		core::SocketAddress const& addr,
+		core::Buffer&& message
 	) override;
 	void did_close() override {}
 };
@@ -102,7 +102,7 @@ int SimulatedTransportFactory<
 	NetworkInterfaceType,
 	ListenDelegateType,
 	TransportDelegateType
->::bind(net::SocketAddress const& addr) {
+>::bind(core::SocketAddress const& addr) {
 	this->addr = addr;
 	return 0;
 }
@@ -142,7 +142,7 @@ std::pair<
 	NetworkInterfaceType,
 	ListenDelegateType,
 	TransportDelegateType
->::dial_impl(net::SocketAddress const& addr, ListenDelegateType& delegate) {
+>::dial_impl(core::SocketAddress const& addr, ListenDelegateType& delegate) {
 	if(!is_listening) {
 		auto status = listen(delegate);
 		if(status < 0) {
@@ -174,7 +174,7 @@ int SimulatedTransportFactory<
 	NetworkInterfaceType,
 	ListenDelegateType,
 	TransportDelegateType
->::dial(net::SocketAddress const& addr, ListenDelegateType& delegate) {
+>::dial(core::SocketAddress const& addr, ListenDelegateType& delegate) {
 	auto [transport, status] = dial_impl(addr, delegate);
 
 	if(status < 0) {
@@ -201,7 +201,7 @@ int SimulatedTransportFactory<
 	ListenDelegateType,
 	TransportDelegateType
 >::dial(
-	net::SocketAddress const& addr,
+	core::SocketAddress const& addr,
 	ListenDelegateType& delegate,
 	MetadataType* metadata
 ) {
@@ -231,7 +231,7 @@ int SimulatedTransportFactory<
 	ListenDelegateType,
 	TransportDelegateType
 >::dial(
-	net::SocketAddress const& addr,
+	core::SocketAddress const& addr,
 	ListenDelegateType& delegate,
 	MetadataType&& metadata
 ) {
@@ -263,7 +263,7 @@ SimulatedTransport<
 	NetworkInterfaceType,
 	ListenDelegateType,
 	TransportDelegateType
->::get_transport(net::SocketAddress const& addr) {
+>::get_transport(core::SocketAddress const& addr) {
 	return transport_manager.get(addr);
 }
 
@@ -281,8 +281,8 @@ void SimulatedTransportFactory<
 >::did_recv(
 	NetworkInterfaceType&,
 	uint16_t,
-	net::SocketAddress const& addr,
-	net::Buffer&& message
+	core::SocketAddress const& addr,
+	core::Buffer&& message
 ) {
 	if(message.size() == 0) {
 		return;

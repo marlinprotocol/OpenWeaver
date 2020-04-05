@@ -7,7 +7,7 @@
 #include "marlin/simulator/core/Simulator.hpp"
 
 using namespace marlin::simulator;
-using namespace marlin::net;
+using namespace marlin::core;
 using namespace std;
 
 struct Delegate;
