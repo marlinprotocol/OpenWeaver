@@ -10,6 +10,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 add_subdirectory(vendor)
 
 enable_testing()
+add_subdirectory(core)
 add_subdirectory(net)
 add_subdirectory(des)
 add_subdirectory(beacon)
