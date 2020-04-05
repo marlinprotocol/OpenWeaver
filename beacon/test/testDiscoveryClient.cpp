@@ -86,9 +86,5 @@ TEST_F(DiscoveryClientProtocolTest, SendsHeartbeatWhenDiscoverable) {
 	client.is_discoverable = true;
 	client.start_discovery(SocketAddress::from_string("192.168.0.2:8002"));
 
-	SPDLOG_INFO("Simulation start");
-
 	simulator.run();
-
-	SPDLOG_INFO("Simulation end");
 }

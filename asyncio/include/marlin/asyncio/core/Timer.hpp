@@ -6,11 +6,17 @@
 
 #include <uv.h>
 #include <type_traits>
+#include <marlin/simulator/timer/Timer.hpp>
 
 
 namespace marlin {
 namespace asyncio {
 
+#ifdef MARLIN_ASYNCIO_SIMULATOR
+
+using Timer = simulator::Timer;
+
+#else
 
 class Timer {
 private:
@@ -68,6 +74,8 @@ public:
 		uv_close((uv_handle_t*)timer, timer_close_cb);
 	}
 };
+
+#endif
 
 } // namespace asyncio
 } // namespace marlin
