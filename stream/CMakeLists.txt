@@ -29,8 +29,8 @@ target_compile_features(stream INTERFACE cxx_std_17)
 # libsodium
 target_link_libraries(stream INTERFACE sodium::sodium)
 
-# marlin::net
-target_link_libraries(stream INTERFACE marlin::net)
+# marlin::asyncio
+target_link_libraries(stream INTERFACE marlin::asyncio)
 
 # spdlog
 target_link_libraries(stream INTERFACE spdlog::spdlog)

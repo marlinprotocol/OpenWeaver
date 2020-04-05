@@ -39,8 +39,8 @@ target_link_libraries(goldfish PUBLIC marlin::pubsub)
 # marlin::beacon
 target_link_libraries(goldfish PUBLIC marlin::beacon)
 
-# marlin::net
-target_link_libraries(goldfish PUBLIC marlin::net)
+# marlin::asyncio
+target_link_libraries(goldfish PUBLIC marlin::asyncio)
 
 # spdlog
 target_link_libraries(goldfish PUBLIC spdlog::spdlog)

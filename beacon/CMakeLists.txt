@@ -29,8 +29,8 @@ target_compile_features(beacon INTERFACE cxx_std_17)
 # libsodium
 target_link_libraries(beacon INTERFACE sodium::sodium)
 
-# marlin::net
-target_link_libraries(beacon INTERFACE marlin::net)
+# marlin::asyncio
+target_link_libraries(beacon INTERFACE marlin::asyncio)
 
 # spdlog
 target_link_libraries(beacon INTERFACE spdlog::spdlog)
