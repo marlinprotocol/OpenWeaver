@@ -9,6 +9,10 @@ namespace simulator {
 
 class Simulator {
 public:
+	// Add a singleton simulator
+	// Intended to be used similar to uv_default_loop()
+	static Simulator default_instance;
+
 	EventQueue<Simulator> queue;
 	Simulator();
 

@@ -4,6 +4,8 @@
 namespace marlin {
 namespace simulator {
 
+Simulator Simulator::default_instance = Simulator();
+
 Simulator::Simulator() {}
 
 void Simulator::add_event(std::shared_ptr<Event<Simulator>> event) {
