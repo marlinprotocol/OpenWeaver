@@ -4,8 +4,8 @@
 	Note: listen() and dial() methods in the same class might create confusion
 */
 
-#ifndef MARLIN_NET_TCPTRANSPORTFACTORY_HPP
-#define MARLIN_NET_TCPTRANSPORTFACTORY_HPP
+#ifndef MARLIN_ASYNCIO_TCPTRANSPORTFACTORY_HPP
+#define MARLIN_ASYNCIO_TCPTRANSPORTFACTORY_HPP
 
 #include <uv.h>
 #include "marlin/core/Buffer.hpp"
@@ -106,7 +106,7 @@ bind(core::SocketAddress const &addr) {
 	int res = uv_tcp_init(loop, socket);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Init error: {}",
+			"Asyncio: Socket {}: Init error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -120,7 +120,7 @@ bind(core::SocketAddress const &addr) {
 	);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Bind error: {}",
+			"Asyncio: Socket {}: Bind error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -155,7 +155,7 @@ connection_cb(uv_stream_t *handle, int status) {
 
 	if (status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Connection callback error: {}",
+			"Asyncio: Socket {}: Connection callback error: {}",
 			factory.addr.to_string(),
 			status
 		);
@@ -167,7 +167,7 @@ connection_cb(uv_stream_t *handle, int status) {
 	status = uv_tcp_init(uv_default_loop(), client);
 	if (status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: TCP init error: {}",
+			"Asyncio: Socket {}: TCP init error: {}",
 			factory.addr.to_string(),
 			status
 		);
@@ -180,7 +180,7 @@ connection_cb(uv_stream_t *handle, int status) {
 	status = uv_accept(handle, (uv_stream_t *)client);
 	if (status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Connection accept error: {}",
+			"Asyncio: Socket {}: Connection accept error: {}",
 			factory.addr.to_string(),
 			status
 		);
@@ -196,7 +196,7 @@ connection_cb(uv_stream_t *handle, int status) {
 	status = uv_tcp_getpeername(client, &saddr, &len);
 	if (status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Getpeername error: {}",
+			"Asyncio: Socket {}: Getpeername error: {}",
 			factory.addr.to_string(),
 			status
 		);
@@ -238,7 +238,7 @@ listen(ListenDelegate &delegate) {
 	int res = uv_listen((uv_stream_t *)socket, 100, connection_cb);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Listen error: {}",
+			"Asyncio: Socket {}: Listen error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -259,7 +259,7 @@ dial_cb(uv_connect_t *req, int status) {
 
 	if (status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Connect error: {}",
+			"Asyncio: Socket {}: Connect error: {}",
 			factory.addr.to_string(),
 			status
 		);
@@ -335,4 +335,4 @@ get_transport(
 } // namespace asyncio
 } // namespace marlin
 
-#endif // MARLIN_NET_TCPTRANSPORTFACTORY_HPP
+#endif // MARLIN_ASYNCIO_TCPTRANSPORTFACTORY_HPP

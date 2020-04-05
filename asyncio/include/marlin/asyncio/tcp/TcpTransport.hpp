@@ -3,8 +3,8 @@
 */
 
 
-#ifndef MARLIN_NET_TCPTRANSPORT_HPP
-#define MARLIN_NET_TCPTRANSPORT_HPP
+#ifndef MARLIN_ASYNCIO_TCPTRANSPORT_HPP
+#define MARLIN_ASYNCIO_TCPTRANSPORT_HPP
 
 #include "marlin/core/SocketAddress.hpp"
 #include "marlin/core/TransportManager.hpp"
@@ -111,7 +111,7 @@ void TcpTransport<DelegateType>::recv_cb(
 		uv_tcp_getsockname((uv_tcp_t *)handle, &saddr, &len);
 
 		SPDLOG_ERROR(
-			"Net: Socket {}: Recv callback error: {}",
+			"Asyncio: Socket {}: Recv callback error: {}",
 			reinterpret_cast<core::SocketAddress const *>(&saddr)->to_string(),
 			nread
 		);
@@ -143,7 +143,7 @@ void TcpTransport<DelegateType>::setup(DelegateType *delegate) {
 
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Read start error: {}",
+			"Asyncio: Socket {}: Read start error: {}",
 			src_addr.to_string(),
 			res
 		);
@@ -165,7 +165,7 @@ void TcpTransport<DelegateType>::send_cb(
 
 	if(status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Send callback error: {}",
+			"Asyncio: Socket {}: Send callback error: {}",
 			data->transport.dst_addr.to_string(),
 			status
 		);
@@ -209,7 +209,7 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Send error: {}, To: {}",
+			"Asyncio: Socket {}: Send error: {}, To: {}",
 			src_addr.to_string(),
 			res,
 			dst_addr.to_string()
@@ -229,4 +229,4 @@ void TcpTransport<DelegateType>::close() {
 } // namespace asyncio
 } // namespace marlin
 
-#endif // MARLIN_NET_TCPTRANSPORT_HPP
+#endif // MARLIN_ASYNCIO_TCPTRANSPORT_HPP

@@ -4,8 +4,8 @@
 	Uses a transport manager helper class to redirect the incoming UDP traffic to appropriate UDPTransport instance
 */
 
-#ifndef MARLIN_NET_UDPTRANSPORTFACTORY_HPP
-#define MARLIN_NET_UDPTRANSPORTFACTORY_HPP
+#ifndef MARLIN_ASYNCIO_UDPTRANSPORTFACTORY_HPP
+#define MARLIN_ASYNCIO_UDPTRANSPORTFACTORY_HPP
 
 #include <uv.h>
 #include "marlin/core/Buffer.hpp"
@@ -115,7 +115,7 @@ bind(core::SocketAddress const &addr) {
 	int res = uv_udp_init(loop, socket);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Init error: {}",
+			"Asyncio: Socket {}: Init error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -129,7 +129,7 @@ bind(core::SocketAddress const &addr) {
 	);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Bind error: {}",
+			"Asyncio: Socket {}: Bind error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -170,7 +170,7 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 		uv_udp_getsockname(handle, &saddr, &len);
 
 		SPDLOG_ERROR(
-			"Net: Socket {}: Recv callback error: {}",
+			"Asyncio: Socket {}: Recv callback error: {}",
 			reinterpret_cast<core::SocketAddress const *>(&saddr)->to_string(),
 			nread
 		);
@@ -233,7 +233,7 @@ listen(ListenDelegate &delegate) {
 	);
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Start recv error: {}",
+			"Asyncio: Socket {}: Start recv error: {}",
 			this->addr.to_string(),
 			res
 		);
@@ -338,4 +338,4 @@ get_transport(
 } // namespace asyncio
 } // namespace marlin
 
-#endif // MARLIN_NET_UDPTRANSPORTFACTORY_HPP
+#endif // MARLIN_ASYNCIO_UDPTRANSPORTFACTORY_HPP
