@@ -39,21 +39,21 @@ private:
 	BaseTransportFactory f;
 
 	ListenDelegate *delegate;
-	net::TransportManager<SelfTransport> transport_manager;
+	core::TransportManager<SelfTransport> transport_manager;
 
 public:
-	bool should_accept(net::SocketAddress const &addr);
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(
 		StreamTransport<SelfTransport> &transport
 	);
 
-	net::SocketAddress addr;
+	core::SocketAddress addr;
 
-	int bind(net::SocketAddress const &addr);
+	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
-	int dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys = nullptr);
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys = nullptr);
 	SelfTransport *get_transport(
-		net::SocketAddress const &addr
+		core::SocketAddress const &addr
 	);
 };
 
@@ -75,7 +75,7 @@ bool LpfTransportFactory<
 	StreamTransport,
 	should_cut_through,
 	prefix_length
->::should_accept(net::SocketAddress const &addr) {
+>::should_accept(core::SocketAddress const &addr) {
 	return delegate->should_accept(addr);
 }
 
@@ -122,7 +122,7 @@ int LpfTransportFactory<
 	StreamTransport,
 	should_cut_through,
 	prefix_length
->::bind(net::SocketAddress const &addr) {
+>::bind(core::SocketAddress const &addr) {
 	this->addr = addr;
 	return f.bind(addr);
 }
@@ -162,7 +162,7 @@ int LpfTransportFactory<
 	StreamTransport,
 	should_cut_through,
 	prefix_length
->::dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys) {
+>::dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys) {
 	this->delegate = &delegate;
 
 	if constexpr (IsTransportEncrypted<StreamTransport<TransportDelegate>>::value) {
@@ -196,7 +196,7 @@ LpfTransportFactory<
 	should_cut_through,
 	prefix_length
 >::get_transport(
-	net::SocketAddress const &addr
+	core::SocketAddress const &addr
 ) {
 	return transport_manager.get(addr);
 }
