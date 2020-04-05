@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_WITNESS_CHAINWITNESSER_HPP
 
 #include <stdint.h>
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 
 
 namespace marlin {
@@ -24,7 +24,7 @@ struct ChainWitnesser {
 	template<typename HeaderType>
 	int witness(
 		HeaderType prev_witness_header,
-		net::Buffer& out,
+		core::Buffer& out,
 		uint64_t offset = 0
 	) {
 		if(prev_witness_header.witness_size == 0) {
@@ -36,7 +36,7 @@ struct ChainWitnesser {
 		return 0;
 	}
 
-	uint64_t parse_size(net::Buffer& in, uint64_t offset = 0) {
+	uint64_t parse_size(core::Buffer& in, uint64_t offset = 0) {
 		return in.read_uint16_be(offset) + 2;
 	}
 };
