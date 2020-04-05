@@ -2,7 +2,7 @@
 #define MARLIN_STREAM_RECVSTREAM_HPP
 
 #include "StreamPacket.hpp"
-#include <marlin/net/core/Timer.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
 
 #include <ctime>
 #include <memory>
@@ -14,13 +14,13 @@ struct RecvPacketInfo {
 	uint64_t recv_time;
 	uint64_t offset;
 	uint16_t length;
-	net::Buffer packet;
+	core::Buffer packet;
 
 	RecvPacketInfo(
 		uint64_t recv_time,
 		uint64_t offset,
 		uint64_t length,
-		net::Buffer &&_packet
+		core::Buffer &&_packet
 	) : packet(std::move(_packet)) {
 		this->recv_time = recv_time;
 		this->offset = offset;
@@ -108,7 +108,7 @@ struct RecvStream {
 	}
 
 	uint64_t state_timer_interval = 1000;
-	net::Timer state_timer;
+	asyncio::Timer state_timer;
 };
 
 } // namespace stream

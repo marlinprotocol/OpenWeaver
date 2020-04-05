@@ -9,19 +9,19 @@
 #include <list>
 #include <ctime>
 #include <map>
-#include <marlin/net/core/Timer.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
 
 namespace marlin {
 namespace stream {
 
 //! Struct to store data (and its params) which is queued to the output/send stream
 struct DataItem {
-	net::Buffer data;
+	core::Buffer data;
 	uint64_t sent_offset = 0;
 	uint64_t stream_offset;
 
 	DataItem(
-		net::Buffer &&_data,
+		core::Buffer &&_data,
 		uint64_t _stream_offset
 	) : data(std::move(_data)), stream_offset(_stream_offset) {}
 };
@@ -109,7 +109,7 @@ struct SendStream {
 	std::map<uint64_t, uint16_t> outstanding_acks;
 
 	uint64_t state_timer_interval = 1000;
-	net::Timer state_timer;
+	asyncio::Timer state_timer;
 };
 
 } // namespace stream
