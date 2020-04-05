@@ -2,7 +2,7 @@
 
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <marlin/net/core/EventLoop.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
 #include <cstring>
 #include <fstream>
 #include <experimental/filesystem>
@@ -23,7 +23,7 @@ public:
 	}
 
 	void new_peer(
-		net::SocketAddress const& addr,
+		core::SocketAddress const& addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t version
@@ -39,9 +39,9 @@ public:
 };
 
 int main() {
-	auto baddr = net::SocketAddress::from_string("127.0.0.1:8002");
-	auto caddr1 = net::SocketAddress::from_string("127.0.0.1:8000");
-	auto caddr2 = net::SocketAddress::from_string("127.0.0.1:8001");
+	auto baddr = core::SocketAddress::from_string("127.0.0.1:8002");
+	auto caddr1 = core::SocketAddress::from_string("127.0.0.1:8000");
+	auto caddr2 = core::SocketAddress::from_string("127.0.0.1:8001");
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -77,5 +77,5 @@ int main() {
 	c1->start_discovery(baddr);
 	c2->start_discovery(baddr);
 
-	return net::EventLoop::run();
+	return asyncio::EventLoop::run();
 }

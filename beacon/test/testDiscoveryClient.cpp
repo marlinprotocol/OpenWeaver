@@ -9,7 +9,8 @@
 
 #include <cstring>
 
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::simulator;
 using namespace marlin::beacon;
 

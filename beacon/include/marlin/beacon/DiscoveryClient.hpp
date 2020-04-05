@@ -5,8 +5,8 @@
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
-#include <marlin/net/core/Timer.hpp>
-#include <marlin/net/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
+#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -25,8 +25,8 @@ namespace beacon {
 */
 template<
 	typename DiscoveryClientDelegate,
-	template<typename, typename> class TransportFactory = net::UdpTransportFactory,
-	template<typename> class Transport = net::UdpTransport
+	template<typename, typename> class TransportFactory = asyncio::UdpTransportFactory,
+	template<typename> class Transport = asyncio::UdpTransport
 >
 class DiscoveryClient {
 private:
@@ -45,10 +45,10 @@ private:
 	void send_DISCPROTO(BaseTransport &transport);
 	void did_recv_DISCPROTO(BaseTransport &transport);
 	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, net::Buffer &&packet);
+	void did_recv_LISTPROTO(BaseTransport &transport, core::Buffer &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, net::Buffer &&packet);
+	void did_recv_LISTPEER(BaseTransport &transport, core::Buffer &&packet);
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
@@ -58,24 +58,24 @@ private:
 	BaseTransport *beacon = nullptr;
 
 	void beacon_timer_cb();
-	net::Timer beacon_timer;
+	asyncio::Timer beacon_timer;
 
 	void heartbeat_timer_cb();
-	net::Timer heartbeat_timer;
+	asyncio::Timer heartbeat_timer;
 
 public:
 	// Listen delegate
-	bool should_accept(net::SocketAddress const &addr);
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
-	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
 	DiscoveryClient(
-		net::SocketAddress const &addr,
+		core::SocketAddress const &addr,
 		uint8_t const* static_sk,
 		Args&&... args
 	);
@@ -84,13 +84,13 @@ public:
 	DiscoveryClientDelegate *delegate;
 	bool is_discoverable = false;
 
-	void start_discovery(net::SocketAddress const &beacon_addr);
+	void start_discovery(core::SocketAddress const &beacon_addr);
 
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
-	std::unordered_map<net::SocketAddress, std::array<uint8_t, 32>> node_key_map;
+	std::unordered_map<core::SocketAddress, std::array<uint8_t, 32>> node_key_map;
 };
 
 
@@ -131,7 +131,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	net::Buffer p({0, 0}, 2);
+	core::Buffer p({0, 0}, 2);
 	transport.send(std::move(p));
 }
 
@@ -183,7 +183,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 ) {
 	auto protocols = delegate->get_protocols();
 
-	net::Buffer p(
+	core::Buffer p(
 		{0, 1, static_cast<uint8_t>(protocols.size())},
 		3 + protocols.size()*8
 	);
@@ -207,7 +207,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	BaseTransport &transport,
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
 
@@ -218,7 +218,7 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 		uint16_t version = packet.read_uint16_be(4 + 8*i);
 
 		uint16_t port = packet.read_uint16_be(6 + 8*i);
-		net::SocketAddress peer_addr(transport.dst_addr);
+		core::SocketAddress peer_addr(transport.dst_addr);
 		// TODO: Move into SocketAddress
 		reinterpret_cast<sockaddr_in *>(&peer_addr)->sin_port = (port << 8) + (port >> 8);
 
@@ -243,7 +243,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	net::Buffer p({0, 2}, 2);
+	core::Buffer p({0, 2}, 2);
 	transport.send(std::move(p));
 }
 
@@ -254,7 +254,7 @@ void DISCOVERYCLIENT::send_DISCPEER(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
@@ -263,7 +263,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		i + 7 + crypto_box_PUBLICKEYBYTES < packet.size();
 		i += 8 + crypto_box_PUBLICKEYBYTES
 	) {
-		auto peer_addr = net::SocketAddress::deserialize(packet.data()+i, 8);
+		auto peer_addr = core::SocketAddress::deserialize(packet.data()+i, 8);
 		packet.read(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
 
 		f.dial(peer_addr, *this);
@@ -287,7 +287,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	net::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
+	core::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
 	p.write(2, static_pk, crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
@@ -318,7 +318,7 @@ void DISCOVERYCLIENT::heartbeat_timer_cb() {
 
 template<DISCOVERYCLIENT_TEMPLATE>
 bool DISCOVERYCLIENT::should_accept(
-	net::SocketAddress const &
+	core::SocketAddress const &
 ) {
 	return is_discoverable;
 }
@@ -364,7 +364,7 @@ void DISCOVERYCLIENT::did_dial(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_packet(
 	BaseTransport &transport,
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DISCPROTO
@@ -391,7 +391,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DISCPROTO
@@ -420,7 +420,7 @@ void DISCOVERYCLIENT::did_send_packet(
 template<DISCOVERYCLIENT_TEMPLATE>
 template<typename ...Args>
 DISCOVERYCLIENT::DiscoveryClient(
-	net::SocketAddress const &addr,
+	core::SocketAddress const &addr,
 	uint8_t const* static_sk,
 	Args&&... args
 ) : f(std::forward<Args>(args)...), beacon_timer(this), heartbeat_timer(this) {
@@ -445,7 +445,7 @@ DISCOVERYCLIENT::~DiscoveryClient() {
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::start_discovery(
-	const net::SocketAddress &beacon_addr
+	const core::SocketAddress &beacon_addr
 ) {
 	f.dial(beacon_addr, *this);
 }
