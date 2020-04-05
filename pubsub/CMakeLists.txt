@@ -111,7 +111,7 @@ add_executable(abci_example
 	examples/abciTest.cpp
 )
 
-target_link_libraries(abci_example PUBLIC net)
+target_link_libraries(abci_example PUBLIC marlin::asyncio)
 target_link_libraries(abci_example PUBLIC pubsub)
 target_compile_options(abci_example PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 

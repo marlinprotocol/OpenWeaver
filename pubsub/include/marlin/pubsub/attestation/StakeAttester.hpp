@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_ATTESTATION_STAKEATTESTER_HPP
 
 #include <stdint.h>
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 #include <ctime>
 #include <optional>
 
@@ -128,7 +128,7 @@ struct StakeAttester {
 		uint8_t const* message_data,
 		uint64_t message_size,
 		HeaderType prev_header,
-		net::Buffer& out,
+		core::Buffer& out,
 		uint64_t offset = 0
 	) {
 		if(prev_header.attestation_size != 0) {
@@ -213,7 +213,7 @@ struct StakeAttester {
 		attestation.message_size = message_size;
 
 		// Extract data
-		net::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
+		core::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
 		attestation.timestamp = buf.read_uint64_be(0);
 		attestation.stake_offset = buf.read_uint64_be(8);
 		buf.release();
@@ -353,7 +353,7 @@ struct StakeAttester {
 		return !overlap;
 	}
 
-	uint64_t parse_size(net::Buffer&, uint64_t = 0) {
+	uint64_t parse_size(core::Buffer&, uint64_t = 0) {
 		return 81;
 	}
 };

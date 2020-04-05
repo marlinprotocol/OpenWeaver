@@ -5,8 +5,8 @@
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
-#include <marlin/net/udp/UdpTransportFactory.hpp>
-#include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 
@@ -32,7 +32,7 @@ namespace lpf {
 template<typename Delegate>
 struct IsTransportEncrypted<stream::StreamTransport<
 	Delegate,
-	net::UdpTransport
+	asyncio::UdpTransport
 >> {
 	constexpr static bool value = true;
 };
@@ -89,13 +89,13 @@ public:
 	using BaseStreamTransportFactory = stream::StreamTransportFactory<
 		ListenDelegate,
 		TransportDelegate,
-		net::UdpTransportFactory,
-		net::UdpTransport
+		asyncio::UdpTransportFactory,
+		asyncio::UdpTransport
 	>;
 	template<typename Delegate>
 	using BaseStreamTransport = stream::StreamTransport<
 		Delegate,
-		net::UdpTransport
+		asyncio::UdpTransport
 	>;
 
 	using BaseTransportFactory = lpf::LpfTransportFactory<
@@ -125,13 +125,13 @@ public:
 	TransportSet sol_standby_conns;
 	TransportSet unsol_conns;
 
-	std::unordered_set<net::SocketAddress> blacklist_addr;
+	std::unordered_set<core::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
 
 	void send_SUBSCRIBE(BaseTransport &transport, uint16_t const channel);
 	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t const channel);
 
-	bool add_sol_conn(net::SocketAddress const &addr);
+	bool add_sol_conn(core::SocketAddress const &addr);
 	bool add_sol_conn(BaseTransport &transport);
 	bool add_sol_standby_conn(BaseTransport &transport);
 	bool add_unsol_conn(BaseTransport &transport);
@@ -147,7 +147,7 @@ public:
 	// void remove_subscriber_from_channel(uint16_t channel, BaseTransport &transport);
 	// void remove_subscriber_from_potential_channel(uint16_t channel, BaseTransport &transport);
 private:
-	net::Timer peer_selection_timer;
+	asyncio::Timer peer_selection_timer;
 
 	void peer_selection_timer_cb() {
 		this->delegate->manage_subscriptions(this->max_sol_conns, this->sol_conns, this->sol_standby_conns);
@@ -161,7 +161,7 @@ private:
 		// );
 	}
 
-	net::Timer blacklist_timer;
+	asyncio::Timer blacklist_timer;
 
 	void blacklist_timer_cb() {
 		this->blacklist_addr.clear();
@@ -171,7 +171,7 @@ private:
 private:
 	BaseTransportFactory f;
 
-	net::Buffer create_MESSAGE(
+	core::Buffer create_MESSAGE(
 		uint16_t channel,
 		uint64_t message_id,
 		const uint8_t *data,
@@ -179,18 +179,18 @@ private:
 		MessageHeaderType prev_header
 	);
 
-	int did_recv_SUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
 
-	void did_recv_UNSUBSCRIBE(BaseTransport &transport, net::Buffer &&message);
+	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
 
-	void did_recv_RESPONSE(BaseTransport &transport, net::Buffer &&message);
+	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
 		bool success,
 		std::string msg_string
 	);
 
-	int did_recv_MESSAGE(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_MESSAGE(BaseTransport &transport, core::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
 		uint16_t channel,
@@ -200,22 +200,22 @@ private:
 		MessageHeaderType prev_header
 	);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&message);
+	void did_recv_HEARTBEAT(BaseTransport &transport, core::Buffer &&message);
 	void send_HEARTBEAT(BaseTransport &transport);
 
 //---------------- Base layer ----------------//
 public:
 	// Listen delegate
-	bool should_accept(net::SocketAddress const &addr);
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	int did_recv_message(BaseTransport &transport, net::Buffer &&message);
-	void did_send_message(BaseTransport &transport, net::Buffer &&message);
+	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
+	void did_send_message(BaseTransport &transport, core::Buffer &&message);
 	void did_close(BaseTransport &transport);
 
-	int dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
+	int dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
 //---------------- Public Interface ----------------//
 public:
@@ -224,7 +224,7 @@ public:
 		typename ...WitnesserArgs
 	>
 	PubSubNode(
-		const net::SocketAddress &_addr,
+		const core::SocketAddress &_addr,
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
@@ -237,14 +237,14 @@ public:
 		uint16_t channel,
 		const uint8_t *data,
 		uint64_t size,
-		net::SocketAddress const *excluded = nullptr
+		core::SocketAddress const *excluded = nullptr
 	);
 	void send_message_on_channel(
 		uint16_t channel,
 		uint64_t message_id,
 		const uint8_t *data,
 		uint64_t size,
-		net::SocketAddress const *excluded = nullptr,
+		core::SocketAddress const *excluded = nullptr,
 		MessageHeaderType prev_header = {}
 	);
 	void send_message_with_cut_through_check(
@@ -256,8 +256,8 @@ public:
 		MessageHeaderType prev_header = {}
 	);
 
-	void subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk);
-	void unsubscribe(net::SocketAddress const &addr);
+	void subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
+	void unsubscribe(core::SocketAddress const &addr);
 private:
 	template<
 		typename ...AttesterArgs,
@@ -266,7 +266,7 @@ private:
 		size_t ...WI
 	>
 	PubSubNode(
-		const net::SocketAddress &_addr,
+		const core::SocketAddress &_addr,
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
@@ -288,7 +288,7 @@ private:
 	uint8_t message_id_idx = 0;
 	std::unordered_set<uint64_t> message_id_set;
 
-	net::Timer message_id_timer;
+	asyncio::Timer message_id_timer;
 
 	void message_id_timer_cb() {
 		// Overflow behaviour desirable
@@ -326,7 +326,7 @@ private:
 //---------------- Cut through ----------------//
 public:
 	void cut_through_recv_start(BaseTransport &transport, uint16_t id, uint64_t length);
-	int cut_through_recv_bytes(BaseTransport &transport, uint16_t id, net::Buffer &&bytes);
+	int cut_through_recv_bytes(BaseTransport &transport, uint16_t id, core::Buffer &&bytes);
 	void cut_through_recv_end(BaseTransport &transport, uint16_t id);
 	void cut_through_recv_flush(BaseTransport &transport, uint16_t id);
 	void cut_through_recv_skip(BaseTransport &transport, uint16_t id);
@@ -391,7 +391,7 @@ private:
 template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
 
@@ -445,7 +445,7 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
 ) {
-	net::Buffer bytes({0}, 3);
+	core::Buffer bytes({0}, 3);
 	bytes.write_uint16_be(1, channel);
 
 	SPDLOG_DEBUG(
@@ -465,7 +465,7 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
 
@@ -503,7 +503,7 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 	BaseTransport &transport,
 	uint16_t const channel
 ) {
-	net::Buffer bytes({1}, 3);
+	core::Buffer bytes({1}, 3);
 	bytes.write_uint16_be(1, channel);
 
 	SPDLOG_DEBUG("Sending unsubscribe on channel {} to {}", channel, transport.dst_addr.to_string());
@@ -517,7 +517,7 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_recv_RESPONSE(
 	BaseTransport &,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	bool success [[maybe_unused]] = bytes.data()[0];
 
@@ -569,7 +569,7 @@ void PUBSUBNODETYPE::send_RESPONSE(
 ) {
 	// 0 for ERROR
 	// 1 for OK
-	net::Buffer m({2, static_cast<uint8_t>(success ? 1 : 0)}, msg_string.size()+2);
+	core::Buffer m({2, static_cast<uint8_t>(success ? 1 : 0)}, msg_string.size()+2);
 	m.write(2, (uint8_t*)msg_string.data(), msg_string.size());
 
 	SPDLOG_DEBUG(
@@ -589,7 +589,7 @@ void PUBSUBNODETYPE::send_RESPONSE(
 template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::did_recv_MESSAGE(
 	BaseTransport &transport,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	auto message_id = bytes.read_uint64_be(0);
 	auto channel = bytes.read_uint16_be(8);
@@ -687,7 +687,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 	\endverbatim
 */
 template<PUBSUBNODE_TEMPLATE>
-net::Buffer PUBSUBNODETYPE::create_MESSAGE(
+core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	uint16_t channel,
 	uint64_t message_id,
 	const uint8_t *data,
@@ -697,7 +697,7 @@ net::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	uint64_t buf_size = 11 + size;
 	buf_size += attester.attestation_size(message_id, channel, data, size, prev_header);
 	buf_size += witnesser.witness_size(prev_header);
-	net::Buffer m({3}, buf_size);
+	core::Buffer m({3}, buf_size);
 	m.write_uint64_be(1, message_id);
 	m.write_uint16_be(9, channel);
 
@@ -737,7 +737,7 @@ template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	net::Buffer m({4}, 1);
+	core::Buffer m({4}, 1);
 
 	transport.send(std::move(m));
 }
@@ -748,7 +748,7 @@ void PUBSUBNODETYPE::send_HEARTBEAT(
 //---------------- Listen delegate functions begin ----------------//
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::should_accept(net::SocketAddress const &) {
+bool PUBSUBNODETYPE::should_accept(core::SocketAddress const &) {
 	return accept_unsol_conn;
 }
 
@@ -797,7 +797,7 @@ void PUBSUBNODETYPE::did_dial(BaseTransport &transport) {
 template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::did_recv_message(
 	BaseTransport &transport,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	// Abort on empty message
 	if(bytes.size() == 0)
@@ -832,7 +832,7 @@ int PUBSUBNODETYPE::did_recv_message(
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_send_message(
 	BaseTransport &,
-	net::Buffer &&
+	core::Buffer &&
 ) {}
 
 template<PUBSUBNODE_TEMPLATE>
@@ -887,7 +887,7 @@ template<
 	typename ...WitnesserArgs
 >
 PUBSUBNODETYPE::PubSubNode(
-	const net::SocketAddress &addr,
+	const core::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
@@ -912,7 +912,7 @@ template<
 	size_t ...WI
 >
 PUBSUBNODETYPE::PubSubNode(
-	const net::SocketAddress &addr,
+	const core::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
@@ -940,7 +940,7 @@ PUBSUBNODETYPE::PubSubNode(
 }
 
 template<PUBSUBNODE_TEMPLATE>
-int PUBSUBNODETYPE::dial(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
+int PUBSUBNODETYPE::dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 	SPDLOG_DEBUG(
 		"SENDING DIAL TO: {}",
 		addr.to_string()
@@ -962,7 +962,7 @@ uint64_t PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
 	const uint8_t *data,
 	uint64_t size,
-	net::SocketAddress const *excluded
+	core::SocketAddress const *excluded
 ) {
 	uint64_t message_id = this->message_id_dist(this->message_id_gen);
 	send_message_on_channel(channel, message_id, data, size, excluded);
@@ -984,7 +984,7 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	uint64_t message_id,
 	const uint8_t *data,
 	uint64_t size,
-	net::SocketAddress const *excluded,
+	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
 	for (
@@ -1053,7 +1053,7 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 	\param addr publisher address to subscribe to
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::subscribe(net::SocketAddress const &addr, uint8_t const *remote_static_pk) {
+void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
 
 
 	// TODO: written so that relays with full unsol list dont occupy sol/standby lists in clients, and similarly masters with full unsol list dont occupy sol/standby lists in relays
@@ -1077,7 +1077,7 @@ void PUBSUBNODETYPE::subscribe(net::SocketAddress const &addr, uint8_t const *re
 	\param addr publisher address to unsubscribe from
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::unsubscribe(net::SocketAddress const &addr) {
+void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
@@ -1094,7 +1094,7 @@ void PUBSUBNODETYPE::unsubscribe(net::SocketAddress const &addr) {
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_conn(net::SocketAddress const &addr) {
+bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &addr) {
 
 	auto *transport = f.get_transport(addr);
 
@@ -1237,7 +1237,7 @@ template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::cut_through_recv_bytes(
 	BaseTransport &transport,
 	uint16_t id,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	// SPDLOG_DEBUG(
 	// 	"Pubsub {} <<<< {}: CTR recv: {}",
@@ -1333,7 +1333,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 
 		crypto_scalarmult_base(new_header+13+witness_length, keys);
 
-		net::Buffer buf(new_header, 13+witness_length+32);
+		core::Buffer buf(new_header, 13+witness_length+32);
 		buf.write_uint16_be(11, witness_length + 32);
 
 		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
@@ -1344,7 +1344,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		return cut_through_recv_bytes(transport, id, std::move(bytes));
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
-			auto sub_bytes = net::Buffer(bytes.size());
+			auto sub_bytes = core::Buffer(bytes.size());
 			sub_bytes.write(0, bytes.data(), bytes.size());
 
 			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
