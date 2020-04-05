@@ -88,16 +88,17 @@ endforeach(TEST_SOURCE)
 set(EXAMPLE_SOURCES
 	examples/basic.cpp
 	examples/network.cpp
+	examples/timer.cpp
 	examples/transport.cpp
 )
 
 add_custom_target(simulator_examples)
 foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
 	get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
-	add_executable(${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
-	target_link_libraries(${EXAMPLE_NAME}_example PUBLIC simulator marlin::net)
-	target_compile_options(${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-	target_compile_features(${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
+	add_executable(simulator_${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
+	target_link_libraries(simulator_${EXAMPLE_NAME}_example PUBLIC simulator marlin::net)
+	target_compile_options(simulator_${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(simulator_${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
 
-	add_dependencies(simulator_examples ${EXAMPLE_NAME}_example)
+	add_dependencies(simulator_examples simulator_${EXAMPLE_NAME}_example)
 endforeach(EXAMPLE_SOURCE)
