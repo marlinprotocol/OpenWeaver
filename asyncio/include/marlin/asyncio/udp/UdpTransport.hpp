@@ -6,8 +6,8 @@
 	\li used to control UDP traffic to a particular destination
 */
 
-#ifndef MARLIN_NET_UDPTRANSPORT_HPP
-#define MARLIN_NET_UDPTRANSPORT_HPP
+#ifndef MARLIN_ASYNCIO_UDPTRANSPORT_HPP
+#define MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 
 #include "marlin/core/Buffer.hpp"
 #include "marlin/core/SocketAddress.hpp"
@@ -102,7 +102,7 @@ void UdpTransport<DelegateType>::send_cb(
 
 	if(status < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Send callback error: {}",
+			"Asyncio: Socket {}: Send callback error: {}",
 			data->transport->dst_addr.to_string(),
 			status
 		);
@@ -142,7 +142,7 @@ int UdpTransport<DelegateType>::send(core::Buffer &&packet) {
 
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"Net: Socket {}: Send error: {}, To: {}",
+			"Asyncio: Socket {}: Send error: {}, To: {}",
 			src_addr.to_string(),
 			res,
 			dst_addr.to_string()
@@ -167,4 +167,4 @@ void UdpTransport<DelegateType>::close() {
 } // namespace asyncio
 } // namespace marlin
 
-#endif // MARLIN_NET_UDPTRANSPORT_HPP
+#endif // MARLIN_ASYNCIO_UDPTRANSPORT_HPP
