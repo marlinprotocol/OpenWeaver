@@ -7,13 +7,14 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 
 
 using namespace marlin::multicast;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::lpf;
 

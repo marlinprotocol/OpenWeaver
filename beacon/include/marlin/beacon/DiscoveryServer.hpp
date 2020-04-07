@@ -5,9 +5,9 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
-#include <marlin/net/core/Timer.hpp>
-#include <marlin/net/core/EventLoop.hpp>
-#include <marlin/net/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
+#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -29,11 +29,11 @@ class DiscoveryServer {
 private:
 	using Self = DiscoveryServer<DiscoveryServerDelegate>;
 
-	using BaseTransportFactory = net::UdpTransportFactory<
+	using BaseTransportFactory = asyncio::UdpTransportFactory<
 		DiscoveryServer<DiscoveryServerDelegate>,
 		DiscoveryServer<DiscoveryServerDelegate>
 	>;
-	using BaseTransport = net::UdpTransport<
+	using BaseTransport = asyncio::UdpTransport<
 		DiscoveryServer<DiscoveryServerDelegate>
 	>;
 
@@ -46,23 +46,23 @@ private:
 	void did_recv_DISCPEER(BaseTransport &transport);
 	void send_LISTPEER(BaseTransport &transport);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_HEARTBEAT(BaseTransport &transport, core::Buffer &&bytes);
 
 	void heartbeat_timer_cb();
-	net::Timer heartbeat_timer;
+	asyncio::Timer heartbeat_timer;
 
 	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
 public:
 	// Listen delegate
-	bool should_accept(net::SocketAddress const &addr);
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
-	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
-	DiscoveryServer(net::SocketAddress const &addr);
+	DiscoveryServer(core::SocketAddress const &addr);
 
 	DiscoveryServerDelegate *delegate;
 };
@@ -90,7 +90,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	net::Buffer p({0, 1}, 2);
+	core::Buffer p({0, 1}, 2);
 	transport.send(std::move(p));
 }
 
@@ -149,7 +149,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	auto iter = peers.begin();
 
 	while(iter != peers.end()) {
-		net::Buffer p({0, 3}, 1100);
+		core::Buffer p({0, 3}, 1100);
 		size_t size = 2;
 
 		for(
@@ -176,7 +176,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
@@ -184,7 +184,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
 	);
 
-	peers[&transport].first = net::EventLoop::now();
+	peers[&transport].first = asyncio::EventLoop::now();
 	bytes.read(2, peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
 }
 
@@ -194,7 +194,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 */
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
-	auto now = net::EventLoop::now();
+	auto now = asyncio::EventLoop::now();
 
 	auto iter = peers.begin();
 	while(iter != peers.end()) {
@@ -214,7 +214,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 
 template<typename DiscoveryServerDelegate>
 bool DiscoveryServer<DiscoveryServerDelegate>::should_accept(
-	net::SocketAddress const &
+	core::SocketAddress const &
 ) {
 	return true;
 }
@@ -251,7 +251,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 	BaseTransport &transport,
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DISCPROTO
@@ -278,7 +278,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DISCPROTO
@@ -306,7 +306,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
-	net::SocketAddress const &addr
+	core::SocketAddress const &addr
 ) : heartbeat_timer(this) {
 	f.bind(addr);
 	f.listen(*this);

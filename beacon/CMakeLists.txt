@@ -29,8 +29,8 @@ target_compile_features(beacon INTERFACE cxx_std_17)
 # libsodium
 target_link_libraries(beacon INTERFACE sodium::sodium)
 
-# marlin::net
-target_link_libraries(beacon INTERFACE marlin::net)
+# marlin::asyncio
+target_link_libraries(beacon INTERFACE marlin::asyncio)
 
 # spdlog
 target_link_libraries(beacon INTERFACE spdlog::spdlog)
@@ -69,13 +69,15 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+	test/testDiscoveryClient.cpp
 )
 
 add_custom_target(beacon_tests)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
-	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon marlin::simulator)
+	target_compile_definitions(${TEST_NAME} PRIVATE MARLIN_ASYNCIO_SIMULATOR)
 	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 	add_test(${TEST_NAME} ${TEST_NAME})
 

@@ -1,7 +1,7 @@
 #ifndef MARLIN_LPF_STFB_HPP
 #define MARLIN_LPF_STFB_HPP
 
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 
 namespace marlin {
 namespace lpf {
@@ -21,7 +21,7 @@ public:
 	template<typename Delegate>
 	int did_recv_bytes(
 		Delegate &delegate,
-		net::Buffer &&bytes
+		core::Buffer &&bytes
 	) {
 		if(bytes.size() == 0) return 0;
 
@@ -59,7 +59,7 @@ public:
 
 				auto *tbuf = buf;
 				buf = nullptr;
-				auto res = delegate.did_recv_stf_message(id, net::Buffer(tbuf, length));
+				auto res = delegate.did_recv_stf_message(id, core::Buffer(tbuf, length));
 				if(res < 0) {
 					return -2;
 				}

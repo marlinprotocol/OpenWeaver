@@ -32,8 +32,8 @@ target_link_libraries(pubsub INTERFACE marlin::lpf)
 # marlin::stream
 target_link_libraries(pubsub INTERFACE marlin::stream)
 
-# marlin::net
-target_link_libraries(pubsub INTERFACE marlin::net)
+# marlin::asyncio
+target_link_libraries(pubsub INTERFACE marlin::asyncio)
 
 # spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog)
@@ -111,7 +111,7 @@ add_executable(abci_example
 	examples/abciTest.cpp
 )
 
-target_link_libraries(abci_example PUBLIC net)
+target_link_libraries(abci_example PUBLIC marlin::asyncio)
 target_link_libraries(abci_example PUBLIC pubsub)
 target_compile_options(abci_example PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 

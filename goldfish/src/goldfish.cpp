@@ -5,7 +5,8 @@
 
 
 using namespace marlin;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
@@ -33,7 +34,7 @@ public:
 	}
 
 	void new_peer(
-		net::SocketAddress const &addr,
+		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t

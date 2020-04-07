@@ -1,7 +1,7 @@
 #ifndef MARLIN_LPF_CTB_HPP
 #define MARLIN_LPF_CTB_HPP
 
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 
 namespace marlin {
 namespace lpf {
@@ -17,7 +17,7 @@ public:
 	template<typename Delegate>
 	int did_recv_bytes(
 		Delegate &delegate,
-		net::Buffer &&bytes
+		core::Buffer &&bytes
 	) {
 		if(bytes.size() == 0) return 0;
 
@@ -54,7 +54,7 @@ public:
 					return -2;
 				}
 			} else { // Full message
-				net::Buffer tbytes(length - size);
+				core::Buffer tbytes(length - size);
 				tbytes.write(0, bytes.data(), length - size);
 				auto res = delegate.cut_through_recv_bytes(id, std::move(tbytes));
 				if(res < 0) {

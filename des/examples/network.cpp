@@ -5,15 +5,11 @@
 #include "marlin/simulator/network/Network.hpp"
 
 using namespace marlin::simulator;
-using namespace marlin::net;
+using namespace marlin::core;
 using namespace std;
 
 template<typename NetworkInterfaceType>
 struct PingPongNode final : public NetworkListener<NetworkInterfaceType> {
-	Simulator& simulator;
-
-	PingPongNode(Simulator& simulator) : simulator(simulator) {}
-
 	void did_recv(
 		NetworkInterfaceType& interface,
 		uint16_t port,
@@ -22,24 +18,24 @@ struct PingPongNode final : public NetworkListener<NetworkInterfaceType> {
 	) override {
 		SocketAddress taddr = interface.addr;
 		taddr.set_port(port);
-		cout<<taddr.to_string()<<": Did recv: "<<simulator.current_tick()<<endl;
+		cout<<taddr.to_string()<<": Did recv: "<<Simulator::default_instance.current_tick()<<endl;
 
-		if(simulator.current_tick() >= 10) return;
+		if(Simulator::default_instance.current_tick() >= 10) return;
 
-		interface.send(simulator, taddr, addr, std::move(message));
+		interface.send(Simulator::default_instance, taddr, addr, std::move(message));
 	}
 
 	void did_close() override {}
 };
 
 int main() {
-	Simulator simulator;
+	auto& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	Network<NetworkConditioner> network(nc);
 	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
 	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
 
-	PingPongNode<NetworkInterface<Network<NetworkConditioner>>> p1(simulator), p2(simulator);
+	PingPongNode<NetworkInterface<Network<NetworkConditioner>>> p1, p2;
 	i1.bind(p1, 8000);
 	i2.bind(p2, 9000);
 

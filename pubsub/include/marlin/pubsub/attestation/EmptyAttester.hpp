@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_ATTESTATION_EMPTYATTESTER_HPP
 
 #include <stdint.h>
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 
 
 namespace marlin {
@@ -27,7 +27,7 @@ struct EmptyAttester {
 		uint8_t const*,
 		uint64_t,
 		HeaderType,
-		net::Buffer&,
+		core::Buffer&,
 		uint64_t = 0
 	) {
 		return 0;
@@ -44,7 +44,7 @@ struct EmptyAttester {
 		return true;
 	}
 
-	constexpr uint64_t parse_size(net::Buffer&, uint64_t = 0) {
+	constexpr uint64_t parse_size(core::Buffer&, uint64_t = 0) {
 		return 0;
 	}
 };

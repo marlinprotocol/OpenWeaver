@@ -1,10 +1,11 @@
 #include <marlin/lpf/LpfTransportFactory.hpp>
 #include <spdlog/spdlog.h>
 
-#include <marlin/net/tcp/TcpTransportFactory.hpp>
-#include <marlin/net/core/EventLoop.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
 
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::lpf;
 
 template<typename Delegate>
@@ -69,5 +70,5 @@ int main() {
 
 	c.get_transport(SocketAddress::loopback_ipv4(1234));
 
-	return marlin::net::EventLoop::run();
+	return marlin::asyncio::EventLoop::run();
 }

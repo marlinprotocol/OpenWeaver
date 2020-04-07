@@ -26,8 +26,8 @@ target_link_libraries(multicastsdk INTERFACE marlin::pubsub)
 # marlin::beacon
 target_link_libraries(multicastsdk INTERFACE marlin::beacon)
 
-# marlin::net
-target_link_libraries(multicastsdk INTERFACE marlin::net)
+# marlin::asyncio
+target_link_libraries(multicastsdk INTERFACE marlin::asyncio)
 
 # spdlog
 target_link_libraries(multicastsdk INTERFACE spdlog::spdlog)

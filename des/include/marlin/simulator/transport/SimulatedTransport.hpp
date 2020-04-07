@@ -3,9 +3,9 @@
 
 #include "marlin/simulator/network/NetworkInterface.hpp"
 
-#include <marlin/net/Buffer.hpp>
-#include <marlin/net/SocketAddress.hpp>
-#include <marlin/net/core/TransportManager.hpp>
+#include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/TransportManager.hpp>
 
 
 namespace marlin {
@@ -26,30 +26,30 @@ public:
 
 private:
 	NetworkInterfaceType& interface;
-	net::TransportManager<SelfType>& transport_manager;
+	core::TransportManager<SelfType>& transport_manager;
 
 	EventManager& manager;
 public:
-	net::SocketAddress src_addr;
-	net::SocketAddress dst_addr;
+	core::SocketAddress src_addr;
+	core::SocketAddress dst_addr;
 
 	DelegateType* delegate = nullptr;
 
 	SimulatedTransport(
-		net::SocketAddress const& src_addr,
-		net::SocketAddress const& dst_addr,
+		core::SocketAddress const& src_addr,
+		core::SocketAddress const& dst_addr,
 		NetworkInterfaceType& interface,
-		net::TransportManager<SelfType>& transport_manager,
+		core::TransportManager<SelfType>& transport_manager,
 		EventManager& manager
 	);
 
 	void setup(DelegateType* delegate);
 	void close();
 
-	int send(net::Buffer&& buf);
+	int send(core::Buffer&& buf);
 	void did_recv(
-		net::SocketAddress const& addr,
-		net::Buffer&& message
+		core::SocketAddress const& addr,
+		core::Buffer&& message
 	);
 };
 
@@ -66,10 +66,10 @@ SimulatedTransport<
 	NetworkInterfaceType,
 	DelegateType
 >::SimulatedTransport(
-	net::SocketAddress const& src_addr,
-	net::SocketAddress const& dst_addr,
+	core::SocketAddress const& src_addr,
+	core::SocketAddress const& dst_addr,
 	NetworkInterfaceType& interface,
-	net::TransportManager<SelfType>& transport_manager,
+	core::TransportManager<SelfType>& transport_manager,
 	EventManager& manager
 ) : interface(interface), transport_manager(transport_manager),
 	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {}
@@ -111,7 +111,7 @@ int SimulatedTransport<
 	EventManager,
 	NetworkInterfaceType,
 	DelegateType
->::send(net::Buffer&& buf) {
+>::send(core::Buffer&& buf) {
 	return interface.send(
 		manager,
 		this->src_addr,
@@ -130,8 +130,8 @@ void SimulatedTransport<
 	NetworkInterfaceType,
 	DelegateType
 >::did_recv(
-	net::SocketAddress const&,
-	net::Buffer&& message
+	core::SocketAddress const&,
+	core::Buffer&& message
 ) {
 	delegate->did_recv_packet(*this, std::move(message));
 }
