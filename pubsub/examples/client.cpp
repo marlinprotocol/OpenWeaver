@@ -7,7 +7,8 @@
 #include <marlin/pubsub/attestation/StakeAttester.hpp>
 #include <sodium.h>
 
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::pubsub;
 using namespace std;

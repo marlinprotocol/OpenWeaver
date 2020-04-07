@@ -15,11 +15,11 @@
 
 #include <sodium.h>
 
-#include <marlin/net/SocketAddress.hpp>
-#include <marlin/net/Buffer.hpp>
-#include <marlin/net/core/EventLoop.hpp>
-#include <marlin/net/core/Timer.hpp>
-#include <marlin/net/core/TransportManager.hpp>
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/Buffer.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
+#include <marlin/core/TransportManager.hpp>
 
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
@@ -50,7 +50,7 @@ private:
 	using BaseTransport = DatagramTransport<Self>;
 
 	BaseTransport &transport;
-	net::TransportManager<Self> &transport_manager;
+	core::TransportManager<Self> &transport_manager;
 
 	void reset();
 
@@ -64,7 +64,7 @@ private:
 	uint32_t src_conn_id = 0;
 	uint32_t dst_conn_id = 0;
 	bool dialled = false;
-	net::Timer state_timer;
+	asyncio::Timer state_timer;
 	uint64_t state_timer_interval = 0;
 
 	void dial_timer_cb();
@@ -120,74 +120,74 @@ private:
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
 
 	// Pacing
-	net::Timer pacing_timer;
+	asyncio::Timer pacing_timer;
 	bool is_pacing_timer_active = false;
 
 	void pacing_timer_cb();
 
 	// TLP
-	net::Timer tlp_timer;
+	asyncio::Timer tlp_timer;
 	uint64_t tlp_interval = DEFAULT_TLP_INTERVAL;
 
 	void tlp_timer_cb();
 
 	// ACKs
 	AckRanges ack_ranges;
-	net::Timer ack_timer;
+	asyncio::Timer ack_timer;
 	bool ack_timer_active = false;
 
 	void ack_timer_cb();
 
 	// Protocol
 	void send_DIAL();
-	void did_recv_DIAL(net::Buffer &&packet);
+	void did_recv_DIAL(core::Buffer &&packet);
 
 	void send_DIALCONF();
-	void did_recv_DIALCONF(net::Buffer &&packet);
+	void did_recv_DIALCONF(core::Buffer &&packet);
 
 	void send_CONF();
-	void did_recv_CONF(net::Buffer &&packet);
+	void did_recv_CONF(core::Buffer &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
-	void did_recv_RST(net::Buffer &&packet);
+	void did_recv_RST(core::Buffer &&packet);
 
-	void send_DATA(net::Buffer &&packet);
-	void did_recv_DATA(net::Buffer &&packet);
+	void send_DATA(core::Buffer &&packet);
+	void did_recv_DATA(core::Buffer &&packet);
 
 	void send_ACK();
-	void did_recv_ACK(net::Buffer &&packet);
+	void did_recv_ACK(core::Buffer &&packet);
 
 	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_SKIPSTREAM(net::Buffer &&packet);
+	void did_recv_SKIPSTREAM(core::Buffer &&packet);
 
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_FLUSHSTREAM(net::Buffer &&packet);
+	void did_recv_FLUSHSTREAM(core::Buffer &&packet);
 
 	void send_FLUSHCONF(uint16_t stream_id);
-	void did_recv_FLUSHCONF(net::Buffer &&packet);
+	void did_recv_FLUSHCONF(core::Buffer &&packet);
 
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, net::Buffer &&packet);
-	void did_send_packet(BaseTransport &transport, net::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 	void did_close(BaseTransport &transport);
 
-	net::SocketAddress src_addr;
-	net::SocketAddress dst_addr;
+	core::SocketAddress src_addr;
+	core::SocketAddress dst_addr;
 
 	DelegateType *delegate = nullptr;
 
 	StreamTransport(
-		net::SocketAddress const &src_addr,
-		net::SocketAddress const &dst_addr,
+		core::SocketAddress const &src_addr,
+		core::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		net::TransportManager<Self> &transport_manager,
+		core::TransportManager<Self> &transport_manager,
 		uint8_t const* remote_static_pk
 	);
 
 	void setup(DelegateType *delegate, uint8_t const* static_sk);
-	int send(net::Buffer &&bytes, uint16_t stream_id = 0);
+	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
 	void close();
 
 	bool is_active();
@@ -389,7 +389,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 	bool is_fin = (stream.done_queueing &&
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
-	net::Buffer packet(
+	core::Buffer packet(
 		{0, static_cast<uint8_t>(is_fin)},
 		length + 30 + crypto_aead_aes256gcm_ABYTES
 	);
@@ -427,7 +427,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 		std::piecewise_construct,
 		std::forward_as_tuple(this->last_sent_packet),
 		std::forward_as_tuple(
-			net::EventLoop::now(),
+			asyncio::EventLoop::now(),
 			&stream,
 			&data_item,
 			offset,
@@ -618,7 +618,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 				this->dst_addr.to_string(),
 				this->congestion_window
 			);
-			this->congestion_start = net::EventLoop::now();
+			this->congestion_start = asyncio::EventLoop::now();
 
 			if(this->congestion_window < this->w_max) {
 				// Fast convergence
@@ -685,7 +685,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	net::Buffer packet({0, 3}, 10 + ct_len);
+	core::Buffer packet({0, 3}, 10 + ct_len);
 
 	packet.write_uint32_be(2, this->src_conn_id);
 	packet.write_uint32_be(6, this->dst_conn_id);
@@ -701,7 +701,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	if(conn_state == ConnectionState::Listen) {
 		if(packet.read_uint32_be(6) != 0) { // Should have empty source
@@ -831,7 +831,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	net::Buffer packet({0, 4}, 10 + ct_len);
+	core::Buffer packet({0, 4}, 10 + ct_len);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -855,7 +855,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	if(conn_state == ConnectionState::DialSent) {
 		auto src_conn_id = packet.read_uint32_be(6);
@@ -976,7 +976,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
-	net::Buffer packet({0, 5}, 10);
+	core::Buffer packet({0, 5}, 10);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -998,7 +998,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	if(conn_state == ConnectionState::DialRcvd) {
 		auto src_conn_id = packet.read_uint32_be(6);
@@ -1056,7 +1056,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	net::Buffer packet({0, 6}, 10);
+	core::Buffer packet({0, 6}, 10);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1066,7 +1066,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	auto src_conn_id = packet.read_uint32_be(6);
 	auto dst_conn_id = packet.read_uint32_be(2);
@@ -1083,7 +1083,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	transport.send(std::move(packet));
 }
@@ -1098,7 +1098,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
@@ -1251,7 +1251,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
 		stream.recv_packets.try_emplace(
 			offset,
-			net::EventLoop::now(),
+			asyncio::EventLoop::now(),
 			offset,
 			length,
 			std::move(packet)
@@ -1268,7 +1268,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 	int size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
-	net::Buffer packet({0, 2}, 20+8*size);
+	core::Buffer packet({0, 2}, 20+8*size);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1291,7 +1291,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	SPDLOG_TRACE("ACK <<< {}", dst_addr.to_string());
 
@@ -1317,7 +1317,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		return;
 	}
 
-	auto now = net::EventLoop::now();
+	auto now = asyncio::EventLoop::now();
 
 	// TODO: Better method names
 	uint16_t size = p.stream_id();
@@ -1543,7 +1543,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	net::Buffer packet({0, 7}, 20);
+	core::Buffer packet({0, 7}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1555,7 +1555,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
@@ -1601,7 +1601,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	net::Buffer packet({0, 8}, 20);
+	core::Buffer packet({0, 8}, 20);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1613,7 +1613,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
@@ -1665,7 +1665,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 	uint16_t stream_id
 ) {
-	net::Buffer packet({0, 9}, 12);
+	core::Buffer packet({0, 9}, 12);
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
@@ -1676,7 +1676,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
@@ -1757,7 +1757,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	BaseTransport &,
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DATA
@@ -1798,7 +1798,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 	BaseTransport &,
-	net::Buffer &&packet
+	core::Buffer &&packet
 ) {
 	switch(packet.read_uint8(1)) {
 		// DATA
@@ -1841,10 +1841,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
-	net::SocketAddress const &src_addr,
-	net::SocketAddress const &dst_addr,
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
 	BaseTransport &transport,
-	net::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
+	core::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
 	uint8_t const* remote_static_pk
 ) : transport(transport),
 	transport_manager(transport_manager),
@@ -1894,7 +1894,7 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send(
-	net::Buffer &&bytes,
+	core::Buffer &&bytes,
 	uint16_t stream_id
 ) {
 	if (conn_state != ConnectionState::Established) {

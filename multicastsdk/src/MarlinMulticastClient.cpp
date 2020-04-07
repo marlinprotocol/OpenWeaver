@@ -11,7 +11,8 @@
 #include <algorithm>
 
 using namespace marlin::multicast;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 
 // Delegate
 struct MarlinMulticastClientDelegate {

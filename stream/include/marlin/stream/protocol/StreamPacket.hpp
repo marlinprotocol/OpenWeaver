@@ -4,7 +4,7 @@
 #ifndef MARLIN_STREAM_STREAMPACKET_HPP
 #define MARLIN_STREAM_STREAMPACKET_HPP
 
-#include <marlin/net/Buffer.hpp>
+#include <marlin/core/Buffer.hpp>
 
 #include <cstring>
 #include <arpa/inet.h>
@@ -64,7 +64,7 @@ namespace stream {
 \endverbatim
 */
 
-struct StreamPacket: public net::Buffer {
+struct StreamPacket: public core::Buffer {
 	uint8_t version() const {
 		return read_uint8(0);
 	}

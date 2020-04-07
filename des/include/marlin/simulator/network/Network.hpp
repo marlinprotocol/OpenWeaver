@@ -13,7 +13,7 @@ public:
 	using SelfType = Network<NetworkConditionerType>;
 private:
 	std::unordered_map<
-		net::SocketAddress,
+		core::SocketAddress,
 		NetworkInterface<SelfType>
 	> interfaces;
 
@@ -22,15 +22,15 @@ public:
 	Network(NetworkConditionerType& conditioner);
 
 	NetworkInterface<SelfType>& get_or_create_interface(
-		net::SocketAddress const& addr
+		core::SocketAddress const& addr
 	);
 
 	template<typename EventManager>
 	int send(
 		EventManager& manager,
-		net::SocketAddress const& src_addr,
-		net::SocketAddress const& dst_addr,
-		net::Buffer&& packet
+		core::SocketAddress const& src_addr,
+		core::SocketAddress const& dst_addr,
+		core::Buffer&& packet
 	);
 };
 
@@ -45,9 +45,9 @@ Network<NetworkConditionerType>::Network(
 
 template<typename NetworkConditionerType>
 NetworkInterface<Network<NetworkConditionerType>>& Network<NetworkConditionerType>::get_or_create_interface(
-	net::SocketAddress const& addr
+	core::SocketAddress const& addr
 ) {
-	net::SocketAddress taddr = addr;
+	core::SocketAddress taddr = addr;
 	taddr.set_port(0);
 
 	return interfaces.try_emplace(
@@ -61,11 +61,11 @@ template<typename NetworkConditionerType>
 template<typename EventManager>
 int Network<NetworkConditionerType>::send(
 	EventManager& manager,
-	net::SocketAddress const& src_addr,
-	net::SocketAddress const& dst_addr,
-	net::Buffer&& packet
+	core::SocketAddress const& src_addr,
+	core::SocketAddress const& dst_addr,
+	core::Buffer&& packet
 ) {
-	net::SocketAddress taddr = dst_addr;
+	core::SocketAddress taddr = dst_addr;
 	taddr.set_port(0);
 
 	if(interfaces.find(taddr) == interfaces.end()) {
@@ -94,7 +94,7 @@ int Network<NetworkConditionerType>::send(
 
 	auto event = std::make_shared<DataOnInterfaceEvent<
 		EventManager,
-		net::Buffer,
+		core::Buffer,
 		NetworkInterface<SelfType>
 	>>(
 		out_tick,

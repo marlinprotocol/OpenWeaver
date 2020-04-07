@@ -6,11 +6,11 @@
 #include <sodium.h>
 #include <unistd.h>
 
-#include <marlin/net/tcp/TcpTransportFactory.hpp>
-#include <marlin/net/core/BN.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
+#include <marlin/core/BN.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
-#include <marlin/net/core/EventLoop.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
 
 namespace marlin {
 namespace pubsub {
@@ -38,13 +38,13 @@ const bool enable_cut_through = false;
 using LpfTcpTransportFactory = lpf::LpfTransportFactory<
 	ABCInterface,
 	ABCInterface,
-	net::TcpTransportFactory,
-	net::TcpTransport,
+	asyncio::TcpTransportFactory,
+	asyncio::TcpTransport,
 	enable_cut_through
 >;
 using LpfTcpTransport = lpf::LpfTransport<
 	ABCInterface,
-	net::TcpTransport,
+	asyncio::TcpTransport,
 	enable_cut_through
 >;
 
@@ -63,8 +63,8 @@ public:
 	// db
 
 	ABCInterface() {
-		f.bind(net::SocketAddress());
-		f.dial(net::SocketAddress::from_string("127.0.0.1:7000"), *this);
+		f.bind(core::SocketAddress());
+		f.dial(core::SocketAddress::from_string("127.0.0.1:7000"), *this);
 		lastUpdateTime = 0;
 		latestBlockReceived = 0;
 	}
@@ -72,7 +72,7 @@ public:
 	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
 
 	// Listen delegate: Not required
-	bool should_accept(net::SocketAddress const &) {
+	bool should_accept(core::SocketAddress const &) {
 		return true;
 	}
 
@@ -106,7 +106,7 @@ public:
 	// TODO Size checks and null checks while reading messages from buffer
 	int did_recv_message(
 		LpfTcpTransport &transport,
-		net::Buffer &&message
+		core::Buffer &&message
 	) {
 		SPDLOG_INFO(
 			"Did recv from blockchain client, message with length {}",
@@ -132,7 +132,7 @@ public:
 
 	void did_recv_state_update (
 		LpfTcpTransport &transport,
-		net::Buffer &message
+		core::Buffer &message
 	) {
 
 		auto blockNumber = message.read_uint64_be(0);
@@ -171,7 +171,7 @@ public:
 				// uint64_t lo = message.read_uint64_be(0);
 				// message.cover(8);
 
-				// auto balance = net::uint256_t(lo, lohi, hilo, hi);
+				// auto balance = core::uint256_t(lo, lohi, hilo, hi);
 
 				uint64_t balance = message.read_uint64_be(0);
 				message.cover(8);
@@ -186,7 +186,7 @@ public:
 			}
 
 			latestBlockReceived = blockNumber;
-			lastUpdateTime = net::EventLoop::now();
+			lastUpdateTime = asyncio::EventLoop::now();
 		}
 
 		send_ack_state_update(transport, latestBlockReceived);
@@ -194,7 +194,7 @@ public:
 
 	void did_recv_private_key(
 		LpfTcpTransport &,
-		net::Buffer &message
+		core::Buffer &message
 	) {
 		message.read(0, private_key, privateKeyLength);
 		have_key = true;
@@ -209,7 +209,7 @@ public:
 		uint8_t ackType = MessageType::StateUpdateMessage;
 
 		uint32_t totalSize = messageTypeSize + AckTypeSize + blockNumberSize;
-		auto dataBuffer = new net::Buffer(totalSize);
+		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
 		dataBuffer->write_uint8(offset, messageType);
@@ -249,7 +249,7 @@ public:
 		uint32_t mSize = messageIDSize + channelSize + timestampSize + stakeOffsetSize + messageSize + hashSize + signatureSize;
 
 		uint32_t totalSize = messageTypeSize + 2 * (mSize);
-		auto dataBuffer = new net::Buffer(totalSize);
+		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
 		dataBuffer->write_uint8(offset, messageType);
@@ -302,7 +302,7 @@ public:
 
 	void did_send_message(
 		LpfTcpTransport &,
-		net::Buffer &&
+		core::Buffer &&
 	) {}
 
 	void did_close(LpfTcpTransport &transport  [[maybe_unused]]) {
@@ -315,7 +315,7 @@ public:
 	}
 
 	bool is_alive() {
- 		return (net::EventLoop::now() - lastUpdateTime) < staleThreshold;
+ 		return (asyncio::EventLoop::now() - lastUpdateTime) < staleThreshold;
 	}
 
 	uint64_t get_stake(std::string address) {

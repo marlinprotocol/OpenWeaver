@@ -7,7 +7,8 @@
 #include <experimental/filesystem>
 
 using namespace marlin;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
@@ -52,9 +53,9 @@ public:
 	Relay(
 		uint32_t protocol,
 		const uint32_t pubsub_port,
-		const net::SocketAddress &pubsub_addr,
-		const net::SocketAddress &beacon_addr,
-		const net::SocketAddress &beacon_server_addr
+		const core::SocketAddress &pubsub_addr,
+		const core::SocketAddress &beacon_addr,
+		const core::SocketAddress &beacon_server_addr
 	) {
 		// setting protocol
 		my_protocol = protocol;
@@ -134,7 +135,7 @@ public:
 
 	// relay logic
 	void new_peer(
-		net::SocketAddress const &addr,
+		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t version [[maybe_unused]]

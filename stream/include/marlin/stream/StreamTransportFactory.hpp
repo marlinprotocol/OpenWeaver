@@ -36,10 +36,13 @@ private:
 	BaseTransportFactory f;
 
 	ListenDelegate *delegate;
-	net::TransportManager<StreamTransport<TransportDelegate, DatagramTransport>> transport_manager;
+	core::TransportManager<StreamTransport<TransportDelegate, DatagramTransport>> transport_manager;
 
 public:
-	bool should_accept(net::SocketAddress const &addr);
+	template<typename ...Args>
+	StreamTransportFactory(Args&&... args);
+
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(
 		DatagramTransport<
 			StreamTransport<
@@ -50,13 +53,13 @@ public:
 		uint8_t const* remote_static_pk = nullptr
 	);
 
-	net::SocketAddress addr;
+	core::SocketAddress addr;
 
-	int bind(net::SocketAddress const &addr);
+	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
-	int dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* key);
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* key);
 	StreamTransport<TransportDelegate, DatagramTransport> *get_transport(
-		net::SocketAddress const &addr
+		core::SocketAddress const &addr
 	);
 };
 
@@ -69,12 +72,27 @@ template<
 	template<typename, typename> class DatagramTransportFactory,
 	template<typename> class DatagramTransport
 >
+template<typename ...Args>
+StreamTransportFactory<
+	ListenDelegate,
+	TransportDelegate,
+	DatagramTransportFactory,
+	DatagramTransport
+>::StreamTransportFactory(Args&&... args) : f(std::forward<Args>(args)...) {}
+
+
+template<
+	typename ListenDelegate,
+	typename TransportDelegate,
+	template<typename, typename> class DatagramTransportFactory,
+	template<typename> class DatagramTransport
+>
 bool StreamTransportFactory<
 	ListenDelegate,
 	TransportDelegate,
 	DatagramTransportFactory,
 	DatagramTransport
->::should_accept(net::SocketAddress const &addr) {
+>::should_accept(core::SocketAddress const &addr) {
 	return delegate->should_accept(addr);
 }
 
@@ -129,7 +147,7 @@ int StreamTransportFactory<
 	TransportDelegate,
 	DatagramTransportFactory,
 	DatagramTransport
->::bind(net::SocketAddress const &addr) {
+>::bind(core::SocketAddress const &addr) {
 	this->addr = addr;
 	return f.bind(addr);
 }
@@ -173,7 +191,7 @@ int StreamTransportFactory<
 	TransportDelegate,
 	DatagramTransportFactory,
 	DatagramTransport
->::dial(net::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* remote_static_pk) {
+>::dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* remote_static_pk) {
 	this->delegate = &delegate;
 	return f.dial(addr, *this, remote_static_pk);
 }
@@ -191,7 +209,7 @@ StreamTransportFactory<
 	DatagramTransportFactory,
 	DatagramTransport
 >::get_transport(
-	net::SocketAddress const &addr
+	core::SocketAddress const &addr
 ) {
 	return transport_manager.get(addr);
 }
