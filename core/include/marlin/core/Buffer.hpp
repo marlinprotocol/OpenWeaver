@@ -70,7 +70,7 @@ public:
 	}
 
 	/// Moves start of buffer forward and covers given number of bytes
-	bool cover(size_t const num);
+	[[nodiscard]] bool cover(size_t const num);
 	/// Moves start of buffer forward and covers given number of bytes without bounds checking
 	void cover_unsafe(size_t const num);
 
