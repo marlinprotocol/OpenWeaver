@@ -1102,6 +1102,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
+	// Bounds check on header
+	if(p.size() < 30) {
+		return;
+	}
+
 	auto src_conn_id = p.read_uint32_be(6);
 	auto dst_conn_id = p.read_uint32_be(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
@@ -1183,7 +1188,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	}
 
 	// Cover header
-	p.cover(30);
+	p.cover_unsafe(30);
+
+	// Check if length matches packet
+	// FIXME: Why even have length? Can just set from the packet
+	if(p.size() != length) {
+		return;
+	}
 
 	// Add to ack range
 	ack_ranges.add_packet_number(packet_number);
@@ -1202,7 +1213,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Check if data can be read immediately
 	if(offset <= stream.read_offset) {
 		// Cover bytes which have already been read
-		p.cover(stream.read_offset - offset);
+		p.cover_unsafe(stream.read_offset - offset);
 
 		// Read bytes and update offset
 		auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
@@ -1225,7 +1236,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 			// Check new data
 			if(offset + length > stream.read_offset) {
 				// Cover bytes which have already been read
-				iter->second.packet.cover(stream.read_offset - offset);
+				iter->second.packet.cover_unsafe(stream.read_offset - offset);
 
 				// Read bytes and update offset
 				SPDLOG_DEBUG("Out of order: {}, {}, {:spn}", offset, length, spdlog::to_hex(iter->second.packet.data(), iter->second.packet.data() + iter->second.packet.size()));
@@ -1297,6 +1308,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
+	// Bounds check on header
+	if(p.size() < 20) {
+		return;
+	}
+
 	if(conn_state != ConnectionState::Established) {
 		return;
 	}
@@ -1340,7 +1356,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	}
 
 	// Cover till range list
-	p.cover(20);
+	p.cover_unsafe(20);
 
 	uint64_t high = largest;
 	bool gap = false;
