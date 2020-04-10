@@ -31,7 +31,7 @@ public:
 				for(size_t i = 0; i < 8 - size; i++) {
 					length = (length << 8) | bytes.data()[i];
 				}
-				bytes.cover(8 - size);
+				bytes.cover_unsafe(8 - size);
 
 				if(length > 5000000) { // Abort on big message, DoS prevention
 					SPDLOG_ERROR("Message too big: {}", length);
@@ -62,7 +62,7 @@ public:
 				}
 				delegate.cut_through_recv_end(id);
 
-				bytes.cover(length - size);
+				bytes.cover_unsafe(length - size);
 
 				// Prepare to process length
 				cut_through = false;
