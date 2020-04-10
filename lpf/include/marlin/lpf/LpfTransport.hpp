@@ -198,7 +198,7 @@ void LpfTransport<
 	BaseTransport &,
 	core::Buffer &&bytes
 ) {
-	bytes.cover(8);
+	bytes.cover_unsafe(8);
 	delegate->did_send_message(*this, std::move(bytes));
 }
 
