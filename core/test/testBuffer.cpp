@@ -69,7 +69,7 @@ TEST(BufferResize, CanCoverWithoutOverflow) {
 TEST(BufferResize, CannotCoverWithOverflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.cover(1391);
 
@@ -81,7 +81,7 @@ TEST(BufferResize, CannotCoverWithOverflow) {
 TEST(BufferResize, CanUncoverWithoutUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.uncover(10);
 
@@ -93,7 +93,7 @@ TEST(BufferResize, CanUncoverWithoutUnderflow) {
 TEST(BufferResize, CannotUncoverWithUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.uncover(11);
 
