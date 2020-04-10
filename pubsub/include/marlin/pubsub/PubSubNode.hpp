@@ -521,8 +521,13 @@ void PUBSUBNODETYPE::did_recv_RESPONSE(
 ) {
 	bool success [[maybe_unused]] = bytes.data()[0];
 
+	// Bounds check on header
+	if(bytes.size() < 1) {
+		return;
+	}
+
 	// Hide success
-	bytes.cover(1);
+	bytes.cover_unsafe(1);
 
 	// Process rest of the message
 	std::string message(bytes.data(), bytes.data()+bytes.size());
@@ -591,6 +596,11 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
+	// Bounds check on header
+	if(bytes.size() < 10) {
+		return -1;
+	}
+
 	auto message_id = bytes.read_uint64_be(0);
 	auto channel = bytes.read_uint16_be(8);
 
@@ -598,7 +608,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
-		bytes.cover(10);
+		bytes.cover_unsafe(10);
 		MessageHeaderType header = {};
 
 		header.attestation_data = bytes.data();
@@ -803,10 +813,15 @@ int PUBSUBNODETYPE::did_recv_message(
 	if(bytes.size() == 0)
 		return 0;
 
+	// Bounds check on header
+	if(bytes.size() < 1) {
+		return -1;
+	}
+
 	uint8_t message_type = bytes.data()[0];
 
 	// Hide message type
-	bytes.cover(1);
+	bytes.cover_unsafe(1);
 
 	switch(message_type) {
 		// SUBSCRIBE
@@ -1329,7 +1344,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		uint8_t *new_header = new uint8_t[13+witness_length+32];
 		std::memcpy(new_header, bytes.data(), 13+witness_length);
 
-		bytes.cover(13 + witness_length);
+		bytes.cover_unsafe(13 + witness_length);  // FIXME: Have to check
 
 		crypto_scalarmult_base(new_header+13+witness_length, keys);
 
