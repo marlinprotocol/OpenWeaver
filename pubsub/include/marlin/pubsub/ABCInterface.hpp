@@ -113,8 +113,13 @@ public:
 			message.size()
 		);
 
+		// Bounds check on header
+		if(message.size() < 1) {
+			return -1;
+		}
+
 		auto messageType = message.read_uint8(0);
-		message.cover(1);
+		message.cover_unsafe(1);
 
 		switch (messageType) {
 			case MessageType::StateUpdateMessage:
@@ -134,13 +139,17 @@ public:
 		LpfTcpTransport &transport,
 		core::Buffer &message
 	) {
+		// Bounds check
+		if(message.size() < 12) {
+			return;
+		}
 
 		auto blockNumber = message.read_uint64_be(0);
-		message.cover(blockNumberSize);
+		message.cover_unsafe(blockNumberSize);
 
 		if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
 			auto numMapEntries = message.read_uint32_be(0);
-			message.cover(4);
+			message.cover_unsafe(4);
 
 			SPDLOG_INFO(
 				"BlockNumber {}",
@@ -153,9 +162,13 @@ public:
 			);
 
 			for (uint i=0; i<numMapEntries; i++) {
+				// Bounds check
+				if(message.size() < 28) {
+					return;
+				}
 
 				std::string addressString((char*)message.data(), addressLength);
-				message.cover(addressLength);
+				message.cover_unsafe(addressLength);
 
 				SPDLOG_INFO(
 					"address {}",
@@ -174,7 +187,7 @@ public:
 				// auto balance = core::uint256_t(lo, lohi, hilo, hi);
 
 				uint64_t balance = message.read_uint64_be(0);
-				message.cover(8);
+				message.cover_unsafe(8);
 
 				SPDLOG_INFO(
 					"balance {} ",
