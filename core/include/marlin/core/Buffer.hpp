@@ -75,7 +75,7 @@ public:
 	void cover_unsafe(size_t const num);
 
 	/// Moves start of buffer backward and uncovers given number of bytes
-	bool uncover(size_t const num);
+	[[nodiscard]] bool uncover(size_t const num);
 	/// Moves start of buffer backward and uncovers given number of bytes without bounds checking
 	void uncover_unsafe(size_t const num);
 
