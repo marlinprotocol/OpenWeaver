@@ -107,6 +107,8 @@ bool Buffer::expand(size_t const num) {
 }
 
 void Buffer::expand_unsafe(size_t const num) {
+	assert(capacity - end_index >= num);
+
 	end_index += num;
 }
 
