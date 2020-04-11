@@ -1,6 +1,7 @@
 #include "marlin/core/Buffer.hpp"
 #include "marlin/core/Endian.hpp"
 #include <cstring>
+#include <cassert>
 #include <algorithm>
 
 namespace marlin {
@@ -58,6 +59,8 @@ bool Buffer::cover(size_t const num) {
 }
 
 void Buffer::cover_unsafe(size_t const num) {
+	assert(num <= size());
+
 	start_index += num;
 }
 
