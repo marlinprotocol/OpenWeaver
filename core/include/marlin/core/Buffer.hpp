@@ -80,7 +80,7 @@ public:
 	void uncover_unsafe(size_t const num);
 
 	/// Moves end of buffer backward and covers given number of bytes
-	bool truncate(size_t const num);
+	[[nodiscard]] bool truncate(size_t const num);
 	/// Moves end of buffer backward and covers given number of bytes without bounds checking
 	void truncate_unsafe(size_t const num);
 
