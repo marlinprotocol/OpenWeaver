@@ -75,6 +75,8 @@ bool Buffer::uncover(size_t const num) {
 }
 
 void Buffer::uncover_unsafe(size_t const num) {
+	assert(num >= start_index);
+
 	start_index -= num;
 }
 
