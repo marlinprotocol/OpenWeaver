@@ -1102,8 +1102,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 ) {
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
-	// Bounds check on header
-	if(p.size() < 30) {
+	// Bounds check
+	if(p.size() < 30 + crypto_aead_aes256gcm_ABYTES) {
 		return;
 	}
 
@@ -1154,7 +1154,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	p.truncate(crypto_aead_aes256gcm_ABYTES);
+	p.truncate_unsafe(crypto_aead_aes256gcm_ABYTES);
 
 	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
 
