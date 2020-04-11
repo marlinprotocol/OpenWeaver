@@ -116,7 +116,7 @@ TEST(BufferResize, CanTruncateWithoutOverflow) {
 TEST(BufferResize, CannotTruncateWithOverflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.truncate(1391);
 
@@ -128,7 +128,7 @@ TEST(BufferResize, CannotTruncateWithOverflow) {
 TEST(BufferResize, CanExpandWithoutUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.expand(10);
 
@@ -140,7 +140,7 @@ TEST(BufferResize, CanExpandWithoutUnderflow) {
 TEST(BufferResize, CannotExpandWithUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.expand(11);
 
