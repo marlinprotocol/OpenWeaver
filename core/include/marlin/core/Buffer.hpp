@@ -85,7 +85,7 @@ public:
 	void truncate_unsafe(size_t const num);
 
 	/// Moves end of buffer forward and uncovers given number of bytes
-	bool expand(size_t const num);
+	[[nodiscard]] bool expand(size_t const num);
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
 	void expand_unsafe(size_t const num);
 
