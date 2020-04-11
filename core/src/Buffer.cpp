@@ -91,6 +91,8 @@ bool Buffer::truncate(size_t const num) {
 }
 
 void Buffer::truncate_unsafe(size_t const num) {
+	assert(num <= size());
+
 	end_index -= num;
 }
 
