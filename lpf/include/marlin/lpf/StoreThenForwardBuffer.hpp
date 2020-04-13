@@ -51,10 +51,10 @@ public:
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
-				bytes.read(0, buf + size, bytes.size());
+				bytes.read_unsafe(0, buf + size, bytes.size());
 				size += bytes.size();
 			} else { // Full message
-				bytes.read(0, buf + size, length - size);
+				bytes.read_unsafe(0, buf + size, length - size);
 				bytes.cover_unsafe(length - size);
 
 				auto *tbuf = buf;
