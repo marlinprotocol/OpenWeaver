@@ -209,7 +209,12 @@ public:
 		LpfTcpTransport &,
 		core::Buffer &message
 	) {
-		message.read(0, private_key, privateKeyLength);
+		// Bounds check
+		if(message.size() < privateKeyLength) {
+			return;
+		}
+
+		message.read_unsafe(0, private_key, privateKeyLength);
 		have_key = true;
 	}
 
