@@ -113,6 +113,8 @@ void Buffer::expand_unsafe(size_t const num) {
 }
 
 void Buffer::read_unsafe(size_t const pos, uint8_t* const out, size_t const size) const {
+	assert(this->size() >= size && this->size() - size >= pos);
+
 	std::memcpy(out, data()+pos, size);
 }
 
