@@ -92,7 +92,7 @@ public:
 	//-------- Arbitrary reads begin --------//
 
 	/// Read arbitrary data starting at given byte
-	bool read(size_t const pos, uint8_t* const out, size_t const size) const;
+	[[nodiscard]] bool read(size_t const pos, uint8_t* const out, size_t const size) const;
 	/// Read arbitrary data starting at given byte without bounds checking
 	void read_unsafe(size_t const pos, uint8_t* const out, size_t const size) const;
 
