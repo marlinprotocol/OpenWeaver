@@ -270,7 +270,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		i += 8 + crypto_box_PUBLICKEYBYTES
 	) {
 		auto peer_addr = core::SocketAddress::deserialize(packet.data()+i, 8);
-		packet.read(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
+		packet.read_unsafe(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
 
 		f.dial(peer_addr, *this);
 	}
