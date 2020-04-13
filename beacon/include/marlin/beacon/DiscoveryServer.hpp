@@ -184,8 +184,13 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
 	);
 
+	// Bounds check
+	if(bytes.size() < 2 + crypto_box_PUBLICKEYBYTES) {
+		return;
+	}
+
 	peers[&transport].first = asyncio::EventLoop::now();
-	bytes.read(2, peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
+	bytes.read_unsafe(2, peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
 }
 
 
