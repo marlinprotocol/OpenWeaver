@@ -186,6 +186,8 @@ uint64_t Buffer::read_uint64(size_t const pos) const {
 }
 
 void Buffer::write_unsafe(size_t const pos, uint8_t const* const in, size_t const size) {
+	assert(this->size() >= size && this->size() - size > pos);
+
 	std::memcpy(data()+pos, in, size);
 }
 
