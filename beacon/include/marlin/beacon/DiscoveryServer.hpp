@@ -160,7 +160,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 			if(iter->first == &transport) continue;
 
 			iter->first->dst_addr.serialize(p.data()+size, 8);
-			p.write(size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
+			p.write_unsafe(size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
 			size += 8 + crypto_box_PUBLICKEYBYTES;
 		}
 		p.truncate_unsafe(1100-size);
