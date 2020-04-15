@@ -575,7 +575,7 @@ void PUBSUBNODETYPE::send_RESPONSE(
 	// 0 for ERROR
 	// 1 for OK
 	core::Buffer m({2, static_cast<uint8_t>(success ? 1 : 0)}, msg_string.size()+2);
-	m.write(2, (uint8_t*)msg_string.data(), msg_string.size());
+	m.write_unsafe(2, (uint8_t*)msg_string.data(), msg_string.size());
 
 	SPDLOG_DEBUG(
 		"Sending {} response: {}",
@@ -719,7 +719,7 @@ core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	offset += attester.attestation_size(message_id, channel, data, size, prev_header);
 	witnesser.witness(prev_header, m, offset);
 	offset += witnesser.witness_size(prev_header);
-	m.write(offset, data, size);
+	m.write_unsafe(offset, data, size);
 
 	return m;
 }
@@ -1360,7 +1360,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 			auto sub_bytes = core::Buffer(bytes.size());
-			sub_bytes.write(0, bytes.data(), bytes.size());
+			sub_bytes.write_unsafe(0, bytes.data(), bytes.size());
 
 			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
 
