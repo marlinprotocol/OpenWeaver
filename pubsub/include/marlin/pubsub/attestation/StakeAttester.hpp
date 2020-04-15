@@ -132,7 +132,8 @@ struct StakeAttester {
 		uint64_t offset = 0
 	) {
 		if(prev_header.attestation_size != 0) {
-			out.write(offset, prev_header.attestation_data, prev_header.attestation_size);
+			// FIXME: should probably add _unsafe to function
+			out.write_unsafe(offset, prev_header.attestation_data, prev_header.attestation_size);
 			return 1;
 		}
 
