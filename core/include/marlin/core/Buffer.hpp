@@ -102,7 +102,7 @@ public:
 	//-------- Arbitrary writes begin --------//
 
 	/// Write arbitrary data starting at given byte
-	bool write(size_t const pos, uint8_t const* const in, size_t const size);
+	[[nodiscard]] bool write(size_t const pos, uint8_t const* const in, size_t const size);
 	/// Write arbitrary data starting at given byte without bounds checking
 	void write_unsafe(size_t const pos, uint8_t const* const in, size_t const size);
 
