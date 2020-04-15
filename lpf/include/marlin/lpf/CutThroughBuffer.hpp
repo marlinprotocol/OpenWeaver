@@ -55,7 +55,7 @@ public:
 				}
 			} else { // Full message
 				core::Buffer tbytes(length - size);
-				tbytes.write(0, bytes.data(), length - size);
+				tbytes.write_unsafe(0, bytes.data(), length - size);
 				auto res = delegate.cut_through_recv_bytes(id, std::move(tbytes));
 				if(res < 0) {
 					return -2;
