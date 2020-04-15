@@ -309,7 +309,7 @@ int LpfTransport<
 	core::Buffer lpf_message(message.size() + 8);
 
 	lpf_message.write_uint64_be(0, message.size());
-	lpf_message.write(8, message.data(), message.size());
+	lpf_message.write_unsafe(8, message.data(), message.size());
 
 	return transport.send(std::move(lpf_message));
 }
