@@ -31,7 +31,7 @@ struct ChainWitnesser {
 			out.write_uint16_be(offset, 32);
 			offset += 2;
 		}
-		// FIXME: should probably change the function to witness_unsafe
+		// FIXME: should probably add _unsafe to function
 		out.write_unsafe(offset, prev_witness_header.witness_data, prev_witness_header.witness_size);
 		crypto_scalarmult_base(out.data()+offset+prev_witness_header.witness_size, secret_key);
 		return 0;
