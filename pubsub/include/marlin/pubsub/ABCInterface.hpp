@@ -288,10 +288,10 @@ public:
 		dataBuffer->write_uint64_be(offset, messageSize1);
 		offset += messageSize;
 
-		dataBuffer->write(offset, messageHash1, hashSize);
+		dataBuffer->write_unsafe(offset, messageHash1, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, signature1, signatureSize);
+		dataBuffer->write_unsafe(offset, signature1, signatureSize);
 		offset += signatureSize;
 
 		dataBuffer->write_uint64_be(offset, messageId2);
@@ -309,10 +309,10 @@ public:
 		dataBuffer->write_uint64_be(offset, messageSize2);
 		offset += messageSize;
 
-		dataBuffer->write(offset, messageHash2, hashSize);
+		dataBuffer->write_unsafe(offset, messageHash2, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, signature2, signatureSize);
+		dataBuffer->write_unsafe(offset, signature2, signatureSize);
 		offset += signatureSize;
 
 		contractInterface->send(std::move(*dataBuffer));
