@@ -294,7 +294,7 @@ void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
 	core::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
-	p.write(2, static_pk, crypto_box_PUBLICKEYBYTES);
+	p.write_unsafe(2, static_pk, crypto_box_PUBLICKEYBYTES);
 	transport.send(std::move(p));
 }
 
