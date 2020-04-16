@@ -155,10 +155,10 @@ bool Buffer::read(size_t const pos, uint8_t* const out, size_t const size) const
 	return true;
 }
 
-uint8_t Buffer::read_uint8(size_t const pos) const {
+std::optional<uint8_t> Buffer::read_uint8(size_t const pos) const {
 	// Bounds checking
 	if(size() < 1 || size() - 1 < pos)
-		return -1;
+		return std::nullopt;
 
 	return read_uint8_unsafe(pos);
 }

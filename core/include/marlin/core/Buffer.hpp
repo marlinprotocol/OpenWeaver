@@ -8,6 +8,7 @@
 #include <uv.h>
 #include <memory>
 #include <utility>
+#include <optional>
 //! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
 #include <array>
 
@@ -112,7 +113,7 @@ public:
 	//-------- 8 bit reads begin --------//
 
 	/// Read uint8_t starting at given byte
-	uint8_t read_uint8(size_t const pos) const;
+	std::optional<uint8_t> read_uint8(size_t const pos) const;
 	/// Read uint8_t starting at given byte without bounds checking
 	uint8_t read_uint8_unsafe(size_t const pos) const;
 
