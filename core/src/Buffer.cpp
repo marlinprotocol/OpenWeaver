@@ -119,6 +119,8 @@ void Buffer::read_unsafe(size_t const pos, uint8_t* const out, size_t const size
 }
 
 uint8_t Buffer::read_uint8_unsafe(size_t const pos) const {
+	assert(size() < 1 || size() - 1 < pos);
+
 	return data()[pos];
 }
 
