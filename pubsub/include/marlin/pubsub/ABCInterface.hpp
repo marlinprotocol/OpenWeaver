@@ -118,7 +118,7 @@ public:
 			return -1;
 		}
 
-		auto messageType = message.read_uint8(0);
+		auto messageType = message.read_uint8_unsafe(0);
 		message.cover_unsafe(1);
 
 		switch (messageType) {
