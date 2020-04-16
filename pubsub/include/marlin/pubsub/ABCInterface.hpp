@@ -230,9 +230,9 @@ public:
 		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
-		dataBuffer->write_uint8(offset, messageType);
+		dataBuffer->write_uint8_unsafe(offset, messageType);
 		offset += messageTypeSize;
-		dataBuffer->write_uint8(offset, ackType);
+		dataBuffer->write_uint8_unsafe(offset, ackType);
 		offset += AckTypeSize;
 		dataBuffer->write_uint64_be(offset, blockNumber);
 		offset += blockNumberSize;
@@ -270,7 +270,7 @@ public:
 		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
-		dataBuffer->write_uint8(offset, messageType);
+		dataBuffer->write_uint8_unsafe(offset, messageType);
 		offset += messageTypeSize;
 
 		dataBuffer->write_uint64_be(offset, messageId1);
