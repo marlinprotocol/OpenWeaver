@@ -217,7 +217,7 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 		return;
 	}
 
-	uint8_t num_proto = packet.read_uint8(2);
+	uint8_t num_proto = packet.read_uint8_unsafe(2);
 	packet.cover_unsafe(3);
 	for(uint8_t i = 0; i < num_proto; i++) {
 		uint32_t protocol = packet.read_uint32_be(8*i);
@@ -372,7 +372,12 @@ void DISCOVERYCLIENT::did_recv_packet(
 	BaseTransport &transport,
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: did_recv_DISCPROTO(transport);
 		break;
@@ -399,7 +404,12 @@ void DISCOVERYCLIENT::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
 		break;
