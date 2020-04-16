@@ -194,6 +194,8 @@ void Buffer::write_unsafe(size_t const pos, uint8_t const* const in, size_t cons
 }
 
 void Buffer::write_uint8_unsafe(size_t const pos, uint8_t const num) {
+	assert(size() >= 1 && size() - 1 >= pos);
+
 	data()[pos] = num;
 }
 
