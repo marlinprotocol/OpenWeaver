@@ -258,7 +258,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 	BaseTransport &transport,
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: did_recv_DISCPROTO(transport);
 		break;
@@ -285,7 +290,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
 		break;
