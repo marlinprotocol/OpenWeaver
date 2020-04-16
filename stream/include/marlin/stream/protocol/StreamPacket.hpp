@@ -66,11 +66,13 @@ namespace stream {
 
 struct StreamPacket: public core::Buffer {
 	uint8_t version() const {
-		return read_uint8(0);
+		// FIXME: Check
+		return read_uint8(0).value();
 	}
 
 	uint8_t message() const {
-		return read_uint8(1);
+		// FIXME: Check
+		return read_uint8(1).value();
 	}
 
 	bool is_fin_set() const {

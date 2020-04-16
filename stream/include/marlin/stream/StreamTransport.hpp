@@ -1775,7 +1775,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	BaseTransport &,
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DATA
 		case 0:
 		// DATA + FIN
@@ -1816,7 +1821,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 	BaseTransport &,
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DATA
 		case 0: SPDLOG_TRACE("DATA >>> {}", dst_addr.to_string());
 		break;
