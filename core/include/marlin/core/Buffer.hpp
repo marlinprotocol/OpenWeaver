@@ -123,7 +123,7 @@ public:
 	//-------- 8 bit writes begin --------//
 
 	/// Write uint8_t starting at given byte
-	bool write_uint8(size_t const pos, uint8_t const num);
+	[[nodiscard]] bool write_uint8(size_t const pos, uint8_t const num);
 	/// Write uint8_t starting at given byte without bounds checking
 	void write_uint8_unsafe(size_t const pos, uint8_t const num);
 
