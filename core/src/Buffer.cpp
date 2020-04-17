@@ -164,10 +164,10 @@ std::optional<uint8_t> Buffer::read_uint8(size_t const pos) const {
 	return read_uint8_unsafe(pos);
 }
 
-uint16_t Buffer::read_uint16(size_t const pos) const {
+std::optional<uint16_t> Buffer::read_uint16(size_t const pos) const {
 	// Bounds checking
 	if(size() < 2 || size() - 2 < pos)
-		return -1;
+		return std::nullopt;
 
 	return read_uint16_unsafe(pos);
 }
@@ -262,8 +262,9 @@ bool Buffer::write_uint64(size_t const pos, uint64_t const num) {
 
 #if MARLIN_CORE_ENDIANNESS == MARLIN_CORE_BIG_ENDIAN
 
-uint16_t Buffer::read_uint16_le(size_t const pos) const {
-	return __builtin_bswap16(read_uint16(pos));
+std::optional<uint16_t> Buffer::read_uint16_le(size_t const pos) const {
+	auto res = read_uint16(pos);
+	return res.has_value() ? __builtin_bswap16(res.value()) : res;
 }
 
 uint32_t Buffer::read_uint32_le(size_t const pos) const {
@@ -286,7 +287,7 @@ uint64_t Buffer::read_uint64_le_unsafe(size_t const pos) const {
 	return __builtin_bswap64(read_uint64_unsafe(pos));
 }
 
-uint16_t Buffer::read_uint16_be(size_t const pos) const {
+std::optional<uint16_t> Buffer::read_uint16_be(size_t const pos) const {
 	return read_uint16(pos);
 }
 
@@ -360,8 +361,9 @@ void Buffer::write_uint64_be_unsafe(size_t const pos, uint64_t const num) {
 
 #elif MARLIN_CORE_ENDIANNESS == MARLIN_CORE_LITTLE_ENDIAN
 
-uint16_t Buffer::read_uint16_be(size_t const pos) const {
-	return __builtin_bswap16(read_uint16(pos));
+std::optional<uint16_t> Buffer::read_uint16_be(size_t const pos) const {
+	auto res = read_uint16(pos);
+	return res.has_value() ? __builtin_bswap16(res.value()) : res;
 }
 
 uint32_t Buffer::read_uint32_be(size_t const pos) const {
@@ -384,7 +386,7 @@ uint64_t Buffer::read_uint64_be_unsafe(size_t const pos) const {
 	return __builtin_bswap64(read_uint64_unsafe(pos));
 }
 
-uint16_t Buffer::read_uint16_le(size_t const pos) const {
+std::optional<uint16_t> Buffer::read_uint16_le(size_t const pos) const {
 	return read_uint16(pos);
 }
 
