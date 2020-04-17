@@ -186,7 +186,7 @@ TEST(BufferRead, CannotReadUint8WithOverflow) {
 
 	auto num = buf.read_uint8(1400);
 
-	EXPECT_EQ(num, uint8_t(-1));
+	EXPECT_EQ(num, std::nullopt);
 }
 
 TEST(BufferRead, CanReadUint16WithoutOverflow) {

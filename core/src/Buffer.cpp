@@ -119,28 +119,29 @@ void Buffer::read_unsafe(size_t const pos, uint8_t* const out, size_t const size
 }
 
 uint8_t Buffer::read_uint8_unsafe(size_t const pos) const {
-	assert(size() < 1 || size() - 1 < pos);
+	uint8_t res;
+	read_unsafe(pos, (uint8_t*)&res, 1);
 
-	return data()[pos];
+	return res;
 }
 
 uint16_t Buffer::read_uint16_unsafe(size_t const pos) const {
 	uint16_t res;
-	std::memcpy(&res, data()+pos, 2);
+	read_unsafe(pos, (uint8_t*)&res, 2);
 
 	return res;
 }
 
 uint32_t Buffer::read_uint32_unsafe(size_t const pos) const {
 	uint32_t res;
-	std::memcpy(&res, data()+pos, 4);
+	read_unsafe(pos, (uint8_t*)&res, 4);
 
 	return res;
 }
 
 uint64_t Buffer::read_uint64_unsafe(size_t const pos) const {
 	uint64_t res;
-	std::memcpy(&res, data()+pos, 8);
+	read_unsafe(pos, (uint8_t*)&res, 8);
 
 	return res;
 }
