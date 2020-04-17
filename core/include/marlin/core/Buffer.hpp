@@ -133,20 +133,20 @@ public:
 	//-------- 16 bit reads begin --------//
 
 	/// Read uint16_t starting at given byte
-	uint16_t read_uint16(size_t const pos) const;
+	std::optional<uint16_t> read_uint16(size_t const pos) const;
 	/// Read uint16_t starting at given byte without bounds checking
 	uint16_t read_uint16_unsafe(size_t const pos) const;
 
 	/// Read uint16_t starting at given byte,
 	/// converting from LE to host endian
-	uint16_t read_uint16_le(size_t const pos) const;
+	std::optional<uint16_t> read_uint16_le(size_t const pos) const;
 	/// Read uint16_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
 	uint16_t read_uint16_le_unsafe(size_t const pos) const;
 
 	/// Read uint16_t starting at given byte,
 	/// converting from BE to host endian
-	uint16_t read_uint16_be(size_t const pos) const;
+	std::optional<uint16_t> read_uint16_be(size_t const pos) const;
 	/// Read uint16_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
 	uint16_t read_uint16_be_unsafe(size_t const pos) const;
