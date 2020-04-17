@@ -178,7 +178,8 @@ TEST(BufferRead, CanReadUint8WithoutOverflow) {
 
 	auto num = buf.read_uint8(10);
 
-	EXPECT_EQ(num, 0x01);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x01);
 }
 
 TEST(BufferRead, CannotReadUint8WithOverflow) {
@@ -186,7 +187,7 @@ TEST(BufferRead, CannotReadUint8WithOverflow) {
 
 	auto num = buf.read_uint8(1400);
 
-	EXPECT_EQ(num, std::nullopt);
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferRead, CanReadUint16WithoutOverflow) {
@@ -197,7 +198,8 @@ TEST(BufferRead, CanReadUint16WithoutOverflow) {
 
 	auto num = buf.read_uint16(10);
 
-	EXPECT_TRUE(std::memcmp(&num, raw_ptr + 10, 2) == 0);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_TRUE(std::memcmp(&num.value(), raw_ptr + 10, 2) == 0);
 }
 
 TEST(BufferRead, CannotReadUint16WithOverflow) {
@@ -205,7 +207,7 @@ TEST(BufferRead, CannotReadUint16WithOverflow) {
 
 	auto num = buf.read_uint16(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadLE, CanReadUint16LEWithoutOverflow) {
@@ -216,7 +218,8 @@ TEST(BufferReadLE, CanReadUint16LEWithoutOverflow) {
 
 	auto num = buf.read_uint16_le(10);
 
-	EXPECT_EQ(num, 0x0201);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0201);
 }
 
 TEST(BufferReadLE, CannotReadUint16LEWithOverflow) {
@@ -224,7 +227,7 @@ TEST(BufferReadLE, CannotReadUint16LEWithOverflow) {
 
 	auto num = buf.read_uint16_le(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadBE, CanReadUint16BEWithoutOverflow) {
@@ -235,7 +238,8 @@ TEST(BufferReadBE, CanReadUint16BEWithoutOverflow) {
 
 	auto num = buf.read_uint16_be(10);
 
-	EXPECT_EQ(num, 0x0102);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0102);
 }
 
 TEST(BufferReadBE, CannotReadUint16BEWithOverflow) {
@@ -243,7 +247,7 @@ TEST(BufferReadBE, CannotReadUint16BEWithOverflow) {
 
 	auto num = buf.read_uint16_be(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferRead, CanReadUint32WithoutOverflow) {
