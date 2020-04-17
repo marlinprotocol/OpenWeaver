@@ -195,21 +195,19 @@ void Buffer::write_unsafe(size_t const pos, uint8_t const* const in, size_t cons
 }
 
 void Buffer::write_uint8_unsafe(size_t const pos, uint8_t const num) {
-	assert(size() >= 1 && size() - 1 >= pos);
-
-	data()[pos] = num;
+	write_unsafe(pos, (uint8_t const*)&num, 1);
 }
 
 void Buffer::write_uint16_unsafe(size_t const pos, uint16_t const num) {
-	std::memcpy(data()+pos, &num, 2);
+	write_unsafe(pos, (uint8_t const*)&num, 2);
 }
 
 void Buffer::write_uint32_unsafe(size_t const pos, uint32_t const num) {
-	std::memcpy(data()+pos, &num, 4);
+	write_unsafe(pos, (uint8_t const*)&num, 4);
 }
 
 void Buffer::write_uint64_unsafe(size_t const pos, uint64_t const num) {
-	std::memcpy(data()+pos, &num, 8);
+	write_unsafe(pos, (uint8_t const*)&num, 8);
 }
 
 bool Buffer::write(size_t const pos, uint8_t const* const in, size_t const size) {
