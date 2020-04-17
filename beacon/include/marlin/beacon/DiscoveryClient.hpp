@@ -218,12 +218,18 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	}
 
 	uint8_t num_proto = packet.read_uint8_unsafe(2);
+
+	// Bounds check
+	if(packet.size() < 3 + num_proto*8) {
+		return;
+	}
+
 	packet.cover_unsafe(3);
 	for(uint8_t i = 0; i < num_proto; i++) {
 		uint32_t protocol = packet.read_uint32_be(8*i);
-		uint16_t version = packet.read_uint16_be(4 + 8*i);
+		uint16_t version = packet.read_uint16_be_unsafe(4 + 8*i);
 
-		uint16_t port = packet.read_uint16_be(6 + 8*i);
+		uint16_t port = packet.read_uint16_be_unsafe(6 + 8*i);
 		core::SocketAddress peer_addr(transport.dst_addr);
 		// TODO: Move into SocketAddress
 		reinterpret_cast<sockaddr_in *>(&peer_addr)->sin_port = (port << 8) + (port >> 8);
