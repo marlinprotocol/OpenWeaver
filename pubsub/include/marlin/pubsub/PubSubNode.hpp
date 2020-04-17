@@ -393,7 +393,12 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
+	// Bounds check
+	if(bytes.size() < 2) {
+		return -1;
+	}
+
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
 
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
@@ -467,7 +472,12 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
+	// Bounds check
+	if(bytes.size() < 2) {
+		return;
+	}
+
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
 
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
@@ -602,7 +612,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 	}
 
 	auto message_id = bytes.read_uint64_be(0);
-	auto channel = bytes.read_uint16_be(8);
+	auto channel = bytes.read_uint16_be_unsafe(8);
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
 
@@ -1261,7 +1271,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	// 	id
 	// );
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
-		auto witness_length = bytes.read_uint16_be(11);
+		auto witness_length = bytes.read_uint16_be(11).value();  // FIXME: Check
 
 		// Check overflow
 		if((uint16_t)bytes.size() < 13 + witness_length) {
