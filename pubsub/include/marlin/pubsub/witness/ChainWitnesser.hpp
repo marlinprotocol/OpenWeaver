@@ -38,7 +38,8 @@ struct ChainWitnesser {
 	}
 
 	uint64_t parse_size(core::Buffer& in, uint64_t offset = 0) {
-		return in.read_uint16_be(offset) + 2;
+		// FIXME: check
+		return in.read_uint16_be_unsafe(offset) + 2;
 	}
 };
 
