@@ -80,7 +80,8 @@ struct StreamPacket: public core::Buffer {
 	}
 
 	uint16_t stream_id() const {
-		return read_uint16_be(10);
+		// FIXME: Check
+		return read_uint16_be_unsafe(10);
 	}
 
 	uint64_t packet_number() const {
@@ -92,7 +93,8 @@ struct StreamPacket: public core::Buffer {
 	}
 
 	uint16_t length() const {
-		return read_uint16_be(28);
+		// FIXME: Check
+		return read_uint16_be_unsafe(28);
 	}
 };
 
