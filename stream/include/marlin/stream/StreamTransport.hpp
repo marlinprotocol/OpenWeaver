@@ -398,10 +398,10 @@ void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream.stream_id);
+	packet.write_uint16_be_unsafe(10, stream.stream_id);
 	packet.write_uint64_be(12, this->last_sent_packet);
 	packet.write_uint64_be(20, data_item.stream_offset + offset);
-	packet.write_uint16_be(28, length);
+	packet.write_uint16_be_unsafe(28, length);
 	packet.write_unsafe(30, data_item.data.data()+offset, length);
 
 	uint8_t nonce[12];
@@ -1283,7 +1283,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, size);
+	packet.write_uint16_be_unsafe(10, size);
 	packet.write_uint64_be(12, ack_ranges.largest);
 
 	int i = 20;
@@ -1563,7 +1563,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
+	packet.write_uint16_be_unsafe(10, stream_id);
 	packet.write_uint64_be(12, offset);
 
 	transport.send(std::move(packet));
@@ -1621,7 +1621,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
+	packet.write_uint16_be_unsafe(10, stream_id);
 	packet.write_uint64_be(12, offset);
 
 	transport.send(std::move(packet));
@@ -1685,7 +1685,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 
 	packet.write_uint32_be(2, src_conn_id);
 	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
+	packet.write_uint16_be_unsafe(10, stream_id);
 
 	transport.send(std::move(packet));
 }
