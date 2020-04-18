@@ -28,7 +28,8 @@ struct ChainWitnesser {
 		uint64_t offset = 0
 	) {
 		if(prev_witness_header.witness_size == 0) {
-			out.write_uint16_be(offset, 32);
+			// FIXME: should probably add _unsafe to function
+			out.write_uint16_be_unsafe(offset, 32);
 			offset += 2;
 		}
 		// FIXME: should probably add _unsafe to function
