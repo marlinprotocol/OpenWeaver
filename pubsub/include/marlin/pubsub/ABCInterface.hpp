@@ -276,7 +276,7 @@ public:
 		dataBuffer->write_uint64_be(offset, messageId1);
 		offset += messageIDSize;
 
-		dataBuffer->write_uint16_be(offset, chId1);
+		dataBuffer->write_uint16_be_unsafe(offset, chId1);
 		offset += channelSize;
 
 		dataBuffer->write_uint64_be(offset, timestamp1);
@@ -297,7 +297,7 @@ public:
 		dataBuffer->write_uint64_be(offset, messageId2);
 		offset += messageIDSize;
 
-		dataBuffer->write_uint16_be(offset, chId2);
+		dataBuffer->write_uint16_be_unsafe(offset, chId2);
 		offset += channelSize;
 
 		dataBuffer->write_uint64_be(offset, timestamp2);
