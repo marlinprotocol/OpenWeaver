@@ -157,20 +157,20 @@ public:
 	//-------- 16 bit writes begin --------//
 
 	/// Write uint16_t starting at given byte
-	bool write_uint16(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16(size_t const pos, uint16_t const num);
 	/// Write uint16_t starting at given byte without bounds checking
 	void write_uint16_unsafe(size_t const pos, uint16_t const num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to LE
-	bool write_uint16_le(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16_le(size_t const pos, uint16_t const num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
 	void write_uint16_le_unsafe(size_t const pos, uint16_t const num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to BE
-	bool write_uint16_be(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16_be(size_t const pos, uint16_t const num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
 	void write_uint16_be_unsafe(size_t const pos, uint16_t const num);
