@@ -451,7 +451,7 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 	uint16_t const channel
 ) {
 	core::Buffer bytes({0}, 3);
-	bytes.write_uint16_be(1, channel);
+	bytes.write_uint16_be_unsafe(1, channel);
 
 	SPDLOG_DEBUG(
 		"Sending subscribe on channel {} to {}",
@@ -514,7 +514,7 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 	uint16_t const channel
 ) {
 	core::Buffer bytes({1}, 3);
-	bytes.write_uint16_be(1, channel);
+	bytes.write_uint16_be_unsafe(1, channel);
 
 	SPDLOG_DEBUG("Sending unsubscribe on channel {} to {}", channel, transport.dst_addr.to_string());
 
@@ -719,7 +719,7 @@ core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	buf_size += witnesser.witness_size(prev_header);
 	core::Buffer m({3}, buf_size);
 	m.write_uint64_be(1, message_id);
-	m.write_uint16_be(9, channel);
+	m.write_uint16_be_unsafe(9, channel);
 
 	uint64_t offset = 11;
 	auto res = attester.attest(message_id, channel, data, size, prev_header, m, offset);
@@ -1359,7 +1359,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		crypto_scalarmult_base(new_header+13+witness_length, keys);
 
 		core::Buffer buf(new_header, 13+witness_length+32);
-		buf.write_uint16_be(11, witness_length + 32);
+		buf.write_uint16_be_unsafe(11, witness_length + 32);
 
 		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
 		if(res < 0) {
