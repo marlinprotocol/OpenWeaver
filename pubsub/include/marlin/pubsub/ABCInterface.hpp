@@ -148,7 +148,7 @@ public:
 		message.cover_unsafe(blockNumberSize);
 
 		if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
-			auto numMapEntries = message.read_uint32_be(0);
+			auto numMapEntries = message.read_uint32_be_unsafe(0);
 			message.cover_unsafe(4);
 
 			SPDLOG_INFO(
