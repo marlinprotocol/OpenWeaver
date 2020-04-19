@@ -172,7 +172,7 @@ std::optional<uint16_t> Buffer::read_uint16(size_t const pos) const {
 	return read_uint16_unsafe(pos);
 }
 
-uint32_t Buffer::read_uint32(size_t const pos) const {
+std::optional<uint32_t> Buffer::read_uint32(size_t const pos) const {
 	// Bounds checking
 	if(size() < 4 || size() - 4 < pos)
 		return -1;
@@ -267,8 +267,9 @@ std::optional<uint16_t> Buffer::read_uint16_le(size_t const pos) const {
 	return res.has_value() ? __builtin_bswap16(res.value()) : res;
 }
 
-uint32_t Buffer::read_uint32_le(size_t const pos) const {
-	return __builtin_bswap32(read_uint32(pos));
+std::optional<uint32_t> Buffer::read_uint32_le(size_t const pos) const {
+	auto res = read_uint32(pos);
+	return res.has_value() ? __builtin_bswap32(res.value()) : res;
 }
 
 uint64_t Buffer::read_uint64_le(size_t const pos) const {
@@ -291,7 +292,7 @@ std::optional<uint16_t> Buffer::read_uint16_be(size_t const pos) const {
 	return read_uint16(pos);
 }
 
-uint32_t Buffer::read_uint32_be(size_t const pos) const {
+std::optional<uint32_t> Buffer::read_uint32_be(size_t const pos) const {
 	return read_uint32(pos);
 }
 
@@ -366,8 +367,9 @@ std::optional<uint16_t> Buffer::read_uint16_be(size_t const pos) const {
 	return res.has_value() ? __builtin_bswap16(res.value()) : res;
 }
 
-uint32_t Buffer::read_uint32_be(size_t const pos) const {
-	return __builtin_bswap32(read_uint32(pos));
+std::optional<uint32_t> Buffer::read_uint32_be(size_t const pos) const {
+	auto res = read_uint32(pos);
+	return res.has_value() ? __builtin_bswap32(res.value()) : res;
 }
 
 uint64_t Buffer::read_uint64_be(size_t const pos) const {
@@ -390,7 +392,7 @@ std::optional<uint16_t> Buffer::read_uint16_le(size_t const pos) const {
 	return read_uint16(pos);
 }
 
-uint32_t Buffer::read_uint32_le(size_t const pos) const {
+std::optional<uint32_t> Buffer::read_uint32_le(size_t const pos) const {
 	return read_uint32(pos);
 }
 
