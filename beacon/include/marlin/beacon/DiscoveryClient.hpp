@@ -226,7 +226,7 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 
 	packet.cover_unsafe(3);
 	for(uint8_t i = 0; i < num_proto; i++) {
-		uint32_t protocol = packet.read_uint32_be(8*i);
+		uint32_t protocol = packet.read_uint32_be_unsafe(8*i);
 		uint16_t version = packet.read_uint16_be_unsafe(4 + 8*i);
 
 		uint16_t port = packet.read_uint16_be_unsafe(6 + 8*i);
