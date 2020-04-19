@@ -703,13 +703,21 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	core::Buffer &&packet
 ) {
+	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	// Bounds check
+	if(packet.size() < 10 + ct_len) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::Listen) {
-		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+		if(packet.read_uint32_be_unsafe(6) != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be(6)
+				packet.read_uint32_be_unsafe(6)
 			);
 			return;
 		}
@@ -720,9 +728,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			dst_addr.to_string(),
 			spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES)
 		);
-
-		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
 		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
@@ -755,25 +760,22 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
 		this->src_conn_id = (uint32_t)std::random_device()();
 
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
 	} else if(conn_state == ConnectionState::DialSent) {
-		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+		if(packet.read_uint32_be_unsafe(6) != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be(6)
+				packet.read_uint32_be_unsafe(6)
 			);
 			return;
 		}
-
-		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		uint8_t pt[pt_len];
 		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
@@ -805,7 +807,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
 
 		state_timer.stop();
 		state_timer_interval = 0;
@@ -857,8 +859,16 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 	core::Buffer &&packet
 ) {
+	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	// Bounds check
+	if(packet.size() < 10 + ct_len) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::DialSent) {
-		auto src_conn_id = packet.read_uint32_be(6);
+		auto src_conn_id = packet.read_uint32_be_unsafe(6);
 		if(src_conn_id != this->src_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -870,12 +880,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 				src_conn_id,
 				this->src_conn_id
 			);
-			send_RST(src_conn_id, packet.read_uint32_be(2));
+			send_RST(src_conn_id, packet.read_uint32_be_unsafe(2));
 			return;
 		}
-
-		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
 		if (crypto_box_seal_open(remote_ephemeral_pk, packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
 			SPDLOG_ERROR(
@@ -905,7 +912,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		state_timer.stop();
 		state_timer_interval = 0;
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
 
 		send_CONF();
 
@@ -916,8 +923,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 	} else if(conn_state == ConnectionState::DialRcvd) {
 		// Usually happend in case of simultaneous open
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.read_uint32_be_unsafe(6);
+		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -946,8 +953,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.read_uint32_be_unsafe(6);
+		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
@@ -970,7 +977,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
+		send_RST(packet.read_uint32_be_unsafe(6), packet.read_uint32_be_unsafe(2));
 	}
 }
 
@@ -1000,9 +1007,14 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 	core::Buffer &&packet
 ) {
+	// Bounds check
+	if(packet.size() < 10) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::DialRcvd) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.read_uint32_be_unsafe(6);
+		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1024,8 +1036,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.read_uint32_be_unsafe(6);
+		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1047,7 +1059,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
+		send_RST(packet.read_uint32_be_unsafe(6), packet.read_uint32_be_unsafe(2));
 	}
 }
 
@@ -1068,8 +1080,13 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	core::Buffer &&packet
 ) {
-	auto src_conn_id = packet.read_uint32_be(6);
-	auto dst_conn_id = packet.read_uint32_be(2);
+	// Bounds check
+	if(packet.size() < 10) {
+		return;
+	}
+
+	auto src_conn_id = packet.read_uint32_be_unsafe(6);
+	auto dst_conn_id = packet.read_uint32_be_unsafe(2);
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: RST",
@@ -1107,8 +1124,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = p.read_uint32_be_unsafe(6);
+	auto dst_conn_id = p.read_uint32_be_unsafe(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
@@ -1317,8 +1334,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		return;
 	}
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = p.read_uint32_be_unsafe(6);
+	auto dst_conn_id = p.read_uint32_be_unsafe(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
@@ -1573,12 +1590,17 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 	core::Buffer &&packet
 ) {
+	// Bounds check
+	if(packet.size() < 20) {
+		return;
+	}
+
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
 	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = p.read_uint32_be_unsafe(6);
+	auto dst_conn_id = p.read_uint32_be_unsafe(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
@@ -1631,12 +1653,17 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 	core::Buffer &&packet
 ) {
+	// Bounds check
+	if(packet.size() < 20) {
+		return;
+	}
+
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
 	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = p.read_uint32_be_unsafe(6);
+	auto dst_conn_id = p.read_uint32_be_unsafe(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
@@ -1694,12 +1721,17 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	core::Buffer &&packet
 ) {
+	// Bounds check
+	if(packet.size() < 12) {
+		return;
+	}
+
 	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
 
 	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), p.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = p.read_uint32_be_unsafe(6);
+	auto dst_conn_id = p.read_uint32_be_unsafe(2);
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
