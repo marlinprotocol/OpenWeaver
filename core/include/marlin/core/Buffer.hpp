@@ -181,20 +181,20 @@ public:
 	//-------- 32 bit reads begin --------//
 
 	/// Read uint32_t starting at given byte
-	uint32_t read_uint32(size_t const pos) const;
+	std::optional<uint32_t> read_uint32(size_t const pos) const;
 	/// Read uint32_t starting at given byte without bounds checking
 	uint32_t read_uint32_unsafe(size_t const pos) const;
 
 	/// Read uint32_t starting at given byte,
 	/// converting from LE to host endian
-	uint32_t read_uint32_le(size_t const pos) const;
+	std::optional<uint32_t> read_uint32_le(size_t const pos) const;
 	/// Read uint32_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
 	uint32_t read_uint32_le_unsafe(size_t const pos) const;
 
 	/// Read uint32_t starting at given byte,
 	/// converting from BE to host endian
-	uint32_t read_uint32_be(size_t const pos) const;
+	std::optional<uint32_t> read_uint32_be(size_t const pos) const;
 	/// Read uint32_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
 	uint32_t read_uint32_be_unsafe(size_t const pos) const;
