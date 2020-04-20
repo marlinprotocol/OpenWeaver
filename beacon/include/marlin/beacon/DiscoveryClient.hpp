@@ -198,7 +198,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	) {
 		auto [protocol, version, port] = *iter;
 
-		p.write_uint32_be(i, protocol);
+		p.write_uint32_be_unsafe(i, protocol);
 		p.write_uint16_be_unsafe(i+4, version);
 		p.write_uint16_be_unsafe(i+6, port);
 	}
