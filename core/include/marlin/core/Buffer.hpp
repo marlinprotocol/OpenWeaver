@@ -205,20 +205,20 @@ public:
 	//-------- 32 bit writes begin --------//
 
 	/// Write uint32_t starting at given byte
-	bool write_uint32(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32(size_t const pos, uint32_t const num);
 	/// Write uint32_t starting at given byte without bounds checking
 	void write_uint32_unsafe(size_t const pos, uint32_t const num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to LE
-	bool write_uint32_le(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32_le(size_t const pos, uint32_t const num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
 	void write_uint32_le_unsafe(size_t const pos, uint32_t const num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to BE
-	bool write_uint32_be(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32_be(size_t const pos, uint32_t const num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
 	void write_uint32_be_unsafe(size_t const pos, uint32_t const num);
