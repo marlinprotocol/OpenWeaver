@@ -147,8 +147,8 @@ struct StakeAttester {
 		}
 		auto stake_offset = stake_offset_opt.value();
 
-		out.write_uint64_be(offset, timestamp);
-		out.write_uint64_be(offset+8, stake_offset);
+		out.write_uint64_be_unsafe(offset, timestamp);
+		out.write_uint64_be_unsafe(offset+8, stake_offset);
 
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
