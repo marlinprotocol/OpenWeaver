@@ -718,7 +718,7 @@ core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	buf_size += attester.attestation_size(message_id, channel, data, size, prev_header);
 	buf_size += witnesser.witness_size(prev_header);
 	core::Buffer m({3}, buf_size);
-	m.write_uint64_be(1, message_id);
+	m.write_uint64_be_unsafe(1, message_id);
 	m.write_uint16_be_unsafe(9, channel);
 
 	uint64_t offset = 11;
