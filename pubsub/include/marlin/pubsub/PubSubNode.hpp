@@ -611,7 +611,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		return -1;
 	}
 
-	auto message_id = bytes.read_uint64_be(0);
+	auto message_id = bytes.read_uint64_be_unsafe(0);
 	auto channel = bytes.read_uint16_be_unsafe(8);
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
@@ -1280,7 +1280,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			return -1;
 		}
 
-		auto message_id = bytes.read_uint64_be(1);
+		auto message_id = bytes.read_uint64_be_unsafe(1);
 		SPDLOG_INFO(
 			"Pubsub {} <<<< {}: CTR message id: {}",
 			transport.src_addr.to_string(),
