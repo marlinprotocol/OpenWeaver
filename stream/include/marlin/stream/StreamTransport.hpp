@@ -1379,12 +1379,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	bool gap = false;
 	bool is_app_limited = (bytes_in_flight < 0.8 * congestion_window);
 
+	// Bounds check
+	if(p.size() < size*8) {
+		return;
+	}
+
 	for(
 		uint16_t i = 0;
 		i < size;
 		i++, gap = !gap
 	) {
-		uint64_t range = p.read_uint64_be(i*8);
+		uint64_t range = p.read_uint64_be_unsafe(i*8);
 
 		uint64_t low = high - range;
 
