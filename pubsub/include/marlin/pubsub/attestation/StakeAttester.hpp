@@ -215,8 +215,8 @@ struct StakeAttester {
 
 		// Extract data
 		core::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
-		attestation.timestamp = buf.read_uint64_be(0);
-		attestation.stake_offset = buf.read_uint64_be(8);
+		attestation.timestamp = buf.read_uint64_be_unsafe(0);
+		attestation.stake_offset = buf.read_uint64_be_unsafe(8);
 		buf.release();
 
 		uint64_t now = std::time(nullptr);
