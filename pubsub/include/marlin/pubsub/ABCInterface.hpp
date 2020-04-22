@@ -144,7 +144,7 @@ public:
 			return;
 		}
 
-		auto blockNumber = message.read_uint64_be(0);
+		auto blockNumber = message.read_uint64_be_unsafe(0);
 		message.cover_unsafe(blockNumberSize);
 
 		if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
@@ -186,7 +186,7 @@ public:
 
 				// auto balance = core::uint256_t(lo, lohi, hilo, hi);
 
-				uint64_t balance = message.read_uint64_be(0);
+				uint64_t balance = message.read_uint64_be_unsafe(0);
 				message.cover_unsafe(8);
 
 				SPDLOG_INFO(
