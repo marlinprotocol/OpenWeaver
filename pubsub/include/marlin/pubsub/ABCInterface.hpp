@@ -234,7 +234,7 @@ public:
 		offset += messageTypeSize;
 		dataBuffer->write_uint8_unsafe(offset, ackType);
 		offset += AckTypeSize;
-		dataBuffer->write_uint64_be(offset, blockNumber);
+		dataBuffer->write_uint64_be_unsafe(offset, blockNumber);
 		offset += blockNumberSize;
 
 		transport.send(std::move(*dataBuffer));
@@ -273,19 +273,19 @@ public:
 		dataBuffer->write_uint8_unsafe(offset, messageType);
 		offset += messageTypeSize;
 
-		dataBuffer->write_uint64_be(offset, messageId1);
+		dataBuffer->write_uint64_be_unsafe(offset, messageId1);
 		offset += messageIDSize;
 
 		dataBuffer->write_uint16_be_unsafe(offset, chId1);
 		offset += channelSize;
 
-		dataBuffer->write_uint64_be(offset, timestamp1);
+		dataBuffer->write_uint64_be_unsafe(offset, timestamp1);
 		offset += timestampSize;
 
-		dataBuffer->write_uint64_be(offset, stakeOffset1);
+		dataBuffer->write_uint64_be_unsafe(offset, stakeOffset1);
 		offset += stakeOffsetSize;
 
-		dataBuffer->write_uint64_be(offset, messageSize1);
+		dataBuffer->write_uint64_be_unsafe(offset, messageSize1);
 		offset += messageSize;
 
 		dataBuffer->write_unsafe(offset, messageHash1, hashSize);
@@ -294,19 +294,19 @@ public:
 		dataBuffer->write_unsafe(offset, signature1, signatureSize);
 		offset += signatureSize;
 
-		dataBuffer->write_uint64_be(offset, messageId2);
+		dataBuffer->write_uint64_be_unsafe(offset, messageId2);
 		offset += messageIDSize;
 
 		dataBuffer->write_uint16_be_unsafe(offset, chId2);
 		offset += channelSize;
 
-		dataBuffer->write_uint64_be(offset, timestamp2);
+		dataBuffer->write_uint64_be_unsafe(offset, timestamp2);
 		offset += timestampSize;
 
-		dataBuffer->write_uint64_be(offset, stakeOffset2);
+		dataBuffer->write_uint64_be_unsafe(offset, stakeOffset2);
 		offset += stakeOffsetSize;
 
-		dataBuffer->write_uint64_be(offset, messageSize2);
+		dataBuffer->write_uint64_be_unsafe(offset, messageSize2);
 		offset += messageSize;
 
 		dataBuffer->write_unsafe(offset, messageHash2, hashSize);
