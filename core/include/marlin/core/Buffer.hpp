@@ -253,20 +253,20 @@ public:
 	//-------- 64 bit writes begin --------//
 
 	/// Write uint64_t starting at given byte
-	bool write_uint64(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64(size_t const pos, uint64_t const num);
 	/// Write uint64_t starting at given byte without bounds checking
 	void write_uint64_unsafe(size_t const pos, uint64_t const num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to LE
-	bool write_uint64_le(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64_le(size_t const pos, uint64_t const num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
 	void write_uint64_le_unsafe(size_t const pos, uint64_t const num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to BE
-	bool write_uint64_be(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64_be(size_t const pos, uint64_t const num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
 	void write_uint64_be_unsafe(size_t const pos, uint64_t const num);
