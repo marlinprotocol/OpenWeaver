@@ -229,20 +229,20 @@ public:
 	//-------- 64 bit reads begin --------//
 
 	/// Read uint64_t starting at given byte
-	uint64_t read_uint64(size_t const pos) const;
+	std::optional<uint64_t> read_uint64(size_t const pos) const;
 	/// Read uint64_t starting at given byte without bounds checking
 	uint64_t read_uint64_unsafe(size_t const pos) const;
 
 	/// Read uint64_t starting at given byte,
 	/// converting from LE to host endian
-	uint64_t read_uint64_le(size_t const pos) const;
+	std::optional<uint64_t> read_uint64_le(size_t const pos) const;
 	/// Read uint64_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
 	uint64_t read_uint64_le_unsafe(size_t const pos) const;
 
 	/// Read uint64_t starting at given byte,
 	/// converting from BE to host endian
-	uint64_t read_uint64_be(size_t const pos) const;
+	std::optional<uint64_t> read_uint64_be(size_t const pos) const;
 	/// Read uint64_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
 	uint64_t read_uint64_be_unsafe(size_t const pos) const;
