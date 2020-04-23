@@ -175,7 +175,7 @@ std::optional<uint16_t> Buffer::read_uint16(size_t const pos) const {
 std::optional<uint32_t> Buffer::read_uint32(size_t const pos) const {
 	// Bounds checking
 	if(size() < 4 || size() - 4 < pos)
-		return -1;
+		return std::nullopt;
 
 	return read_uint32_unsafe(pos);
 }
@@ -183,7 +183,7 @@ std::optional<uint32_t> Buffer::read_uint32(size_t const pos) const {
 std::optional<uint64_t> Buffer::read_uint64(size_t const pos) const {
 	// Bounds checking
 	if(size() < 8 || size() - 8 < pos)
-		return -1;
+		return std::nullopt;
 
 	return read_uint64_unsafe(pos);
 }
