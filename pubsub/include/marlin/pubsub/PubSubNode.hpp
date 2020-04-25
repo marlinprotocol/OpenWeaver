@@ -631,8 +631,15 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			return -1;
 		}
 
+		auto size_opt = witnesser.parse_size(bytes, 0);
+		if(!size_opt.has_value()) {
+			SPDLOG_ERROR("Witness size parse failure");
+			transport.close();
+			return -1;
+		}
+
 		header.witness_data = bytes.data();
-		header.witness_size = witnesser.parse_size(bytes, 0);
+		header.witness_size = size_opt.value();
 		res = bytes.cover(header.witness_size);
 
 		if(!res) {
