@@ -621,8 +621,15 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		bytes.cover_unsafe(10);
 		MessageHeaderType header = {};
 
+		auto att_opt = witnesser.parse_size(bytes, 0);
+		if(!att_opt.has_value()) {
+			SPDLOG_ERROR("Attestation size parse failure");
+			transport.close();
+			return -1;
+		}
+
 		header.attestation_data = bytes.data();
-		header.attestation_size = attester.parse_size(bytes, 0);
+		header.attestation_size = att_opt.value();
 		auto res = bytes.cover(header.attestation_size);
 
 		if(!res) {
@@ -631,15 +638,15 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			return -1;
 		}
 
-		auto size_opt = witnesser.parse_size(bytes, 0);
-		if(!size_opt.has_value()) {
+		auto wit_opt = witnesser.parse_size(bytes, 0);
+		if(!wit_opt.has_value()) {
 			SPDLOG_ERROR("Witness size parse failure");
 			transport.close();
 			return -1;
 		}
 
 		header.witness_data = bytes.data();
-		header.witness_size = size_opt.value();
+		header.witness_size = wit_opt.value();
 		res = bytes.cover(header.witness_size);
 
 		if(!res) {
