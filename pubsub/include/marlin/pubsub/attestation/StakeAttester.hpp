@@ -354,7 +354,7 @@ struct StakeAttester {
 		return !overlap;
 	}
 
-	uint64_t parse_size(core::Buffer&, uint64_t = 0) {
+	std::optional<uint64_t> parse_size(core::Buffer&, uint64_t = 0) {
 		return 81;
 	}
 };
