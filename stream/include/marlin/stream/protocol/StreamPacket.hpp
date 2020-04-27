@@ -81,22 +81,22 @@ struct StreamPacket: public core::Buffer {
 
 	uint16_t stream_id() const {
 		// FIXME: Check
-		return read_uint16_be_unsafe(10);
+		return read_uint16(10).value();
 	}
 
 	uint64_t packet_number() const {
 		// FIXME: Check
-		return read_uint64_be_unsafe(12);
+		return read_uint64(12).value();
 	}
 
 	uint64_t offset() const {
 		// FIXME: Check
-		return read_uint64_be_unsafe(20);
+		return read_uint64(20).value();
 	}
 
 	uint16_t length() const {
 		// FIXME: Check
-		return read_uint16_be_unsafe(28);
+		return read_uint16(28).value();
 	}
 };
 
