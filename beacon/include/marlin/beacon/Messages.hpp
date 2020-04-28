@@ -67,7 +67,21 @@ public:
 			this->write_uint16_be_unsafe(i+4, version);
 			this->write_uint16_be_unsafe(i+6, port);
 		}
+	}
 
+	bool validate() {
+		if(this->size() < 3) {
+			return false;
+		}
+
+		uint8_t num_proto = packet.read_uint8_unsafe(2);
+
+		// Bounds check
+		if(packet.size() < 3 + num_proto*8) {
+			return false;
+		}
+
+		return true;
 	}
 };
 
