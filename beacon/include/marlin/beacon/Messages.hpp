@@ -50,6 +50,43 @@ public:
 */
 struct LISTPROTO : public core::Buffer {
 public:
+	struct iterator {
+	private:
+		core::Buffer* buf = nullptr;
+		size_t offset = 0;
+	public:
+		// For iterator_traits
+		using difference_type = int32_t;
+		using value_type = std::tuple<uint32_t, uint16_t, uint16_t>;
+		using pointer = value_type const*;
+		using reference = value_type const&;
+		using iterator_category = std::input_iterator_tag;
+
+		iterator(core::Buffer* buf, size_t offset = 0) : buf(buf), offset(offset) {}
+
+		value_type operator*() {
+			uint32_t protocol = buf->read_uint32_be_unsafe(offset);
+			uint16_t version = buf->read_uint16_be_unsafe(4 + offset);
+			uint16_t port = buf->read_uint16_be_unsafe(6 + offset);
+
+			return std::make_tuple(protocol, version, port);
+		}
+
+		iterator& operator++() {
+			offset += 8;
+
+			return *this;
+		}
+
+		bool operator==(iterator const& other) const {
+			return buf == other.buf && offset == other.offset;
+		}
+
+		bool operator!=(iterator const& other) const {
+			return !(*this == other);
+		}
+	};
+
 	template<typename Container>
 	LISTPROTO(Container const& protocols) : core::Buffer(
 		{0, 1, static_cast<uint8_t>(protocols.size())},
@@ -74,10 +111,10 @@ public:
 			return false;
 		}
 
-		uint8_t num_proto = packet.read_uint8_unsafe(2);
+		uint8_t num_proto = this->read_uint8_unsafe(2);
 
 		// Bounds check
-		if(packet.size() < 3 + num_proto*8) {
+		if(this->size() < 3 + num_proto*8) {
 			return false;
 		}
 
