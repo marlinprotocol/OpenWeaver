@@ -50,6 +50,42 @@ public:
 */
 struct LISTPROTO : public core::Buffer {
 public:
+	template<typename Container>
+	LISTPROTO(Container const& protocols) : core::Buffer(
+		{0, 1, static_cast<uint8_t>(protocols.size())},
+		3 + protocols.size()*8
+	) {
+		auto iter = protocols.begin();
+		for(
+			auto i = 3;
+			iter != protocols.end();
+			iter++, i += 8
+		) {
+			auto [protocol, version, port] = *iter;
+
+			this->write_uint32_be_unsafe(i, protocol);
+			this->write_uint16_be_unsafe(i+4, version);
+			this->write_uint16_be_unsafe(i+6, port);
+		}
+	}
+
+	LISTPROTO(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+
+	bool validate() const {
+		if(this->size() < 3) {
+			return false;
+		}
+
+		uint8_t num_proto = this->read_uint8_unsafe(2);
+
+		// Bounds check
+		if(this->size() < 3 + num_proto*8) {
+			return false;
+		}
+
+		return true;
+	}
+
 	struct iterator {
 	private:
 		core::Buffer const* buf = nullptr;
@@ -86,42 +122,6 @@ public:
 			return !(*this == other);
 		}
 	};
-
-	template<typename Container>
-	LISTPROTO(Container const& protocols) : core::Buffer(
-		{0, 1, static_cast<uint8_t>(protocols.size())},
-		3 + protocols.size()*8
-	) {
-		auto iter = protocols.begin();
-		for(
-			auto i = 3;
-			iter != protocols.end();
-			iter++, i += 8
-		) {
-			auto [protocol, version, port] = *iter;
-
-			this->write_uint32_be_unsafe(i, protocol);
-			this->write_uint16_be_unsafe(i+4, version);
-			this->write_uint16_be_unsafe(i+6, port);
-		}
-	}
-
-	LISTPROTO(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
-
-	bool validate() const {
-		if(this->size() < 3) {
-			return false;
-		}
-
-		uint8_t num_proto = this->read_uint8_unsafe(2);
-
-		// Bounds check
-		if(this->size() < 3 + num_proto*8) {
-			return false;
-		}
-
-		return true;
-	}
 
 	iterator cbegin() const {
 		return iterator(this, 3);
