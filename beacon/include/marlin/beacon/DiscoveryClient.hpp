@@ -326,7 +326,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 		case 0: did_recv_DISCPROTO(transport);
 		break;
 		// LISTPROTO
-		case 1: did_recv_LISTPROTO(transport, reinterpret_cast<LISTPROTO&&>(std::move(packet)));
+		case 1: did_recv_LISTPROTO(transport, static_cast<LISTPROTO&&>(std::move(packet)));
 		break;
 		// DISCOVER
 		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", transport.dst_addr.to_string());
