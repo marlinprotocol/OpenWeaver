@@ -120,16 +120,6 @@ private:
 
 /*!
 	function to get list of supported protocols on a client node
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x00     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
@@ -155,56 +145,15 @@ void DISCOVERYCLIENT::did_recv_DISCPROTO(
 
 /*!
 	sends the list of supported protocols on this node
-
-\verbatim
-
-0               1               2               3
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
-+++++++++++++++++++++++++++++++++++++++++++++++++
-|      0x00     |      0x01     |Num entries (N)|
------------------------------------------------------------------
-|                      Protocol Number (1)                      |
------------------------------------------------------------------
-|          Version (1)          |            Port (1)           |
------------------------------------------------------------------
-|                      Protocol Number (2)                      |
------------------------------------------------------------------
-|          Version (2)          |            Port (2)           |
------------------------------------------------------------------
-|                              ...                              |
------------------------------------------------------------------
-|                      Protocol Number (N)                      |
------------------------------------------------------------------
-|          Version (N)          |            Port (N)           |
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_LISTPROTO(
 	BaseTransport &transport
 ) {
 	auto protocols = delegate->get_protocols();
+	assert(protocols.size() < 100);
 
-	core::Buffer p(
-		{0, 1, static_cast<uint8_t>(protocols.size())},
-		3 + protocols.size()*8
-	);
-
-	auto iter = protocols.begin();
-	for(
-		auto i = 3;
-		iter != protocols.end();
-		iter++, i += 8
-	) {
-		auto [protocol, version, port] = *iter;
-
-		p.write_uint32_be_unsafe(i, protocol);
-		p.write_uint16_be_unsafe(i+4, version);
-		p.write_uint16_be_unsafe(i+6, port);
-	}
-
-	transport.send(std::move(p));
+	transport.send(LISTPROTO(protocols));
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
