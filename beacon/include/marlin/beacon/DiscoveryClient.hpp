@@ -47,7 +47,7 @@ private:
 	void send_DISCPROTO(BaseTransport &transport);
 	void did_recv_DISCPROTO(BaseTransport &transport);
 	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
 	void did_recv_LISTPEER(BaseTransport &transport, core::Buffer &&packet);
@@ -159,30 +159,18 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	BaseTransport &transport,
-	core::Buffer &&packet
+	LISTPROTO &&packet
 ) {
 	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
 
-	if(packet.size() < 3) {
+	if(!packet.validate()) {
 		return;
 	}
 
-	uint8_t num_proto = packet.read_uint8_unsafe(2);
-
-	// Bounds check
-	if(packet.size() < 3 + num_proto*8) {
-		return;
-	}
-
-	packet.cover_unsafe(3);
-	for(uint8_t i = 0; i < num_proto; i++) {
-		uint32_t protocol = packet.read_uint32_be_unsafe(8*i);
-		uint16_t version = packet.read_uint16_be_unsafe(4 + 8*i);
-
-		uint16_t port = packet.read_uint16_be_unsafe(6 + 8*i);
+	for(auto iter = packet.cbegin(); iter != packet.cend(); ++iter) {
+		auto [protocol, version, port] = *iter;
 		core::SocketAddress peer_addr(transport.dst_addr);
-		// TODO: Move into SocketAddress
-		reinterpret_cast<sockaddr_in *>(&peer_addr)->sin_port = (port << 8) + (port >> 8);
+		peer_addr.set_port(port);
 
 		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
@@ -329,7 +317,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
-	if(type == std::nullopt) {
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
 		return;
 	}
 
@@ -338,7 +326,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 		case 0: did_recv_DISCPROTO(transport);
 		break;
 		// LISTPROTO
-		case 1: did_recv_LISTPROTO(transport, std::move(packet));
+		case 1: did_recv_LISTPROTO(transport, reinterpret_cast<LISTPROTO&&>(std::move(packet)));
 		break;
 		// DISCOVER
 		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", transport.dst_addr.to_string());
@@ -361,7 +349,7 @@ void DISCOVERYCLIENT::did_send_packet(
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
-	if(type == std::nullopt) {
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
 		return;
 	}
 
