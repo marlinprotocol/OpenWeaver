@@ -106,6 +106,8 @@ public:
 		}
 	}
 
+	LISTPROTO(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+
 	bool validate() const {
 		if(this->size() < 3) {
 			return false;
