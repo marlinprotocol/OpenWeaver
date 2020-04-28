@@ -11,6 +11,8 @@
 
 #include <sodium.h>
 
+#include "Messages.hpp"
+
 
 namespace marlin {
 namespace beacon {
@@ -133,8 +135,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 0}, 2);
-	transport.send(std::move(p));
+	transport.send(DISCPROTO());
 }
 
 
