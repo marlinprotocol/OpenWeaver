@@ -52,7 +52,7 @@ struct LISTPROTO : public core::Buffer {
 public:
 	struct iterator {
 	private:
-		core::Buffer* buf = nullptr;
+		core::Buffer const* buf = nullptr;
 		size_t offset = 0;
 	public:
 		// For iterator_traits
@@ -62,9 +62,9 @@ public:
 		using reference = value_type const&;
 		using iterator_category = std::input_iterator_tag;
 
-		iterator(core::Buffer* buf, size_t offset = 0) : buf(buf), offset(offset) {}
+		iterator(core::Buffer const* buf, size_t offset = 0) : buf(buf), offset(offset) {}
 
-		value_type operator*() {
+		value_type operator*() const {
 			uint32_t protocol = buf->read_uint32_be_unsafe(offset);
 			uint16_t version = buf->read_uint16_be_unsafe(4 + offset);
 			uint16_t port = buf->read_uint16_be_unsafe(6 + offset);
@@ -106,7 +106,7 @@ public:
 		}
 	}
 
-	bool validate() {
+	bool validate() const {
 		if(this->size() < 3) {
 			return false;
 		}
@@ -119,6 +119,15 @@ public:
 		}
 
 		return true;
+	}
+
+	iterator cbegin() const {
+		return iterator(this, 3);
+	}
+
+	iterator cend() const {
+		uint8_t num_proto = this->read_uint8_unsafe(2);
+		return iterator(this, 3 + num_proto*8);
 	}
 };
 
