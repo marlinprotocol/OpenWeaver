@@ -50,8 +50,8 @@ public:
 */
 struct LISTPROTO : public core::Buffer {
 public:
-	template<typename Container>
-	LISTPROTO(Container const& protocols) : core::Buffer(
+	template<typename Container = std::vector<std::tuple<uint32_t, uint16_t, uint16_t>>>
+	LISTPROTO(Container const& protocols = {}) : core::Buffer(
 		{0, 1, static_cast<uint8_t>(protocols.size())},
 		3 + protocols.size()*8
 	) {

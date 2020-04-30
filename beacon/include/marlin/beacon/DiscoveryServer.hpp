@@ -14,6 +14,9 @@
 
 #include <spdlog/fmt/bin_to_hex.h>
 
+#include "Messages.hpp"
+
+
 namespace marlin {
 namespace beacon {
 
@@ -90,8 +93,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 1}, 2);
-	transport.send(std::move(p));
+	transport.send(LISTPROTO());
 }
 
 
