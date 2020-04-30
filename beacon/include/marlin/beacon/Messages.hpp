@@ -183,18 +183,20 @@ public:
 struct LISTPEER : public core::Buffer {
 public:
 	template<typename It = std::pair<core::SocketAddress, std::array<uint8_t, 32>>*>
-	LISTPEER(It begin = nullptr, It end = nullptr) : core::Buffer(
+	LISTPEER(It& begin = nullptr, It end = nullptr) : core::Buffer(
 		{0, 1},
-		2 + (end - begin)*(8 + crypto_box_PUBLICKEYBYTES)
+		1400
 	) {
-		size_t size = 2;
-		while(begin != end) {
-			begin->first.serialize(this->data()+size, 8);
-			this->write_unsafe(size+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
-			size += 8 + crypto_box_PUBLICKEYBYTES;
+		size_t idx = 2;
+		while(begin != end && idx + 8 + crypto_box_PUBLICKEYBYTES <= 1400) {
+			begin->first.serialize(this->data()+idx, 8);
+			this->write_unsafe(idx+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
+			idx += 8 + crypto_box_PUBLICKEYBYTES;
 
 			++begin;
 		}
+
+		this->truncate_unsafe(1400-idx);
 	}
 };
 
