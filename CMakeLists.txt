@@ -9,7 +9,7 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-add_subdirectory(vendor)
+add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 enable_testing()
 add_subdirectory(core)
