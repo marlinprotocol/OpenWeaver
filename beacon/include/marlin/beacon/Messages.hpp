@@ -184,7 +184,7 @@ struct LISTPEER : public core::Buffer {
 public:
 	template<typename It = std::pair<core::SocketAddress, std::array<uint8_t, 32>>*>
 	LISTPEER(It& begin = nullptr, It end = nullptr) : core::Buffer(
-		{0, 1},
+		{0, 3},
 		1400
 	) {
 		size_t idx = 2;
