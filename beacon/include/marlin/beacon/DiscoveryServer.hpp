@@ -11,6 +11,8 @@
 #include <map>
 
 #include <sodium.h>
+#include <boost/iterator/filter_iterator.hpp>
+#include <boost/iterator/transform_iterator.hpp>
 
 #include <spdlog/fmt/bin_to_hex.h>
 
@@ -113,61 +115,21 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
 
 /*!
 	sends the list of peers on this node
-
-\verbatim
-
-0               1               2               3
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x03     |
----------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (1)                       |
------------------------------------------------------------------
-|            Port (1)           |
----------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (2)                       |
------------------------------------------------------------------
-|            Port (2)           |
------------------------------------------------------------------
-|                              ...                              |
------------------------------------------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (N)                       |
------------------------------------------------------------------
-|            Port (N)           |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
-	auto iter = peers.begin();
+	auto filter = [&](auto x) { return x.first != &transport; };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
-	while(iter != peers.end()) {
-		core::Buffer p({0, 3}, 1100);
-		size_t size = 2;
+	auto transformation = [](auto x) { return std::make_pair(x.first->dst_addr, x.second.second); };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
-		for(
-			;
-			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
-			iter++
-		) {
-			if(iter->first == &transport) continue;
-
-			iter->first->dst_addr.serialize(p.data()+size, 8);
-			p.write_unsafe(size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
-			size += 8 + crypto_box_PUBLICKEYBYTES;
-		}
-		p.truncate_unsafe(1100-size);
-
-		transport.send(std::move(p));
+	while(t_begin != t_end) {
+		transport.send(LISTPEER(t_begin, t_end));
 	}
 }
 
