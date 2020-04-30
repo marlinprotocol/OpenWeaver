@@ -71,7 +71,7 @@ public:
 
 	LISTPROTO(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
 
-	bool validate() const {
+	[[nodiscard]] bool validate() const {
 		if(this->size() < 3) {
 			return false;
 		}
@@ -147,6 +147,55 @@ public:
 struct DISCPEER : public core::Buffer {
 public:
 	DISCPEER() : core::Buffer({0, 2}, 2) {}
+};
+
+/*!
+\verbatim
+
+0               1               2               3
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x03     |
+---------------------------------
+|            AF_INET            |
+-----------------------------------------------------------------
+|                        IPv4 Address (1)                       |
+-----------------------------------------------------------------
+|            Port (1)           |
+---------------------------------
+|            AF_INET            |
+-----------------------------------------------------------------
+|                        IPv4 Address (2)                       |
+-----------------------------------------------------------------
+|            Port (2)           |
+-----------------------------------------------------------------
+|                              ...                              |
+-----------------------------------------------------------------
+|            AF_INET            |
+-----------------------------------------------------------------
+|                        IPv4 Address (N)                       |
+-----------------------------------------------------------------
+|            Port (N)           |
++++++++++++++++++++++++++++++++++
+
+\endverbatim
+*/
+struct LISTPEER : public core::Buffer {
+public:
+	template<typename It = std::pair<core::SocketAddress, std::array<uint8_t, 32>>*>
+	LISTPEER(It begin = nullptr, It end = nullptr) : core::Buffer(
+		{0, 1},
+		2 + (end - begin)*(8 + crypto_box_PUBLICKEYBYTES)
+	) {
+		size_t size = 2;
+		while(begin != end) {
+			begin->first.serialize(this->data()+size, 8);
+			this->write_unsafe(size+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
+			size += 8 + crypto_box_PUBLICKEYBYTES;
+
+			++begin;
+		}
+	}
 };
 
 } // namespace beacon
