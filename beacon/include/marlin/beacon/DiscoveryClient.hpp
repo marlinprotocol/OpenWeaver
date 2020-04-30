@@ -178,23 +178,12 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 
 /*!
 	sends peer discovery message
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x02     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 2}, 2);
-	transport.send(std::move(p));
+	transport.send(DISCPEER());
 }
 
 /*!
