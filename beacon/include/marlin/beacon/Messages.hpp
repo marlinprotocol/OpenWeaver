@@ -133,6 +133,22 @@ public:
 	}
 };
 
+/*!
+\verbatim
+
+0               1               2
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x02     |
++++++++++++++++++++++++++++++++++
+
+\endverbatim
+*/
+struct DISCPEER : public core::Buffer {
+public:
+	DISCPEER() : core::Buffer({0, 2}, 2) {}
+};
+
 } // namespace beacon
 } // namespace marlin
 
