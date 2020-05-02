@@ -206,6 +206,51 @@ public:
 
 		return true;
 	}
+
+	struct iterator {
+	private:
+		core::Buffer const* buf = nullptr;
+		size_t offset = 0;
+	public:
+		// For iterator_traits
+		using difference_type = int32_t;
+		using value_type = std::tuple<core::SocketAddress, std::array<uint8_t, 32>>;
+		using pointer = value_type const*;
+		using reference = value_type const&;
+		using iterator_category = std::input_iterator_tag;
+
+		iterator(core::Buffer const* buf, size_t offset = 0) : buf(buf), offset(offset) {}
+
+		value_type operator*() const {
+			auto peer_addr = core::SocketAddress::deserialize(buf->data()+offset, 8);
+			std::array<uint8_t, 32> key;
+			buf->read_unsafe(offset+8, key.data(), crypto_box_PUBLICKEYBYTES);
+
+			return std::make_tuple(peer_addr, key);
+		}
+
+		iterator& operator++() {
+			offset += 8 + crypto_box_PUBLICKEYBYTES;
+
+			return *this;
+		}
+
+		bool operator==(iterator const& other) const {
+			return buf == other.buf && offset == other.offset;
+		}
+
+		bool operator!=(iterator const& other) const {
+			return !(*this == other);
+		}
+	};
+
+	iterator cbegin() const {
+		return iterator(this, 3);
+	}
+
+	iterator cend() const {
+		return iterator(this, this->size());
+	}
 };
 
 } // namespace beacon
