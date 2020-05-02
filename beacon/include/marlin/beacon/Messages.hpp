@@ -257,6 +257,24 @@ public:
 	}
 };
 
+/*!
+\verbatim
+
+0               1               2
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
++++++++++++++++++++++++++++++++++
+|      0x00     |      0x04     |
++++++++++++++++++++++++++++++++++
+
+\endverbatim
+*/
+struct HEARTBEAT : public core::Buffer {
+public:
+	HEARTBEAT(uint8_t const* pk) : core::Buffer({0, 4}, 2+crypto_box_PUBLICKEYBYTES) {
+		this->write_unsafe(2, pk, crypto_box_PUBLICKEYBYTES);
+	}
+};
+
 } // namespace beacon
 } // namespace marlin
 
