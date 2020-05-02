@@ -199,6 +199,8 @@ public:
 		this->truncate_unsafe(1400-idx);
 	}
 
+	LISTPEER(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+
 	[[nodiscard]] bool validate() const {
 		if(this->size() < 2 || (this->size() - 2) % 8 != 0) {
 			return false;
@@ -245,7 +247,7 @@ public:
 	};
 
 	iterator cbegin() const {
-		return iterator(this, 3);
+		return iterator(this, 2);
 	}
 
 	iterator cend() const {

@@ -50,7 +50,7 @@ private:
 	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
@@ -193,17 +193,13 @@ void DISCOVERYCLIENT::send_DISCPEER(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
-	core::Buffer &&packet
+	LISTPEER &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
-	for(
-		uint16_t i = 2;
-		i + 7 + crypto_box_PUBLICKEYBYTES < packet.size();
-		i += 8 + crypto_box_PUBLICKEYBYTES
-	) {
-		auto peer_addr = core::SocketAddress::deserialize(packet.data()+i, 8);
-		packet.read_unsafe(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
+	for(auto iter = packet.cbegin(); iter != packet.cend(); ++iter) {
+		auto [peer_addr, key] = *iter;
+		node_key_map[peer_addr] = key;
 
 		f.dial(peer_addr, *this);
 	}
@@ -315,7 +311,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 		case 0: did_recv_DISCPROTO(transport);
 		break;
 		// LISTPROTO
-		case 1: did_recv_LISTPROTO(transport, static_cast<LISTPROTO&&>(std::move(packet)));
+		case 1: did_recv_LISTPROTO(transport, std::move(packet));
 		break;
 		// DISCOVER
 		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", transport.dst_addr.to_string());
