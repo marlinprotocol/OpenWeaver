@@ -211,24 +211,12 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 
 /*!
 	sends heartbeat message to refresh/create entry at the discovery server to keep the node discoverable
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x04     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
-	p.write_unsafe(2, static_pk, crypto_box_PUBLICKEYBYTES);
-	transport.send(std::move(p));
+	transport.send(HEARTBEAT(static_pk));
 }
 
 /*!
