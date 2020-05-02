@@ -197,6 +197,10 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
+	if(!packet.validate()) {
+		return;
+	}
+
 	for(auto iter = packet.cbegin(); iter != packet.cend(); ++iter) {
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
