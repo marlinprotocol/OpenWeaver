@@ -273,6 +273,10 @@ public:
 	HEARTBEAT(uint8_t const* pk) : core::Buffer({0, 4}, 2+crypto_box_PUBLICKEYBYTES) {
 		this->write_unsafe(2, pk, crypto_box_PUBLICKEYBYTES);
 	}
+
+	[[nodiscard]] bool validate() {
+		return this->size() >= 2+crypto_box_PUBLICKEYBYTES;
+	}
 };
 
 } // namespace beacon
