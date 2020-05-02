@@ -277,6 +277,11 @@ public:
 	[[nodiscard]] bool validate() {
 		return this->size() >= 2+crypto_box_PUBLICKEYBYTES;
 	}
+
+	std::array<uint8_t, 32> key() {
+		std::array<uint8_t, 32> key;
+		this->read_unsafe(2, key.data(), crypto_box_PUBLICKEYBYTES);
+	}
 };
 
 } // namespace beacon
