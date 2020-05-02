@@ -198,6 +198,14 @@ public:
 
 		this->truncate_unsafe(1400-idx);
 	}
+
+	[[nodiscard]] bool validate() const {
+		if(this->size() < 2 || (this->size() - 2) % 8 != 0) {
+			return false;
+		}
+
+		return true;
+	}
 };
 
 } // namespace beacon
