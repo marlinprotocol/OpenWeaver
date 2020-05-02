@@ -274,6 +274,8 @@ public:
 		this->write_unsafe(2, pk, crypto_box_PUBLICKEYBYTES);
 	}
 
+	HEARTBEAT(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+
 	[[nodiscard]] bool validate() {
 		return this->size() >= 2+crypto_box_PUBLICKEYBYTES;
 	}
@@ -281,6 +283,8 @@ public:
 	std::array<uint8_t, 32> key() {
 		std::array<uint8_t, 32> key;
 		this->read_unsafe(2, key.data(), crypto_box_PUBLICKEYBYTES);
+
+		return key;
 	}
 };
 
