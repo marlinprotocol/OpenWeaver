@@ -202,7 +202,7 @@ public:
 	LISTPEER(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
 
 	[[nodiscard]] bool validate() const {
-		if(this->size() < 2 || (this->size() - 2) % 8 != 0) {
+		if(this->size() < 2 || this->size() % 8 != 2) {
 			return false;
 		}
 
@@ -251,6 +251,8 @@ public:
 	}
 
 	iterator cend() const {
+		// Relies on validation ensuring correct size i.e. size % 8 = 2
+		// Otherwise, need to modify size below
 		return iterator(this, this->size());
 	}
 };
