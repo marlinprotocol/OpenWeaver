@@ -13,11 +13,15 @@ public:
 		uint32_t src_conn_id,
 		uint32_t dst_conn_id,
 		uint8_t const* payload,
-		size_t size
-	) : core::Buffer({0, 3}, 10 + size) {
+		size_t payload_size
+	) : core::Buffer({0, 3}, 10 + payload_size) {
 		this->write_uint32_be_unsafe(2, src_conn_id);
 		this->write_uint32_be_unsafe(6, dst_conn_id);
-		this->write_unsafe(10, payload, size);
+		this->write_unsafe(10, payload, payload_size);
+	}
+
+	[[nodiscard]] bool validate(size_t payload_size) {
+		return this->size() >= 10 + payload_size;
 	}
 };
 
