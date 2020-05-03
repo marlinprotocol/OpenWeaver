@@ -20,8 +20,20 @@ public:
 		this->write_unsafe(10, payload, payload_size);
 	}
 
-	[[nodiscard]] bool validate(size_t payload_size) {
+	[[nodiscard]] bool validate(size_t payload_size) const {
 		return this->size() >= 10 + payload_size;
+	}
+
+	uint32_t src_conn_id() const {
+		return this->read_uint32_be_unsafe(6);
+	}
+
+	uint32_t dst_conn_id() const {
+		return this->read_uint32_be_unsafe(6);
+	}
+
+	uint8_t* payload() {
+		return this->data() + 10;
 	}
 };
 
