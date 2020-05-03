@@ -148,6 +148,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
 	);
 
+	if(!packet.validate()) {
+		return;
+	}
+
 	peers[&transport].first = asyncio::EventLoop::now();
 	peers[&transport].second = bytes.key();
 }
@@ -218,7 +222,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
-	if(type == std::nullopt) {
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
 		return;
 	}
 
@@ -250,7 +254,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
-	if(type == std::nullopt) {
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
 		return;
 	}
 

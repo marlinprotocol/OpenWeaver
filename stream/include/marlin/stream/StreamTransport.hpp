@@ -141,7 +141,7 @@ private:
 
 	// Protocol
 	void send_DIAL();
-	void did_recv_DIAL(core::Buffer &&packet);
+	void did_recv_DIAL(DIAL &&packet);
 
 	void send_DIALCONF();
 	void did_recv_DIALCONF(core::Buffer &&packet);
@@ -696,23 +696,22 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
-	core::Buffer &&packet
+	DIAL &&packet
 ) {
 	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	// Bounds check
-	if(packet.size() < 10 + ct_len) {
+	if(!packet.validate(ct_len)) {
 		return;
 	}
 
 	if(conn_state == ConnectionState::Listen) {
-		if(packet.read_uint32_be_unsafe(6) != 0) { // Should have empty source
+		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be_unsafe(6)
+				packet.src_conn_id()
 			);
 			return;
 		}
@@ -725,7 +724,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		);
 
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.payload(), ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -755,19 +754,19 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
+		this->dst_conn_id = packet.dst_conn_id();
 		this->src_conn_id = (uint32_t)std::random_device()();
 
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
 	} else if(conn_state == ConnectionState::DialSent) {
-		if(packet.read_uint32_be_unsafe(6) != 0) { // Should have empty source
+		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be_unsafe(6)
+				packet.src_conn_id()
 			);
 			return;
 		}
@@ -802,7 +801,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
+		this->dst_conn_id = packet.dst_conn_id();
 
 		state_timer.stop();
 		state_timer_interval = 0;
@@ -1808,7 +1807,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
-	if(type == std::nullopt) {
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
 		return;
 	}
 
