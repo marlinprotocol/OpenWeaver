@@ -24,6 +24,7 @@
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
 #include "protocol/AckRanges.hpp"
+#include "Messages.hpp"
 
 namespace marlin {
 namespace stream {
@@ -685,18 +686,12 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	core::Buffer packet({0, 3}, 10 + ct_len);
+	uint8_t buf[ct_len];
+	std::memcpy(buf + 32, static_pk, crypto_box_PUBLICKEYBYTES);
+	std::memcpy(buf + 32 + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
+	crypto_box_seal(buf, buf + 32, pt_len, remote_static_pk);
 
-	packet.write_uint32_be_unsafe(2, this->src_conn_id);
-	packet.write_uint32_be_unsafe(6, this->dst_conn_id);
-
-	uint8_t pt[pt_len];
-	std::memcpy(pt, static_pk, crypto_box_PUBLICKEYBYTES);
-	std::memcpy(pt + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
-
-	crypto_box_seal(packet.data() + 10, pt, pt_len, remote_static_pk);
-
-	transport.send(std::move(packet));
+	transport.send(DIAL(this->src_conn_id, this->dst_conn_id, buf, ct_len));
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
