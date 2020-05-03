@@ -688,7 +688,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 
 	// The plaintext needs to leave at least 32 bytes in the beginning
 	// since the ephemeral key is written first before encryption
-	// TODO: See if we can get this changed in the upstream
+	// TODO: See if we can get this changed upstream
 	uint8_t buf[ct_len];
 	std::memcpy(buf + 32, static_pk, crypto_box_PUBLICKEYBYTES);
 	std::memcpy(buf + 32 + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
