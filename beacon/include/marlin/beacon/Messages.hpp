@@ -276,7 +276,7 @@ public:
 
 	HEARTBEAT(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
 
-	[[nodiscard]] bool validate() {
+	[[nodiscard]] bool validate() const {
 		return this->size() >= 2+crypto_box_PUBLICKEYBYTES;
 	}
 
