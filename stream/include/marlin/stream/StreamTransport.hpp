@@ -963,24 +963,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
-	core::Buffer packet({0, 5}, 10);
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-
-	transport.send(std::move(packet));
-
-	// SPDLOG_INFO(
-	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
-	// 	src_addr.to_string(),
-	// 	dst_addr.to_string(),
-	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
-	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
-	// );
+	transport.send(CONF(this->src_conn_id, this->dst_conn_id));
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
