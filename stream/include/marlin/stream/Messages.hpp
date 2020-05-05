@@ -51,6 +51,10 @@ public:
 		this->write_uint32_be_unsafe(6, dst_conn_id);
 		this->write_unsafe(10, payload, payload_size);
 	}
+
+	[[nodiscard]] bool validate(size_t payload_size) const {
+		return this->size() >= 10 + payload_size;
+	}
 };
 
 } // namespace stream
