@@ -52,6 +52,8 @@ public:
 		this->write_unsafe(10, payload, payload_size);
 	}
 
+	DIALCONF(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return this->size() >= 10 + payload_size;
 	}

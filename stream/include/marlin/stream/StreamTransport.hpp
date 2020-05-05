@@ -144,7 +144,7 @@ private:
 	void did_recv_DIAL(DIAL &&packet);
 
 	void send_DIALCONF();
-	void did_recv_DIALCONF(core::Buffer &&packet);
+	void did_recv_DIALCONF(DIALCONF &&packet);
 
 	void send_CONF();
 	void did_recv_CONF(core::Buffer &&packet);
@@ -838,18 +838,17 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
-	core::Buffer &&packet
+	DIALCONF &&packet
 ) {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	// Bounds check
-	if(packet.size() < 10 + ct_len) {
+	if(!packet.validate(ct_len)) {
 		return;
 	}
 
 	if(conn_state == ConnectionState::DialSent) {
-		auto src_conn_id = packet.read_uint32_be_unsafe(6);
+		auto src_conn_id = packet.src_conn_id();
 		if(src_conn_id != this->src_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -861,11 +860,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 				src_conn_id,
 				this->src_conn_id
 			);
-			send_RST(src_conn_id, packet.read_uint32_be_unsafe(2));
+			send_RST(src_conn_id, packet.dst_conn_id());
 			return;
 		}
 
-		if (crypto_box_seal_open(remote_ephemeral_pk, packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+		if (crypto_box_seal_open(remote_ephemeral_pk, packet.payload(), ct_len, static_pk, static_sk) != 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
 				src_addr.to_string(),
@@ -893,7 +892,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		state_timer.stop();
 		state_timer_interval = 0;
 
-		this->dst_conn_id = packet.read_uint32_be_unsafe(2);
+		this->dst_conn_id = packet.dst_conn_id();
 
 		send_CONF();
 
@@ -904,8 +903,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 	} else if(conn_state == ConnectionState::DialRcvd) {
 		// Usually happend in case of simultaneous open
-		auto src_conn_id = packet.read_uint32_be_unsafe(6);
-		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -934,8 +933,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be_unsafe(6);
-		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
@@ -958,7 +957,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be_unsafe(6), packet.read_uint32_be_unsafe(2));
+		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 	}
 }
 
