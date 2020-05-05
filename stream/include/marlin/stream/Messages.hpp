@@ -71,6 +71,17 @@ public:
 	}
 };
 
+struct CONF : public core::Buffer {
+public:
+	CONF(
+		uint32_t src_conn_id,
+		uint32_t dst_conn_id
+	) : core::Buffer({0, 4}, 10) {
+		this->write_uint32_be_unsafe(2, src_conn_id);
+		this->write_uint32_be_unsafe(6, dst_conn_id);
+	}
+};
+
 } // namespace stream
 } // namespace marlin
 
