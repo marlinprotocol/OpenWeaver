@@ -147,7 +147,7 @@ private:
 	void did_recv_DIALCONF(DIALCONF &&packet);
 
 	void send_CONF();
-	void did_recv_CONF(core::Buffer &&packet);
+	void did_recv_CONF(CONF &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
 	void did_recv_RST(core::Buffer &&packet);
@@ -968,16 +968,15 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
-	core::Buffer &&packet
+	CONF &&packet
 ) {
-	// Bounds check
-	if(packet.size() < 10) {
+	if(!packet.validate()) {
 		return;
 	}
 
 	if(conn_state == ConnectionState::DialRcvd) {
-		auto src_conn_id = packet.read_uint32_be_unsafe(6);
-		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -999,8 +998,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be_unsafe(6);
-		auto dst_conn_id = packet.read_uint32_be_unsafe(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1022,7 +1021,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be_unsafe(6), packet.read_uint32_be_unsafe(2));
+		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 	}
 }
 
