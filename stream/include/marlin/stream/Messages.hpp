@@ -39,6 +39,20 @@ public:
 	}
 };
 
+struct DIALCONF : public core::Buffer {
+public:
+	DIALCONF(
+		uint32_t src_conn_id,
+		uint32_t dst_conn_id,
+		uint8_t const* payload,
+		size_t payload_size
+	) : core::Buffer({0, 4}, 10 + payload_size) {
+		this->write_uint32_be_unsafe(2, src_conn_id);
+		this->write_uint32_be_unsafe(6, dst_conn_id);
+		this->write_unsafe(10, payload, payload_size);
+	}
+};
+
 } // namespace stream
 } // namespace marlin
 
