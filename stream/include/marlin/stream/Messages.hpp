@@ -76,7 +76,7 @@ public:
 	CONF(
 		uint32_t src_conn_id,
 		uint32_t dst_conn_id
-	) : core::Buffer({0, 4}, 10) {
+	) : core::Buffer({0, 5}, 10) {
 		this->write_uint32_be_unsafe(2, src_conn_id);
 		this->write_uint32_be_unsafe(6, dst_conn_id);
 	}
@@ -93,6 +93,17 @@ public:
 
 	uint32_t dst_conn_id() const {
 		return this->read_uint32_be_unsafe(2);
+	}
+};
+
+struct RST : public core::Buffer {
+public:
+	RST(
+		uint32_t src_conn_id,
+		uint32_t dst_conn_id
+	) : core::Buffer({0, 6}, 10) {
+		this->write_uint32_be_unsafe(2, src_conn_id);
+		this->write_uint32_be_unsafe(6, dst_conn_id);
 	}
 };
 
