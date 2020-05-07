@@ -1030,12 +1030,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	core::Buffer packet({0, 6}, 10);
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-
-	transport.send(std::move(packet));
+	transport.send(RST(src_conn_id, dst_conn_id));
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
