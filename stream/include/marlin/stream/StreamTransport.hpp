@@ -150,7 +150,7 @@ private:
 	void did_recv_CONF(CONF &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
-	void did_recv_RST(core::Buffer &&packet);
+	void did_recv_RST(RST &&packet);
 
 	void send_DATA(core::Buffer &&packet);
 	void did_recv_DATA(core::Buffer &&packet);
@@ -1035,15 +1035,14 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	core::Buffer &&packet
+	RST &&packet
 ) {
-	// Bounds check
-	if(packet.size() < 10) {
+	if(!packet.validate()) {
 		return;
 	}
 
-	auto src_conn_id = packet.read_uint32_be_unsafe(6);
-	auto dst_conn_id = packet.read_uint32_be_unsafe(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: RST",
