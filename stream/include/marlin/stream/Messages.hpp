@@ -109,6 +109,14 @@ public:
 	[[nodiscard]] bool validate() const {
 		return this->size() >= 10;
 	}
+
+	uint32_t src_conn_id() const {
+		return this->read_uint32_be_unsafe(6);
+	}
+
+	uint32_t dst_conn_id() const {
+		return this->read_uint32_be_unsafe(2);
+	}
 };
 
 } // namespace stream
