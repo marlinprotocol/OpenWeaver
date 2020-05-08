@@ -17,6 +17,7 @@ namespace core {
 
 //! Marlin byte buffer implementation
 class WeakBuffer {
+protected:
 	uint8_t *buf;
 	size_t capacity;
 	size_t start_index;
