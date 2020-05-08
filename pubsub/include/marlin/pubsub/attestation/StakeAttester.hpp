@@ -214,7 +214,8 @@ struct StakeAttester {
 		attestation.message_size = message_size;
 
 		// Extract data
-		core::WeakBuffer buf(prev_header.attestation_data, prev_header.attestation_size);
+		// TODO: Code smell: const-stripping
+		core::WeakBuffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
 		attestation.timestamp = buf.read_uint64_be_unsafe(0);
 		attestation.stake_offset = buf.read_uint64_be_unsafe(8);
 
