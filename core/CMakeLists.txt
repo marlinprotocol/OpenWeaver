@@ -16,6 +16,7 @@ add_library(core STATIC
 	src/CidrBlock.cpp
 	src/Buffer.cpp
 	src/SocketAddress.cpp
+	src/WeakBuffer.cpp
 )
 add_library(marlin::core ALIAS core)
 
