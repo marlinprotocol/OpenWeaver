@@ -148,7 +148,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
 	);
 
-	if(!packet.validate()) {
+	if(!bytes.validate()) {
 		return;
 	}
 
