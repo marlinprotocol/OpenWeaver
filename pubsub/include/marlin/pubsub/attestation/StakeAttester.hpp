@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_ATTESTATION_STAKEATTESTER_HPP
 
 #include <stdint.h>
-#include <marlin/core/Buffer.hpp>
+#include <marlin/core/WeakBuffer.hpp>
 #include <ctime>
 #include <optional>
 
@@ -214,10 +214,9 @@ struct StakeAttester {
 		attestation.message_size = message_size;
 
 		// Extract data
-		core::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
+		core::WeakBuffer buf(prev_header.attestation_data, prev_header.attestation_size);
 		attestation.timestamp = buf.read_uint64_be_unsafe(0);
 		attestation.stake_offset = buf.read_uint64_be_unsafe(8);
-		buf.release();
 
 		uint64_t now = std::time(nullptr);
 		// Permit a maximum clock skew of 60 seconds
