@@ -49,6 +49,7 @@ public:
 private:
 	using Self = StreamTransport<DelegateType, DatagramTransport>;
 	using BaseTransport = DatagramTransport<Self>;
+	using BaseMessageType = typename BaseTransport::MessageType;
 
 	BaseTransport &transport;
 	core::TransportManager<Self> &transport_manager;
@@ -141,7 +142,7 @@ private:
 
 	// Protocol
 	void send_DIAL();
-	void did_recv_DIAL(DIAL &&packet);
+	void did_recv_DIAL(DIAL<BaseMessageType> &&packet);
 
 	void send_DIALCONF();
 	void did_recv_DIALCONF(DIALCONF &&packet);
@@ -694,12 +695,18 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	std::memcpy(buf + 32 + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
 	crypto_box_seal(buf, buf + 32, pt_len, remote_static_pk);
 
-	transport.send(DIAL(this->src_conn_id, this->dst_conn_id, buf, ct_len));
+	transport.send(
+		DIAL<BaseMessageType>::create(ct_len)
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+		.set_payload(buf, ct_len)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
-	DIAL &&packet
+	DIAL<BaseMessageType> &&packet
 ) {
 	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
@@ -775,7 +782,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		}
 
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.payload() + 10, ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -1783,7 +1790,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		case 2: did_recv_ACK(std::move(packet));
 		break;
 		// DIAL
-		case 3: did_recv_DIAL(std::move(packet));
+		case 3: did_recv_DIAL(DIAL<BaseMessageType>::create(std::move(packet)));
 		break;
 		// DIALCONF
 		case 4: did_recv_DIALCONF(std::move(packet));

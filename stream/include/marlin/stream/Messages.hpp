@@ -7,35 +7,88 @@
 namespace marlin {
 namespace stream {
 
-struct DIAL : public core::Buffer {
-public:
-	DIAL(
-		uint32_t src_conn_id,
-		uint32_t dst_conn_id,
-		uint8_t const* payload,
-		size_t payload_size
-	) : core::Buffer({0, 3}, 10 + payload_size) {
-		this->write_uint32_be_unsafe(2, src_conn_id);
-		this->write_uint32_be_unsafe(6, dst_conn_id);
-		this->write_unsafe(10, payload, payload_size);
-	}
-
-	DIAL(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+template<typename BaseMessageType>
+struct DIAL {
+	BaseMessageType base;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
-		return this->size() >= 10 + payload_size;
+		return base.payload_buffer().size() >= 10 + payload_size;
+	}
+
+	static DIAL create(size_t payload_size) {
+		return DIAL { BaseMessageType::create(10 + payload_size).set_payload({0, 3}) };
+	}
+
+	static DIAL create(core::Buffer&& buf) {
+		return DIAL { BaseMessageType::create(std::move(buf)) };
+	}
+
+	DIAL& set_src_conn_id(uint32_t src_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+
+		return *this;
+	}
+
+	DIAL&& set_src_conn_id(uint32_t src_conn_id) && {
+		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+
+		return std::move(*this);
 	}
 
 	uint32_t src_conn_id() const {
-		return this->read_uint32_be_unsafe(6);
+		return base.payload_buffer().read_uint32_be_unsafe(6);
+	}
+
+	DIAL& set_dst_conn_id(uint32_t dst_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+
+		return *this;
+	}
+
+	DIAL&& set_dst_conn_id(uint32_t dst_conn_id) && {
+		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+
+		return std::move(*this);
 	}
 
 	uint32_t dst_conn_id() const {
-		return this->read_uint32_be_unsafe(2);
+		return base.payload_buffer().read_uint32_be_unsafe(2);
+	}
+
+	DIAL& set_payload(uint8_t const* in, size_t size) & {
+		base.payload_buffer().write_unsafe(10, in, size);
+
+		return *this;
+	}
+
+	DIAL&& set_payload(uint8_t const* in, size_t size) && {
+		base.payload_buffer().write_unsafe(10, in, size);
+
+		return std::move(*this);
+	}
+
+	DIAL& set_payload(std::initializer_list<uint8_t> il) & {
+		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
+
+		return *this;
+	}
+
+	DIAL&& set_payload(std::initializer_list<uint8_t> il) && {
+		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
+
+		return std::move(*this);
 	}
 
 	uint8_t* payload() {
-		return this->data() + 10;
+		return base.payload_buffer().data() + 10;
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
 	}
 };
 
