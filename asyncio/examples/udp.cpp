@@ -27,7 +27,11 @@ struct Delegate {
 	}
 
 	void did_dial(UdpTransport<Delegate> &transport) {
-		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
+		transport.send(
+			UdpTransport<Delegate>::BuilderType::create(10)
+			.set_payload({0,0,0,0,0,0,0,0,0,0})
+			.finalize()
+		);
 	}
 
 	void did_close(UdpTransport<Delegate> &) {}
