@@ -9,9 +9,10 @@
 #ifndef MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 #define MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 
-#include "marlin/core/Buffer.hpp"
-#include "marlin/core/SocketAddress.hpp"
-#include "marlin/core/TransportManager.hpp"
+#include <marlin/core/Buffer.hpp>
+#include <marlin/core/BaseMessage.hpp>
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/TransportManager.hpp>
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
@@ -39,40 +40,8 @@ private:
 
 	std::list<uv_udp_send_t *> pending_req;
 
-	struct BaseMessage {
-		core::Buffer buf;
-
-		static BaseMessage create(size_t size) {
-			return BaseMessage { core::Buffer(new uint8_t[size], size) };
-		}
-
-		core::WeakBuffer get_buffer() {
-			return buf;
-		}
-
-		BaseMessage& set_payload(uint8_t const* in, size_t size) {
-			buf.write_unsafe(0, in, size);
-
-			return *this;
-		}
-
-		BaseMessage& set_payload(std::initializer_list<uint8_t> il) {
-			buf.write_unsafe(0, il.begin(), il.size());
-
-			return *this;
-		}
-
-		core::Buffer finalize() {
-			return std::move(buf);
-		}
-
-		core::Buffer release() {
-			return std::move(buf);
-		}
-	};
-
 public:
-	using MessageType = BaseMessage;
+	using MessageType = core::BaseMessage;
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
