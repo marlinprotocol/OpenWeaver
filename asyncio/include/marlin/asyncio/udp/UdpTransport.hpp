@@ -38,7 +38,38 @@ private:
 	};
 
 	std::list<uv_udp_send_t *> pending_req;
+
+	struct BaseBuilder {
+		core::Buffer buf;
+
+		static BaseBuilder create(size_t size) {
+			return BaseBuilder { core::Buffer(new uint8_t[size], size) };
+		}
+
+		core::WeakBuffer get_buffer() {
+			return buf;
+		}
+
+		BaseBuilder& set_payload(uint8_t const* in, size_t size) {
+			buf.write_unsafe(0, in, size);
+
+			return *this;
+		}
+
+		BaseBuilder& set_payload(std::initializer_list<uint8_t> il) {
+			buf.write_unsafe(0, il.begin(), il.size());
+
+			return *this;
+		}
+
+		core::Buffer finalize() {
+			return std::move(buf);
+		}
+	};
+
 public:
+	using BuilderType = BaseBuilder;
+
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
