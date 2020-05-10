@@ -18,26 +18,26 @@ struct VersionedMessage {
 		return res;
 	}
 
-	core::WeakBuffer get_buffer() {
-		auto buf = base.get_buffer();
+	core::WeakBuffer payload_buffer() {
+		auto buf = base.payload_buffer();
 		buf.cover_unsafe(1);
 		return buf;
 	}
 
 	VersionedMessage& set_version(uint8_t _version) {
-		base.get_buffer().write_uint8_unsafe(0, _version);
+		base.payload_buffer().write_uint8_unsafe(0, _version);
 
 		return *this;
 	}
 
 	VersionedMessage& set_payload(uint8_t const* in, size_t size) {
-		base.get_buffer().write_unsafe(1, in, size);
+		base.payload_buffer().write_unsafe(1, in, size);
 
 		return *this;
 	}
 
 	VersionedMessage& set_payload(std::initializer_list<uint8_t> il) {
-		base.get_buffer().write_unsafe(1, il.begin(), il.size());
+		base.payload_buffer().write_unsafe(1, il.begin(), il.size());
 
 		return *this;
 	}
