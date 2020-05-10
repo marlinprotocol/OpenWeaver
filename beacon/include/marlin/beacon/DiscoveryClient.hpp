@@ -40,6 +40,7 @@ private:
 
 	using BaseTransportFactory = TransportFactory<Self, Self>;
 	using BaseTransport = Transport<Self>;
+	using BaseMessage = VersionedMessage<typename BaseTransport::MessageType, 0>;
 
 	BaseTransportFactory f;
 
@@ -125,7 +126,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPROTO());
+	transport.send(DISCPROTO<BaseMessage>::create().finalize());
 }
 
 
