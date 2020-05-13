@@ -10,12 +10,12 @@ namespace marlin {
 namespace core {
 
 struct BaseMessage {
-	core::Buffer buf;
+	Buffer buf;
 
 	BaseMessage(size_t size);
-	BaseMessage(core::Buffer&& buf);
+	BaseMessage(Buffer&& buf);
 
-	core::WeakBuffer payload_buffer() const;
+	WeakBuffer payload_buffer() const;
 	uint8_t* payload() const;
 
 	BaseMessage& set_payload(uint8_t const* in, size_t size) &;
@@ -26,8 +26,8 @@ struct BaseMessage {
 	BaseMessage& truncate_unsafe(size_t size) &;
 	BaseMessage&& truncate_unsafe(size_t size) &&;
 
-	core::Buffer finalize();
-	core::Buffer release();
+	Buffer finalize();
+	Buffer release();
 };
 
 } // namespace core
