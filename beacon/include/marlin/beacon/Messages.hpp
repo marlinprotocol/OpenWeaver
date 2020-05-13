@@ -7,50 +7,6 @@
 namespace marlin {
 namespace beacon {
 
-template<typename BaseMessage, uint8_t version = 0>
-struct VersionedMessage {
-	BaseMessage base;
-
-	static VersionedMessage create(size_t size) {
-		auto res = VersionedMessage { BaseMessage::create(size+1) };
-		res.set_version(version);
-
-		return res;
-	}
-
-	core::WeakBuffer payload_buffer() {
-		auto buf = base.payload_buffer();
-		buf.cover_unsafe(1);
-		return buf;
-	}
-
-	VersionedMessage& set_version(uint8_t _version) {
-		base.payload_buffer().write_uint8_unsafe(0, _version);
-
-		return *this;
-	}
-
-	VersionedMessage& set_payload(uint8_t const* in, size_t size) {
-		base.payload_buffer().write_unsafe(1, in, size);
-
-		return *this;
-	}
-
-	VersionedMessage& set_payload(std::initializer_list<uint8_t> il) {
-		base.payload_buffer().write_unsafe(1, il.begin(), il.size());
-
-		return *this;
-	}
-
-	core::Buffer finalize() {
-		return std::move(base.finalize());
-	}
-
-	core::Buffer release() {
-		return std::move(base.release());
-	}
-};
-
 /*!
 \verbatim
 
@@ -62,20 +18,20 @@ struct VersionedMessage {
 
 \endverbatim
 */
-template<typename BaseMessage>
+template<typename BaseMessageType>
 struct DISCPROTO {
-	BaseMessage base;
+	BaseMessageType base;
 
 	static DISCPROTO create() {
-		return DISCPROTO { std::move(BaseMessage::create(1).set_payload({0})) };
+		return DISCPROTO { BaseMessageType::create(2).set_payload({0, 0}) };
 	}
 
 	core::Buffer finalize() {
-		return std::move(base.finalize());
+		return base.finalize();
 	}
 
 	core::Buffer release() {
-		return std::move(base.release());
+		return base.release();
 	}
 };
 
