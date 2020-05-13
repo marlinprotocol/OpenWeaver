@@ -23,6 +23,9 @@ struct BaseMessage {
 	BaseMessage& set_payload(std::initializer_list<uint8_t> il) &;
 	BaseMessage&& set_payload(std::initializer_list<uint8_t> il) &&;
 
+	BaseMessage& truncate_unsafe(size_t size) &;
+	BaseMessage&& truncate_unsafe(size_t size) &&;
+
 	core::Buffer finalize();
 	core::Buffer release();
 };

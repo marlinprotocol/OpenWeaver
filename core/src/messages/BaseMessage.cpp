@@ -41,6 +41,17 @@ BaseMessage&& BaseMessage::set_payload(std::initializer_list<uint8_t> il) && {
 	return std::move(set_payload(il));
 }
 
+BaseMessage& BaseMessage::truncate_unsafe(size_t size) & {
+	buf.truncate_unsafe(size);
+
+	return *this;
+}
+
+BaseMessage&& BaseMessage::truncate_unsafe(size_t size) && {
+	// TODO: This works, but is this actually correct?
+	return std::move(truncate_unsafe(size));
+}
+
 core::Buffer BaseMessage::finalize() {
 	return std::move(buf);
 }
