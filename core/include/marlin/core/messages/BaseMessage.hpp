@@ -12,8 +12,8 @@ namespace core {
 struct BaseMessage {
 	core::Buffer buf;
 
-	static BaseMessage create(size_t size);
-	static BaseMessage create(core::Buffer&& buf);
+	BaseMessage(size_t size);
+	BaseMessage(core::Buffer&& buf);
 
 	core::WeakBuffer payload_buffer() const;
 	uint8_t* payload() const;
