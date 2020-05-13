@@ -15,13 +15,11 @@ struct DIAL {
 		return base.payload_buffer().size() >= 10 + payload_size;
 	}
 
-	static DIAL create(size_t payload_size) {
-		return DIAL { BaseMessageType::create(10 + payload_size).set_payload({0, 3}) };
+	DIAL(size_t payload_size) : base(10 + payload_size) {
+		base.set_payload({0, 3});
 	}
 
-	static DIAL create(core::Buffer&& buf) {
-		return DIAL { BaseMessageType::create(std::move(buf)) };
-	}
+	DIAL(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	DIAL& set_src_conn_id(uint32_t src_conn_id) & {
 		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
