@@ -10,7 +10,7 @@
 #define MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 
 #include <marlin/core/Buffer.hpp>
-#include <marlin/core/BaseMessage.hpp>
+#include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/TransportManager.hpp>
 #include <uv.h>

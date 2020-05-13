@@ -1,4 +1,4 @@
-#include "marlin/core/BaseMessage.hpp"
+#include "marlin/core/messages/BaseMessage.hpp"
 
 
 namespace marlin {
