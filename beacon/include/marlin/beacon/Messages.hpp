@@ -60,38 +60,56 @@ struct DISCPROTO {
 
 \endverbatim
 */
-struct LISTPROTO : public core::Buffer {
-public:
-	template<typename Container = std::vector<std::tuple<uint32_t, uint16_t, uint16_t>>>
-	LISTPROTO(Container const& protocols = {}) : core::Buffer(
-		{0, 1, static_cast<uint8_t>(protocols.size())},
-		3 + protocols.size()*8
-	) {
-		auto iter = protocols.begin();
-		for(
-			auto i = 3;
-			iter != protocols.end();
-			iter++, i += 8
-		) {
-			auto [protocol, version, port] = *iter;
+template<typename BaseMessageType>
+struct LISTPROTO {
+	BaseMessageType base;
 
-			this->write_uint32_be_unsafe(i, protocol);
-			this->write_uint16_be_unsafe(i+4, version);
-			this->write_uint16_be_unsafe(i+6, port);
-		}
+	LISTPROTO(size_t num_proto) : base(std::min(3+8*num_proto, 1400)) {
+		base.set_payload({0, 1});
 	}
 
-	LISTPROTO(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+	LISTPROTO(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	template<typename It>
+	LISTPROTO& set_protocols(It& begin, It end) & {
+		size_t count = 0;
+		while(begin != end) {
+			auto [protocol, version, port] = *iter;
+
+			auto i = 3 + count*8;
+			base.payload_buffer().write_uint32_be_unsafe(i, protocol);
+			base.payload_buffer().write_uint16_be_unsafe(i+4, version);
+			base.payload_buffer().write_uint16_be_unsafe(i+6, port);
+			count++;
+		}
+		base.payload_buffer().write_uint8_unsafe(2, count);
+		base.truncate_unsafe(base.payload_buffer().size() - 3 + count*8);
+
+		return *this;
+	}
+
+	template<typename It>
+	LISTPROTO&& set_protocols(It& begin, It end) && {
+		return std::move(set_protocols(begin, end));
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
+	}
 
 	[[nodiscard]] bool validate() const {
-		if(this->size() < 3) {
+		if(base.payload_buffer().size() < 3) {
 			return false;
 		}
 
-		uint8_t num_proto = this->read_uint8_unsafe(2);
+		uint8_t num_proto = base.payload_buffer().read_uint8_unsafe(2);
 
 		// Bounds check
-		if(this->size() < 3 + num_proto*8) {
+		if(base.payload_buffer().size() < 3 + num_proto*8) {
 			return false;
 		}
 
@@ -100,7 +118,7 @@ public:
 
 	struct iterator {
 	private:
-		core::Buffer const* buf = nullptr;
+		core::WeakBuffer buf;
 		size_t offset = 0;
 	public:
 		// For iterator_traits
@@ -110,12 +128,12 @@ public:
 		using reference = value_type const&;
 		using iterator_category = std::input_iterator_tag;
 
-		iterator(core::Buffer const* buf, size_t offset = 0) : buf(buf), offset(offset) {}
+		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
 
 		value_type operator*() const {
-			uint32_t protocol = buf->read_uint32_be_unsafe(offset);
-			uint16_t version = buf->read_uint16_be_unsafe(4 + offset);
-			uint16_t port = buf->read_uint16_be_unsafe(6 + offset);
+			uint32_t protocol = buf.read_uint32_be_unsafe(offset);
+			uint16_t version = buf.read_uint16_be_unsafe(4 + offset);
+			uint16_t port = buf.read_uint16_be_unsafe(6 + offset);
 
 			return std::make_tuple(protocol, version, port);
 		}
@@ -135,13 +153,13 @@ public:
 		}
 	};
 
-	iterator cbegin() const {
-		return iterator(this, 3);
+	iterator protocols_begin() const {
+		return iterator(base.payload_buffer(), 3);
 	}
 
-	iterator cend() const {
-		uint8_t num_proto = this->read_uint8_unsafe(2);
-		return iterator(this, 3 + num_proto*8);
+	iterator protocols_end() const {
+		uint8_t num_proto = base.payload_buffer().read_uint8_unsafe(2);
+		return iterator(base.payload_buffer(), 3 + num_proto*8);
 	}
 };
 
