@@ -41,6 +41,7 @@ private:
 	using BaseTransport = asyncio::UdpTransport<
 		DiscoveryServer<DiscoveryServerDelegate>
 	>;
+	using BaseMessageType = typename BaseTransport::MessageType;
 
 	BaseTransportFactory f;
 
@@ -95,10 +96,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(
-		LISTPROTO::create(0)
-		.finalize()
-	);
+	transport.send(LISTPROTO<BaseMessageType>(0).finalize());
 }
 
 

@@ -48,7 +48,7 @@ private:
 	void send_DISCPROTO(BaseTransport &transport);
 	void did_recv_DISCPROTO(BaseTransport &transport);
 	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
+	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO<BaseMessageType> &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
 	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
@@ -126,7 +126,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPROTO<BaseMessageType>::create().finalize());
+	transport.send(DISCPROTO<BaseMessageType>().finalize());
 }
 
 
@@ -155,7 +155,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	assert(protocols.size() < 100);
 
 	transport.send(
-		LISTPROTO::create(protocols.size())
+		LISTPROTO<BaseMessageType>(protocols.size())
 		.set_protocols(protocols.begin(), protocols.end())
 		.finalize()
 	);
@@ -164,7 +164,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	BaseTransport &transport,
-	LISTPROTO &&packet
+	LISTPROTO<BaseMessageType> &&packet
 ) {
 	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
 
