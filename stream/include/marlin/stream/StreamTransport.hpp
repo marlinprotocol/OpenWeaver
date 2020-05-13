@@ -696,7 +696,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	crypto_box_seal(buf, buf + 32, pt_len, remote_static_pk);
 
 	transport.send(
-		DIAL<BaseMessageType>::create(ct_len)
+		DIAL<BaseMessageType>(ct_len)
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 		.set_payload(buf, ct_len)
@@ -1790,7 +1790,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 		case 2: did_recv_ACK(std::move(packet));
 		break;
 		// DIAL
-		case 3: did_recv_DIAL(DIAL<BaseMessageType>::create(std::move(packet)));
+		case 3: did_recv_DIAL(std::move(packet));
 		break;
 		// DIALCONF
 		case 4: did_recv_DIALCONF(std::move(packet));
