@@ -22,8 +22,8 @@ template<typename BaseMessageType>
 struct DISCPROTO {
 	BaseMessageType base;
 
-	static DISCPROTO create() {
-		return DISCPROTO { BaseMessageType::create(2).set_payload({0, 0}) };
+	DISCPROTO() : base(2) {
+		base.set_payload({0, 0});
 	}
 
 	core::Buffer finalize() {
@@ -64,32 +64,34 @@ template<typename BaseMessageType>
 struct LISTPROTO {
 	BaseMessageType base;
 
-	LISTPROTO(size_t num_proto) : base(std::min(3+8*num_proto, 1400)) {
+	LISTPROTO(size_t num_proto) : base(3+8*num_proto) {
 		base.set_payload({0, 1});
 	}
 
 	LISTPROTO(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	template<typename It>
-	LISTPROTO& set_protocols(It& begin, It end) & {
+	LISTPROTO& set_protocols(It begin, It end) & {
 		size_t count = 0;
 		while(begin != end) {
-			auto [protocol, version, port] = *iter;
+			auto [protocol, version, port] = *begin;
 
 			auto i = 3 + count*8;
 			base.payload_buffer().write_uint32_be_unsafe(i, protocol);
 			base.payload_buffer().write_uint16_be_unsafe(i+4, version);
 			base.payload_buffer().write_uint16_be_unsafe(i+6, port);
 			count++;
+
+			++begin;
 		}
 		base.payload_buffer().write_uint8_unsafe(2, count);
-		base.truncate_unsafe(base.payload_buffer().size() - 3 + count*8);
+		base.truncate_unsafe(base.payload_buffer().size() - (3 + count*8));
 
 		return *this;
 	}
 
 	template<typename It>
-	LISTPROTO&& set_protocols(It& begin, It end) && {
+	LISTPROTO&& set_protocols(It begin, It end) && {
 		return std::move(set_protocols(begin, end));
 	}
 
@@ -145,7 +147,7 @@ struct LISTPROTO {
 		}
 
 		bool operator==(iterator const& other) const {
-			return buf == other.buf && offset == other.offset;
+			return offset == other.offset;
 		}
 
 		bool operator!=(iterator const& other) const {
