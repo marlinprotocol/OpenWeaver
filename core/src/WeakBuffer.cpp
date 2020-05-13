@@ -7,8 +7,8 @@
 namespace marlin {
 namespace core {
 
-WeakBuffer::WeakBuffer(uint8_t *const _buf, size_t const size) :
-buf(_buf), capacity(size), start_index(0), end_index(size) {}
+WeakBuffer::WeakBuffer(uint8_t *const buf, size_t const size) :
+buf(buf), capacity(size), start_index(0), end_index(size) {}
 
 bool WeakBuffer::cover(size_t const num) {
 	// Bounds checking

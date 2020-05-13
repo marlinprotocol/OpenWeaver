@@ -6,10 +6,10 @@ namespace core {
 
 BaseMessage::BaseMessage(size_t size) : buf(size) {}
 
-BaseMessage::BaseMessage(core::Buffer&& buf) : buf(std::move(buf)) {}
+BaseMessage::BaseMessage(Buffer&& buf) : buf(std::move(buf)) {}
 
-core::WeakBuffer BaseMessage::payload_buffer() const {
-	return buf;
+WeakBuffer BaseMessage::payload_buffer() const {
+	return WeakBuffer(buf.data(), buf.size());
 }
 
 uint8_t* BaseMessage::payload() const {
@@ -48,11 +48,11 @@ BaseMessage&& BaseMessage::truncate_unsafe(size_t size) && {
 	return std::move(truncate_unsafe(size));
 }
 
-core::Buffer BaseMessage::finalize() {
+Buffer BaseMessage::finalize() {
 	return std::move(buf);
 }
 
-core::Buffer BaseMessage::release() {
+Buffer BaseMessage::release() {
 	return std::move(buf);
 }
 
