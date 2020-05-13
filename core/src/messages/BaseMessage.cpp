@@ -4,13 +4,9 @@
 namespace marlin {
 namespace core {
 
-BaseMessage BaseMessage::create(size_t size) {
-	return BaseMessage { core::Buffer(size) };
-}
+BaseMessage::BaseMessage(size_t size) : buf(size) {}
 
-BaseMessage BaseMessage::create(core::Buffer&& buf) {
-	return BaseMessage { std::move(buf) };
-}
+BaseMessage::BaseMessage(core::Buffer&& buf) : buf(std::move(buf)) {}
 
 core::WeakBuffer BaseMessage::payload_buffer() const {
 	return buf;
