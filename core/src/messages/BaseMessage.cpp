@@ -27,9 +27,7 @@ BaseMessage& BaseMessage::set_payload(uint8_t const* in, size_t size) & {
 }
 
 BaseMessage&& BaseMessage::set_payload(uint8_t const* in, size_t size) && {
-	buf.write_unsafe(0, in, size);
-
-	return std::move(*this);
+	return std::move(set_payload(in, size));
 }
 
 BaseMessage& BaseMessage::set_payload(std::initializer_list<uint8_t> il) & {
@@ -39,9 +37,8 @@ BaseMessage& BaseMessage::set_payload(std::initializer_list<uint8_t> il) & {
 }
 
 BaseMessage&& BaseMessage::set_payload(std::initializer_list<uint8_t> il) && {
-	buf.write_unsafe(0, il.begin(), il.size());
-
-	return std::move(*this);
+	// TODO: This works, but is this actually correct?
+	return std::move(set_payload(il));
 }
 
 core::Buffer BaseMessage::finalize() {

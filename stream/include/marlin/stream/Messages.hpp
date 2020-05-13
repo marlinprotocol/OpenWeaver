@@ -30,9 +30,7 @@ struct DIAL {
 	}
 
 	DIAL&& set_src_conn_id(uint32_t src_conn_id) && {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return std::move(*this);
+		return std::move(set_src_conn_id(src_conn_id));
 	}
 
 	uint32_t src_conn_id() const {
@@ -46,9 +44,7 @@ struct DIAL {
 	}
 
 	DIAL&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return std::move(*this);
+		return std::move(set_dst_conn_id(dst_conn_id));
 	}
 
 	uint32_t dst_conn_id() const {
@@ -62,9 +58,7 @@ struct DIAL {
 	}
 
 	DIAL&& set_payload(uint8_t const* in, size_t size) && {
-		base.payload_buffer().write_unsafe(10, in, size);
-
-		return std::move(*this);
+		return std::move(set_payload(in, size));
 	}
 
 	DIAL& set_payload(std::initializer_list<uint8_t> il) & {
@@ -74,9 +68,7 @@ struct DIAL {
 	}
 
 	DIAL&& set_payload(std::initializer_list<uint8_t> il) && {
-		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
-
-		return std::move(*this);
+		return std::move(set_payload(il));
 	}
 
 	uint8_t* payload() {
