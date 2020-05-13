@@ -95,7 +95,10 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(LISTPROTO());
+	transport.send(
+		LISTPROTO::create(0)
+		.finalize()
+	);
 }
 
 

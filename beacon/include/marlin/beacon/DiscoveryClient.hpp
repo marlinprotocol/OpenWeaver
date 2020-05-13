@@ -154,7 +154,11 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 	assert(protocols.size() < 100);
 
-	transport.send(LISTPROTO(protocols));
+	transport.send(
+		LISTPROTO::create(protocols.size())
+		.set_protocols(protocols.begin(), protocols.end())
+		.finalize()
+	);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
@@ -168,7 +172,7 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 		return;
 	}
 
-	for(auto iter = packet.cbegin(); iter != packet.cend(); ++iter) {
+	for(auto iter = packet.protocols_begin(); iter != packet.protocols_end(); ++iter) {
 		auto [protocol, version, port] = *iter;
 		core::SocketAddress peer_addr(transport.dst_addr);
 		peer_addr.set_port(port);
