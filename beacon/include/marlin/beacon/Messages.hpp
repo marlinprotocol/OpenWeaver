@@ -328,23 +328,47 @@ struct LISTPEER {
 
 \endverbatim
 */
-struct HEARTBEAT : public core::Buffer {
-public:
-	HEARTBEAT(uint8_t const* pk) : core::Buffer({0, 4}, 2+crypto_box_PUBLICKEYBYTES) {
-		this->write_unsafe(2, pk, crypto_box_PUBLICKEYBYTES);
+template<typename BaseMessageType>
+struct HEARTBEAT {
+	BaseMessageType base;
+
+	HEARTBEAT() : base(2+crypto_box_PUBLICKEYBYTES) {
+		base.set_payload({0,4});
 	}
 
-	HEARTBEAT(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+	HEARTBEAT(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
+	}
 
 	[[nodiscard]] bool validate() const {
-		return this->size() >= 2+crypto_box_PUBLICKEYBYTES;
+		return base.payload_buffer().size() >= 2+crypto_box_PUBLICKEYBYTES;
 	}
 
-	std::array<uint8_t, 32> key() {
+	std::array<uint8_t, 32> key_array() {
 		std::array<uint8_t, 32> key;
-		this->read_unsafe(2, key.data(), crypto_box_PUBLICKEYBYTES);
+		base.payload_buffer().read_unsafe(2, key.data(), crypto_box_PUBLICKEYBYTES);
 
 		return key;
+	}
+
+	uint8_t* key() {
+		return base.payload_buffer().data()+2;
+	}
+
+	HEARTBEAT& set_key(uint8_t const* key) & {
+		base.payload_buffer().write_unsafe(2, key, crypto_box_PUBLICKEYBYTES);
+
+		return *this;
+	}
+
+	HEARTBEAT&& set_key(uint8_t const* key) && {
+		return std::move(set_key(key));
 	}
 };
 
