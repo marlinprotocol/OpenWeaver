@@ -64,7 +64,7 @@ template<typename BaseMessageType>
 struct LISTPROTO {
 	BaseMessageType base;
 
-	LISTPROTO(size_t num_proto) : base(3+8*num_proto) {
+	LISTPROTO(size_t num_proto = 0) : base(3+8*num_proto) {
 		base.set_payload({0, 1});
 	}
 
@@ -224,38 +224,54 @@ struct DISCPEER {
 
 \endverbatim
 */
-struct LISTPEER : public core::Buffer {
-public:
-	template<typename It = std::pair<core::SocketAddress, std::array<uint8_t, 32>>*>
-	LISTPEER(It& begin = nullptr, It end = nullptr) : core::Buffer(
-		{0, 3},
-		1400
-	) {
+template<typename BaseMessageType>
+struct LISTPEER {
+	BaseMessageType base;
+
+	LISTPEER(size_t num_peer = 0) : base(2+8*num_peer) {
+		base.set_payload({0, 3});
+	}
+
+	LISTPEER(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	template<typename It>
+	LISTPEER& set_peers(It& begin, It end) & {
 		size_t idx = 2;
-		while(begin != end && idx + 8 + crypto_box_PUBLICKEYBYTES <= 1400) {
-			begin->first.serialize(this->data()+idx, 8);
-			this->write_unsafe(idx+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
+		while(begin != end && idx + 8 + crypto_box_PUBLICKEYBYTES <= base.payload_buffer().size()) {
+			begin->first.serialize(base.payload()+idx, 8);
+			base.payload_buffer().write_unsafe(idx+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
 			idx += 8 + crypto_box_PUBLICKEYBYTES;
 
 			++begin;
 		}
+		base.truncate_unsafe(base.payload_buffer().size() - idx);
 
-		this->truncate_unsafe(1400-idx);
+		return *this;
 	}
 
-	LISTPEER(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+	template<typename It>
+	LISTPEER&& set_peers(It& begin, It end) && {
+		return std::move(set_peers(begin, end));
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
+	}
 
 	[[nodiscard]] bool validate() const {
-		if(this->size() < 2 || this->size() % 8 != 2) {
+		if(base.payload_buffer().size() < 2 || base.payload_buffer().size() % 8 != 2) {
 			return false;
 		}
-
 		return true;
 	}
 
 	struct iterator {
 	private:
-		core::Buffer const* buf = nullptr;
+		core::WeakBuffer buf;
 		size_t offset = 0;
 	public:
 		// For iterator_traits
@@ -265,12 +281,12 @@ public:
 		using reference = value_type const&;
 		using iterator_category = std::input_iterator_tag;
 
-		iterator(core::Buffer const* buf, size_t offset = 0) : buf(buf), offset(offset) {}
+		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
 
 		value_type operator*() const {
-			auto peer_addr = core::SocketAddress::deserialize(buf->data()+offset, 8);
+			auto peer_addr = core::SocketAddress::deserialize(buf.data()+offset, 8);
 			std::array<uint8_t, 32> key;
-			buf->read_unsafe(offset+8, key.data(), crypto_box_PUBLICKEYBYTES);
+			buf.read_unsafe(offset+8, key.data(), crypto_box_PUBLICKEYBYTES);
 
 			return std::make_tuple(peer_addr, key);
 		}
@@ -282,7 +298,7 @@ public:
 		}
 
 		bool operator==(iterator const& other) const {
-			return buf == other.buf && offset == other.offset;
+			return offset == other.offset;
 		}
 
 		bool operator!=(iterator const& other) const {
@@ -290,14 +306,14 @@ public:
 		}
 	};
 
-	iterator cbegin() const {
-		return iterator(this, 2);
+	iterator peers_begin() const {
+		return iterator(base.payload_buffer(), 2);
 	}
 
-	iterator cend() const {
+	iterator peers_end() const {
 		// Relies on validation ensuring correct size i.e. size % 8 = 2
 		// Otherwise, need to modify size below
-		return iterator(this, this->size());
+		return iterator(base.payload_buffer(), base.payload_buffer().size());
 	}
 };
 
