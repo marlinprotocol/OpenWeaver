@@ -52,7 +52,7 @@ private:
 	void did_recv_DISCPEER(BaseTransport &transport);
 	void send_LISTPEER(BaseTransport &transport);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
+	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT<BaseMessageType> &&bytes);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
@@ -141,12 +141,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
-	HEARTBEAT &&bytes
+	HEARTBEAT<BaseMessageType> &&bytes
 ) {
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
 		transport.dst_addr.to_string(),
-		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
+		spdlog::to_hex(bytes.key(), bytes.key()+32)
 	);
 
 	if(!bytes.validate()) {
@@ -154,7 +154,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	}
 
 	peers[&transport].first = asyncio::EventLoop::now();
-	peers[&transport].second = bytes.key();
+	peers[&transport].second = bytes.key_array();
 }
 
 
