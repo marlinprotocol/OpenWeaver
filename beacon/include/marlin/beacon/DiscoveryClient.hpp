@@ -51,7 +51,7 @@ private:
 	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO<BaseMessageType> &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
+	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER<BaseMessageType> &&packet);
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
@@ -198,7 +198,7 @@ void DISCOVERYCLIENT::send_DISCPEER(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
-	LISTPEER &&packet
+	LISTPEER<BaseMessageType> &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
@@ -206,7 +206,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		return;
 	}
 
-	for(auto iter = packet.cbegin(); iter != packet.cend(); ++iter) {
+	for(auto iter = packet.peers_begin(); iter != packet.peers_end(); ++iter) {
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 

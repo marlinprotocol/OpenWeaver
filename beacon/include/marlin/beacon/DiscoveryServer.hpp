@@ -96,7 +96,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(LISTPROTO<BaseMessageType>(0).finalize());
+	transport.send(LISTPROTO<BaseMessageType>().finalize());
 }
 
 
@@ -130,7 +130,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		transport.send(LISTPEER(t_begin, t_end));
+		transport.send(LISTPEER<BaseMessageType>(150).set_peers(t_begin, t_end).finalize());
 	}
 }
 
