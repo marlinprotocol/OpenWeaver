@@ -188,7 +188,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPEER());
+	transport.send(DISCPEER<BaseMessageType>().finalize());
 }
 
 /*!

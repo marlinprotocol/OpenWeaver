@@ -176,9 +176,21 @@ struct LISTPROTO {
 
 \endverbatim
 */
-struct DISCPEER : public core::Buffer {
-public:
-	DISCPEER() : core::Buffer({0, 2}, 2) {}
+template<typename BaseMessageType>
+struct DISCPEER {
+	BaseMessageType base;
+
+	DISCPEER() : base(2) {
+		base.set_payload({0, 2});
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
+	}
 };
 
 /*!
