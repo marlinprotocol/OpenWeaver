@@ -221,7 +221,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	transport.send(HEARTBEAT(static_pk));
+	transport.send(HEARTBEAT<BaseMessageType>().set_key(static_pk).finalize());
 }
 
 /*!
