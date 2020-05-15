@@ -145,7 +145,7 @@ private:
 	void did_recv_DIAL(DIAL<BaseMessageType> &&packet);
 
 	void send_DIALCONF();
-	void did_recv_DIALCONF(DIALCONF &&packet);
+	void did_recv_DIALCONF(DIALCONF<BaseMessageType> &&packet);
 
 	void send_CONF();
 	void did_recv_CONF(CONF &&packet);
@@ -840,12 +840,18 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	uint8_t buf[ct_len];
 	crypto_box_seal(buf, ephemeral_pk, pt_len, remote_static_pk);
 
-	transport.send(DIALCONF(this->src_conn_id, this->dst_conn_id, buf, ct_len));
+	transport.send(
+		DIALCONF<BaseMessageType>(ct_len)
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+		.set_payload(buf, ct_len)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
-	DIALCONF &&packet
+	DIALCONF<BaseMessageType> &&packet
 ) {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
