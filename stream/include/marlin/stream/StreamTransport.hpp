@@ -151,7 +151,7 @@ private:
 	void did_recv_CONF(CONF<BaseMessageType> &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
-	void did_recv_RST(RST &&packet);
+	void did_recv_RST(RST<BaseMessageType> &&packet);
 
 	void send_DATA(core::Buffer &&packet);
 	void did_recv_DATA(core::Buffer &&packet);
@@ -1048,12 +1048,17 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	transport.send(RST(src_conn_id, dst_conn_id));
+	transport.send(
+		RST<BaseMessageType>()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	RST &&packet
+	RST<BaseMessageType> &&packet
 ) {
 	if(!packet.validate()) {
 		return;
