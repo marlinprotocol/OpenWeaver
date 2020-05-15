@@ -148,7 +148,7 @@ private:
 	void did_recv_DIALCONF(DIALCONF<BaseMessageType> &&packet);
 
 	void send_CONF();
-	void did_recv_CONF(CONF &&packet);
+	void did_recv_CONF(CONF<BaseMessageType> &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
 	void did_recv_RST(RST &&packet);
@@ -976,12 +976,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
-	transport.send(CONF(this->src_conn_id, this->dst_conn_id));
+	transport.send(
+		CONF<BaseMessageType>()
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
-	CONF &&packet
+	CONF<BaseMessageType> &&packet
 ) {
 	if(!packet.validate()) {
 		return;
