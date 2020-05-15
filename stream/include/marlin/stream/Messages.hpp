@@ -208,28 +208,54 @@ struct CONF {
 	}
 };
 
-struct RST : public core::Buffer {
-public:
-	RST(
-		uint32_t src_conn_id,
-		uint32_t dst_conn_id
-	) : core::Buffer({0, 6}, 10) {
-		this->write_uint32_be_unsafe(2, src_conn_id);
-		this->write_uint32_be_unsafe(6, dst_conn_id);
-	}
-
-	RST(core::Buffer&& buf) : core::Buffer(std::move(buf)) {}
+template<typename BaseMessageType>
+struct RST {
+	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
-		return this->size() >= 10;
+		return base.payload_buffer().size() >= 10;
+	}
+
+	RST() : base(10) {
+		base.set_payload({0, 6});
+	}
+
+	RST(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	RST& set_src_conn_id(uint32_t src_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+
+		return *this;
+	}
+
+	RST&& set_src_conn_id(uint32_t src_conn_id) && {
+		return std::move(set_src_conn_id(src_conn_id));
 	}
 
 	uint32_t src_conn_id() const {
-		return this->read_uint32_be_unsafe(6);
+		return base.payload_buffer().read_uint32_be_unsafe(6);
+	}
+
+	RST& set_dst_conn_id(uint32_t dst_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+
+		return *this;
+	}
+
+	RST&& set_dst_conn_id(uint32_t dst_conn_id) && {
+		return std::move(set_dst_conn_id(dst_conn_id));
 	}
 
 	uint32_t dst_conn_id() const {
-		return this->read_uint32_be_unsafe(2);
+		return base.payload_buffer().read_uint32_be_unsafe(2);
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
 	}
 };
 
