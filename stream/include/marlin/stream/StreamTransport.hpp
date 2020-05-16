@@ -160,7 +160,7 @@ private:
 	void did_recv_ACK(core::Buffer &&packet);
 
 	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_SKIPSTREAM(core::Buffer &&packet);
+	void did_recv_SKIPSTREAM(SKIPSTREAM<BaseMessageType> &&packet);
 
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
 	void did_recv_FLUSHSTREAM(core::Buffer &&packet);
@@ -1560,31 +1560,28 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	core::Buffer packet({0, 7}, 20);
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-	packet.write_uint16_be_unsafe(10, stream_id);
-	packet.write_uint64_be_unsafe(12, offset);
-
-	transport.send(std::move(packet));
+	transport.send(
+		SKIPSTREAM<BaseMessageType>()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+		.set_offset(offset)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
-	core::Buffer &&packet
+	SKIPSTREAM<BaseMessageType> &&packet
 ) {
-	// Bounds check
-	if(packet.size() < 20) {
+	if(!packet.validate()) {
 		return;
 	}
 
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
-	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
-
-	auto src_conn_id = p.read_uint32_be_unsafe(6);
-	auto dst_conn_id = p.read_uint32_be_unsafe(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
@@ -1603,8 +1600,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 		return;
 	}
 
-	auto stream_id = p.stream_id();
-	auto offset = p.packet_number();
+	auto stream_id = packet.stream_id();
+	auto offset = packet.offset();
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	// Check for duplicate
