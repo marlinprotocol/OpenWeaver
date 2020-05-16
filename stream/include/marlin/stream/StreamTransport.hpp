@@ -166,7 +166,7 @@ private:
 	void did_recv_FLUSHSTREAM(FLUSHSTREAM<BaseMessageType> &&packet);
 
 	void send_FLUSHCONF(uint16_t stream_id);
-	void did_recv_FLUSHCONF(core::Buffer &&packet);
+	void did_recv_FLUSHCONF(FLUSHCONF<BaseMessageType> &&packet);
 
 public:
 	// Delegate
@@ -1686,30 +1686,27 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 	uint16_t stream_id
 ) {
-	core::Buffer packet({0, 9}, 12);
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-	packet.write_uint16_be_unsafe(10, stream_id);
-
-	transport.send(std::move(packet));
+	transport.send(
+		FLUSHCONF<BaseMessageType>()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
-	core::Buffer &&packet
+	FLUSHCONF<BaseMessageType> &&packet
 ) {
-	// Bounds check
-	if(packet.size() < 12) {
+	if(!packet.validate()) {
 		return;
 	}
 
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
-	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), p.stream_id());
-
-	auto src_conn_id = p.read_uint32_be_unsafe(6);
-	auto dst_conn_id = p.read_uint32_be_unsafe(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1728,7 +1725,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 		return;
 	}
 
-	auto stream_id = p.stream_id();
+	auto stream_id = packet.stream_id();
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	stream.state_timer.stop();
