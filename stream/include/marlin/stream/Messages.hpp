@@ -259,6 +259,85 @@ struct RST {
 	}
 };
 
+template<typename BaseMessageType>
+struct SKIPSTREAM {
+	BaseMessageType base;
+
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 20;
+	}
+
+	SKIPSTREAM() : base(20) {
+		base.set_payload({0, 7});
+	}
+
+	SKIPSTREAM(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	SKIPSTREAM& set_src_conn_id(uint32_t src_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+
+		return *this;
+	}
+
+	SKIPSTREAM&& set_src_conn_id(uint32_t src_conn_id) && {
+		return std::move(set_src_conn_id(src_conn_id));
+	}
+
+	uint32_t src_conn_id() const {
+		return base.payload_buffer().read_uint32_be_unsafe(6);
+	}
+
+	SKIPSTREAM& set_dst_conn_id(uint32_t dst_conn_id) & {
+		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+
+		return *this;
+	}
+
+	SKIPSTREAM&& set_dst_conn_id(uint32_t dst_conn_id) && {
+		return std::move(set_dst_conn_id(dst_conn_id));
+	}
+
+	uint32_t dst_conn_id() const {
+		return base.payload_buffer().read_uint32_be_unsafe(2);
+	}
+
+	SKIPSTREAM& set_stream_id(uint16_t stream_id) & {
+		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
+
+		return *this;
+	}
+
+	SKIPSTREAM&& set_stream_id(uint16_t stream_id) && {
+		return std::move(set_stream_id(stream_id));
+	}
+
+	uint16_t stream_id() const {
+		return base.payload_buffer().read_uint16_be_unsafe(10);
+	}
+
+	SKIPSTREAM& set_offset(uint64_t offset) & {
+		base.payload_buffer().write_uint64_be_unsafe(12, offset);
+
+		return *this;
+	}
+
+	SKIPSTREAM&& set_offset(uint64_t offset) && {
+		return std::move(set_offset(offset));
+	}
+
+	uint64_t offset() const {
+		return base.payload_buffer().read_uint64_be_unsafe(12);
+	}
+
+	core::Buffer finalize() {
+		return base.finalize();
+	}
+
+	core::Buffer release() {
+		return base.release();
+	}
+};
+
 } // namespace stream
 } // namespace marlin
 
