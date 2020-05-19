@@ -50,7 +50,7 @@ struct DATA {
 	}
 
 	DATA& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
+		base.payload_buffer().write_uint16_be_unsafe(18, stream_id);
 
 		return *this;
 	}
@@ -60,11 +60,11 @@ struct DATA {
 	}
 
 	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_be_unsafe(10);
+		return base.payload_buffer().read_uint16_be_unsafe(18);
 	}
 
 	DATA& set_packet_number(uint64_t packet_number) & {
-		base.payload_buffer().write_uint64_be_unsafe(12, packet_number);
+		base.payload_buffer().write_uint64_be_unsafe(10, packet_number);
 
 		return *this;
 	}
@@ -74,7 +74,7 @@ struct DATA {
 	}
 
 	uint64_t packet_number() const {
-		return base.payload_buffer().read_uint64_be_unsafe(12);
+		return base.payload_buffer().read_uint64_be_unsafe(10);
 	}
 
 	DATA& set_offset(uint64_t offset) & {
@@ -125,8 +125,19 @@ struct DATA {
 		return std::move(set_payload(il));
 	}
 
+	core::WeakBuffer payload_buffer() const {
+		auto buf = base.payload_buffer();
+		buf.cover_unsafe(30);
+
+		return buf;
+	}
+
 	uint8_t* payload() {
 		return base.payload_buffer().data() + 30;
+	}
+
+	bool is_fin_set() const {
+		return base.payload_buffer().read_uint8_unsafe(1) == 1;
 	}
 
 	core::Buffer finalize() {
@@ -134,7 +145,10 @@ struct DATA {
 	}
 
 	core::Buffer release() {
-		return base.release();
+		auto buf = base.release();
+		buf.cover_unsafe(30);
+
+		return std::move(buf);
 	}
 };
 
