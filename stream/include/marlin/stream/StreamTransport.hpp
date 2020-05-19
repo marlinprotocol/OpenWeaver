@@ -110,13 +110,6 @@ private:
 
 	bool register_send_intent(SendStream &stream);
 
-	void send_data_packet(
-		SendStream &stream,
-		DataItem &data_item,
-		uint64_t offset,
-		uint16_t length
-	);
-
 	void send_pending_data();
 	int send_lost_data(uint64_t initial_bytes_in_flight);
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
@@ -153,7 +146,12 @@ private:
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
 	void did_recv_RST(RST<BaseMessageType> &&packet);
 
-	void send_DATA(core::Buffer &&packet);
+	void send_DATA(
+		SendStream &stream,
+		DataItem &data_item,
+		uint64_t offset,
+		uint16_t length
+	);
 	void did_recv_DATA(core::Buffer &&packet);
 
 	void send_ACK();
@@ -374,76 +372,6 @@ bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	return true;
 }
 
-//! Sends across given data item fragment
-/*!
-	\param stream SendStream to which the fragment's dataItem belongs to
-	\param data_item DataItem to which the fragment belongs to
-	\param offset integer offset of the fragment in the data_item
-	\param length byte length of the fragment
-*/
-template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
-	SendStream &stream,
-	DataItem &data_item,
-	uint64_t offset,
-	uint16_t length
-) {
-	bool is_fin = (stream.done_queueing &&
-		data_item.stream_offset + offset + length >= stream.queue_offset);
-
-	core::Buffer packet(
-		{0, static_cast<uint8_t>(is_fin)},
-		length + 30 + crypto_aead_aes256gcm_ABYTES
-	);
-
-	this->last_sent_packet++;
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-	packet.write_uint16_be_unsafe(10, stream.stream_id);
-	packet.write_uint64_be_unsafe(12, this->last_sent_packet);
-	packet.write_uint64_be_unsafe(20, data_item.stream_offset + offset);
-	packet.write_uint16_be_unsafe(28, length);
-	packet.write_unsafe(30, data_item.data.data()+offset, length);
-
-	uint8_t nonce[12];
-	for(int i = 0; i < 4; i++) {
-		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
-	}
-	for(int i = 0; i < 8; i++) {
-		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
-	}
-	crypto_aead_aes256gcm_encrypt_afternm(
-		packet.data() + 20,
-		nullptr,
-		packet.data() + 20,
-		10 + length,
-		packet.data() + 2,
-		18,
-		nullptr,
-		nonce,
-		&tx_ctx
-	);
-
-	this->sent_packets.emplace(
-		std::piecewise_construct,
-		std::forward_as_tuple(this->last_sent_packet),
-		std::forward_as_tuple(
-			asyncio::EventLoop::now(),
-			&stream,
-			&data_item,
-			offset,
-			length
-		)
-	);
-
-	send_DATA(std::move(packet));
-
-	if(is_fin && stream.state != SendStream::State::Acked) {
-		stream.state = SendStream::State::Sent;
-	}
-}
-
 //! Schedules pacing timer callback
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
@@ -475,7 +403,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 			return -2;
 		}
 
-		send_data_packet(
+		send_DATA(
 			*sent_packet.stream,
 			*sent_packet.data_item,
 			sent_packet.offset,
@@ -520,7 +448,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 			if(this->bytes_in_flight > this->congestion_window - dsize)
 				return -2;
 
-			send_data_packet(stream, data_item, i, dsize);
+			send_DATA(stream, data_item, i, dsize);
 
 			stream.bytes_in_flight += dsize;
 			stream.sent_offset += dsize;
@@ -1077,13 +1005,75 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	}
 }
 
+//! Sends across given data item fragment
+/*!
+	\param stream SendStream to which the fragment's dataItem belongs to
+	\param data_item DataItem to which the fragment belongs to
+	\param offset integer offset of the fragment in the data_item
+	\param length byte length of the fragment
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
-	core::Buffer &&packet
+	SendStream &stream,
+	DataItem &data_item,
+	uint64_t offset,
+	uint16_t length
 ) {
-	transport.send(std::move(packet));
-}
+	bool is_fin = (stream.done_queueing &&
+		data_item.stream_offset + offset + length >= stream.queue_offset);
 
+	core::Buffer packet(
+		{0, static_cast<uint8_t>(is_fin)},
+		length + 30 + crypto_aead_aes256gcm_ABYTES
+	);
+
+	this->last_sent_packet++;
+
+	packet.write_uint32_be_unsafe(2, src_conn_id);
+	packet.write_uint32_be_unsafe(6, dst_conn_id);
+	packet.write_uint16_be_unsafe(10, stream.stream_id);
+	packet.write_uint64_be_unsafe(12, this->last_sent_packet);
+	packet.write_uint64_be_unsafe(20, data_item.stream_offset + offset);
+	packet.write_uint16_be_unsafe(28, length);
+	packet.write_unsafe(30, data_item.data.data()+offset, length);
+
+	uint8_t nonce[12];
+	for(int i = 0; i < 4; i++) {
+		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
+	}
+	for(int i = 0; i < 8; i++) {
+		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
+	}
+	crypto_aead_aes256gcm_encrypt_afternm(
+		packet.data() + 20,
+		nullptr,
+		packet.data() + 20,
+		10 + length,
+		packet.data() + 2,
+		18,
+		nullptr,
+		nonce,
+		&tx_ctx
+	);
+
+	this->sent_packets.emplace(
+		std::piecewise_construct,
+		std::forward_as_tuple(this->last_sent_packet),
+		std::forward_as_tuple(
+			asyncio::EventLoop::now(),
+			&stream,
+			&data_item,
+			offset,
+			length
+		)
+	);
+
+	transport.send(std::move(packet));
+
+	if(is_fin && stream.state != SendStream::State::Acked) {
+		stream.state = SendStream::State::Sent;
+	}
+}
 
 /*!
 	\li handles the packet fragments received on the connection.
