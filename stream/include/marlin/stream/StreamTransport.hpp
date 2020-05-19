@@ -152,7 +152,7 @@ private:
 		uint64_t offset,
 		uint16_t length
 	);
-	void did_recv_DATA(core::Buffer &&packet);
+	void did_recv_DATA(DATA<BaseMessageType> &&packet);
 
 	void send_ACK();
 	void did_recv_ACK(core::Buffer &&packet);
@@ -213,8 +213,7 @@ private:
 	uint8_t rx[crypto_kx_SESSIONKEYBYTES];
 	uint8_t tx[crypto_kx_SESSIONKEYBYTES];
 
-	uint8_t rx_IV[crypto_aead_aes256gcm_NPUBBYTES];
-	uint8_t tx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+	uint8_t nonce[crypto_aead_aes256gcm_NPUBBYTES];
 
 	alignas(16) crypto_aead_aes256gcm_state rx_ctx;
 	alignas(16) crypto_aead_aes256gcm_state tx_ctx;
@@ -687,8 +686,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
@@ -734,8 +732,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
@@ -825,8 +822,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
@@ -1019,42 +1015,34 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	uint64_t offset,
 	uint16_t length
 ) {
+	this->last_sent_packet++;
+
 	bool is_fin = (stream.done_queueing &&
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
-	core::Buffer packet(
-		{0, static_cast<uint8_t>(is_fin)},
-		length + 30 + crypto_aead_aes256gcm_ABYTES
-	);
+	auto packet = DATA<BaseMessageType>(12 + length + crypto_aead_aes256gcm_ABYTES, is_fin)
+					.set_src_conn_id(src_conn_id)
+					.set_dst_conn_id(dst_conn_id)
+					.set_packet_number(this->last_sent_packet)
+					.set_stream_id(stream.stream_id)
+					.set_offset(data_item.stream_offset + offset)
+					.set_length(length)
+					.finalize();
 
-	this->last_sent_packet++;
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-	packet.write_uint16_be_unsafe(10, stream.stream_id);
-	packet.write_uint64_be_unsafe(12, this->last_sent_packet);
-	packet.write_uint64_be_unsafe(20, data_item.stream_offset + offset);
-	packet.write_uint16_be_unsafe(28, length);
 	packet.write_unsafe(30, data_item.data.data()+offset, length);
-
-	uint8_t nonce[12];
-	for(int i = 0; i < 4; i++) {
-		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
-	}
-	for(int i = 0; i < 8; i++) {
-		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
-	}
+	packet.write_unsafe(30 + length + crypto_aead_aes256gcm_ABYTES, nonce, 12);
 	crypto_aead_aes256gcm_encrypt_afternm(
-		packet.data() + 20,
+		packet.data() + 18,
 		nullptr,
-		packet.data() + 20,
-		10 + length,
+		packet.data() + 18,
+		12 + length,
 		packet.data() + 2,
-		18,
+		16,
 		nullptr,
 		nonce,
 		&tx_ctx
 	);
+	sodium_increment(nonce, 12);
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -1084,17 +1072,14 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
-	core::Buffer &&packet
+	DATA<BaseMessageType> &&packet
 ) {
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
-
-	// Bounds check
-	if(p.size() < 30 + crypto_aead_aes256gcm_ABYTES) {
+	if(!packet.validate(12 + crypto_aead_aes256gcm_ABYTES)) {
 		return;
 	}
 
-	auto src_conn_id = p.read_uint32_be_unsafe(6);
-	auto dst_conn_id = p.read_uint32_be_unsafe(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
@@ -1109,22 +1094,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	uint8_t nonce[12];
-	for(int i = 0; i < 4; i++) {
-		nonce[i] = rx_IV[i] ^ packet.data()[2+i];
-	}
-	for(int i = 0; i < 8; i++) {
-		nonce[4+i] = rx_IV[4+i] ^ packet.data()[12+i];
-	}
 	auto res = crypto_aead_aes256gcm_decrypt_afternm(
-		p.data() + 20,
+		packet.payload() - 12,
 		nullptr,
 		nullptr,
-		p.data() + 20,
-		p.size() - 20,
-		p.data() + 2,
-		18,
-		nonce,
+		packet.payload() - 12,
+		packet.payload_buffer().size(),
+		packet.payload() - 28,
+		16,
+		packet.payload() + packet.payload_buffer().size() - 12,
 		&rx_ctx
 	);
 
@@ -1140,9 +1118,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	p.truncate_unsafe(crypto_aead_aes256gcm_ABYTES);
-
-	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
+	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), packet.offset(), packet.length());
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
@@ -1150,11 +1126,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	auto offset = p.offset();
-	auto length = p.length();
-	auto packet_number = p.packet_number();
+	auto offset = packet.offset();
+	auto length = packet.length();
+	auto packet_number = packet.packet_number();
 
-	auto &stream = get_or_create_recv_stream(p.stream_id());
+	auto &stream = get_or_create_recv_stream(packet.stream_id());
 
 	// Short circuit once stream has been received fully.
 	if(stream.state == RecvStream::State::AllRecv ||
@@ -1168,13 +1144,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	}
 
 	// Set stream size if fin bit set
-	if(p.is_fin_set() && stream.state == RecvStream::State::Recv) {
+	if(packet.is_fin_set() && stream.state == RecvStream::State::Recv) {
 		stream.size = offset + length;
 		stream.state = RecvStream::State::SizeKnown;
 	}
 
-	// Cover header
-	p.cover_unsafe(30);
+	auto p = packet.release();
+	p.truncate_unsafe(crypto_aead_aes256gcm_ABYTES + 12);
 
 	// Check if length matches packet
 	// FIXME: Why even have length? Can just set from the packet
@@ -1202,7 +1178,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		p.cover_unsafe(stream.read_offset - offset);
 
 		// Read bytes and update offset
-		auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		auto res = delegate->did_recv_bytes(*this, std::move(p), stream.stream_id);
 		if(res < 0) {
 			return;
 		}
@@ -1245,13 +1221,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		}
 	} else {
 		// Queue packet for later processing
-		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
+		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(p.data(), p.data() + p.size()));
 		stream.recv_packets.try_emplace(
 			offset,
 			asyncio::EventLoop::now(),
 			offset,
 			length,
-			std::move(packet)
+			std::move(p)
 		);
 
 		// Check all data received
