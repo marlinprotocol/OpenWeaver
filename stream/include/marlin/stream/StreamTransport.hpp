@@ -155,7 +155,7 @@ private:
 	void did_recv_DATA(DATA<BaseMessageType> &&packet);
 
 	void send_ACK();
-	void did_recv_ACK(core::Buffer &&packet);
+	void did_recv_ACK(ACK<BaseMessageType> &&packet);
 
 	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
 	void did_recv_SKIPSTREAM(SKIPSTREAM<BaseMessageType> &&packet);
@@ -1239,39 +1239,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
-	int size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
+	size_t size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
-	core::Buffer packet({0, 2}, 20+8*size);
-
-	packet.write_uint32_be_unsafe(2, src_conn_id);
-	packet.write_uint32_be_unsafe(6, dst_conn_id);
-	packet.write_uint16_be_unsafe(10, size);
-	packet.write_uint64_be_unsafe(12, ack_ranges.largest);
-
-	int i = 20;
-	auto iter = ack_ranges.ranges.begin();
-	// Upto 85 gaps
-	for(
-		;
-		i <= 12+size*8 && iter != ack_ranges.ranges.end();
-		i += 8, iter++
-	) {
-		packet.write_uint64_be_unsafe(i, *iter);
-	}
-
-	transport.send(std::move(packet));
+	transport.send(
+		ACK<BaseMessageType>(size)
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_packet_number(ack_ranges.largest)
+		.set_size(size)
+		.set_ranges(ack_ranges.ranges.begin(), ack_ranges.ranges.end())
+		.finalize()
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
-	core::Buffer &&packet
+	ACK<BaseMessageType> &&packet
 ) {
-	SPDLOG_TRACE("ACK <<< {}", dst_addr.to_string());
-
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
-
-	// Bounds check on header
-	if(p.size() < 20) {
+	if(!packet.validate()) {
 		return;
 	}
 
@@ -1279,8 +1264,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		return;
 	}
 
-	auto src_conn_id = p.read_uint32_be_unsafe(6);
-	auto dst_conn_id = p.read_uint32_be_unsafe(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
@@ -1297,9 +1282,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto now = asyncio::EventLoop::now();
 
-	// TODO: Better method names
-	uint16_t size = p.stream_id();
-	uint64_t largest = p.packet_number();
+	uint64_t largest = packet.packet_number();
 
 	// New largest acked packet
 	if(largest > largest_acked && sent_packets.find(largest) != sent_packets.end()) {
@@ -1317,24 +1300,16 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		}
 	}
 
-	// Cover till range list
-	p.cover_unsafe(20);
-
 	uint64_t high = largest;
 	bool gap = false;
 	bool is_app_limited = (bytes_in_flight < 0.8 * congestion_window);
 
-	// Bounds check
-	if(p.size() < size*8) {
-		return;
-	}
-
 	for(
-		uint16_t i = 0;
-		i < size;
-		i++, gap = !gap
+		auto iter = packet.ranges_begin();
+		iter != packet.ranges_end();
+		++iter, gap = !gap
 	) {
-		uint64_t range = p.read_uint64_be_unsafe(i*8);
+		uint64_t range = *iter;
 
 		uint64_t low = high - range;
 
