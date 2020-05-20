@@ -53,6 +53,7 @@ public:
 
 	template<typename DelegateType, void (DelegateType::*callback)()>
 	void start(uint64_t timeout, uint64_t repeat) {
+		stop();
 		this->repeat = repeat;
 		next_event = std::make_shared<TimerEvent<
 			Simulator,
@@ -68,6 +69,7 @@ public:
 
 	template<typename DelegateType, typename DataType, void (DelegateType::*callback)(DataType&)>
 	void start(uint64_t timeout, uint64_t repeat) {
+		stop();
 		this->repeat = repeat;
 		auto event = std::make_shared<TimerEvent<
 			Simulator,
