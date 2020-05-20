@@ -4,6 +4,7 @@
 #include "marlin/simulator/network/NetworkInterface.hpp"
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/TransportManager.hpp>
 
@@ -30,6 +31,8 @@ private:
 
 	EventManager& manager;
 public:
+	using MessageType = core::BaseMessage;
+
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
