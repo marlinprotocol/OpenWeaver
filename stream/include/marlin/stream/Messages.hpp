@@ -8,7 +8,38 @@ namespace marlin {
 namespace stream {
 
 template<typename BaseMessageType>
-struct DATA {
+struct ConnIdMixin {
+	BaseMessageType& set_src_conn_id(uint32_t src_conn_id) & {
+		((BaseMessageType*)this)->base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+
+		return *((BaseMessageType*)this);
+	}
+
+	BaseMessageType&& set_src_conn_id(uint32_t src_conn_id) && {
+		return std::move(set_src_conn_id(src_conn_id));
+	}
+
+	uint32_t src_conn_id() const {
+		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_be_unsafe(6);
+	}
+
+	BaseMessageType& set_dst_conn_id(uint32_t dst_conn_id) & {
+		((BaseMessageType*)this)->base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+
+		return *((BaseMessageType*)this);
+	}
+
+	BaseMessageType&& set_dst_conn_id(uint32_t dst_conn_id) && {
+		return std::move(set_dst_conn_id(dst_conn_id));
+	}
+
+	uint32_t dst_conn_id() const {
+		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_be_unsafe(2);
+	}
+};
+
+template<typename BaseMessageType>
+struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
@@ -20,34 +51,6 @@ struct DATA {
 	}
 
 	DATA(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	DATA& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	DATA&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	DATA& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	DATA&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	DATA& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(18, stream_id);
@@ -153,7 +156,7 @@ struct DATA {
 };
 
 template<typename BaseMessageType>
-struct ACK {
+struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -169,34 +172,6 @@ struct ACK {
 	}
 
 	ACK(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	ACK& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	ACK&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	ACK& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	ACK&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	ACK& set_size(uint16_t size) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, size);
@@ -298,7 +273,7 @@ struct ACK {
 };
 
 template<typename BaseMessageType>
-struct DIAL {
+struct DIAL : public ConnIdMixin<DIAL<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
@@ -310,34 +285,6 @@ struct DIAL {
 	}
 
 	DIAL(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	DIAL& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	DIAL&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	DIAL& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	DIAL&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	DIAL& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(10, in, size);
@@ -373,7 +320,7 @@ struct DIAL {
 };
 
 template<typename BaseMessageType>
-struct DIALCONF {
+struct DIALCONF : public ConnIdMixin<DIALCONF<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
@@ -385,34 +332,6 @@ struct DIALCONF {
 	}
 
 	DIALCONF(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	DIALCONF& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	DIALCONF&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	DIALCONF& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	DIALCONF&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	DIALCONF& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(10, in, size);
@@ -448,7 +367,7 @@ struct DIALCONF {
 };
 
 template<typename BaseMessageType>
-struct CONF {
+struct CONF : public ConnIdMixin<CONF<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -461,34 +380,6 @@ struct CONF {
 
 	CONF(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	CONF& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	CONF&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	CONF& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	CONF&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
-
 	core::Buffer finalize() {
 		return base.finalize();
 	}
@@ -499,7 +390,7 @@ struct CONF {
 };
 
 template<typename BaseMessageType>
-struct RST {
+struct RST : public ConnIdMixin<RST<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -512,34 +403,6 @@ struct RST {
 
 	RST(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	RST& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	RST&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	RST& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	RST&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
-
 	core::Buffer finalize() {
 		return base.finalize();
 	}
@@ -550,7 +413,7 @@ struct RST {
 };
 
 template<typename BaseMessageType>
-struct SKIPSTREAM {
+struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -562,34 +425,6 @@ struct SKIPSTREAM {
 	}
 
 	SKIPSTREAM(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	SKIPSTREAM& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	SKIPSTREAM&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	SKIPSTREAM& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	SKIPSTREAM&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	SKIPSTREAM& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
@@ -629,7 +464,7 @@ struct SKIPSTREAM {
 };
 
 template<typename BaseMessageType>
-struct FLUSHSTREAM {
+struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -641,34 +476,6 @@ struct FLUSHSTREAM {
 	}
 
 	FLUSHSTREAM(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	FLUSHSTREAM& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	FLUSHSTREAM&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	FLUSHSTREAM& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	FLUSHSTREAM&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	FLUSHSTREAM& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
@@ -708,7 +515,7 @@ struct FLUSHSTREAM {
 };
 
 template<typename BaseMessageType>
-struct FLUSHCONF {
+struct FLUSHCONF : public ConnIdMixin<FLUSHCONF<BaseMessageType>> {
 	BaseMessageType base;
 
 	[[nodiscard]] bool validate() const {
@@ -720,34 +527,6 @@ struct FLUSHCONF {
 	}
 
 	FLUSHCONF(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	FLUSHCONF& set_src_conn_id(uint32_t src_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
-
-		return *this;
-	}
-
-	FLUSHCONF&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(6);
-	}
-
-	FLUSHCONF& set_dst_conn_id(uint32_t dst_conn_id) & {
-		base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
-
-		return *this;
-	}
-
-	FLUSHCONF&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return base.payload_buffer().read_uint32_be_unsafe(2);
-	}
 
 	FLUSHCONF& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
