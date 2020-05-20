@@ -127,6 +127,16 @@ ENDIF()
 target_compile_options(stream_client PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(stream_client PRIVATE cxx_std_17)
 
+add_executable(stream_simulated_example
+	examples/stream_simulated.cpp
+)
+add_dependencies(stream_examples stream_simulated_example)
+
+target_link_libraries(stream_simulated_example PUBLIC stream marlin::simulator)
+target_compile_definitions(${TEST_NAME} PRIVATE MARLIN_ASYNCIO_SIMULATOR)
+target_compile_options(stream_simulated_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(stream_simulated_example PRIVATE cxx_std_17)
+
 
 ##########################################################
 # All
