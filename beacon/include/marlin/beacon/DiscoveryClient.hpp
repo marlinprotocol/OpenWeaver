@@ -126,7 +126,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPROTO<BaseMessageType>().finalize());
+	transport.send(DISCPROTO<BaseMessageType>());
 }
 
 
@@ -157,7 +157,6 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	transport.send(
 		LISTPROTO<BaseMessageType>(protocols.size())
 		.set_protocols(protocols.begin(), protocols.end())
-		.finalize()
 	);
 }
 
@@ -188,7 +187,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPEER<BaseMessageType>().finalize());
+	transport.send(DISCPEER<BaseMessageType>());
 }
 
 /*!
@@ -221,7 +220,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	transport.send(HEARTBEAT<BaseMessageType>().set_key(static_pk).finalize());
+	transport.send(HEARTBEAT<BaseMessageType>().set_key(static_pk));
 }
 
 /*!
