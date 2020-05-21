@@ -26,6 +26,10 @@ struct DISCPROTO {
 		base.set_payload({0, 0});
 	}
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	core::Buffer finalize() {
 		return base.finalize();
 	}
@@ -63,6 +67,10 @@ struct DISCPROTO {
 template<typename BaseMessageType>
 struct LISTPROTO {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	LISTPROTO(size_t num_proto = 0) : base(3+8*num_proto) {
 		base.set_payload({0, 1});
@@ -180,6 +188,10 @@ template<typename BaseMessageType>
 struct DISCPEER {
 	BaseMessageType base;
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	DISCPEER() : base(2) {
 		base.set_payload({0, 2});
 	}
@@ -227,6 +239,10 @@ struct DISCPEER {
 template<typename BaseMessageType>
 struct LISTPEER {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	LISTPEER(size_t num_peer = 0) : base(2+8*num_peer) {
 		base.set_payload({0, 3});
@@ -331,6 +347,10 @@ struct LISTPEER {
 template<typename BaseMessageType>
 struct HEARTBEAT {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	HEARTBEAT() : base(2+crypto_box_PUBLICKEYBYTES) {
 		base.set_payload({0,4});
