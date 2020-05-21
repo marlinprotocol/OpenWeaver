@@ -41,6 +41,11 @@ private:
 	using BaseTransportFactory = TransportFactory<Self, Self>;
 	using BaseTransport = Transport<Self>;
 	using BaseMessageType = typename BaseTransport::MessageType;
+	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
+	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
+	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
+	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
+	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
@@ -48,10 +53,10 @@ private:
 	void send_DISCPROTO(BaseTransport &transport);
 	void did_recv_DISCPROTO(BaseTransport &transport);
 	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO<BaseMessageType> &&packet);
+	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER<BaseMessageType> &&packet);
+	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
@@ -126,7 +131,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPROTO<BaseMessageType>());
+	transport.send(DISCPROTO());
 }
 
 
@@ -155,7 +160,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	assert(protocols.size() < 100);
 
 	transport.send(
-		LISTPROTO<BaseMessageType>(protocols.size())
+		LISTPROTO(protocols.size())
 		.set_protocols(protocols.begin(), protocols.end())
 	);
 }
@@ -163,7 +168,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	BaseTransport &transport,
-	LISTPROTO<BaseMessageType> &&packet
+	LISTPROTO &&packet
 ) {
 	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
 
@@ -187,7 +192,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	transport.send(DISCPEER<BaseMessageType>());
+	transport.send(DISCPEER());
 }
 
 /*!
@@ -197,7 +202,7 @@ void DISCOVERYCLIENT::send_DISCPEER(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
-	LISTPEER<BaseMessageType> &&packet
+	LISTPEER &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
@@ -220,7 +225,7 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	transport.send(HEARTBEAT<BaseMessageType>().set_key(static_pk));
+	transport.send(HEARTBEAT().set_key(static_pk));
 }
 
 /*!
