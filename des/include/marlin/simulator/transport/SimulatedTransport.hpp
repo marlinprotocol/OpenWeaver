@@ -50,6 +50,7 @@ public:
 	void close();
 
 	int send(core::Buffer&& buf);
+	int send(MessageType&& buf);
 	void did_recv(
 		core::SocketAddress const& addr,
 		core::Buffer&& message
@@ -121,6 +122,19 @@ int SimulatedTransport<
 		this->dst_addr,
 		std::move(buf)
 	);
+}
+
+template<
+	typename EventManager,
+	typename NetworkInterfaceType,
+	typename DelegateType
+>
+int SimulatedTransport<
+	EventManager,
+	NetworkInterfaceType,
+	DelegateType
+>::send(MessageType&& buf) {
+	return send(std::move(buf).payload_buffer());
 }
 
 template<
