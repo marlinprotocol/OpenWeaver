@@ -42,6 +42,11 @@ private:
 		DiscoveryServer<DiscoveryServerDelegate>
 	>;
 	using BaseMessageType = typename BaseTransport::MessageType;
+	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
+	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
+	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
+	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
+	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
@@ -52,7 +57,7 @@ private:
 	void did_recv_DISCPEER(BaseTransport &transport);
 	void send_LISTPEER(BaseTransport &transport);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT<BaseMessageType> &&bytes);
+	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
@@ -96,7 +101,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	transport.send(LISTPROTO<BaseMessageType>());
+	transport.send(LISTPROTO());
 }
 
 
@@ -130,7 +135,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		transport.send(LISTPEER<BaseMessageType>(150).set_peers(t_begin, t_end));
+		transport.send(LISTPEER(150).set_peers(t_begin, t_end));
 	}
 }
 
@@ -141,7 +146,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
-	HEARTBEAT<BaseMessageType> &&bytes
+	HEARTBEAT &&bytes
 ) {
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",

@@ -19,10 +19,10 @@ namespace beacon {
 \endverbatim
 */
 template<typename BaseMessageType>
-struct DISCPROTO {
+struct DISCPROTOWrapper {
 	BaseMessageType base;
 
-	DISCPROTO() : base(2) {
+	DISCPROTOWrapper() : base(2) {
 		base.set_payload({0, 0});
 	}
 
@@ -65,21 +65,21 @@ struct DISCPROTO {
 \endverbatim
 */
 template<typename BaseMessageType>
-struct LISTPROTO {
+struct LISTPROTOWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType&&() && {
 		return std::move(base);
 	}
 
-	LISTPROTO(size_t num_proto = 0) : base(3+8*num_proto) {
+	LISTPROTOWrapper(size_t num_proto = 0) : base(3+8*num_proto) {
 		base.set_payload({0, 1});
 	}
 
-	LISTPROTO(core::Buffer&& buf) : base(std::move(buf)) {}
+	LISTPROTOWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	template<typename It>
-	LISTPROTO& set_protocols(It begin, It end) & {
+	LISTPROTOWrapper& set_protocols(It begin, It end) & {
 		size_t count = 0;
 		while(begin != end) {
 			auto [protocol, version, port] = *begin;
@@ -99,7 +99,7 @@ struct LISTPROTO {
 	}
 
 	template<typename It>
-	LISTPROTO&& set_protocols(It begin, It end) && {
+	LISTPROTOWrapper&& set_protocols(It begin, It end) && {
 		return std::move(set_protocols(begin, end));
 	}
 
@@ -185,14 +185,14 @@ struct LISTPROTO {
 \endverbatim
 */
 template<typename BaseMessageType>
-struct DISCPEER {
+struct DISCPEERWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType&&() && {
 		return std::move(base);
 	}
 
-	DISCPEER() : base(2) {
+	DISCPEERWrapper() : base(2) {
 		base.set_payload({0, 2});
 	}
 
@@ -237,21 +237,21 @@ struct DISCPEER {
 \endverbatim
 */
 template<typename BaseMessageType>
-struct LISTPEER {
+struct LISTPEERWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType&&() && {
 		return std::move(base);
 	}
 
-	LISTPEER(size_t num_peer = 0) : base(2+8*num_peer) {
+	LISTPEERWrapper(size_t num_peer = 0) : base(2+8*num_peer) {
 		base.set_payload({0, 3});
 	}
 
-	LISTPEER(core::Buffer&& buf) : base(std::move(buf)) {}
+	LISTPEERWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	template<typename It>
-	LISTPEER& set_peers(It& begin, It end) & {
+	LISTPEERWrapper& set_peers(It& begin, It end) & {
 		size_t idx = 2;
 		while(begin != end && idx + 8 + crypto_box_PUBLICKEYBYTES <= base.payload_buffer().size()) {
 			begin->first.serialize(base.payload()+idx, 8);
@@ -266,7 +266,7 @@ struct LISTPEER {
 	}
 
 	template<typename It>
-	LISTPEER&& set_peers(It& begin, It end) && {
+	LISTPEERWrapper&& set_peers(It& begin, It end) && {
 		return std::move(set_peers(begin, end));
 	}
 
@@ -345,18 +345,18 @@ struct LISTPEER {
 \endverbatim
 */
 template<typename BaseMessageType>
-struct HEARTBEAT {
+struct HEARTBEATWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType&&() && {
 		return std::move(base);
 	}
 
-	HEARTBEAT() : base(2+crypto_box_PUBLICKEYBYTES) {
+	HEARTBEATWrapper() : base(2+crypto_box_PUBLICKEYBYTES) {
 		base.set_payload({0,4});
 	}
 
-	HEARTBEAT(core::Buffer&& buf) : base(std::move(buf)) {}
+	HEARTBEATWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	core::Buffer finalize() {
 		return base.finalize();
@@ -381,13 +381,13 @@ struct HEARTBEAT {
 		return base.payload_buffer().data()+2;
 	}
 
-	HEARTBEAT& set_key(uint8_t const* key) & {
+	HEARTBEATWrapper& set_key(uint8_t const* key) & {
 		base.payload_buffer().write_unsafe(2, key, crypto_box_PUBLICKEYBYTES);
 
 		return *this;
 	}
 
-	HEARTBEAT&& set_key(uint8_t const* key) && {
+	HEARTBEATWrapper&& set_key(uint8_t const* key) && {
 		return std::move(set_key(key));
 	}
 };
