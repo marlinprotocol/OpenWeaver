@@ -59,6 +59,7 @@ public:
 	void setup(DelegateType *delegate);
 	void did_recv_packet(core::Buffer &&packet);
 	int send(core::Buffer &&packet);
+	int send(MessageType &&packet);
 	void close();
 };
 
@@ -155,6 +156,11 @@ int UdpTransport<DelegateType>::send(core::Buffer &&packet) {
 	}
 
 	return 0;
+}
+
+template<typename DelegateType>
+int UdpTransport<DelegateType>::send(MessageType &&packet) {
+	return send(std::move(packet).payload_buffer());
 }
 
 //! erases self entry from the transport manager which in turn destroys this instance. No other action required sinces its a virtual connection anyways
