@@ -8,8 +8,12 @@ BaseMessage::BaseMessage(size_t size) : buf(size) {}
 
 BaseMessage::BaseMessage(Buffer&& buf) : buf(std::move(buf)) {}
 
-WeakBuffer BaseMessage::payload_buffer() const {
+WeakBuffer BaseMessage::payload_buffer() const& {
 	return WeakBuffer(buf.data(), buf.size());
+}
+
+Buffer&& BaseMessage::payload_buffer() && {
+	return std::move(buf);
 }
 
 uint8_t* BaseMessage::payload() const {
