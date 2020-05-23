@@ -42,6 +42,10 @@ template<typename BaseMessageType>
 struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 	BaseMessageType base;
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return base.payload_buffer().size() >= 30 + payload_size;
 	}
@@ -158,6 +162,10 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 template<typename BaseMessageType>
 struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	[[nodiscard]] bool validate() const {
 		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + size()*8) {
@@ -276,6 +284,10 @@ template<typename BaseMessageType>
 struct DIAL : public ConnIdMixin<DIAL<BaseMessageType>> {
 	BaseMessageType base;
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return base.payload_buffer().size() >= 10 + payload_size;
 	}
@@ -370,6 +382,10 @@ template<typename BaseMessageType>
 struct CONF : public ConnIdMixin<CONF<BaseMessageType>> {
 	BaseMessageType base;
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 10;
 	}
@@ -415,6 +431,10 @@ struct RST : public ConnIdMixin<RST<BaseMessageType>> {
 template<typename BaseMessageType>
 struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 20;
@@ -467,6 +487,10 @@ template<typename BaseMessageType>
 struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 	BaseMessageType base;
 
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
+
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 20;
 	}
@@ -517,6 +541,10 @@ struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 template<typename BaseMessageType>
 struct FLUSHCONF : public ConnIdMixin<FLUSHCONF<BaseMessageType>> {
 	BaseMessageType base;
+
+	operator BaseMessageType&&() && {
+		return std::move(base);
+	}
 
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 12;
