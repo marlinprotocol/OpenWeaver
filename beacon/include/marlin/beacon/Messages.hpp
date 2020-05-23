@@ -26,7 +26,7 @@ struct DISCPROTOWrapper {
 		base.set_payload({0, 0});
 	}
 
-	operator BaseMessageType&&() && {
+	operator BaseMessageType() && {
 		return std::move(base);
 	}
 };
