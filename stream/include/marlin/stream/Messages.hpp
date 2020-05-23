@@ -39,7 +39,7 @@ struct ConnIdMixin {
 };
 
 template<typename BaseMessageType>
-struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
+struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -50,19 +50,19 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return base.payload_buffer().size() >= 30 + payload_size;
 	}
 
-	DATA(size_t payload_size, bool is_fin) : base(30 + payload_size) {
+	DATAWrapper(size_t payload_size, bool is_fin) : base(30 + payload_size) {
 		base.set_payload({0, static_cast<uint8_t>(is_fin)});
 	}
 
-	DATA(core::Buffer&& buf) : base(std::move(buf)) {}
+	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	DATA& set_stream_id(uint16_t stream_id) & {
+	DATAWrapper& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(18, stream_id);
 
 		return *this;
 	}
 
-	DATA&& set_stream_id(uint16_t stream_id) && {
+	DATAWrapper&& set_stream_id(uint16_t stream_id) && {
 		return std::move(set_stream_id(stream_id));
 	}
 
@@ -70,13 +70,13 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return base.payload_buffer().read_uint16_be_unsafe(18);
 	}
 
-	DATA& set_packet_number(uint64_t packet_number) & {
+	DATAWrapper& set_packet_number(uint64_t packet_number) & {
 		base.payload_buffer().write_uint64_be_unsafe(10, packet_number);
 
 		return *this;
 	}
 
-	DATA&& set_packet_number(uint64_t packet_number) && {
+	DATAWrapper&& set_packet_number(uint64_t packet_number) && {
 		return std::move(set_packet_number(packet_number));
 	}
 
@@ -84,13 +84,13 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return base.payload_buffer().read_uint64_be_unsafe(10);
 	}
 
-	DATA& set_offset(uint64_t offset) & {
+	DATAWrapper& set_offset(uint64_t offset) & {
 		base.payload_buffer().write_uint64_be_unsafe(20, offset);
 
 		return *this;
 	}
 
-	DATA&& set_offset(uint64_t offset) && {
+	DATAWrapper&& set_offset(uint64_t offset) && {
 		return std::move(set_offset(offset));
 	}
 
@@ -98,13 +98,13 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return base.payload_buffer().read_uint64_be_unsafe(20);
 	}
 
-	DATA& set_length(uint16_t length) & {
+	DATAWrapper& set_length(uint16_t length) & {
 		base.payload_buffer().write_uint16_be_unsafe(28, length);
 
 		return *this;
 	}
 
-	DATA&& set_length(uint16_t length) && {
+	DATAWrapper&& set_length(uint16_t length) && {
 		return std::move(set_length(length));
 	}
 
@@ -112,23 +112,23 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return base.payload_buffer().read_uint16_be_unsafe(28);
 	}
 
-	DATA& set_payload(uint8_t const* in, size_t size) & {
+	DATAWrapper& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(30, in, size);
 
 		return *this;
 	}
 
-	DATA&& set_payload(uint8_t const* in, size_t size) && {
+	DATAWrapper&& set_payload(uint8_t const* in, size_t size) && {
 		return std::move(set_payload(in, size));
 	}
 
-	DATA& set_payload(std::initializer_list<uint8_t> il) & {
+	DATAWrapper& set_payload(std::initializer_list<uint8_t> il) & {
 		base.payload_buffer().write_unsafe(30, il.begin(), il.size());
 
 		return *this;
 	}
 
-	DATA&& set_payload(std::initializer_list<uint8_t> il) && {
+	DATAWrapper&& set_payload(std::initializer_list<uint8_t> il) && {
 		return std::move(set_payload(il));
 	}
 
@@ -167,7 +167,7 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
+struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -182,19 +182,19 @@ struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 		return true;
 	}
 
-	ACK(size_t num_ranges) : base(20 + 8*num_ranges) {
+	ACKWrapper(size_t num_ranges) : base(20 + 8*num_ranges) {
 		base.set_payload({0, 2});
 	}
 
-	ACK(core::Buffer&& buf) : base(std::move(buf)) {}
+	ACKWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	ACK& set_size(uint16_t size) & {
+	ACKWrapper& set_size(uint16_t size) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, size);
 
 		return *this;
 	}
 
-	ACK&& set_size(uint16_t size) && {
+	ACKWrapper&& set_size(uint16_t size) && {
 		return std::move(set_size(size));
 	}
 
@@ -202,13 +202,13 @@ struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 		return base.payload_buffer().read_uint16_be_unsafe(10);
 	}
 
-	ACK& set_packet_number(uint64_t packet_number) & {
+	ACKWrapper& set_packet_number(uint64_t packet_number) & {
 		base.payload_buffer().write_uint64_be_unsafe(12, packet_number);
 
 		return *this;
 	}
 
-	ACK&& set_packet_number(uint64_t packet_number) && {
+	ACKWrapper&& set_packet_number(uint64_t packet_number) && {
 		return std::move(set_packet_number(packet_number));
 	}
 
@@ -258,7 +258,7 @@ struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 	}
 
 	template<typename It>
-	ACK& set_ranges(It begin, It end) & {
+	ACKWrapper& set_ranges(It begin, It end) & {
 		size_t idx = 20;
 		while(begin != end && idx + 8 <= base.payload_buffer().size()) {
 			base.payload_buffer().write_uint64_be_unsafe(idx, *begin);
@@ -271,7 +271,7 @@ struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 	}
 
 	template<typename It>
-	ACK&& set_ranges(It begin, It end) && {
+	ACKWrapper&& set_ranges(It begin, It end) && {
 		return std::move(set_ranges(begin, end));
 	}
 
@@ -288,7 +288,7 @@ struct ACK : public ConnIdMixin<ACK<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct DIAL : public ConnIdMixin<DIAL<BaseMessageType>> {
+struct DIALWrapper : public ConnIdMixin<DIALWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -299,29 +299,29 @@ struct DIAL : public ConnIdMixin<DIAL<BaseMessageType>> {
 		return base.payload_buffer().size() >= 10 + payload_size;
 	}
 
-	DIAL(size_t payload_size) : base(10 + payload_size) {
+	DIALWrapper(size_t payload_size) : base(10 + payload_size) {
 		base.set_payload({0, 3});
 	}
 
-	DIAL(core::Buffer&& buf) : base(std::move(buf)) {}
+	DIALWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	DIAL& set_payload(uint8_t const* in, size_t size) & {
+	DIALWrapper& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(10, in, size);
 
 		return *this;
 	}
 
-	DIAL&& set_payload(uint8_t const* in, size_t size) && {
+	DIALWrapper&& set_payload(uint8_t const* in, size_t size) && {
 		return std::move(set_payload(in, size));
 	}
 
-	DIAL& set_payload(std::initializer_list<uint8_t> il) & {
+	DIALWrapper& set_payload(std::initializer_list<uint8_t> il) & {
 		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
 
 		return *this;
 	}
 
-	DIAL&& set_payload(std::initializer_list<uint8_t> il) && {
+	DIALWrapper&& set_payload(std::initializer_list<uint8_t> il) && {
 		return std::move(set_payload(il));
 	}
 
@@ -339,7 +339,7 @@ struct DIAL : public ConnIdMixin<DIAL<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct DIALCONF : public ConnIdMixin<DIALCONF<BaseMessageType>> {
+struct DIALCONFWrapper : public ConnIdMixin<DIALCONFWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -350,29 +350,29 @@ struct DIALCONF : public ConnIdMixin<DIALCONF<BaseMessageType>> {
 		return base.payload_buffer().size() >= 10 + payload_size;
 	}
 
-	DIALCONF(size_t payload_size) : base(10 + payload_size) {
+	DIALCONFWrapper(size_t payload_size) : base(10 + payload_size) {
 		base.set_payload({0, 4});
 	}
 
-	DIALCONF(core::Buffer&& buf) : base(std::move(buf)) {}
+	DIALCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	DIALCONF& set_payload(uint8_t const* in, size_t size) & {
+	DIALCONFWrapper& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(10, in, size);
 
 		return *this;
 	}
 
-	DIALCONF&& set_payload(uint8_t const* in, size_t size) && {
+	DIALCONFWrapper&& set_payload(uint8_t const* in, size_t size) && {
 		return std::move(set_payload(in, size));
 	}
 
-	DIALCONF& set_payload(std::initializer_list<uint8_t> il) & {
+	DIALCONFWrapper& set_payload(std::initializer_list<uint8_t> il) & {
 		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
 
 		return *this;
 	}
 
-	DIALCONF&& set_payload(std::initializer_list<uint8_t> il) && {
+	DIALCONFWrapper&& set_payload(std::initializer_list<uint8_t> il) && {
 		return std::move(set_payload(il));
 	}
 
@@ -390,7 +390,7 @@ struct DIALCONF : public ConnIdMixin<DIALCONF<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct CONF : public ConnIdMixin<CONF<BaseMessageType>> {
+struct CONFWrapper : public ConnIdMixin<CONFWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -401,11 +401,11 @@ struct CONF : public ConnIdMixin<CONF<BaseMessageType>> {
 		return base.payload_buffer().size() >= 10;
 	}
 
-	CONF() : base(10) {
+	CONFWrapper() : base(10) {
 		base.set_payload({0, 5});
 	}
 
-	CONF(core::Buffer&& buf) : base(std::move(buf)) {}
+	CONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	core::Buffer finalize() {
 		return base.finalize();
@@ -417,7 +417,7 @@ struct CONF : public ConnIdMixin<CONF<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct RST : public ConnIdMixin<RST<BaseMessageType>> {
+struct RSTWrapper : public ConnIdMixin<RSTWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -428,11 +428,11 @@ struct RST : public ConnIdMixin<RST<BaseMessageType>> {
 		return base.payload_buffer().size() >= 10;
 	}
 
-	RST() : base(10) {
+	RSTWrapper() : base(10) {
 		base.set_payload({0, 6});
 	}
 
-	RST(core::Buffer&& buf) : base(std::move(buf)) {}
+	RSTWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	core::Buffer finalize() {
 		return base.finalize();
@@ -444,7 +444,7 @@ struct RST : public ConnIdMixin<RST<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
+struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -455,19 +455,19 @@ struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
 		return base.payload_buffer().size() >= 20;
 	}
 
-	SKIPSTREAM() : base(20) {
+	SKIPSTREAMWrapper() : base(20) {
 		base.set_payload({0, 7});
 	}
 
-	SKIPSTREAM(core::Buffer&& buf) : base(std::move(buf)) {}
+	SKIPSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	SKIPSTREAM& set_stream_id(uint16_t stream_id) & {
+	SKIPSTREAMWrapper& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
 
 		return *this;
 	}
 
-	SKIPSTREAM&& set_stream_id(uint16_t stream_id) && {
+	SKIPSTREAMWrapper&& set_stream_id(uint16_t stream_id) && {
 		return std::move(set_stream_id(stream_id));
 	}
 
@@ -475,13 +475,13 @@ struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
 		return base.payload_buffer().read_uint16_be_unsafe(10);
 	}
 
-	SKIPSTREAM& set_offset(uint64_t offset) & {
+	SKIPSTREAMWrapper& set_offset(uint64_t offset) & {
 		base.payload_buffer().write_uint64_be_unsafe(12, offset);
 
 		return *this;
 	}
 
-	SKIPSTREAM&& set_offset(uint64_t offset) && {
+	SKIPSTREAMWrapper&& set_offset(uint64_t offset) && {
 		return std::move(set_offset(offset));
 	}
 
@@ -499,7 +499,7 @@ struct SKIPSTREAM : public ConnIdMixin<SKIPSTREAM<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
+struct FLUSHSTREAMWrapper : public ConnIdMixin<FLUSHSTREAMWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -510,19 +510,19 @@ struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 		return base.payload_buffer().size() >= 20;
 	}
 
-	FLUSHSTREAM() : base(20) {
+	FLUSHSTREAMWrapper() : base(20) {
 		base.set_payload({0, 8});
 	}
 
-	FLUSHSTREAM(core::Buffer&& buf) : base(std::move(buf)) {}
+	FLUSHSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	FLUSHSTREAM& set_stream_id(uint16_t stream_id) & {
+	FLUSHSTREAMWrapper& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
 
 		return *this;
 	}
 
-	FLUSHSTREAM&& set_stream_id(uint16_t stream_id) && {
+	FLUSHSTREAMWrapper&& set_stream_id(uint16_t stream_id) && {
 		return std::move(set_stream_id(stream_id));
 	}
 
@@ -530,13 +530,13 @@ struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 		return base.payload_buffer().read_uint16_be_unsafe(10);
 	}
 
-	FLUSHSTREAM& set_offset(uint64_t offset) & {
+	FLUSHSTREAMWrapper& set_offset(uint64_t offset) & {
 		base.payload_buffer().write_uint64_be_unsafe(12, offset);
 
 		return *this;
 	}
 
-	FLUSHSTREAM&& set_offset(uint64_t offset) && {
+	FLUSHSTREAMWrapper&& set_offset(uint64_t offset) && {
 		return std::move(set_offset(offset));
 	}
 
@@ -554,7 +554,7 @@ struct FLUSHSTREAM : public ConnIdMixin<FLUSHSTREAM<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct FLUSHCONF : public ConnIdMixin<FLUSHCONF<BaseMessageType>> {
+struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -565,19 +565,19 @@ struct FLUSHCONF : public ConnIdMixin<FLUSHCONF<BaseMessageType>> {
 		return base.payload_buffer().size() >= 12;
 	}
 
-	FLUSHCONF() : base(12) {
+	FLUSHCONFWrapper() : base(12) {
 		base.set_payload({0, 9});
 	}
 
-	FLUSHCONF(core::Buffer&& buf) : base(std::move(buf)) {}
+	FLUSHCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	FLUSHCONF& set_stream_id(uint16_t stream_id) & {
+	FLUSHCONFWrapper& set_stream_id(uint16_t stream_id) & {
 		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
 
 		return *this;
 	}
 
-	FLUSHCONF&& set_stream_id(uint16_t stream_id) && {
+	FLUSHCONFWrapper&& set_stream_id(uint16_t stream_id) && {
 		return std::move(set_stream_id(stream_id));
 	}
 
