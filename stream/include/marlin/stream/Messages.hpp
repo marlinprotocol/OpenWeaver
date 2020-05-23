@@ -132,11 +132,18 @@ struct DATA : public ConnIdMixin<DATA<BaseMessageType>> {
 		return std::move(set_payload(il));
 	}
 
-	core::WeakBuffer payload_buffer() const {
+	core::WeakBuffer payload_buffer() const& {
 		auto buf = base.payload_buffer();
 		buf.cover_unsafe(30);
 
 		return buf;
+	}
+
+	core::Buffer payload_buffer() && {
+		auto buf = std::move(base).payload_buffer();
+		buf.cover_unsafe(30);
+
+		return std::move(buf);
 	}
 
 	uint8_t* payload() {

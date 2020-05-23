@@ -1027,8 +1027,10 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 					.set_stream_id(stream.stream_id)
 					.set_offset(data_item.stream_offset + offset)
 					.set_length(length)
-					.finalize();
+					.payload_buffer();
 
+	// Figure out better way
+	packet.uncover_unsafe(30);
 	packet.write_unsafe(30, data_item.data.data()+offset, length);
 	packet.write_unsafe(30 + length + crypto_aead_aes256gcm_ABYTES, nonce, 12);
 	crypto_aead_aes256gcm_encrypt_afternm(
