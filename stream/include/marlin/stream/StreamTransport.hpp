@@ -51,6 +51,16 @@ private:
 	using BaseTransport = DatagramTransport<Self>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 
+	using DATA = DATAWrapper<BaseMessageType>;
+	using ACK = ACKWrapper<BaseMessageType>;
+	using DIAL = DIALWrapper<BaseMessageType>;
+	using DIALCONF = DIALCONFWrapper<BaseMessageType>;
+	using CONF = CONFWrapper<BaseMessageType>;
+	using RST = RSTWrapper<BaseMessageType>;
+	using SKIPSTREAM = SKIPSTREAMWrapper<BaseMessageType>;
+	using FLUSHSTREAM = FLUSHSTREAMWrapper<BaseMessageType>;
+	using FLUSHCONF = FLUSHCONFWrapper<BaseMessageType>;
+
 	BaseTransport &transport;
 	core::TransportManager<Self> &transport_manager;
 
@@ -135,16 +145,16 @@ private:
 
 	// Protocol
 	void send_DIAL();
-	void did_recv_DIAL(DIAL<BaseMessageType> &&packet);
+	void did_recv_DIAL(DIAL &&packet);
 
 	void send_DIALCONF();
-	void did_recv_DIALCONF(DIALCONF<BaseMessageType> &&packet);
+	void did_recv_DIALCONF(DIALCONF &&packet);
 
 	void send_CONF();
-	void did_recv_CONF(CONF<BaseMessageType> &&packet);
+	void did_recv_CONF(CONF &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
-	void did_recv_RST(RST<BaseMessageType> &&packet);
+	void did_recv_RST(RST &&packet);
 
 	void send_DATA(
 		SendStream &stream,
@@ -152,19 +162,19 @@ private:
 		uint64_t offset,
 		uint16_t length
 	);
-	void did_recv_DATA(DATA<BaseMessageType> &&packet);
+	void did_recv_DATA(DATA &&packet);
 
 	void send_ACK();
-	void did_recv_ACK(ACK<BaseMessageType> &&packet);
+	void did_recv_ACK(ACK &&packet);
 
 	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_SKIPSTREAM(SKIPSTREAM<BaseMessageType> &&packet);
+	void did_recv_SKIPSTREAM(SKIPSTREAM &&packet);
 
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_FLUSHSTREAM(FLUSHSTREAM<BaseMessageType> &&packet);
+	void did_recv_FLUSHSTREAM(FLUSHSTREAM &&packet);
 
 	void send_FLUSHCONF(uint16_t stream_id);
-	void did_recv_FLUSHCONF(FLUSHCONF<BaseMessageType> &&packet);
+	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
 
 public:
 	// Delegate
@@ -623,7 +633,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	crypto_box_seal(buf, buf + 32, pt_len, remote_static_pk);
 
 	transport.send(
-		DIAL<BaseMessageType>(ct_len)
+		DIAL(ct_len)
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 		.set_payload(buf, ct_len)
@@ -632,7 +642,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
-	DIAL<BaseMessageType> &&packet
+	DIAL &&packet
 ) {
 	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
@@ -765,7 +775,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	crypto_box_seal(buf, ephemeral_pk, pt_len, remote_static_pk);
 
 	transport.send(
-		DIALCONF<BaseMessageType>(ct_len)
+		DIALCONF(ct_len)
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 		.set_payload(buf, ct_len)
@@ -774,7 +784,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
-	DIALCONF<BaseMessageType> &&packet
+	DIALCONF &&packet
 ) {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
@@ -899,7 +909,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 	transport.send(
-		CONF<BaseMessageType>()
+		CONF()
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 	);
@@ -907,7 +917,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
-	CONF<BaseMessageType> &&packet
+	CONF &&packet
 ) {
 	if(!packet.validate()) {
 		return;
@@ -970,7 +980,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t dst_conn_id
 ) {
 	transport.send(
-		RST<BaseMessageType>()
+		RST()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 	);
@@ -978,7 +988,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	RST<BaseMessageType> &&packet
+	RST &&packet
 ) {
 	if(!packet.validate()) {
 		return;
@@ -1016,7 +1026,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	bool is_fin = (stream.done_queueing &&
 		data_item.stream_offset + offset + length >= stream.queue_offset);
 
-	auto packet = DATA<BaseMessageType>(12 + length + crypto_aead_aes256gcm_ABYTES, is_fin)
+	auto packet = DATA(12 + length + crypto_aead_aes256gcm_ABYTES, is_fin)
 					.set_src_conn_id(src_conn_id)
 					.set_dst_conn_id(dst_conn_id)
 					.set_packet_number(this->last_sent_packet)
@@ -1070,7 +1080,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
-	DATA<BaseMessageType> &&packet
+	DATA &&packet
 ) {
 	if(!packet.validate(12 + crypto_aead_aes256gcm_ABYTES)) {
 		return;
@@ -1240,7 +1250,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 	size_t size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
 	transport.send(
-		ACK<BaseMessageType>(size)
+		ACK(size)
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 		.set_packet_number(ack_ranges.largest)
@@ -1251,7 +1261,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
-	ACK<BaseMessageType> &&packet
+	ACK &&packet
 ) {
 	if(!packet.validate()) {
 		return;
@@ -1499,7 +1509,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint64_t offset
 ) {
 	transport.send(
-		SKIPSTREAM<BaseMessageType>()
+		SKIPSTREAM()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
@@ -1509,7 +1519,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
-	SKIPSTREAM<BaseMessageType> &&packet
+	SKIPSTREAM &&packet
 ) {
 	if(!packet.validate()) {
 		return;
@@ -1558,7 +1568,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 	uint64_t offset
 ) {
 	transport.send(
-		FLUSHSTREAM<BaseMessageType>()
+		FLUSHSTREAM()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
@@ -1568,7 +1578,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
-	FLUSHSTREAM<BaseMessageType> &&packet
+	FLUSHSTREAM &&packet
 ) {
 	if(!packet.validate()) {
 		return;
@@ -1623,7 +1633,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 	uint16_t stream_id
 ) {
 	transport.send(
-		FLUSHCONF<BaseMessageType>()
+		FLUSHCONF()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
@@ -1632,7 +1642,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
-	FLUSHCONF<BaseMessageType> &&packet
+	FLUSHCONF &&packet
 ) {
 	if(!packet.validate()) {
 		return;
