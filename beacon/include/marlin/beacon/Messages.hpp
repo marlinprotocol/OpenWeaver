@@ -29,14 +29,6 @@ struct DISCPROTOWrapper {
 	operator BaseMessageType&&() && {
 		return std::move(base);
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 /*!
@@ -101,14 +93,6 @@ struct LISTPROTOWrapper {
 	template<typename It>
 	LISTPROTOWrapper&& set_protocols(It begin, It end) && {
 		return std::move(set_protocols(begin, end));
-	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
 	}
 
 	[[nodiscard]] bool validate() const {
@@ -195,14 +179,6 @@ struct DISCPEERWrapper {
 	DISCPEERWrapper() : base(2) {
 		base.set_payload({0, 2});
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 /*!
@@ -268,14 +244,6 @@ struct LISTPEERWrapper {
 	template<typename It>
 	LISTPEERWrapper&& set_peers(It& begin, It end) && {
 		return std::move(set_peers(begin, end));
-	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
 	}
 
 	[[nodiscard]] bool validate() const {
@@ -357,14 +325,6 @@ struct HEARTBEATWrapper {
 	}
 
 	HEARTBEATWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 2+crypto_box_PUBLICKEYBYTES;
