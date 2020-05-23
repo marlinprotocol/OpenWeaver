@@ -627,7 +627,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 		.set_payload(buf, ct_len)
-		.finalize()
 	);
 }
 
@@ -770,7 +769,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 		.set_payload(buf, ct_len)
-		.finalize()
 	);
 }
 
@@ -904,7 +902,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 		CONF<BaseMessageType>()
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
-		.finalize()
 	);
 }
 
@@ -976,7 +973,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 		RST<BaseMessageType>()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
-		.finalize()
 	);
 }
 
@@ -1250,7 +1246,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
 		.set_packet_number(ack_ranges.largest)
 		.set_size(size)
 		.set_ranges(ack_ranges.ranges.begin(), ack_ranges.ranges.end())
-		.finalize()
 	);
 }
 
@@ -1509,7 +1504,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
 		.set_offset(offset)
-		.finalize()
 	);
 }
 
@@ -1569,7 +1563,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
 		.set_offset(offset)
-		.finalize()
 	);
 }
 
@@ -1634,7 +1627,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
 		.set_stream_id(stream_id)
-		.finalize()
 	);
 }
 
