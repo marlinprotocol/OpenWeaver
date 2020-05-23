@@ -12,7 +12,7 @@ WeakBuffer BaseMessage::payload_buffer() const& {
 	return WeakBuffer(buf.data(), buf.size());
 }
 
-Buffer&& BaseMessage::payload_buffer() && {
+Buffer BaseMessage::payload_buffer() && {
 	return std::move(buf);
 }
 
