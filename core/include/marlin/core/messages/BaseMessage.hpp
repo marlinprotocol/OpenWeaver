@@ -16,7 +16,7 @@ struct BaseMessage {
 	BaseMessage(Buffer&& buf);
 
 	WeakBuffer payload_buffer() const&;
-	Buffer&& payload_buffer() &&;
+	Buffer payload_buffer() &&;
 	uint8_t* payload() const;
 
 	BaseMessage& set_payload(uint8_t const* in, size_t size) &;
