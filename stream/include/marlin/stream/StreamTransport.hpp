@@ -1154,7 +1154,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		stream.state = RecvStream::State::SizeKnown;
 	}
 
-	auto p = packet.release();
+	auto p = std::move(packet).payload_buffer();
 	p.truncate_unsafe(crypto_aead_aes256gcm_ABYTES + 12);
 
 	// Check if length matches packet

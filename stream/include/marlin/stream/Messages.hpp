@@ -153,17 +153,6 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	bool is_fin_set() const {
 		return base.payload_buffer().read_uint8_unsafe(1) == 1;
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		auto buf = base.release();
-		buf.cover_unsafe(30);
-
-		return std::move(buf);
-	}
 };
 
 template<typename BaseMessageType>
@@ -274,17 +263,6 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	ACKWrapper&& set_ranges(It begin, It end) && {
 		return std::move(set_ranges(begin, end));
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		auto buf = base.release();
-		buf.cover_unsafe(30);
-
-		return std::move(buf);
-	}
 };
 
 template<typename BaseMessageType>
@@ -327,14 +305,6 @@ struct DIALWrapper : public ConnIdMixin<DIALWrapper<BaseMessageType>> {
 
 	uint8_t* payload() {
 		return base.payload_buffer().data() + 10;
-	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
 	}
 };
 
@@ -379,14 +349,6 @@ struct DIALCONFWrapper : public ConnIdMixin<DIALCONFWrapper<BaseMessageType>> {
 	uint8_t* payload() {
 		return base.payload_buffer().data() + 10;
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 template<typename BaseMessageType>
@@ -406,14 +368,6 @@ struct CONFWrapper : public ConnIdMixin<CONFWrapper<BaseMessageType>> {
 	}
 
 	CONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 template<typename BaseMessageType>
@@ -433,14 +387,6 @@ struct RSTWrapper : public ConnIdMixin<RSTWrapper<BaseMessageType>> {
 	}
 
 	RSTWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 template<typename BaseMessageType>
@@ -487,14 +433,6 @@ struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>
 
 	uint64_t offset() const {
 		return base.payload_buffer().read_uint64_be_unsafe(12);
-	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
 	}
 };
 
@@ -543,14 +481,6 @@ struct FLUSHSTREAMWrapper : public ConnIdMixin<FLUSHSTREAMWrapper<BaseMessageTyp
 	uint64_t offset() const {
 		return base.payload_buffer().read_uint64_be_unsafe(12);
 	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
-	}
 };
 
 template<typename BaseMessageType>
@@ -583,14 +513,6 @@ struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> 
 
 	uint16_t stream_id() const {
 		return base.payload_buffer().read_uint16_be_unsafe(10);
-	}
-
-	core::Buffer finalize() {
-		return base.finalize();
-	}
-
-	core::Buffer release() {
-		return base.release();
 	}
 };
 
