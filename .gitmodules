@@ -4,3 +4,7 @@
 [submodule "vendor/boost"]
 	path = vendor/boost
 	url = https://github.com/boostorg/boost.git
+[submodule "vendor/libsodium"]
+	path = vendor/libsodium
+	url = https://github.com/jedisct1/libsodium.git
+	branch = stable
