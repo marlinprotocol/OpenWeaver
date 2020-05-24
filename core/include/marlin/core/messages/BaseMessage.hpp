@@ -26,9 +26,6 @@ struct BaseMessage {
 
 	BaseMessage& truncate_unsafe(size_t size) &;
 	BaseMessage&& truncate_unsafe(size_t size) &&;
-
-	Buffer finalize();
-	Buffer release();
 };
 
 } // namespace core

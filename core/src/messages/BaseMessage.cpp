@@ -52,13 +52,5 @@ BaseMessage&& BaseMessage::truncate_unsafe(size_t size) && {
 	return std::move(truncate_unsafe(size));
 }
 
-Buffer BaseMessage::finalize() {
-	return std::move(buf);
-}
-
-Buffer BaseMessage::release() {
-	return std::move(buf);
-}
-
 } // namespace core
 } // namespace marlin
