@@ -73,20 +73,6 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 
 	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	// DATAWrapper& set_stream_id(uint16_t stream_id) & {
-	// 	base.payload_buffer().write_uint16_le_unsafe(18, stream_id);
-
-	// 	return *this;
-	// }
-
-	// DATAWrapper&& set_stream_id(uint16_t stream_id) && {
-	// 	return std::move(set_stream_id(stream_id));
-	// }
-
-	// uint16_t stream_id() const {
-	// 	return base.payload_buffer().read_uint16_le_unsafe(18);
-	// }
-
 	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 18)
 
 	DATAWrapper& set_packet_number(uint64_t packet_number) & {
