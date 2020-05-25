@@ -60,7 +60,7 @@ struct ConnIdMixin {
 };
 
 template<typename BaseMessageType>
-struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
+struct DATAWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -79,49 +79,12 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 
 	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT_FIELD(64, packet_number, 10)
 	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 18)
-
-	DATAWrapper& set_packet_number(uint64_t packet_number) & {
-		base.payload_buffer().write_uint64_le_unsafe(10, packet_number);
-
-		return *this;
-	}
-
-	DATAWrapper&& set_packet_number(uint64_t packet_number) && {
-		return std::move(set_packet_number(packet_number));
-	}
-
-	uint64_t packet_number() const {
-		return base.payload_buffer().read_uint64_le_unsafe(10);
-	}
-
-	DATAWrapper& set_offset(uint64_t offset) & {
-		base.payload_buffer().write_uint64_le_unsafe(20, offset);
-
-		return *this;
-	}
-
-	DATAWrapper&& set_offset(uint64_t offset) && {
-		return std::move(set_offset(offset));
-	}
-
-	uint64_t offset() const {
-		return base.payload_buffer().read_uint64_le_unsafe(20);
-	}
-
-	DATAWrapper& set_length(uint16_t length) & {
-		base.payload_buffer().write_uint16_le_unsafe(28, length);
-
-		return *this;
-	}
-
-	DATAWrapper&& set_length(uint16_t length) && {
-		return std::move(set_length(length));
-	}
-
-	uint16_t length() const {
-		return base.payload_buffer().read_uint16_le_unsafe(28);
-	}
+	MARLIN_MESSAGES_UINT_FIELD(64, offset, 20)
+	MARLIN_MESSAGES_UINT_FIELD(16, length, 22)
 
 	DATAWrapper& set_payload(uint8_t const* in, size_t size) & {
 		base.payload_buffer().write_unsafe(30, in, size);
