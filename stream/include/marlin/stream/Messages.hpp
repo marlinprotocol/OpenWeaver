@@ -7,6 +7,21 @@
 namespace marlin {
 namespace stream {
 
+#define MARLIN_MESSAGES_UINT_FIELD(size, name, offset) \
+	SelfType& set_##name(uint##size##_t name) & { \
+		base.payload_buffer().write_uint##size##_le_unsafe(offset, name); \
+ \
+		return *this; \
+	} \
+ \
+	SelfType&& set_##name(uint##size##_t name) && { \
+		return std::move(set_##name(name)); \
+	} \
+ \
+	uint##size##_t name() const { \
+		return base.payload_buffer().read_uint##size##_le_unsafe(20); \
+	}
+
 template<typename BaseMessageType>
 struct ConnIdMixin {
 	BaseMessageType& set_src_conn_id(uint32_t src_conn_id) & {
@@ -46,6 +61,8 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 		return std::move(base);
 	}
 
+	using SelfType = DATAWrapper<BaseMessageType>;
+
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return base.payload_buffer().size() >= 30 + payload_size;
 	}
@@ -56,19 +73,21 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 
 	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	DATAWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_le_unsafe(18, stream_id);
+	// DATAWrapper& set_stream_id(uint16_t stream_id) & {
+	// 	base.payload_buffer().write_uint16_le_unsafe(18, stream_id);
 
-		return *this;
-	}
+	// 	return *this;
+	// }
 
-	DATAWrapper&& set_stream_id(uint16_t stream_id) && {
-		return std::move(set_stream_id(stream_id));
-	}
+	// DATAWrapper&& set_stream_id(uint16_t stream_id) && {
+	// 	return std::move(set_stream_id(stream_id));
+	// }
 
-	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_le_unsafe(18);
-	}
+	// uint16_t stream_id() const {
+	// 	return base.payload_buffer().read_uint16_le_unsafe(18);
+	// }
+
+	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 18)
 
 	DATAWrapper& set_packet_number(uint64_t packet_number) & {
 		base.payload_buffer().write_uint64_le_unsafe(10, packet_number);
