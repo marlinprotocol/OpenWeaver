@@ -7,9 +7,9 @@
 namespace marlin {
 namespace stream {
 
-#define MARLIN_MESSAGES_UINT_FIELD(size, name, offset) \
+#define MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, name, read_offset, write_offset) \
 	SelfType& set_##name(uint##size##_t name) & { \
-		base.payload_buffer().write_uint##size##_le_unsafe(offset, name); \
+		base.payload_buffer().write_uint##size##_le_unsafe(write_offset, name); \
  \
 		return *this; \
 	} \
@@ -19,8 +19,14 @@ namespace stream {
 	} \
  \
 	uint##size##_t name() const { \
-		return base.payload_buffer().read_uint##size##_le_unsafe(20); \
+		return base.payload_buffer().read_uint##size##_le_unsafe(read_offset); \
 	}
+
+#define MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET(size, name, offset) MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, name, offset, offset)
+
+#define MARLIN_MESSAGES_GET_4(_0, _1, _2, _3, MACRO, ...) MACRO
+#define MARLIN_MESSAGES_GET_UINT_FIELD(...) MARLIN_MESSAGES_GET_4(__VA_ARGS__, MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET, MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET, throw)
+#define MARLIN_MESSAGES_UINT_FIELD(...) MARLIN_MESSAGES_GET_UINT_FIELD(__VA_ARGS__)(__VA_ARGS__)
 
 template<typename BaseMessageType>
 struct ConnIdMixin {
