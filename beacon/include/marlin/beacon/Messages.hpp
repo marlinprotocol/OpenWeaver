@@ -77,9 +77,9 @@ struct LISTPROTOWrapper {
 			auto [protocol, version, port] = *begin;
 
 			auto i = 3 + count*8;
-			base.payload_buffer().write_uint32_be_unsafe(i, protocol);
-			base.payload_buffer().write_uint16_be_unsafe(i+4, version);
-			base.payload_buffer().write_uint16_be_unsafe(i+6, port);
+			base.payload_buffer().write_uint32_le_unsafe(i, protocol);
+			base.payload_buffer().write_uint16_le_unsafe(i+4, version);
+			base.payload_buffer().write_uint16_le_unsafe(i+6, port);
 			count++;
 
 			++begin;
@@ -125,9 +125,9 @@ struct LISTPROTOWrapper {
 		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
 
 		value_type operator*() const {
-			uint32_t protocol = buf.read_uint32_be_unsafe(offset);
-			uint16_t version = buf.read_uint16_be_unsafe(4 + offset);
-			uint16_t port = buf.read_uint16_be_unsafe(6 + offset);
+			uint32_t protocol = buf.read_uint32_le_unsafe(offset);
+			uint16_t version = buf.read_uint16_le_unsafe(4 + offset);
+			uint16_t port = buf.read_uint16_le_unsafe(6 + offset);
 
 			return std::make_tuple(protocol, version, port);
 		}
