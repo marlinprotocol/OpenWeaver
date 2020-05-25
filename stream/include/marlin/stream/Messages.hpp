@@ -10,7 +10,7 @@ namespace stream {
 template<typename BaseMessageType>
 struct ConnIdMixin {
 	BaseMessageType& set_src_conn_id(uint32_t src_conn_id) & {
-		((BaseMessageType*)this)->base.payload_buffer().write_uint32_be_unsafe(2, src_conn_id);
+		((BaseMessageType*)this)->base.payload_buffer().write_uint32_le_unsafe(2, src_conn_id);
 
 		return *((BaseMessageType*)this);
 	}
@@ -20,11 +20,11 @@ struct ConnIdMixin {
 	}
 
 	uint32_t src_conn_id() const {
-		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_be_unsafe(6);
+		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_le_unsafe(6);
 	}
 
 	BaseMessageType& set_dst_conn_id(uint32_t dst_conn_id) & {
-		((BaseMessageType*)this)->base.payload_buffer().write_uint32_be_unsafe(6, dst_conn_id);
+		((BaseMessageType*)this)->base.payload_buffer().write_uint32_le_unsafe(6, dst_conn_id);
 
 		return *((BaseMessageType*)this);
 	}
@@ -34,7 +34,7 @@ struct ConnIdMixin {
 	}
 
 	uint32_t dst_conn_id() const {
-		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_be_unsafe(2);
+		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_le_unsafe(2);
 	}
 };
 
@@ -57,7 +57,7 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	DATAWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_be_unsafe(18, stream_id);
+		base.payload_buffer().write_uint16_le_unsafe(18, stream_id);
 
 		return *this;
 	}
@@ -67,11 +67,11 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	}
 
 	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_be_unsafe(18);
+		return base.payload_buffer().read_uint16_le_unsafe(18);
 	}
 
 	DATAWrapper& set_packet_number(uint64_t packet_number) & {
-		base.payload_buffer().write_uint64_be_unsafe(10, packet_number);
+		base.payload_buffer().write_uint64_le_unsafe(10, packet_number);
 
 		return *this;
 	}
@@ -81,11 +81,11 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	}
 
 	uint64_t packet_number() const {
-		return base.payload_buffer().read_uint64_be_unsafe(10);
+		return base.payload_buffer().read_uint64_le_unsafe(10);
 	}
 
 	DATAWrapper& set_offset(uint64_t offset) & {
-		base.payload_buffer().write_uint64_be_unsafe(20, offset);
+		base.payload_buffer().write_uint64_le_unsafe(20, offset);
 
 		return *this;
 	}
@@ -95,11 +95,11 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	}
 
 	uint64_t offset() const {
-		return base.payload_buffer().read_uint64_be_unsafe(20);
+		return base.payload_buffer().read_uint64_le_unsafe(20);
 	}
 
 	DATAWrapper& set_length(uint16_t length) & {
-		base.payload_buffer().write_uint16_be_unsafe(28, length);
+		base.payload_buffer().write_uint16_le_unsafe(28, length);
 
 		return *this;
 	}
@@ -109,7 +109,7 @@ struct DATAWrapper : public ConnIdMixin<DATAWrapper<BaseMessageType>> {
 	}
 
 	uint16_t length() const {
-		return base.payload_buffer().read_uint16_be_unsafe(28);
+		return base.payload_buffer().read_uint16_le_unsafe(28);
 	}
 
 	DATAWrapper& set_payload(uint8_t const* in, size_t size) & {
@@ -178,7 +178,7 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	ACKWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	ACKWrapper& set_size(uint16_t size) & {
-		base.payload_buffer().write_uint16_be_unsafe(10, size);
+		base.payload_buffer().write_uint16_le_unsafe(10, size);
 
 		return *this;
 	}
@@ -188,11 +188,11 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	}
 
 	uint16_t size() const {
-		return base.payload_buffer().read_uint16_be_unsafe(10);
+		return base.payload_buffer().read_uint16_le_unsafe(10);
 	}
 
 	ACKWrapper& set_packet_number(uint64_t packet_number) & {
-		base.payload_buffer().write_uint64_be_unsafe(12, packet_number);
+		base.payload_buffer().write_uint64_le_unsafe(12, packet_number);
 
 		return *this;
 	}
@@ -202,7 +202,7 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	}
 
 	uint64_t packet_number() const {
-		return base.payload_buffer().read_uint64_be_unsafe(12);
+		return base.payload_buffer().read_uint64_le_unsafe(12);
 	}
 
 	struct iterator {
@@ -220,7 +220,7 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
 
 		value_type operator*() const {
-			return buf.read_uint64_be_unsafe(offset);
+			return buf.read_uint64_le_unsafe(offset);
 		}
 
 		iterator& operator++() {
@@ -250,7 +250,7 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 	ACKWrapper& set_ranges(It begin, It end) & {
 		size_t idx = 20;
 		while(begin != end && idx + 8 <= base.payload_buffer().size()) {
-			base.payload_buffer().write_uint64_be_unsafe(idx, *begin);
+			base.payload_buffer().write_uint64_le_unsafe(idx, *begin);
 			idx += 8;
 			++begin;
 		}
@@ -408,7 +408,7 @@ struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>
 	SKIPSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	SKIPSTREAMWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
+		base.payload_buffer().write_uint16_le_unsafe(10, stream_id);
 
 		return *this;
 	}
@@ -418,11 +418,11 @@ struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>
 	}
 
 	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_be_unsafe(10);
+		return base.payload_buffer().read_uint16_le_unsafe(10);
 	}
 
 	SKIPSTREAMWrapper& set_offset(uint64_t offset) & {
-		base.payload_buffer().write_uint64_be_unsafe(12, offset);
+		base.payload_buffer().write_uint64_le_unsafe(12, offset);
 
 		return *this;
 	}
@@ -432,7 +432,7 @@ struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>
 	}
 
 	uint64_t offset() const {
-		return base.payload_buffer().read_uint64_be_unsafe(12);
+		return base.payload_buffer().read_uint64_le_unsafe(12);
 	}
 };
 
@@ -455,7 +455,7 @@ struct FLUSHSTREAMWrapper : public ConnIdMixin<FLUSHSTREAMWrapper<BaseMessageTyp
 	FLUSHSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	FLUSHSTREAMWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
+		base.payload_buffer().write_uint16_le_unsafe(10, stream_id);
 
 		return *this;
 	}
@@ -465,11 +465,11 @@ struct FLUSHSTREAMWrapper : public ConnIdMixin<FLUSHSTREAMWrapper<BaseMessageTyp
 	}
 
 	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_be_unsafe(10);
+		return base.payload_buffer().read_uint16_le_unsafe(10);
 	}
 
 	FLUSHSTREAMWrapper& set_offset(uint64_t offset) & {
-		base.payload_buffer().write_uint64_be_unsafe(12, offset);
+		base.payload_buffer().write_uint64_le_unsafe(12, offset);
 
 		return *this;
 	}
@@ -479,7 +479,7 @@ struct FLUSHSTREAMWrapper : public ConnIdMixin<FLUSHSTREAMWrapper<BaseMessageTyp
 	}
 
 	uint64_t offset() const {
-		return base.payload_buffer().read_uint64_be_unsafe(12);
+		return base.payload_buffer().read_uint64_le_unsafe(12);
 	}
 };
 
@@ -502,7 +502,7 @@ struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> 
 	FLUSHCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
 	FLUSHCONFWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_be_unsafe(10, stream_id);
+		base.payload_buffer().write_uint16_le_unsafe(10, stream_id);
 
 		return *this;
 	}
@@ -512,7 +512,7 @@ struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> 
 	}
 
 	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_be_unsafe(10);
+		return base.payload_buffer().read_uint16_le_unsafe(10);
 	}
 };
 
