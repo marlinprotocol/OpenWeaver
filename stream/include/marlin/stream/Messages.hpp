@@ -28,6 +28,45 @@ namespace stream {
 #define MARLIN_MESSAGES_GET_UINT_FIELD(...) MARLIN_MESSAGES_GET_4(__VA_ARGS__, MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET, MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET, throw)
 #define MARLIN_MESSAGES_UINT_FIELD(...) MARLIN_MESSAGES_GET_UINT_FIELD(__VA_ARGS__)(__VA_ARGS__)
 
+#define MARLIN_MESSAGES_PAYLOAD_FIELD(offset) \
+	SelfType& set_payload(uint8_t const* in, size_t size) & { \
+		base.payload_buffer().write_unsafe(offset, in, size); \
+ \
+		return *this; \
+	} \
+ \
+	SelfType&& set_payload(uint8_t const* in, size_t size) && { \
+		return std::move(set_payload(in, size)); \
+	} \
+ \
+	SelfType& set_payload(std::initializer_list<uint8_t> il) & { \
+		base.payload_buffer().write_unsafe(offset, il.begin(), il.size()); \
+ \
+		return *this; \
+	} \
+ \
+	SelfType&& set_payload(std::initializer_list<uint8_t> il) && { \
+		return std::move(set_payload(il)); \
+	} \
+ \
+	core::WeakBuffer payload_buffer() const& { \
+		auto buf = base.payload_buffer(); \
+		buf.cover_unsafe(offset); \
+ \
+		return buf; \
+	} \
+ \
+	core::Buffer payload_buffer() && { \
+		auto buf = std::move(base).payload_buffer(); \
+		buf.cover_unsafe(offset); \
+ \
+		return std::move(buf); \
+	} \
+ \
+	uint8_t* payload() { \
+		return base.payload_buffer().data() + offset; \
+	}
+
 template<typename BaseMessageType>
 struct ConnIdMixin {
 	BaseMessageType& set_src_conn_id(uint32_t src_conn_id) & {
