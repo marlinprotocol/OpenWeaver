@@ -253,7 +253,7 @@ struct DIALCONFWrapper {
 		return std::move(base);
 	}
 
-	using SelfType = DIALWrapper<BaseMessageType>;
+	using SelfType = DIALCONFWrapper<BaseMessageType>;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return base.payload_buffer().size() >= 10 + payload_size;
@@ -287,6 +287,11 @@ struct CONFWrapper : public ConnIdMixin<CONFWrapper<BaseMessageType>> {
 	}
 
 	CONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	using SelfType = CONFWrapper<BaseMessageType>;
+
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
 };
 
 template<typename BaseMessageType>
