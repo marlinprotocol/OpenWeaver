@@ -221,12 +221,14 @@ struct ACKWrapper {
 };
 
 template<typename BaseMessageType>
-struct DIALWrapper : public ConnIdMixin<DIALWrapper<BaseMessageType>> {
+struct DIALWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
 		return std::move(base);
 	}
+
+	using SelfType = DIALWrapper<BaseMessageType>;
 
 	[[nodiscard]] bool validate(size_t payload_size) const {
 		return base.payload_buffer().size() >= 10 + payload_size;
@@ -238,29 +240,9 @@ struct DIALWrapper : public ConnIdMixin<DIALWrapper<BaseMessageType>> {
 
 	DIALWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	DIALWrapper& set_payload(uint8_t const* in, size_t size) & {
-		base.payload_buffer().write_unsafe(10, in, size);
-
-		return *this;
-	}
-
-	DIALWrapper&& set_payload(uint8_t const* in, size_t size) && {
-		return std::move(set_payload(in, size));
-	}
-
-	DIALWrapper& set_payload(std::initializer_list<uint8_t> il) & {
-		base.payload_buffer().write_unsafe(10, il.begin(), il.size());
-
-		return *this;
-	}
-
-	DIALWrapper&& set_payload(std::initializer_list<uint8_t> il) && {
-		return std::move(set_payload(il));
-	}
-
-	uint8_t* payload() {
-		return base.payload_buffer().data() + 10;
-	}
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_PAYLOAD_FIELD(10)
 };
 
 template<typename BaseMessageType>
