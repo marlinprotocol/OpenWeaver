@@ -124,44 +124,7 @@ struct DATAWrapper {
 	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 18)
 	MARLIN_MESSAGES_UINT_FIELD(64, offset, 20)
 	MARLIN_MESSAGES_UINT_FIELD(16, length, 22)
-
-	DATAWrapper& set_payload(uint8_t const* in, size_t size) & {
-		base.payload_buffer().write_unsafe(30, in, size);
-
-		return *this;
-	}
-
-	DATAWrapper&& set_payload(uint8_t const* in, size_t size) && {
-		return std::move(set_payload(in, size));
-	}
-
-	DATAWrapper& set_payload(std::initializer_list<uint8_t> il) & {
-		base.payload_buffer().write_unsafe(30, il.begin(), il.size());
-
-		return *this;
-	}
-
-	DATAWrapper&& set_payload(std::initializer_list<uint8_t> il) && {
-		return std::move(set_payload(il));
-	}
-
-	core::WeakBuffer payload_buffer() const& {
-		auto buf = base.payload_buffer();
-		buf.cover_unsafe(30);
-
-		return buf;
-	}
-
-	core::Buffer payload_buffer() && {
-		auto buf = std::move(base).payload_buffer();
-		buf.cover_unsafe(30);
-
-		return std::move(buf);
-	}
-
-	uint8_t* payload() {
-		return base.payload_buffer().data() + 30;
-	}
+	MARLIN_MESSAGES_PAYLOAD_FIELD(30)
 
 	bool is_fin_set() const {
 		return base.payload_buffer().read_uint8_unsafe(1) == 1;
