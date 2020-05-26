@@ -271,7 +271,7 @@ struct DIALCONFWrapper {
 };
 
 template<typename BaseMessageType>
-struct CONFWrapper : public ConnIdMixin<CONFWrapper<BaseMessageType>> {
+struct CONFWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -295,7 +295,7 @@ struct CONFWrapper : public ConnIdMixin<CONFWrapper<BaseMessageType>> {
 };
 
 template<typename BaseMessageType>
-struct RSTWrapper : public ConnIdMixin<RSTWrapper<BaseMessageType>> {
+struct RSTWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -311,6 +311,11 @@ struct RSTWrapper : public ConnIdMixin<RSTWrapper<BaseMessageType>> {
 	}
 
 	RSTWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+
+	using SelfType = RSTWrapper<BaseMessageType>;
+
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
 };
 
 template<typename BaseMessageType>
