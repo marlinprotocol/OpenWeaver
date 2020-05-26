@@ -132,12 +132,14 @@ struct DATAWrapper {
 };
 
 template<typename BaseMessageType>
-struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
+struct ACKWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
 		return std::move(base);
 	}
+
+	using SelfType = ACKWrapper<BaseMessageType>;
 
 	[[nodiscard]] bool validate() const {
 		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + size()*8) {
@@ -153,33 +155,10 @@ struct ACKWrapper : public ConnIdMixin<ACKWrapper<BaseMessageType>> {
 
 	ACKWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	ACKWrapper& set_size(uint16_t size) & {
-		base.payload_buffer().write_uint16_le_unsafe(10, size);
-
-		return *this;
-	}
-
-	ACKWrapper&& set_size(uint16_t size) && {
-		return std::move(set_size(size));
-	}
-
-	uint16_t size() const {
-		return base.payload_buffer().read_uint16_le_unsafe(10);
-	}
-
-	ACKWrapper& set_packet_number(uint64_t packet_number) & {
-		base.payload_buffer().write_uint64_le_unsafe(12, packet_number);
-
-		return *this;
-	}
-
-	ACKWrapper&& set_packet_number(uint64_t packet_number) && {
-		return std::move(set_packet_number(packet_number));
-	}
-
-	uint64_t packet_number() const {
-		return base.payload_buffer().read_uint64_le_unsafe(12);
-	}
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT_FIELD(16, size, 10)
+	MARLIN_MESSAGES_UINT_FIELD(64, packet_number, 12)
 
 	struct iterator {
 	private:
