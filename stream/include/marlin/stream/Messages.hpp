@@ -319,7 +319,7 @@ struct RSTWrapper {
 };
 
 template<typename BaseMessageType>
-struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>> {
+struct SKIPSTREAMWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -336,33 +336,12 @@ struct SKIPSTREAMWrapper : public ConnIdMixin<SKIPSTREAMWrapper<BaseMessageType>
 
 	SKIPSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	SKIPSTREAMWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_le_unsafe(10, stream_id);
+	using SelfType = SKIPSTREAMWrapper<BaseMessageType>;
 
-		return *this;
-	}
-
-	SKIPSTREAMWrapper&& set_stream_id(uint16_t stream_id) && {
-		return std::move(set_stream_id(stream_id));
-	}
-
-	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_le_unsafe(10);
-	}
-
-	SKIPSTREAMWrapper& set_offset(uint64_t offset) & {
-		base.payload_buffer().write_uint64_le_unsafe(12, offset);
-
-		return *this;
-	}
-
-	SKIPSTREAMWrapper&& set_offset(uint64_t offset) && {
-		return std::move(set_offset(offset));
-	}
-
-	uint64_t offset() const {
-		return base.payload_buffer().read_uint64_le_unsafe(12);
-	}
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 10)
+	MARLIN_MESSAGES_UINT_FIELD(64, offset, 12)
 };
 
 template<typename BaseMessageType>
