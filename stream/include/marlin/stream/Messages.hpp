@@ -67,36 +67,6 @@ namespace stream {
 		return base.payload_buffer().data() + offset; \
 	}
 
-template<typename BaseMessageType>
-struct ConnIdMixin {
-	BaseMessageType& set_src_conn_id(uint32_t src_conn_id) & {
-		((BaseMessageType*)this)->base.payload_buffer().write_uint32_le_unsafe(2, src_conn_id);
-
-		return *((BaseMessageType*)this);
-	}
-
-	BaseMessageType&& set_src_conn_id(uint32_t src_conn_id) && {
-		return std::move(set_src_conn_id(src_conn_id));
-	}
-
-	uint32_t src_conn_id() const {
-		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_le_unsafe(6);
-	}
-
-	BaseMessageType& set_dst_conn_id(uint32_t dst_conn_id) & {
-		((BaseMessageType*)this)->base.payload_buffer().write_uint32_le_unsafe(6, dst_conn_id);
-
-		return *((BaseMessageType*)this);
-	}
-
-	BaseMessageType&& set_dst_conn_id(uint32_t dst_conn_id) && {
-		return std::move(set_dst_conn_id(dst_conn_id));
-	}
-
-	uint32_t dst_conn_id() const {
-		return ((BaseMessageType*)this)->base.payload_buffer().read_uint32_le_unsafe(2);
-	}
-};
 
 template<typename BaseMessageType>
 struct DATAWrapper {
