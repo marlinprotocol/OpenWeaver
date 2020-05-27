@@ -371,7 +371,7 @@ struct FLUSHSTREAMWrapper {
 };
 
 template<typename BaseMessageType>
-struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> {
+struct FLUSHCONFWrapper {
 	BaseMessageType base;
 
 	operator BaseMessageType() && {
@@ -388,19 +388,11 @@ struct FLUSHCONFWrapper : public ConnIdMixin<FLUSHCONFWrapper<BaseMessageType>> 
 
 	FLUSHCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
 
-	FLUSHCONFWrapper& set_stream_id(uint16_t stream_id) & {
-		base.payload_buffer().write_uint16_le_unsafe(10, stream_id);
+	using SelfType = FLUSHCONFWrapper<BaseMessageType>;
 
-		return *this;
-	}
-
-	FLUSHCONFWrapper&& set_stream_id(uint16_t stream_id) && {
-		return std::move(set_stream_id(stream_id));
-	}
-
-	uint16_t stream_id() const {
-		return base.payload_buffer().read_uint16_le_unsafe(10);
-	}
+	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 10)
 };
 
 } // namespace stream
