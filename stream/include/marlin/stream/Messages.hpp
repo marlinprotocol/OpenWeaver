@@ -7,6 +7,17 @@
 namespace marlin {
 namespace stream {
 
+#define MARLIN_MESSAGES_BASE(Derived) \
+	using SelfType = Derived<BaseMessageType>; \
+ \
+	BaseMessageType base; \
+ \
+	operator BaseMessageType() && { \
+		return std::move(base); \
+	} \
+ \
+	Derived(BaseMessageType&& base) : base(std::move(base)) {}
+
 #define MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, name, read_offset, write_offset) \
 	SelfType& set_##name(uint##size##_t name) & { \
 		base.payload_buffer().write_uint##size##_le_unsafe(write_offset, name); \
@@ -27,6 +38,9 @@ namespace stream {
 #define MARLIN_MESSAGES_GET_4(_0, _1, _2, _3, MACRO, ...) MACRO
 #define MARLIN_MESSAGES_GET_UINT_FIELD(...) MARLIN_MESSAGES_GET_4(__VA_ARGS__, MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET, MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET, throw)
 #define MARLIN_MESSAGES_UINT_FIELD(...) MARLIN_MESSAGES_GET_UINT_FIELD(__VA_ARGS__)(__VA_ARGS__)
+#define MARLIN_MESSAGES_UINT16_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(16, __VA_ARGS__)
+#define MARLIN_MESSAGES_UINT32_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(32, __VA_ARGS__)
+#define MARLIN_MESSAGES_UINT64_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(64, __VA_ARGS__)
 
 #define MARLIN_MESSAGES_PAYLOAD_FIELD(offset) \
 	SelfType& set_payload(uint8_t const* in, size_t size) & { \
@@ -70,31 +84,22 @@ namespace stream {
 
 template<typename BaseMessageType>
 struct DATAWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	using SelfType = DATAWrapper<BaseMessageType>;
-
-	[[nodiscard]] bool validate(size_t payload_size) const {
-		return base.payload_buffer().size() >= 30 + payload_size;
-	}
+	MARLIN_MESSAGES_BASE(DATAWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT64_FIELD(packet_number, 10)
+	MARLIN_MESSAGES_UINT16_FIELD(stream_id, 18)
+	MARLIN_MESSAGES_UINT64_FIELD(offset, 20)
+	MARLIN_MESSAGES_UINT16_FIELD(length, 22)
+	MARLIN_MESSAGES_PAYLOAD_FIELD(30)
 
 	DATAWrapper(size_t payload_size, bool is_fin) : base(30 + payload_size) {
 		base.set_payload({0, static_cast<uint8_t>(is_fin)});
 	}
 
-	DATAWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_UINT_FIELD(64, packet_number, 10)
-	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 18)
-	MARLIN_MESSAGES_UINT_FIELD(64, offset, 20)
-	MARLIN_MESSAGES_UINT_FIELD(16, length, 22)
-	MARLIN_MESSAGES_PAYLOAD_FIELD(30)
+	[[nodiscard]] bool validate(size_t payload_size) const {
+		return base.payload_buffer().size() >= 30 + payload_size;
+	}
 
 	bool is_fin_set() const {
 		return base.payload_buffer().read_uint8_unsafe(1) == 1;
@@ -103,32 +108,22 @@ struct DATAWrapper {
 
 template<typename BaseMessageType>
 struct ACKWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	using SelfType = ACKWrapper<BaseMessageType>;
-
-	[[nodiscard]] bool validate() const {
-		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + size()*8) {
-			return false;
-		}
-
-		return true;
-	}
+	MARLIN_MESSAGES_BASE(ACKWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT16_FIELD(size, 10)
+	MARLIN_MESSAGES_UINT64_FIELD(packet_number, 12)
 
 	ACKWrapper(size_t num_ranges) : base(20 + 8*num_ranges) {
 		base.set_payload({0, 2});
 	}
 
-	ACKWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_UINT_FIELD(16, size, 10)
-	MARLIN_MESSAGES_UINT_FIELD(64, packet_number, 12)
+	[[nodiscard]] bool validate() const {
+		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + size()*8) {
+			return false;
+		}
+		return true;
+	}
 
 	struct iterator {
 	private:
@@ -192,185 +187,126 @@ struct ACKWrapper {
 
 template<typename BaseMessageType>
 struct DIALWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	using SelfType = DIALWrapper<BaseMessageType>;
-
-	[[nodiscard]] bool validate(size_t payload_size) const {
-		return base.payload_buffer().size() >= 10 + payload_size;
-	}
+	MARLIN_MESSAGES_BASE(DIALWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_PAYLOAD_FIELD(10)
 
 	DIALWrapper(size_t payload_size) : base(10 + payload_size) {
 		base.set_payload({0, 3});
 	}
 
-	DIALWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_PAYLOAD_FIELD(10)
+	[[nodiscard]] bool validate(size_t payload_size) const {
+		return base.payload_buffer().size() >= 10 + payload_size;
+	}
 };
 
 template<typename BaseMessageType>
 struct DIALCONFWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	using SelfType = DIALCONFWrapper<BaseMessageType>;
-
-	[[nodiscard]] bool validate(size_t payload_size) const {
-		return base.payload_buffer().size() >= 10 + payload_size;
-	}
+	MARLIN_MESSAGES_BASE(DIALCONFWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_PAYLOAD_FIELD(10)
 
 	DIALCONFWrapper(size_t payload_size) : base(10 + payload_size) {
 		base.set_payload({0, 4});
 	}
 
-	DIALCONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_PAYLOAD_FIELD(10)
+	[[nodiscard]] bool validate(size_t payload_size) const {
+		return base.payload_buffer().size() >= 10 + payload_size;
+	}
 };
 
 template<typename BaseMessageType>
 struct CONFWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 10;
-	}
+	MARLIN_MESSAGES_BASE(CONFWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
 
 	CONFWrapper() : base(10) {
 		base.set_payload({0, 5});
 	}
 
-	CONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	using SelfType = CONFWrapper<BaseMessageType>;
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 10;
+	}
 };
 
 template<typename BaseMessageType>
 struct RSTWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 10;
-	}
+	MARLIN_MESSAGES_BASE(RSTWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
 
 	RSTWrapper() : base(10) {
 		base.set_payload({0, 6});
 	}
 
-	RSTWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	using SelfType = RSTWrapper<BaseMessageType>;
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 10;
+	}
 };
 
 template<typename BaseMessageType>
 struct SKIPSTREAMWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 20;
-	}
+	MARLIN_MESSAGES_BASE(SKIPSTREAMWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT16_FIELD(stream_id, 10)
+	MARLIN_MESSAGES_UINT64_FIELD(offset, 12)
 
 	SKIPSTREAMWrapper() : base(20) {
 		base.set_payload({0, 7});
 	}
 
-	SKIPSTREAMWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	using SelfType = SKIPSTREAMWrapper<BaseMessageType>;
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 10)
-	MARLIN_MESSAGES_UINT_FIELD(64, offset, 12)
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 20;
+	}
 };
 
 template<typename BaseMessageType>
 struct FLUSHSTREAMWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 20;
-	}
+	MARLIN_MESSAGES_BASE(FLUSHSTREAMWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT16_FIELD(stream_id, 10)
+	MARLIN_MESSAGES_UINT64_FIELD(offset, 12)
 
 	FLUSHSTREAMWrapper() : base(20) {
 		base.set_payload({0, 8});
 	}
 
-	FLUSHSTREAMWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	using SelfType = FLUSHSTREAMWrapper<BaseMessageType>;
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 10)
-	MARLIN_MESSAGES_UINT_FIELD(64, offset, 12)
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 20;
+	}
 };
 
 template<typename BaseMessageType>
 struct FLUSHCONFWrapper {
-	BaseMessageType base;
-
-	operator BaseMessageType() && {
-		return std::move(base);
-	}
-
-	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 12;
-	}
+	MARLIN_MESSAGES_BASE(FLUSHCONFWrapper)
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2)
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6)
+	MARLIN_MESSAGES_UINT16_FIELD(stream_id, 10)
 
 	FLUSHCONFWrapper() : base(12) {
 		base.set_payload({0, 9});
 	}
 
-	FLUSHCONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
-
-	using SelfType = FLUSHCONFWrapper<BaseMessageType>;
-
-	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
-	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
-	MARLIN_MESSAGES_UINT_FIELD(16, stream_id, 10)
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 12;
+	}
 };
 
+#undef MARLIN_MESSAGES_UINT16_FIELD
+#undef MARLIN_MESSAGES_UINT32_FIELD
+#undef MARLIN_MESSAGES_UINT64_FIELD
 #undef MARLIN_MESSAGES_PAYLOAD_FIELD
 #undef MARLIN_MESSAGES_UINT_FIELD
 #undef MARLIN_MESSAGES_GET_UINT_FIELD
 #undef MARLIN_MESSAGES_GET_4
 #undef MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET
 #undef MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET
+#undef MARLIN_MESSAGES_BASE
 
 } // namespace stream
 } // namespace marlin
