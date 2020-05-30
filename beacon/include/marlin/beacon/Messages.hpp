@@ -60,7 +60,7 @@ template<typename BaseMessageType>
 struct LISTPROTOWrapper {
 	BaseMessageType base;
 
-	operator BaseMessageType&&() && {
+	operator BaseMessageType() && {
 		return std::move(base);
 	}
 
@@ -172,7 +172,7 @@ template<typename BaseMessageType>
 struct DISCPEERWrapper {
 	BaseMessageType base;
 
-	operator BaseMessageType&&() && {
+	operator BaseMessageType() && {
 		return std::move(base);
 	}
 
@@ -216,7 +216,7 @@ template<typename BaseMessageType>
 struct LISTPEERWrapper {
 	BaseMessageType base;
 
-	operator BaseMessageType&&() && {
+	operator BaseMessageType() && {
 		return std::move(base);
 	}
 
@@ -316,7 +316,7 @@ template<typename BaseMessageType>
 struct HEARTBEATWrapper {
 	BaseMessageType base;
 
-	operator BaseMessageType&&() && {
+	operator BaseMessageType() && {
 		return std::move(base);
 	}
 
