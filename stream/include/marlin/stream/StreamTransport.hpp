@@ -179,7 +179,7 @@ private:
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 	void did_close(BaseTransport &transport);
 
@@ -1722,10 +1722,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	BaseTransport &,
-	core::Buffer &&packet
+	BaseMessageType &&packet
 ) {
-	auto type = packet.read_uint8(1);
-	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
+	auto type = packet.payload_buffer().read_uint8(1);
+	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
 		return;
 	}
 
