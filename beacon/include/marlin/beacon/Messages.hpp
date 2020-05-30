@@ -68,7 +68,7 @@ struct LISTPROTOWrapper {
 		base.set_payload({0, 1});
 	}
 
-	LISTPROTOWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	LISTPROTOWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	template<typename It>
 	LISTPROTOWrapper& set_protocols(It begin, It end) & {
@@ -224,7 +224,7 @@ struct LISTPEERWrapper {
 		base.set_payload({0, 3});
 	}
 
-	LISTPEERWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	LISTPEERWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	template<typename It>
 	LISTPEERWrapper& set_peers(It& begin, It end) & {
@@ -324,7 +324,7 @@ struct HEARTBEATWrapper {
 		base.set_payload({0,4});
 	}
 
-	HEARTBEATWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	HEARTBEATWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	[[nodiscard]] bool validate() const {
 		return base.payload_buffer().size() >= 2+crypto_box_PUBLICKEYBYTES;
