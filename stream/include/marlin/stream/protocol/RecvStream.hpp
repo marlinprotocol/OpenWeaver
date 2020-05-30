@@ -1,7 +1,6 @@
 #ifndef MARLIN_STREAM_RECVSTREAM_HPP
 #define MARLIN_STREAM_RECVSTREAM_HPP
 
-#include "StreamPacket.hpp"
 #include <marlin/asyncio/core/Timer.hpp>
 
 #include <ctime>
