@@ -86,7 +86,7 @@ struct DATAWrapper {
 		base.set_payload({0, static_cast<uint8_t>(is_fin)});
 	}
 
-	DATAWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	DATAWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
 	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
@@ -123,7 +123,7 @@ struct ACKWrapper {
 		base.set_payload({0, 2});
 	}
 
-	ACKWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	ACKWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
 	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
@@ -208,7 +208,7 @@ struct DIALWrapper {
 		base.set_payload({0, 3});
 	}
 
-	DIALWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	DIALWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
 	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
@@ -233,7 +233,7 @@ struct DIALCONFWrapper {
 		base.set_payload({0, 4});
 	}
 
-	DIALCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	DIALCONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	MARLIN_MESSAGES_UINT_FIELD(32, src_conn_id, 6, 2)
 	MARLIN_MESSAGES_UINT_FIELD(32, dst_conn_id, 2, 6)
@@ -256,7 +256,7 @@ struct CONFWrapper {
 		base.set_payload({0, 5});
 	}
 
-	CONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	CONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	using SelfType = CONFWrapper<BaseMessageType>;
 
@@ -280,7 +280,7 @@ struct RSTWrapper {
 		base.set_payload({0, 6});
 	}
 
-	RSTWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	RSTWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	using SelfType = RSTWrapper<BaseMessageType>;
 
@@ -304,7 +304,7 @@ struct SKIPSTREAMWrapper {
 		base.set_payload({0, 7});
 	}
 
-	SKIPSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	SKIPSTREAMWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	using SelfType = SKIPSTREAMWrapper<BaseMessageType>;
 
@@ -330,7 +330,7 @@ struct FLUSHSTREAMWrapper {
 		base.set_payload({0, 8});
 	}
 
-	FLUSHSTREAMWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	FLUSHSTREAMWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	using SelfType = FLUSHSTREAMWrapper<BaseMessageType>;
 
@@ -356,7 +356,7 @@ struct FLUSHCONFWrapper {
 		base.set_payload({0, 9});
 	}
 
-	FLUSHCONFWrapper(core::Buffer&& buf) : base(std::move(buf)) {}
+	FLUSHCONFWrapper(BaseMessageType&& base) : base(std::move(base)) {}
 
 	using SelfType = FLUSHCONFWrapper<BaseMessageType>;
 
