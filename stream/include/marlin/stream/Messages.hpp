@@ -81,6 +81,66 @@ namespace stream {
 		return base.payload_buffer().data() + offset; \
 	}
 
+#define MARLIN_MESSAGES_ARRAY_FIELD(type, begin_offset, end_offset) \
+	template<typename type> \
+	struct type##_iterator { \
+	private: \
+		core::WeakBuffer buf; \
+		size_t offset = 0; \
+	public: \
+		using difference_type = int32_t; \
+		using value_type = typename type::value_type; \
+		using pointer = value_type const*; \
+		using reference = value_type const&; \
+		using iterator_category = std::input_iterator_tag; \
+ \
+		type##_iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {} \
+ \
+		value_type operator*() const { \
+			return type::read(buf, offset); \
+		} \
+ \
+		type##_iterator& operator++() { \
+			offset += type::size(buf, offset); \
+ \
+			return *this; \
+		} \
+ \
+		bool operator==(type##_iterator const& other) const { \
+			return offset == other.offset; \
+		} \
+ \
+		bool operator!=(type##_iterator const& other) const { \
+			return !(*this == other); \
+		} \
+	}; \
+ \
+	type##_iterator<type> type##s_begin() const { \
+		return type##_iterator<type>(base.payload_buffer(), begin_offset); \
+	} \
+ \
+	type##_iterator<type> type##s_end() const { \
+		return type##_iterator<type>(base.payload_buffer(), end_offset); \
+	} \
+ \
+	template<typename It> \
+	SelfType& set_##type##s(It begin, It end) & { \
+		size_t idx = begin_offset; \
+		while(begin != end && idx + type::size(begin) <= base.payload_buffer().size()) { \
+			type::write(base.payload_buffer(), idx, *begin); \
+			idx += type::size(begin); \
+			++begin; \
+		} \
+		base.truncate_unsafe(base.payload_buffer().size() - idx); \
+ \
+		return *this; \
+	} \
+ \
+	template<typename It> \
+	SelfType&& set_##type##s(It begin, It end) && { \
+		return std::move(set_##type##s(begin, end)); \
+	}
+
 
 template<typename BaseMessageType>
 struct DATAWrapper {
@@ -114,6 +174,29 @@ struct ACKWrapper {
 	MARLIN_MESSAGES_UINT16_FIELD(size, 10)
 	MARLIN_MESSAGES_UINT64_FIELD(packet_number, 12)
 
+	struct range {
+		using value_type = uint64_t;
+
+		static size_t size(core::WeakBuffer const&, uint64_t) {
+			return 8;
+		}
+
+		template<typename It>
+		static size_t size(It&&) {
+			return 8;
+		}
+
+		static value_type read(core::WeakBuffer const& buf, uint64_t offset) {
+			return buf.read_uint64_le_unsafe(offset);
+		}
+
+		static void write(core::WeakBuffer buf, uint64_t offset, value_type val) {
+			buf.write_uint64_le_unsafe(offset, val);
+		}
+	};
+	MARLIN_MESSAGES_ARRAY_FIELD(range, 20, 20 + 8*size())
+
+
 	ACKWrapper(size_t num_ranges) : base(20 + 8*num_ranges) {
 		base.set_payload({0, 2});
 	}
@@ -123,65 +206,6 @@ struct ACKWrapper {
 			return false;
 		}
 		return true;
-	}
-
-	struct iterator {
-	private:
-		core::WeakBuffer buf;
-		size_t offset = 0;
-	public:
-		// For iterator_traits
-		using difference_type = int32_t;
-		using value_type = uint64_t;
-		using pointer = value_type const*;
-		using reference = value_type const&;
-		using iterator_category = std::input_iterator_tag;
-
-		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
-
-		value_type operator*() const {
-			return buf.read_uint64_le_unsafe(offset);
-		}
-
-		iterator& operator++() {
-			offset += 8;
-
-			return *this;
-		}
-
-		bool operator==(iterator const& other) const {
-			return offset == other.offset;
-		}
-
-		bool operator!=(iterator const& other) const {
-			return !(*this == other);
-		}
-	};
-
-	iterator ranges_begin() const {
-		return iterator(base.payload_buffer(), 20);
-	}
-
-	iterator ranges_end() const {
-		return iterator(base.payload_buffer(), 20 + size()*8);
-	}
-
-	template<typename It>
-	ACKWrapper& set_ranges(It begin, It end) & {
-		size_t idx = 20;
-		while(begin != end && idx + 8 <= base.payload_buffer().size()) {
-			base.payload_buffer().write_uint64_le_unsafe(idx, *begin);
-			idx += 8;
-			++begin;
-		}
-		base.truncate_unsafe(base.payload_buffer().size() - idx);
-
-		return *this;
-	}
-
-	template<typename It>
-	ACKWrapper&& set_ranges(It begin, It end) && {
-		return std::move(set_ranges(begin, end));
 	}
 };
 
