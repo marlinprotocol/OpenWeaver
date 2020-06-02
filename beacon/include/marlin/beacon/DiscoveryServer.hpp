@@ -11,8 +11,13 @@
 #include <map>
 
 #include <sodium.h>
+#include <boost/iterator/filter_iterator.hpp>
+#include <boost/iterator/transform_iterator.hpp>
 
 #include <spdlog/fmt/bin_to_hex.h>
+
+#include "Messages.hpp"
+
 
 namespace marlin {
 namespace beacon {
@@ -36,6 +41,12 @@ private:
 	using BaseTransport = asyncio::UdpTransport<
 		DiscoveryServer<DiscoveryServerDelegate>
 	>;
+	using BaseMessageType = typename BaseTransport::MessageType;
+	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
+	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
+	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
+	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
+	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
@@ -46,7 +57,7 @@ private:
 	void did_recv_DISCPEER(BaseTransport &transport);
 	void send_LISTPEER(BaseTransport &transport);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, core::Buffer &&bytes);
+	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
@@ -59,7 +70,7 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
 	DiscoveryServer(core::SocketAddress const &addr);
@@ -90,8 +101,7 @@ template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 1}, 2);
-	transport.send(std::move(p));
+	transport.send(LISTPROTO());
 }
 
 
@@ -111,61 +121,23 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
 
 /*!
 	sends the list of peers on this node
-
-\verbatim
-
-0               1               2               3
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x03     |
----------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (1)                       |
------------------------------------------------------------------
-|            Port (1)           |
----------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (2)                       |
------------------------------------------------------------------
-|            Port (2)           |
------------------------------------------------------------------
-|                              ...                              |
------------------------------------------------------------------
-|            AF_INET            |
------------------------------------------------------------------
-|                        IPv4 Address (N)                       |
------------------------------------------------------------------
-|            Port (N)           |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
-	auto iter = peers.begin();
+	// Filter out the dst transport
+	auto filter = [&](auto x) { return x.first != &transport; };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
-	while(iter != peers.end()) {
-		core::Buffer p({0, 3}, 1100);
-		size_t size = 2;
+	// Extract data into pair<addr, key> format
+	auto transformation = [](auto x) { return std::make_pair(x.first->dst_addr, x.second.second); };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
-		for(
-			;
-			iter != peers.end() && size + 7 + crypto_box_PUBLICKEYBYTES < 1100;
-			iter++
-		) {
-			if(iter->first == &transport) continue;
-
-			iter->first->dst_addr.serialize(p.data()+size, 8);
-			p.write(size+8, iter->second.second.data(), crypto_box_PUBLICKEYBYTES);
-			size += 8 + crypto_box_PUBLICKEYBYTES;
-		}
-		p.truncate_unsafe(1100-size);
-
-		transport.send(std::move(p));
+	while(t_begin != t_end) {
+		transport.send(LISTPEER(150).set_peers(t_begin, t_end));
 	}
 }
 
@@ -176,16 +148,20 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	BaseTransport &transport,
-	core::Buffer &&bytes
+	HEARTBEAT &&bytes
 ) {
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
 		transport.dst_addr.to_string(),
-		spdlog::to_hex(bytes.data()+2, bytes.data()+34)
+		spdlog::to_hex(bytes.key(), bytes.key()+32)
 	);
 
+	if(!bytes.validate()) {
+		return;
+	}
+
 	peers[&transport].first = asyncio::EventLoop::now();
-	bytes.read(2, peers[&transport].second.data(), crypto_box_PUBLICKEYBYTES);
+	peers[&transport].second = bytes.key_array();
 }
 
 
@@ -251,9 +227,14 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 	BaseTransport &transport,
-	core::Buffer &&packet
+	BaseMessageType &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.payload_buffer().read_uint8(1);
+	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: did_recv_DISCPROTO(transport);
 		break;
@@ -280,7 +261,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
 		break;

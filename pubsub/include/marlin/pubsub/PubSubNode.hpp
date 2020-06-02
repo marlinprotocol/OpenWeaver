@@ -393,7 +393,12 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
+	// Bounds check
+	if(bytes.size() < 2) {
+		return -1;
+	}
+
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
 
 	SPDLOG_DEBUG(
 		"Received subscribe on channel {} from {}",
@@ -446,7 +451,7 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 	uint16_t const channel
 ) {
 	core::Buffer bytes({0}, 3);
-	bytes.write_uint16_be(1, channel);
+	bytes.write_uint16_be_unsafe(1, channel);
 
 	SPDLOG_DEBUG(
 		"Sending subscribe on channel {} to {}",
@@ -467,7 +472,12 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be(0);
+	// Bounds check
+	if(bytes.size() < 2) {
+		return;
+	}
+
+	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
 
 	SPDLOG_DEBUG(
 		"Received unsubscribe on channel {} from {}",
@@ -504,7 +514,7 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 	uint16_t const channel
 ) {
 	core::Buffer bytes({1}, 3);
-	bytes.write_uint16_be(1, channel);
+	bytes.write_uint16_be_unsafe(1, channel);
 
 	SPDLOG_DEBUG("Sending unsubscribe on channel {} to {}", channel, transport.dst_addr.to_string());
 
@@ -521,8 +531,13 @@ void PUBSUBNODETYPE::did_recv_RESPONSE(
 ) {
 	bool success [[maybe_unused]] = bytes.data()[0];
 
+	// Bounds check on header
+	if(bytes.size() < 1) {
+		return;
+	}
+
 	// Hide success
-	bytes.cover(1);
+	bytes.cover_unsafe(1);
 
 	// Process rest of the message
 	std::string message(bytes.data(), bytes.data()+bytes.size());
@@ -570,7 +585,7 @@ void PUBSUBNODETYPE::send_RESPONSE(
 	// 0 for ERROR
 	// 1 for OK
 	core::Buffer m({2, static_cast<uint8_t>(success ? 1 : 0)}, msg_string.size()+2);
-	m.write(2, (uint8_t*)msg_string.data(), msg_string.size());
+	m.write_unsafe(2, (uint8_t*)msg_string.data(), msg_string.size());
 
 	SPDLOG_DEBUG(
 		"Sending {} response: {}",
@@ -591,18 +606,30 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	auto message_id = bytes.read_uint64_be(0);
-	auto channel = bytes.read_uint16_be(8);
+	// Bounds check on header
+	if(bytes.size() < 10) {
+		return -1;
+	}
+
+	auto message_id = bytes.read_uint64_be_unsafe(0);
+	auto channel = bytes.read_uint16_be_unsafe(8);
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
-		bytes.cover(10);
+		bytes.cover_unsafe(10);
 		MessageHeaderType header = {};
 
+		auto att_opt = witnesser.parse_size(bytes, 0);
+		if(!att_opt.has_value()) {
+			SPDLOG_ERROR("Attestation size parse failure");
+			transport.close();
+			return -1;
+		}
+
 		header.attestation_data = bytes.data();
-		header.attestation_size = attester.parse_size(bytes, 0);
+		header.attestation_size = att_opt.value();
 		auto res = bytes.cover(header.attestation_size);
 
 		if(!res) {
@@ -611,8 +638,15 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			return -1;
 		}
 
+		auto wit_opt = witnesser.parse_size(bytes, 0);
+		if(!wit_opt.has_value()) {
+			SPDLOG_ERROR("Witness size parse failure");
+			transport.close();
+			return -1;
+		}
+
 		header.witness_data = bytes.data();
-		header.witness_size = witnesser.parse_size(bytes, 0);
+		header.witness_size = wit_opt.value();
 		res = bytes.cover(header.witness_size);
 
 		if(!res) {
@@ -698,8 +732,8 @@ core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	buf_size += attester.attestation_size(message_id, channel, data, size, prev_header);
 	buf_size += witnesser.witness_size(prev_header);
 	core::Buffer m({3}, buf_size);
-	m.write_uint64_be(1, message_id);
-	m.write_uint16_be(9, channel);
+	m.write_uint64_be_unsafe(1, message_id);
+	m.write_uint16_be_unsafe(9, channel);
 
 	uint64_t offset = 11;
 	auto res = attester.attest(message_id, channel, data, size, prev_header, m, offset);
@@ -709,7 +743,7 @@ core::Buffer PUBSUBNODETYPE::create_MESSAGE(
 	offset += attester.attestation_size(message_id, channel, data, size, prev_header);
 	witnesser.witness(prev_header, m, offset);
 	offset += witnesser.witness_size(prev_header);
-	m.write(offset, data, size);
+	m.write_unsafe(offset, data, size);
 
 	return m;
 }
@@ -803,10 +837,15 @@ int PUBSUBNODETYPE::did_recv_message(
 	if(bytes.size() == 0)
 		return 0;
 
+	// Bounds check on header
+	if(bytes.size() < 1) {
+		return -1;
+	}
+
 	uint8_t message_type = bytes.data()[0];
 
 	// Hide message type
-	bytes.cover(1);
+	bytes.cover_unsafe(1);
 
 	switch(message_type) {
 		// SUBSCRIBE
@@ -1246,7 +1285,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	// 	id
 	// );
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
-		auto witness_length = bytes.read_uint16_be(11);
+		auto witness_length = bytes.read_uint16_be(11).value();  // FIXME: Check
 
 		// Check overflow
 		if((uint16_t)bytes.size() < 13 + witness_length) {
@@ -1255,7 +1294,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			return -1;
 		}
 
-		auto message_id = bytes.read_uint64_be(1);
+		auto message_id = bytes.read_uint64_be_unsafe(1);
 		SPDLOG_INFO(
 			"Pubsub {} <<<< {}: CTR message id: {}",
 			transport.src_addr.to_string(),
@@ -1329,12 +1368,12 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		uint8_t *new_header = new uint8_t[13+witness_length+32];
 		std::memcpy(new_header, bytes.data(), 13+witness_length);
 
-		bytes.cover(13 + witness_length);
+		bytes.cover_unsafe(13 + witness_length);  // FIXME: Have to check
 
 		crypto_scalarmult_base(new_header+13+witness_length, keys);
 
 		core::Buffer buf(new_header, 13+witness_length+32);
-		buf.write_uint16_be(11, witness_length + 32);
+		buf.write_uint16_be_unsafe(11, witness_length + 32);
 
 		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
 		if(res < 0) {
@@ -1345,7 +1384,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	} else {
 		for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 			auto sub_bytes = core::Buffer(bytes.size());
-			sub_bytes.write(0, bytes.data(), bytes.size());
+			sub_bytes.write_unsafe(0, bytes.data(), bytes.size());
 
 			auto res = subscriber->cut_through_send_bytes(sub_id, std::move(sub_bytes));
 

@@ -69,7 +69,7 @@ TEST(BufferResize, CanCoverWithoutOverflow) {
 TEST(BufferResize, CannotCoverWithOverflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.cover(1391);
 
@@ -81,7 +81,7 @@ TEST(BufferResize, CannotCoverWithOverflow) {
 TEST(BufferResize, CanUncoverWithoutUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.uncover(10);
 
@@ -93,7 +93,7 @@ TEST(BufferResize, CanUncoverWithoutUnderflow) {
 TEST(BufferResize, CannotUncoverWithUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.cover(10);
+	buf.cover_unsafe(10);
 
 	bool res = buf.uncover(11);
 
@@ -116,7 +116,7 @@ TEST(BufferResize, CanTruncateWithoutOverflow) {
 TEST(BufferResize, CannotTruncateWithOverflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.truncate(1391);
 
@@ -128,7 +128,7 @@ TEST(BufferResize, CannotTruncateWithOverflow) {
 TEST(BufferResize, CanExpandWithoutUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.expand(10);
 
@@ -140,7 +140,7 @@ TEST(BufferResize, CanExpandWithoutUnderflow) {
 TEST(BufferResize, CannotExpandWithUnderflow) {
 	auto buf = Buffer(1400);
 	uint8_t *raw_ptr = buf.data();
-	buf.truncate(10);
+	buf.truncate_unsafe(10);
 
 	bool res = buf.expand(11);
 
@@ -178,7 +178,8 @@ TEST(BufferRead, CanReadUint8WithoutOverflow) {
 
 	auto num = buf.read_uint8(10);
 
-	EXPECT_EQ(num, 0x01);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x01);
 }
 
 TEST(BufferRead, CannotReadUint8WithOverflow) {
@@ -186,7 +187,7 @@ TEST(BufferRead, CannotReadUint8WithOverflow) {
 
 	auto num = buf.read_uint8(1400);
 
-	EXPECT_EQ(num, uint8_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferRead, CanReadUint16WithoutOverflow) {
@@ -197,7 +198,8 @@ TEST(BufferRead, CanReadUint16WithoutOverflow) {
 
 	auto num = buf.read_uint16(10);
 
-	EXPECT_TRUE(std::memcmp(&num, raw_ptr + 10, 2) == 0);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_TRUE(std::memcmp(&num.value(), raw_ptr + 10, 2) == 0);
 }
 
 TEST(BufferRead, CannotReadUint16WithOverflow) {
@@ -205,7 +207,7 @@ TEST(BufferRead, CannotReadUint16WithOverflow) {
 
 	auto num = buf.read_uint16(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadLE, CanReadUint16LEWithoutOverflow) {
@@ -216,7 +218,8 @@ TEST(BufferReadLE, CanReadUint16LEWithoutOverflow) {
 
 	auto num = buf.read_uint16_le(10);
 
-	EXPECT_EQ(num, 0x0201);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0201);
 }
 
 TEST(BufferReadLE, CannotReadUint16LEWithOverflow) {
@@ -224,7 +227,7 @@ TEST(BufferReadLE, CannotReadUint16LEWithOverflow) {
 
 	auto num = buf.read_uint16_le(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadBE, CanReadUint16BEWithoutOverflow) {
@@ -235,7 +238,8 @@ TEST(BufferReadBE, CanReadUint16BEWithoutOverflow) {
 
 	auto num = buf.read_uint16_be(10);
 
-	EXPECT_EQ(num, 0x0102);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0102);
 }
 
 TEST(BufferReadBE, CannotReadUint16BEWithOverflow) {
@@ -243,7 +247,7 @@ TEST(BufferReadBE, CannotReadUint16BEWithOverflow) {
 
 	auto num = buf.read_uint16_be(1399);
 
-	EXPECT_EQ(num, uint16_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferRead, CanReadUint32WithoutOverflow) {
@@ -256,7 +260,8 @@ TEST(BufferRead, CanReadUint32WithoutOverflow) {
 
 	auto num = buf.read_uint32(10);
 
-	EXPECT_TRUE(std::memcmp(&num, raw_ptr + 10, 4) == 0);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_TRUE(std::memcmp(&num.value(), raw_ptr + 10, 4) == 0);
 }
 
 TEST(BufferRead, CannotReadUint32WithOverflow) {
@@ -264,7 +269,7 @@ TEST(BufferRead, CannotReadUint32WithOverflow) {
 
 	auto num = buf.read_uint32(1397);
 
-	EXPECT_EQ(num, uint32_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadLE, CanReadUint32LEWithoutOverflow) {
@@ -277,7 +282,8 @@ TEST(BufferReadLE, CanReadUint32LEWithoutOverflow) {
 
 	auto num = buf.read_uint32_le(10);
 
-	EXPECT_EQ(num, 0x04030201);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x04030201);
 }
 
 TEST(BufferReadLE, CannotReadUint32LEWithOverflow) {
@@ -285,7 +291,7 @@ TEST(BufferReadLE, CannotReadUint32LEWithOverflow) {
 
 	auto num = buf.read_uint32_le(1397);
 
-	EXPECT_EQ(num, uint32_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadBE, CanReadUint32BEWithoutOverflow) {
@@ -298,7 +304,8 @@ TEST(BufferReadBE, CanReadUint32BEWithoutOverflow) {
 
 	auto num = buf.read_uint32_be(10);
 
-	EXPECT_EQ(num, 0x01020304);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x01020304);
 }
 
 TEST(BufferReadBE, CannotReadUint32BEWithOverflow) {
@@ -306,7 +313,7 @@ TEST(BufferReadBE, CannotReadUint32BEWithOverflow) {
 
 	auto num = buf.read_uint32_be(1397);
 
-	EXPECT_EQ(num, uint32_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferRead, CanReadUint64WithoutOverflow) {
@@ -323,7 +330,8 @@ TEST(BufferRead, CanReadUint64WithoutOverflow) {
 
 	auto num = buf.read_uint64(10);
 
-	EXPECT_TRUE(std::memcmp(&num, raw_ptr + 10, 8) == 0);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_TRUE(std::memcmp(&num.value(), raw_ptr + 10, 8) == 0);
 }
 
 TEST(BufferRead, CannotReadUint64WithOverflow) {
@@ -331,7 +339,7 @@ TEST(BufferRead, CannotReadUint64WithOverflow) {
 
 	auto num = buf.read_uint64(1393);
 
-	EXPECT_EQ(num, uint64_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadLE, CanReadUint64LEWithoutOverflow) {
@@ -348,7 +356,8 @@ TEST(BufferReadLE, CanReadUint64LEWithoutOverflow) {
 
 	auto num = buf.read_uint64_le(10);
 
-	EXPECT_EQ(num, 0x0807060504030201);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0807060504030201);
 }
 
 TEST(BufferReadLE, CannotReadUint64LEWithOverflow) {
@@ -356,7 +365,7 @@ TEST(BufferReadLE, CannotReadUint64LEWithOverflow) {
 
 	auto num = buf.read_uint64_le(1393);
 
-	EXPECT_EQ(num, uint64_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferReadBE, CanReadUint64BEWithoutOverflow) {
@@ -373,7 +382,8 @@ TEST(BufferReadBE, CanReadUint64BEWithoutOverflow) {
 
 	auto num = buf.read_uint64_be(10);
 
-	EXPECT_EQ(num, 0x0102030405060708);
+	EXPECT_TRUE(num.has_value());
+	EXPECT_EQ(num.value(), 0x0102030405060708);
 }
 
 TEST(BufferReadBE, CannotReadUint64BEWithOverflow) {
@@ -381,7 +391,7 @@ TEST(BufferReadBE, CannotReadUint64BEWithOverflow) {
 
 	auto num = buf.read_uint64_be(1393);
 
-	EXPECT_EQ(num, uint64_t(-1));
+	EXPECT_FALSE(num.has_value());
 }
 
 TEST(BufferWrite, CanWriteArbitraryWithoutOverflow) {

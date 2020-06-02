@@ -11,6 +11,8 @@
 
 #include <sodium.h>
 
+#include "Messages.hpp"
+
 
 namespace marlin {
 namespace beacon {
@@ -38,6 +40,12 @@ private:
 
 	using BaseTransportFactory = TransportFactory<Self, Self>;
 	using BaseTransport = Transport<Self>;
+	using BaseMessageType = typename BaseTransport::MessageType;
+	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
+	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
+	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
+	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
+	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
@@ -45,10 +53,10 @@ private:
 	void send_DISCPROTO(BaseTransport &transport);
 	void did_recv_DISCPROTO(BaseTransport &transport);
 	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
@@ -70,7 +78,7 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
@@ -118,23 +126,12 @@ private:
 
 /*!
 	function to get list of supported protocols on a client node
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x00     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 0}, 2);
-	transport.send(std::move(p));
+	transport.send(DISCPROTO());
 }
 
 
@@ -154,75 +151,35 @@ void DISCOVERYCLIENT::did_recv_DISCPROTO(
 
 /*!
 	sends the list of supported protocols on this node
-
-\verbatim
-
-0               1               2               3
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
-+++++++++++++++++++++++++++++++++++++++++++++++++
-|      0x00     |      0x01     |Num entries (N)|
------------------------------------------------------------------
-|                      Protocol Number (1)                      |
------------------------------------------------------------------
-|          Version (1)          |            Port (1)           |
------------------------------------------------------------------
-|                      Protocol Number (2)                      |
------------------------------------------------------------------
-|          Version (2)          |            Port (2)           |
------------------------------------------------------------------
-|                              ...                              |
------------------------------------------------------------------
-|                      Protocol Number (N)                      |
------------------------------------------------------------------
-|          Version (N)          |            Port (N)           |
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_LISTPROTO(
 	BaseTransport &transport
 ) {
 	auto protocols = delegate->get_protocols();
+	assert(protocols.size() < 100);
 
-	core::Buffer p(
-		{0, 1, static_cast<uint8_t>(protocols.size())},
-		3 + protocols.size()*8
+	transport.send(
+		LISTPROTO(protocols.size())
+		.set_protocols(protocols.begin(), protocols.end())
 	);
-
-	auto iter = protocols.begin();
-	for(
-		auto i = 3;
-		iter != protocols.end();
-		iter++, i += 8
-	) {
-		auto [protocol, version, port] = *iter;
-
-		p.write_uint32_be(i, protocol);
-		p.write_uint16_be(i+4, version);
-		p.write_uint16_be(i+6, port);
-	}
-
-	transport.send(std::move(p));
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
 	BaseTransport &transport,
-	core::Buffer &&packet
+	LISTPROTO &&packet
 ) {
 	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
 
-	uint8_t num_proto = packet.read_uint8(2);
-	packet.cover(3);
-	for(uint8_t i = 0; i < num_proto; i++) {
-		uint32_t protocol = packet.read_uint32_be(8*i);
-		uint16_t version = packet.read_uint16_be(4 + 8*i);
+	if(!packet.validate()) {
+		return;
+	}
 
-		uint16_t port = packet.read_uint16_be(6 + 8*i);
+	for(auto iter = packet.protocols_begin(); iter != packet.protocols_end(); ++iter) {
+		auto [protocol, version, port] = *iter;
 		core::SocketAddress peer_addr(transport.dst_addr);
-		// TODO: Move into SocketAddress
-		reinterpret_cast<sockaddr_in *>(&peer_addr)->sin_port = (port << 8) + (port >> 8);
+		peer_addr.set_port(port);
 
 		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
@@ -230,23 +187,12 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 
 /*!
 	sends peer discovery message
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x02     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 2}, 2);
-	transport.send(std::move(p));
+	transport.send(DISCPEER());
 }
 
 /*!
@@ -256,17 +202,17 @@ void DISCOVERYCLIENT::send_DISCPEER(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
-	core::Buffer &&packet
+	LISTPEER &&packet
 ) {
 	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
 
-	for(
-		uint16_t i = 2;
-		i + 7 + crypto_box_PUBLICKEYBYTES < packet.size();
-		i += 8 + crypto_box_PUBLICKEYBYTES
-	) {
-		auto peer_addr = core::SocketAddress::deserialize(packet.data()+i, 8);
-		packet.read(i+8, node_key_map[peer_addr].data(), crypto_box_PUBLICKEYBYTES);
+	if(!packet.validate()) {
+		return;
+	}
+
+	for(auto iter = packet.peers_begin(); iter != packet.peers_end(); ++iter) {
+		auto [peer_addr, key] = *iter;
+		node_key_map[peer_addr] = key;
 
 		f.dial(peer_addr, *this);
 	}
@@ -274,24 +220,12 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 
 /*!
 	sends heartbeat message to refresh/create entry at the discovery server to keep the node discoverable
-
-\verbatim
-
-0               1               2
-0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0
-+++++++++++++++++++++++++++++++++
-|      0x00     |      0x04     |
-+++++++++++++++++++++++++++++++++
-
-\endverbatim
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
 	BaseTransport &transport
 ) {
-	core::Buffer p({0, 4}, 2+crypto_box_PUBLICKEYBYTES);
-	p.write(2, static_pk, crypto_box_PUBLICKEYBYTES);
-	transport.send(std::move(p));
+	transport.send(HEARTBEAT().set_key(static_pk));
 }
 
 /*!
@@ -366,9 +300,14 @@ void DISCOVERYCLIENT::did_dial(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_packet(
 	BaseTransport &transport,
-	core::Buffer &&packet
+	BaseMessageType &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.payload_buffer().read_uint8(1);
+	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: did_recv_DISCPROTO(transport);
 		break;
@@ -395,7 +334,12 @@ void DISCOVERYCLIENT::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DISCPROTO
 		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
 		break;

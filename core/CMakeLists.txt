@@ -12,10 +12,12 @@ include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(core STATIC
+	src/messages/BaseMessage.cpp
 	src/BN.cpp
 	src/CidrBlock.cpp
 	src/Buffer.cpp
 	src/SocketAddress.cpp
+	src/WeakBuffer.cpp
 )
 add_library(marlin::core ALIAS core)
 

@@ -4,6 +4,7 @@
 #include "marlin/simulator/network/NetworkInterface.hpp"
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/TransportManager.hpp>
 
@@ -30,6 +31,8 @@ private:
 
 	EventManager& manager;
 public:
+	using MessageType = core::BaseMessage;
+
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
@@ -47,6 +50,7 @@ public:
 	void close();
 
 	int send(core::Buffer&& buf);
+	int send(MessageType&& buf);
 	void did_recv(
 		core::SocketAddress const& addr,
 		core::Buffer&& message
@@ -118,6 +122,19 @@ int SimulatedTransport<
 		this->dst_addr,
 		std::move(buf)
 	);
+}
+
+template<
+	typename EventManager,
+	typename NetworkInterfaceType,
+	typename DelegateType
+>
+int SimulatedTransport<
+	EventManager,
+	NetworkInterfaceType,
+	DelegateType
+>::send(MessageType&& buf) {
+	return send(std::move(buf).payload_buffer());
 }
 
 template<

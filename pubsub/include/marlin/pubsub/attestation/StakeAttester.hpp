@@ -2,7 +2,7 @@
 #define MARLIN_PUBSUB_ATTESTATION_STAKEATTESTER_HPP
 
 #include <stdint.h>
-#include <marlin/core/Buffer.hpp>
+#include <marlin/core/WeakBuffer.hpp>
 #include <ctime>
 #include <optional>
 
@@ -132,7 +132,8 @@ struct StakeAttester {
 		uint64_t offset = 0
 	) {
 		if(prev_header.attestation_size != 0) {
-			out.write(offset, prev_header.attestation_data, prev_header.attestation_size);
+			// FIXME: should probably add _unsafe to function
+			out.write_unsafe(offset, prev_header.attestation_data, prev_header.attestation_size);
 			return 1;
 		}
 
@@ -146,8 +147,8 @@ struct StakeAttester {
 		}
 		auto stake_offset = stake_offset_opt.value();
 
-		out.write_uint64_be(offset, timestamp);
-		out.write_uint64_be(offset+8, stake_offset);
+		out.write_uint64_be_unsafe(offset, timestamp);
+		out.write_uint64_be_unsafe(offset+8, stake_offset);
 
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
@@ -213,10 +214,10 @@ struct StakeAttester {
 		attestation.message_size = message_size;
 
 		// Extract data
-		core::Buffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
-		attestation.timestamp = buf.read_uint64_be(0);
-		attestation.stake_offset = buf.read_uint64_be(8);
-		buf.release();
+		// TODO: Code smell: const-stripping
+		core::WeakBuffer buf((uint8_t*)prev_header.attestation_data, prev_header.attestation_size);
+		attestation.timestamp = buf.read_uint64_be_unsafe(0);
+		attestation.stake_offset = buf.read_uint64_be_unsafe(8);
 
 		uint64_t now = std::time(nullptr);
 		// Permit a maximum clock skew of 60 seconds
@@ -353,7 +354,7 @@ struct StakeAttester {
 		return !overlap;
 	}
 
-	uint64_t parse_size(core::Buffer&, uint64_t = 0) {
+	std::optional<uint64_t> parse_size(core::Buffer&, uint64_t = 0) {
 		return 81;
 	}
 };

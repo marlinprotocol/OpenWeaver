@@ -25,7 +25,7 @@ struct EmptyWitnesser {
 		return 0;
 	}
 
-	constexpr uint64_t parse_size(core::Buffer&, uint64_t = 0) {
+	constexpr std::optional<uint64_t> parse_size(core::Buffer&, uint64_t = 0) {
 		return 0;
 	}
 };
