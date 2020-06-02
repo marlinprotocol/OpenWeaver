@@ -113,8 +113,13 @@ public:
 			message.size()
 		);
 
-		auto messageType = message.read_uint8(0);
-		message.cover(1);
+		// Bounds check on header
+		if(message.size() < 1) {
+			return -1;
+		}
+
+		auto messageType = message.read_uint8_unsafe(0);
+		message.cover_unsafe(1);
 
 		switch (messageType) {
 			case MessageType::StateUpdateMessage:
@@ -134,13 +139,17 @@ public:
 		LpfTcpTransport &transport,
 		core::Buffer &message
 	) {
+		// Bounds check
+		if(message.size() < 12) {
+			return;
+		}
 
-		auto blockNumber = message.read_uint64_be(0);
-		message.cover(blockNumberSize);
+		auto blockNumber = message.read_uint64_be_unsafe(0);
+		message.cover_unsafe(blockNumberSize);
 
 		if (blockNumber > latestBlockReceived || latestBlockReceived == 0) {
-			auto numMapEntries = message.read_uint32_be(0);
-			message.cover(4);
+			auto numMapEntries = message.read_uint32_be_unsafe(0);
+			message.cover_unsafe(4);
 
 			SPDLOG_INFO(
 				"BlockNumber {}",
@@ -153,9 +162,13 @@ public:
 			);
 
 			for (uint i=0; i<numMapEntries; i++) {
+				// Bounds check
+				if(message.size() < 28) {
+					return;
+				}
 
 				std::string addressString((char*)message.data(), addressLength);
-				message.cover(addressLength);
+				message.cover_unsafe(addressLength);
 
 				SPDLOG_INFO(
 					"address {}",
@@ -173,8 +186,8 @@ public:
 
 				// auto balance = core::uint256_t(lo, lohi, hilo, hi);
 
-				uint64_t balance = message.read_uint64_be(0);
-				message.cover(8);
+				uint64_t balance = message.read_uint64_be_unsafe(0);
+				message.cover_unsafe(8);
 
 				SPDLOG_INFO(
 					"balance {} ",
@@ -196,7 +209,12 @@ public:
 		LpfTcpTransport &,
 		core::Buffer &message
 	) {
-		message.read(0, private_key, privateKeyLength);
+		// Bounds check
+		if(message.size() < privateKeyLength) {
+			return;
+		}
+
+		message.read_unsafe(0, private_key, privateKeyLength);
 		have_key = true;
 	}
 
@@ -212,11 +230,11 @@ public:
 		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
-		dataBuffer->write_uint8(offset, messageType);
+		dataBuffer->write_uint8_unsafe(offset, messageType);
 		offset += messageTypeSize;
-		dataBuffer->write_uint8(offset, ackType);
+		dataBuffer->write_uint8_unsafe(offset, ackType);
 		offset += AckTypeSize;
-		dataBuffer->write_uint64_be(offset, blockNumber);
+		dataBuffer->write_uint64_be_unsafe(offset, blockNumber);
 		offset += blockNumberSize;
 
 		transport.send(std::move(*dataBuffer));
@@ -252,49 +270,49 @@ public:
 		auto dataBuffer = new core::Buffer(totalSize);
 		uint32_t offset = 0;
 
-		dataBuffer->write_uint8(offset, messageType);
+		dataBuffer->write_uint8_unsafe(offset, messageType);
 		offset += messageTypeSize;
 
-		dataBuffer->write_uint64_be(offset, messageId1);
+		dataBuffer->write_uint64_be_unsafe(offset, messageId1);
 		offset += messageIDSize;
 
-		dataBuffer->write_uint16_be(offset, chId1);
+		dataBuffer->write_uint16_be_unsafe(offset, chId1);
 		offset += channelSize;
 
-		dataBuffer->write_uint64_be(offset, timestamp1);
+		dataBuffer->write_uint64_be_unsafe(offset, timestamp1);
 		offset += timestampSize;
 
-		dataBuffer->write_uint64_be(offset, stakeOffset1);
+		dataBuffer->write_uint64_be_unsafe(offset, stakeOffset1);
 		offset += stakeOffsetSize;
 
-		dataBuffer->write_uint64_be(offset, messageSize1);
+		dataBuffer->write_uint64_be_unsafe(offset, messageSize1);
 		offset += messageSize;
 
-		dataBuffer->write(offset, messageHash1, hashSize);
+		dataBuffer->write_unsafe(offset, messageHash1, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, signature1, signatureSize);
+		dataBuffer->write_unsafe(offset, signature1, signatureSize);
 		offset += signatureSize;
 
-		dataBuffer->write_uint64_be(offset, messageId2);
+		dataBuffer->write_uint64_be_unsafe(offset, messageId2);
 		offset += messageIDSize;
 
-		dataBuffer->write_uint16_be(offset, chId2);
+		dataBuffer->write_uint16_be_unsafe(offset, chId2);
 		offset += channelSize;
 
-		dataBuffer->write_uint64_be(offset, timestamp2);
+		dataBuffer->write_uint64_be_unsafe(offset, timestamp2);
 		offset += timestampSize;
 
-		dataBuffer->write_uint64_be(offset, stakeOffset2);
+		dataBuffer->write_uint64_be_unsafe(offset, stakeOffset2);
 		offset += stakeOffsetSize;
 
-		dataBuffer->write_uint64_be(offset, messageSize2);
+		dataBuffer->write_uint64_be_unsafe(offset, messageSize2);
 		offset += messageSize;
 
-		dataBuffer->write(offset, messageHash2, hashSize);
+		dataBuffer->write_unsafe(offset, messageHash2, hashSize);
 		offset += hashSize;
 
-		dataBuffer->write(offset, signature2, signatureSize);
+		dataBuffer->write_unsafe(offset, signature2, signatureSize);
 		offset += signatureSize;
 
 		contractInterface->send(std::move(*dataBuffer));

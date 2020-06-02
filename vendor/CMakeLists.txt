@@ -93,3 +93,8 @@ set_target_properties(secp256k1 PROPERTIES
 	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/secp256k1/lib/libsecp256k1.a
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/secp256k1/include
 )
+
+
+#-------- boost --------#
+set(BOOST_ENABLE_CMAKE ON)
+add_subdirectory(boost)

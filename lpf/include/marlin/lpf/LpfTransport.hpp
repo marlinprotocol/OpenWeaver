@@ -198,7 +198,7 @@ void LpfTransport<
 	BaseTransport &,
 	core::Buffer &&bytes
 ) {
-	bytes.cover(8);
+	bytes.cover_unsafe(8);
 	delegate->did_send_message(*this, std::move(bytes));
 }
 
@@ -308,8 +308,8 @@ int LpfTransport<
 ) {
 	core::Buffer lpf_message(message.size() + 8);
 
-	lpf_message.write_uint64_be(0, message.size());
-	lpf_message.write(8, message.data(), message.size());
+	lpf_message.write_uint64_be_unsafe(0, message.size());
+	lpf_message.write_unsafe(8, message.data(), message.size());
 
 	return transport.send(std::move(lpf_message));
 }
@@ -406,7 +406,7 @@ uint16_t LpfTransport<
 	cut_through_used_ids.insert(id);
 
 	core::Buffer m(8);
-	m.write_uint64_be(0, length);
+	m.write_uint64_be_unsafe(0, length);
 	auto res = transport.send(std::move(m), id);
 
 	if(res < 0) return 0;

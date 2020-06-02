@@ -35,7 +35,7 @@ public:
 				for(size_t i = 0; i < 8 - size; i++) {
 					length = (length << 8) | bytes.data()[i];
 				}
-				bytes.cover(8 - size);
+				bytes.cover_unsafe(8 - size);
 
 				if(length > 5000000) { // Abort on big message, DoS prevention
 					SPDLOG_ERROR("Message too big: {}", length);
@@ -51,11 +51,11 @@ public:
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
-				bytes.read(0, buf + size, bytes.size());
+				bytes.read_unsafe(0, buf + size, bytes.size());
 				size += bytes.size();
 			} else { // Full message
-				bytes.read(0, buf + size, length - size);
-				bytes.cover(length - size);
+				bytes.read_unsafe(0, buf + size, length - size);
+				bytes.cover_unsafe(length - size);
 
 				auto *tbuf = buf;
 				buf = nullptr;

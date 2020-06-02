@@ -24,6 +24,7 @@
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
 #include "protocol/AckRanges.hpp"
+#include "Messages.hpp"
 
 namespace marlin {
 namespace stream {
@@ -48,6 +49,17 @@ public:
 private:
 	using Self = StreamTransport<DelegateType, DatagramTransport>;
 	using BaseTransport = DatagramTransport<Self>;
+	using BaseMessageType = typename BaseTransport::MessageType;
+
+	using DATA = DATAWrapper<BaseMessageType>;
+	using ACK = ACKWrapper<BaseMessageType>;
+	using DIAL = DIALWrapper<BaseMessageType>;
+	using DIALCONF = DIALCONFWrapper<BaseMessageType>;
+	using CONF = CONFWrapper<BaseMessageType>;
+	using RST = RSTWrapper<BaseMessageType>;
+	using SKIPSTREAM = SKIPSTREAMWrapper<BaseMessageType>;
+	using FLUSHSTREAM = FLUSHSTREAMWrapper<BaseMessageType>;
+	using FLUSHCONF = FLUSHCONFWrapper<BaseMessageType>;
 
 	BaseTransport &transport;
 	core::TransportManager<Self> &transport_manager;
@@ -108,13 +120,6 @@ private:
 
 	bool register_send_intent(SendStream &stream);
 
-	void send_data_packet(
-		SendStream &stream,
-		DataItem &data_item,
-		uint64_t offset,
-		uint16_t length
-	);
-
 	void send_pending_data();
 	int send_lost_data(uint64_t initial_bytes_in_flight);
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
@@ -140,36 +145,41 @@ private:
 
 	// Protocol
 	void send_DIAL();
-	void did_recv_DIAL(core::Buffer &&packet);
+	void did_recv_DIAL(DIAL &&packet);
 
 	void send_DIALCONF();
-	void did_recv_DIALCONF(core::Buffer &&packet);
+	void did_recv_DIALCONF(DIALCONF &&packet);
 
 	void send_CONF();
-	void did_recv_CONF(core::Buffer &&packet);
+	void did_recv_CONF(CONF &&packet);
 
 	void send_RST(uint32_t src_conn_id, uint32_t dst_conn_id);
-	void did_recv_RST(core::Buffer &&packet);
+	void did_recv_RST(RST &&packet);
 
-	void send_DATA(core::Buffer &&packet);
-	void did_recv_DATA(core::Buffer &&packet);
+	void send_DATA(
+		SendStream &stream,
+		DataItem &data_item,
+		uint64_t offset,
+		uint16_t length
+	);
+	void did_recv_DATA(DATA &&packet);
 
 	void send_ACK();
-	void did_recv_ACK(core::Buffer &&packet);
+	void did_recv_ACK(ACK &&packet);
 
 	void send_SKIPSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_SKIPSTREAM(core::Buffer &&packet);
+	void did_recv_SKIPSTREAM(SKIPSTREAM &&packet);
 
 	void send_FLUSHSTREAM(uint16_t stream_id, uint64_t offset);
-	void did_recv_FLUSHSTREAM(core::Buffer &&packet);
+	void did_recv_FLUSHSTREAM(FLUSHSTREAM &&packet);
 
 	void send_FLUSHCONF(uint16_t stream_id);
-	void did_recv_FLUSHCONF(core::Buffer &&packet);
+	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
 
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 	void did_close(BaseTransport &transport);
 
@@ -213,8 +223,7 @@ private:
 	uint8_t rx[crypto_kx_SESSIONKEYBYTES];
 	uint8_t tx[crypto_kx_SESSIONKEYBYTES];
 
-	uint8_t rx_IV[crypto_aead_aes256gcm_NPUBBYTES];
-	uint8_t tx_IV[crypto_aead_aes256gcm_NPUBBYTES];
+	uint8_t nonce[crypto_aead_aes256gcm_NPUBBYTES];
 
 	alignas(16) crypto_aead_aes256gcm_state rx_ctx;
 	alignas(16) crypto_aead_aes256gcm_state tx_ctx;
@@ -372,76 +381,6 @@ bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	return true;
 }
 
-//! Sends across given data item fragment
-/*!
-	\param stream SendStream to which the fragment's dataItem belongs to
-	\param data_item DataItem to which the fragment belongs to
-	\param offset integer offset of the fragment in the data_item
-	\param length byte length of the fragment
-*/
-template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_data_packet(
-	SendStream &stream,
-	DataItem &data_item,
-	uint64_t offset,
-	uint16_t length
-) {
-	bool is_fin = (stream.done_queueing &&
-		data_item.stream_offset + offset + length >= stream.queue_offset);
-
-	core::Buffer packet(
-		{0, static_cast<uint8_t>(is_fin)},
-		length + 30 + crypto_aead_aes256gcm_ABYTES
-	);
-
-	this->last_sent_packet++;
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream.stream_id);
-	packet.write_uint64_be(12, this->last_sent_packet);
-	packet.write_uint64_be(20, data_item.stream_offset + offset);
-	packet.write_uint16_be(28, length);
-	packet.write_unsafe(30, data_item.data.data()+offset, length);
-
-	uint8_t nonce[12];
-	for(int i = 0; i < 4; i++) {
-		nonce[i] = tx_IV[i] ^ packet.data()[2+i];
-	}
-	for(int i = 0; i < 8; i++) {
-		nonce[4+i] = tx_IV[4+i] ^ packet.data()[12+i];
-	}
-	crypto_aead_aes256gcm_encrypt_afternm(
-		packet.data() + 20,
-		nullptr,
-		packet.data() + 20,
-		10 + length,
-		packet.data() + 2,
-		18,
-		nullptr,
-		nonce,
-		&tx_ctx
-	);
-
-	this->sent_packets.emplace(
-		std::piecewise_construct,
-		std::forward_as_tuple(this->last_sent_packet),
-		std::forward_as_tuple(
-			asyncio::EventLoop::now(),
-			&stream,
-			&data_item,
-			offset,
-			length
-		)
-	);
-
-	send_DATA(std::move(packet));
-
-	if(is_fin && stream.state != SendStream::State::Acked) {
-		stream.state = SendStream::State::Sent;
-	}
-}
-
 //! Schedules pacing timer callback
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
@@ -473,7 +412,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 			return -2;
 		}
 
-		send_data_packet(
+		send_DATA(
 			*sent_packet.stream,
 			*sent_packet.data_item,
 			sent_packet.offset,
@@ -518,7 +457,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 			if(this->bytes_in_flight > this->congestion_window - dsize)
 				return -2;
 
-			send_data_packet(stream, data_item, i, dsize);
+			send_DATA(stream, data_item, i, dsize);
 
 			stream.bytes_in_flight += dsize;
 			stream.sent_offset += dsize;
@@ -685,31 +624,37 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
 	constexpr size_t pt_len = crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	core::Buffer packet({0, 3}, 10 + ct_len);
+	uint8_t buf[ct_len];
+	std::memcpy(buf, static_pk, crypto_box_PUBLICKEYBYTES);
+	std::memcpy(buf + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
+	crypto_box_seal(buf, buf, pt_len, remote_static_pk);
 
-	packet.write_uint32_be(2, this->src_conn_id);
-	packet.write_uint32_be(6, this->dst_conn_id);
-
-	uint8_t pt[pt_len];
-	std::memcpy(pt, static_pk, crypto_box_PUBLICKEYBYTES);
-	std::memcpy(pt + crypto_box_PUBLICKEYBYTES, ephemeral_pk, crypto_kx_PUBLICKEYBYTES);
-
-	crypto_box_seal(packet.data() + 10, pt, pt_len, remote_static_pk);
-
-	transport.send(std::move(packet));
+	transport.send(
+		DIAL(ct_len)
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+		.set_payload(buf, ct_len)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
-	core::Buffer &&packet
+	DIAL &&packet
 ) {
+	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	if(!packet.validate(ct_len)) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::Listen) {
-		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be(6)
+				packet.src_conn_id()
 			);
 			return;
 		}
@@ -721,11 +666,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES)
 		);
 
-		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
-
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.payload(), ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -750,33 +692,29 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.dst_conn_id();
 		this->src_conn_id = (uint32_t)std::random_device()();
 
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
 	} else if(conn_state == ConnectionState::DialSent) {
-		if(packet.read_uint32_be(6) != 0) { // Should have empty source
+		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
-				packet.read_uint32_be(6)
+				packet.src_conn_id()
 			);
 			return;
 		}
 
-		constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
-
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, packet.data() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.payload() + 10, ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
@@ -800,12 +738,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.dst_conn_id();
 
 		state_timer.stop();
 		state_timer_interval = 0;
@@ -831,34 +768,30 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
-	core::Buffer packet({0, 4}, 10 + ct_len);
+	uint8_t buf[ct_len];
+	crypto_box_seal(buf, ephemeral_pk, pt_len, remote_static_pk);
 
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-
-	crypto_box_seal(packet.data() + 10, ephemeral_pk, pt_len, remote_static_pk);
-
-	transport.send(std::move(packet));
-
-	// SPDLOG_INFO(
-	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
-	// 	src_addr.to_string(),
-	// 	dst_addr.to_string(),
-	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
-	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
-	// );
+	transport.send(
+		DIALCONF(ct_len)
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+		.set_payload(buf, ct_len)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
-	core::Buffer &&packet
+	DIALCONF &&packet
 ) {
+	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
+	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
+
+	if(!packet.validate(ct_len)) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::DialSent) {
-		auto src_conn_id = packet.read_uint32_be(6);
+		auto src_conn_id = packet.src_conn_id();
 		if(src_conn_id != this->src_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -870,14 +803,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 				src_conn_id,
 				this->src_conn_id
 			);
-			send_RST(src_conn_id, packet.read_uint32_be(2));
+			send_RST(src_conn_id, packet.dst_conn_id());
 			return;
 		}
 
-		constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
-		constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
-
-		if (crypto_box_seal_open(remote_ephemeral_pk, packet.data() + 10, ct_len, static_pk, static_sk) != 0) {
+		if (crypto_box_seal_open(remote_ephemeral_pk, packet.payload(), ct_len, static_pk, static_sk) != 0) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
 				src_addr.to_string(),
@@ -897,15 +827,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			return;
 		}
 
-		randombytes_buf_deterministic(rx_IV, crypto_aead_aes256gcm_NPUBBYTES, rx);
-		randombytes_buf_deterministic(tx_IV, crypto_aead_aes256gcm_NPUBBYTES, tx);
+		randombytes_buf(nonce, crypto_aead_aes256gcm_NPUBBYTES);
 		crypto_aead_aes256gcm_beforenm(&rx_ctx, rx);
 		crypto_aead_aes256gcm_beforenm(&tx_ctx, tx);
 
 		state_timer.stop();
 		state_timer_interval = 0;
 
-		this->dst_conn_id = packet.read_uint32_be(2);
+		this->dst_conn_id = packet.dst_conn_id();
 
 		send_CONF();
 
@@ -916,8 +845,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 	} else if(conn_state == ConnectionState::DialRcvd) {
 		// Usually happend in case of simultaneous open
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
@@ -946,8 +875,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
@@ -970,39 +899,30 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
+		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 	}
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
-	core::Buffer packet({0, 5}, 10);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-
-	transport.send(std::move(packet));
-
-	// SPDLOG_INFO(
-	// 	"Stream transport {{ Src: {}, Dst: {} }}: Keys:\nSK:\n{}\nRSK:\n{}\nEK:\n{}\nREK:\n{}\nRx:\n{}\nTx:\n{}",
-	// 	src_addr.to_string(),
-	// 	dst_addr.to_string(),
-	// 	spdlog::to_hex(static_pk, static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_static_pk, remote_static_pk+crypto_box_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(ephemeral_pk, ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(remote_ephemeral_pk, remote_ephemeral_pk+crypto_kx_PUBLICKEYBYTES),
-	// 	spdlog::to_hex(rx, rx+crypto_kx_SESSIONKEYBYTES),
-	// 	spdlog::to_hex(tx, tx+crypto_kx_SESSIONKEYBYTES)
-	// );
+	transport.send(
+		CONF()
+		.set_src_conn_id(this->src_conn_id)
+		.set_dst_conn_id(this->dst_conn_id)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
-	core::Buffer &&packet
+	CONF &&packet
 ) {
+	if(!packet.validate()) {
+		return;
+	}
+
 	if(conn_state == ConnectionState::DialRcvd) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1024,8 +944,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			delegate->did_dial(*this);
 		}
 	} else if(conn_state == ConnectionState::Established) {
-		auto src_conn_id = packet.read_uint32_be(6);
-		auto dst_conn_id = packet.read_uint32_be(2);
+		auto src_conn_id = packet.src_conn_id();
+		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1047,7 +967,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
-		send_RST(packet.read_uint32_be(6), packet.read_uint32_be(2));
+		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 	}
 }
 
@@ -1056,20 +976,23 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	core::Buffer packet({0, 6}, 10);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-
-	transport.send(std::move(packet));
+	transport.send(
+		RST()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
-	core::Buffer &&packet
+	RST &&packet
 ) {
-	auto src_conn_id = packet.read_uint32_be(6);
-	auto dst_conn_id = packet.read_uint32_be(2);
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: RST",
@@ -1081,13 +1004,69 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	}
 }
 
+//! Sends across given data item fragment
+/*!
+	\param stream SendStream to which the fragment's dataItem belongs to
+	\param data_item DataItem to which the fragment belongs to
+	\param offset integer offset of the fragment in the data_item
+	\param length byte length of the fragment
+*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
-	core::Buffer &&packet
+	SendStream &stream,
+	DataItem &data_item,
+	uint64_t offset,
+	uint16_t length
 ) {
-	transport.send(std::move(packet));
-}
+	this->last_sent_packet++;
 
+	bool is_fin = (stream.done_queueing &&
+		data_item.stream_offset + offset + length >= stream.queue_offset);
+
+	auto packet = DATA(12 + length + crypto_aead_aes256gcm_ABYTES, is_fin)
+					.set_src_conn_id(src_conn_id)
+					.set_dst_conn_id(dst_conn_id)
+					.set_packet_number(this->last_sent_packet)
+					.set_stream_id(stream.stream_id)
+					.set_offset(data_item.stream_offset + offset)
+					.set_length(length)
+					.payload_buffer();
+
+	// Figure out better way
+	packet.uncover_unsafe(30);
+	packet.write_unsafe(30, data_item.data.data()+offset, length);
+	packet.write_unsafe(30 + length + crypto_aead_aes256gcm_ABYTES, nonce, 12);
+	crypto_aead_aes256gcm_encrypt_afternm(
+		packet.data() + 18,
+		nullptr,
+		packet.data() + 18,
+		12 + length,
+		packet.data() + 2,
+		16,
+		nullptr,
+		nonce,
+		&tx_ctx
+	);
+	sodium_increment(nonce, 12);
+
+	this->sent_packets.emplace(
+		std::piecewise_construct,
+		std::forward_as_tuple(this->last_sent_packet),
+		std::forward_as_tuple(
+			asyncio::EventLoop::now(),
+			&stream,
+			&data_item,
+			offset,
+			length
+		)
+	);
+
+	transport.send(std::move(packet));
+
+	if(is_fin && stream.state != SendStream::State::Acked) {
+		stream.state = SendStream::State::Sent;
+	}
+}
 
 /*!
 	\li handles the packet fragments received on the connection.
@@ -1098,12 +1077,14 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
-	core::Buffer &&packet
+	DATA &&packet
 ) {
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	if(!packet.validate(12 + crypto_aead_aes256gcm_ABYTES)) {
+		return;
+	}
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
@@ -1118,22 +1099,15 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	uint8_t nonce[12];
-	for(int i = 0; i < 4; i++) {
-		nonce[i] = rx_IV[i] ^ packet.data()[2+i];
-	}
-	for(int i = 0; i < 8; i++) {
-		nonce[4+i] = rx_IV[4+i] ^ packet.data()[12+i];
-	}
 	auto res = crypto_aead_aes256gcm_decrypt_afternm(
-		p.data() + 20,
+		packet.payload() - 12,
 		nullptr,
 		nullptr,
-		p.data() + 20,
-		p.size() - 20,
-		p.data() + 2,
-		18,
-		nonce,
+		packet.payload() - 12,
+		packet.payload_buffer().size(),
+		packet.payload() - 28,
+		16,
+		packet.payload() + packet.payload_buffer().size() - 12,
 		&rx_ctx
 	);
 
@@ -1149,9 +1123,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	p.truncate(crypto_aead_aes256gcm_ABYTES);
-
-	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), p.offset(), p.length());
+	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), packet.offset(), packet.length());
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
@@ -1159,11 +1131,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	auto offset = p.offset();
-	auto length = p.length();
-	auto packet_number = p.packet_number();
+	auto offset = packet.offset();
+	auto length = packet.length();
+	auto packet_number = packet.packet_number();
 
-	auto &stream = get_or_create_recv_stream(p.stream_id());
+	auto &stream = get_or_create_recv_stream(packet.stream_id());
 
 	// Short circuit once stream has been received fully.
 	if(stream.state == RecvStream::State::AllRecv ||
@@ -1177,13 +1149,19 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	}
 
 	// Set stream size if fin bit set
-	if(p.is_fin_set() && stream.state == RecvStream::State::Recv) {
+	if(packet.is_fin_set() && stream.state == RecvStream::State::Recv) {
 		stream.size = offset + length;
 		stream.state = RecvStream::State::SizeKnown;
 	}
 
-	// Cover header
-	p.cover(30);
+	auto p = std::move(packet).payload_buffer();
+	p.truncate_unsafe(crypto_aead_aes256gcm_ABYTES + 12);
+
+	// Check if length matches packet
+	// FIXME: Why even have length? Can just set from the packet
+	if(p.size() != length) {
+		return;
+	}
 
 	// Add to ack range
 	ack_ranges.add_packet_number(packet_number);
@@ -1202,10 +1180,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	// Check if data can be read immediately
 	if(offset <= stream.read_offset) {
 		// Cover bytes which have already been read
-		p.cover(stream.read_offset - offset);
+		p.cover_unsafe(stream.read_offset - offset);
 
 		// Read bytes and update offset
-		auto res = delegate->did_recv_bytes(*this, std::move(packet), stream.stream_id);
+		auto res = delegate->did_recv_bytes(*this, std::move(p), stream.stream_id);
 		if(res < 0) {
 			return;
 		}
@@ -1225,7 +1203,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 			// Check new data
 			if(offset + length > stream.read_offset) {
 				// Cover bytes which have already been read
-				iter->second.packet.cover(stream.read_offset - offset);
+				iter->second.packet.cover_unsafe(stream.read_offset - offset);
 
 				// Read bytes and update offset
 				SPDLOG_DEBUG("Out of order: {}, {}, {:spn}", offset, length, spdlog::to_hex(iter->second.packet.data(), iter->second.packet.data() + iter->second.packet.size()));
@@ -1248,13 +1226,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		}
 	} else {
 		// Queue packet for later processing
-		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(packet.data(), packet.data() + packet.size()));
+		SPDLOG_DEBUG("Queue for later: {}, {}, {:spn}", offset, length, spdlog::to_hex(p.data(), p.data() + p.size()));
 		stream.recv_packets.try_emplace(
 			offset,
 			asyncio::EventLoop::now(),
 			offset,
 			length,
-			std::move(packet)
+			std::move(p)
 		);
 
 		// Check all data received
@@ -1266,43 +1244,32 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
-	int size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
+	size_t size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
-	core::Buffer packet({0, 2}, 20+8*size);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, size);
-	packet.write_uint64_be(12, ack_ranges.largest);
-
-	int i = 20;
-	auto iter = ack_ranges.ranges.begin();
-	// Upto 85 gaps
-	for(
-		;
-		i <= 12+size*8 && iter != ack_ranges.ranges.end();
-		i += 8, iter++
-	) {
-		packet.write_uint64_be(i, *iter);
-	}
-
-	transport.send(std::move(packet));
+	transport.send(
+		ACK(size)
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_packet_number(ack_ranges.largest)
+		.set_size(size)
+		.set_ranges(ack_ranges.ranges.begin(), ack_ranges.ranges.end())
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
-	core::Buffer &&packet
+	ACK &&packet
 ) {
-	SPDLOG_TRACE("ACK <<< {}", dst_addr.to_string());
-
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	if(!packet.validate()) {
+		return;
+	}
 
 	if(conn_state != ConnectionState::Established) {
 		return;
 	}
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
@@ -1319,9 +1286,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 	auto now = asyncio::EventLoop::now();
 
-	// TODO: Better method names
-	uint16_t size = p.stream_id();
-	uint64_t largest = p.packet_number();
+	uint64_t largest = packet.packet_number();
 
 	// New largest acked packet
 	if(largest > largest_acked && sent_packets.find(largest) != sent_packets.end()) {
@@ -1339,19 +1304,16 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 		}
 	}
 
-	// Cover till range list
-	p.cover(20);
-
 	uint64_t high = largest;
 	bool gap = false;
 	bool is_app_limited = (bytes_in_flight < 0.8 * congestion_window);
 
 	for(
-		uint16_t i = 0;
-		i < size;
-		i++, gap = !gap
+		auto iter = packet.ranges_begin();
+		iter != packet.ranges_end();
+		++iter, gap = !gap
 	) {
-		uint64_t range = p.read_uint64_be(i*8);
+		uint64_t range = *iter;
 
 		uint64_t low = high - range;
 
@@ -1543,26 +1505,27 @@ void StreamTransport<DelegateType, DatagramTransport>::send_SKIPSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	core::Buffer packet({0, 7}, 20);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
-	packet.write_uint64_be(12, offset);
-
-	transport.send(std::move(packet));
+	transport.send(
+		SKIPSTREAM()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+		.set_offset(offset)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
-	core::Buffer &&packet
+	SKIPSTREAM &&packet
 ) {
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	if(!packet.validate()) {
+		return;
+	}
 
-	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
@@ -1581,8 +1544,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 		return;
 	}
 
-	auto stream_id = p.stream_id();
-	auto offset = p.packet_number();
+	auto stream_id = packet.stream_id();
+	auto offset = packet.offset();
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	// Check for duplicate
@@ -1601,26 +1564,27 @@ void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHSTREAM(
 	uint16_t stream_id,
 	uint64_t offset
 ) {
-	core::Buffer packet({0, 8}, 20);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
-	packet.write_uint64_be(12, offset);
-
-	transport.send(std::move(packet));
+	transport.send(
+		FLUSHSTREAM()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+		.set_offset(offset)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
-	core::Buffer &&packet
+	FLUSHSTREAM &&packet
 ) {
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	if(!packet.validate()) {
+		return;
+	}
 
-	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), p.stream_id());
+	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
@@ -1639,8 +1603,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 		return;
 	}
 
-	auto stream_id = p.stream_id();
-	auto offset = p.packet_number();
+	auto stream_id = packet.stream_id();
+	auto offset = packet.offset();
 
 	auto &stream = get_or_create_recv_stream(stream_id);
 	auto old_offset = stream.read_offset;
@@ -1665,25 +1629,26 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_FLUSHCONF(
 	uint16_t stream_id
 ) {
-	core::Buffer packet({0, 9}, 12);
-
-	packet.write_uint32_be(2, src_conn_id);
-	packet.write_uint32_be(6, dst_conn_id);
-	packet.write_uint16_be(10, stream_id);
-
-	transport.send(std::move(packet));
+	transport.send(
+		FLUSHCONF()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+	);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
-	core::Buffer &&packet
+	FLUSHCONF &&packet
 ) {
-	auto &p = *reinterpret_cast<StreamPacket *>(&packet);
+	if(!packet.validate()) {
+		return;
+	}
 
-	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), p.stream_id());
+	SPDLOG_TRACE("FLUSHCONF <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
-	auto src_conn_id = p.read_uint32_be(6);
-	auto dst_conn_id = p.read_uint32_be(2);
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
@@ -1702,7 +1667,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 		return;
 	}
 
-	auto stream_id = p.stream_id();
+	auto stream_id = packet.stream_id();
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	stream.state_timer.stop();
@@ -1757,9 +1722,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 	BaseTransport &,
-	core::Buffer &&packet
+	BaseMessageType &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.payload_buffer().read_uint8(1);
+	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DATA
 		case 0:
 		// DATA + FIN
@@ -1800,7 +1770,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
 	BaseTransport &,
 	core::Buffer &&packet
 ) {
-	switch(packet.read_uint8(1)) {
+	auto type = packet.read_uint8(1);
+	if(type == std::nullopt) {
+		return;
+	}
+
+	switch(type.value()) {
 		// DATA
 		case 0: SPDLOG_TRACE("DATA >>> {}", dst_addr.to_string());
 		break;

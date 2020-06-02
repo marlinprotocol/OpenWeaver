@@ -28,16 +28,19 @@ struct ChainWitnesser {
 		uint64_t offset = 0
 	) {
 		if(prev_witness_header.witness_size == 0) {
-			out.write_uint16_be(offset, 32);
+			// FIXME: should probably add _unsafe to function
+			out.write_uint16_be_unsafe(offset, 32);
 			offset += 2;
 		}
-		out.write(offset, prev_witness_header.witness_data, prev_witness_header.witness_size);
+		// FIXME: should probably add _unsafe to function
+		out.write_unsafe(offset, prev_witness_header.witness_data, prev_witness_header.witness_size);
 		crypto_scalarmult_base(out.data()+offset+prev_witness_header.witness_size, secret_key);
 		return 0;
 	}
 
-	uint64_t parse_size(core::Buffer& in, uint64_t offset = 0) {
-		return in.read_uint16_be(offset) + 2;
+	std::optional<uint64_t> parse_size(core::Buffer& in, uint64_t offset = 0) {
+		auto res = in.read_uint16_be(offset);
+		return res.has_value() ? res.value() + 2 : res;
 	}
 };
 
