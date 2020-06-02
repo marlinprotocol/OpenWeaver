@@ -37,7 +37,6 @@ BaseMessage& BaseMessage::set_payload(std::initializer_list<uint8_t> il) & {
 }
 
 BaseMessage&& BaseMessage::set_payload(std::initializer_list<uint8_t> il) && {
-	// TODO: This works, but is this actually correct?
 	return std::move(set_payload(il));
 }
 
@@ -48,7 +47,6 @@ BaseMessage& BaseMessage::truncate_unsafe(size_t size) & {
 }
 
 BaseMessage&& BaseMessage::truncate_unsafe(size_t size) && {
-	// TODO: This works, but is this actually correct?
 	return std::move(truncate_unsafe(size));
 }
 
