@@ -37,7 +37,7 @@ bool WeakBuffer::uncover(size_t const num) {
 }
 
 void WeakBuffer::uncover_unsafe(size_t const num) {
-	assert(num >= start_index);
+	assert(start_index >= num);
 
 	start_index -= num;
 }
