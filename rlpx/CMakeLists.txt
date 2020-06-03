@@ -9,12 +9,12 @@ endif()
 
 include(GNUInstallDirs)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-
 IF(APPLE)
     # Fix linking on 10.14+. See https://stackoverflow.com/questions/54068035
     LINK_DIRECTORIES(/usr/local/lib)
 ENDIF()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(rlpx STATIC
 	src/RlpxCrypto.cpp
@@ -34,21 +34,17 @@ set_target_properties(rlpx PROPERTIES
 	OUTPUT_NAME "marlin-rlpx"
 )
 
-# Cryptopp
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/cryptopp.cmake")
-target_link_libraries(rlpx PUBLIC cryptopp)
+# cryptopp
+target_link_libraries(rlpx INTERFACE cryptopp::CryptoPP)
 
-# MarlinNet
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/marlin-net.cmake")
-target_link_libraries(rlpx PUBLIC Marlin::net)
+# marlin::asyncio
+target_link_libraries(rlpx PUBLIC marlin::asyncio)
 
 # spdlog
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/spdlog.cmake")
 target_link_libraries(rlpx PUBLIC spdlog::spdlog)
 
 # snappy
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/snappy.cmake")
-target_link_libraries(rlpx PUBLIC Snappy::snappy)
+target_link_libraries(rlpx PUBLIC snappy)
 
 install(TARGETS rlpx
 	EXPORT marlin-rlpx-export
@@ -63,25 +59,36 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-rlpx-export
-  FILE
-	MarlinRlpxTargets.cmake
-  NAMESPACE
-	Marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/MarlinRlpx
+	FILE
+		MarlinRlpxTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinRlpx
 )
 
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinRlpxConfig.cmake
-	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MarlinRlpx
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinRlpx
 )
 
 ##########################################################
 # Build examples
 ##########################################################
 
+add_custom_target(rlpx_examples)
+
 add_executable(rlpx_example
 	examples/rlpx.cpp
 )
+add_dependencies(rlpx_examples rlpx_example)
 target_link_libraries(rlpx_example PUBLIC rlpx)
 target_compile_options(rlpx_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+
+
+##########################################################
+# All
+##########################################################
+
+add_custom_target(rlpx_all)
+add_dependencies(rlpx_all rlpx rlpx_examples)
