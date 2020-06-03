@@ -8,3 +8,6 @@
 	path = vendor/libsodium
 	url = https://github.com/jedisct1/libsodium.git
 	branch = stable
+[submodule "vendor/snappy"]
+	path = vendor/snappy
+	url = https://github.com/google/snappy.git
