@@ -98,3 +98,7 @@ set_target_properties(secp256k1 PROPERTIES
 #-------- boost --------#
 set(BOOST_ENABLE_CMAKE ON)
 add_subdirectory(boost)
+
+
+#-------- snappy --------#
+add_subdirectory(snappy)
