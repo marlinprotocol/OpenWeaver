@@ -33,14 +33,11 @@ set_target_properties(onramp-eth PROPERTIES
 	OUTPUT_NAME "onramp_eth"
 )
 
-# marlin::pubsub
-target_link_libraries(onramp-eth PUBLIC marlin::pubsub)
+# marlin::multicastsdk
+target_link_libraries(onramp-eth PUBLIC marlin::multicastsdk)
 
 # marlin::rlpx
 target_link_libraries(onramp-eth PUBLIC marlin::rlpx)
-
-# marlin::beacon
-target_link_libraries(onramp-eth PUBLIC marlin::beacon)
 
 # spdlog
 target_link_libraries(onramp-eth PUBLIC spdlog::spdlog)
