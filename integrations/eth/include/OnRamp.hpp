@@ -38,10 +38,13 @@ public:
 		uint16_t channel,
 		uint64_t message_id
 	) {
-		SPDLOG_DEBUG(
-			"Did recv from multicast, message-id: {}",
-			message_id
-		);
+		if((message_id & 0x0) == 0) {
+			SPDLOG_INFO(
+				"Received message {} on channel {}",
+				message_id,
+				channel
+			);
+		}
 
 		if (channel == 0 && rlpxt != nullptr) {
 			SPDLOG_DEBUG(
