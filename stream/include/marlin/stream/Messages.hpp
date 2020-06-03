@@ -150,7 +150,7 @@ struct DATAWrapper {
 	MARLIN_MESSAGES_UINT64_FIELD(packet_number, 10)
 	MARLIN_MESSAGES_UINT16_FIELD(stream_id, 18)
 	MARLIN_MESSAGES_UINT64_FIELD(offset, 20)
-	MARLIN_MESSAGES_UINT16_FIELD(length, 22)
+	MARLIN_MESSAGES_UINT16_FIELD(length, 28)
 	MARLIN_MESSAGES_PAYLOAD_FIELD(30)
 
 	DATAWrapper(size_t payload_size, bool is_fin) : base(30 + payload_size) {
