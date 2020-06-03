@@ -1,7 +1,8 @@
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 
 using namespace marlin::rlpx;
-using namespace marlin::net;
+using namespace marlin::core;
+using namespace marlin::asyncio;
 
 struct Delegate {
 	void did_recv_message(RlpxTransport<Delegate> &transport, Buffer &&message) {
@@ -27,7 +28,7 @@ struct Delegate {
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			transport.send(Buffer(new char[2]{0x14, (char)0xc0}, 2));
+			transport.send(Buffer({0x14, 0xc0}, 2));
 		} else if(message.data()[0] == 0x15) { // eth63 GetBlockBodies
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: GetBlockBodies message: {} bytes",
@@ -35,7 +36,7 @@ struct Delegate {
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			transport.send(Buffer(new char[2]{0x16, (char)0xc0}, 2));
+			transport.send(Buffer({0x16, 0xc0}, 2));
 		} else if(message.data()[0] == 0x12) { // eth63 Transactions
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: Transactions message: {} bytes",

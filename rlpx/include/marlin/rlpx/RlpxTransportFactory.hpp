@@ -14,7 +14,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 
-#include <marlin/net/tcp/TcpTransportFactory.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 
 #include "RlpxTransport.hpp"
 #include "RlpxCrypto.hpp"
@@ -25,7 +25,7 @@ namespace rlpx {
 template<typename ListenDelegate, typename TransportDelegate>
 class RlpxTransportFactory {
 private:
-	net::TcpTransportFactory<
+	asyncio::TcpTransportFactory<
 		RlpxTransportFactory<ListenDelegate, TransportDelegate>,
 		RlpxTransport<TransportDelegate>
 	> f;
@@ -34,18 +34,18 @@ private:
 
 public:
 	// Listen delegate
-	bool should_accept(net::SocketAddress const &addr);
+	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(
-		net::TcpTransport<RlpxTransport<TransportDelegate>> &transport
+		asyncio::TcpTransport<RlpxTransport<TransportDelegate>> &transport
 	);
 
-	net::SocketAddress addr;
+	core::SocketAddress addr;
 
 	RlpxTransportFactory();
 
-	int bind(net::SocketAddress const &addr);
+	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
-	int dial(net::SocketAddress const &addr, ListenDelegate &delegate);
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate);
 };
 
 
@@ -55,14 +55,14 @@ public:
 
 template<typename ListenDelegate, typename TransportDelegate>
 bool RlpxTransportFactory<ListenDelegate, TransportDelegate>::should_accept(
-	net::SocketAddress const &addr
+	core::SocketAddress const &addr
 ) {
 	return delegate->should_accept(addr);
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
 void RlpxTransportFactory<ListenDelegate, TransportDelegate>::did_create_transport(
-	net::TcpTransport<RlpxTransport<TransportDelegate>> &transport
+	asyncio::TcpTransport<RlpxTransport<TransportDelegate>> &transport
 ) {
 	auto &rlpx_transport = transport_list.emplace_back(
 		transport.src_addr,
@@ -81,7 +81,7 @@ RlpxTransportFactory<ListenDelegate, TransportDelegate>::RlpxTransportFactory() 
 
 template<typename ListenDelegate, typename TransportDelegate>
 int RlpxTransportFactory<ListenDelegate, TransportDelegate>::bind(
-	net::SocketAddress const &addr
+	core::SocketAddress const &addr
 ) {
 	return f.bind(addr);
 }
@@ -96,7 +96,7 @@ int RlpxTransportFactory<ListenDelegate, TransportDelegate>::listen(
 
 template<typename ListenDelegate, typename TransportDelegate>
 int RlpxTransportFactory<ListenDelegate, TransportDelegate>::dial(
-	net::SocketAddress const &addr,
+	core::SocketAddress const &addr,
 	ListenDelegate &delegate
 ) {
 	this->delegate = &delegate;

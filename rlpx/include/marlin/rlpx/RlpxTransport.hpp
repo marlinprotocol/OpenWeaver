@@ -5,7 +5,7 @@
 #include <spdlog/fmt/bin_to_hex.h>
 #include <snappy.h>
 
-#include <marlin/net/tcp/TcpTransport.hpp>
+#include <marlin/asyncio/tcp/TcpTransport.hpp>
 
 #include "RlpxCrypto.hpp"
 #include "RlpItem.hpp"
@@ -16,7 +16,7 @@ namespace rlpx {
 template<typename DelegateType>
 class RlpxTransport {
 private:
-	typedef net::TcpTransport<RlpxTransport<DelegateType>> BaseTransport;
+	typedef asyncio::TcpTransport<RlpxTransport<DelegateType>> BaseTransport;
 	BaseTransport &transport;
 
 	// Crypto
@@ -40,22 +40,22 @@ private:
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_bytes(BaseTransport &transport, net::Buffer &&bytes);
-	void did_send_bytes(BaseTransport &transport, net::Buffer &&bytes);
+	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
 
-	net::SocketAddress src_addr;
-	net::SocketAddress dst_addr;
+	core::SocketAddress src_addr;
+	core::SocketAddress dst_addr;
 
 	DelegateType *delegate;
 
 	RlpxTransport(
-		net::SocketAddress const &src_addr,
-		net::SocketAddress const &dst_addr,
+		core::SocketAddress const &src_addr,
+		core::SocketAddress const &dst_addr,
 		BaseTransport &transport
 	);
 
 	void setup(DelegateType *delegate);
-	int send(net::Buffer &&bytes);
+	int send(core::Buffer &&bytes);
 };
 
 
@@ -73,7 +73,7 @@ void RlpxTransport<DelegateType>::did_dial(
 template<typename DelegateType>
 void RlpxTransport<DelegateType>::did_recv_bytes(
 	BaseTransport &,
-	net::Buffer &&bytes
+	core::Buffer &&bytes
 ) {
 	if(bytes_remaining > bytes.size()) { // Partial message
 		SPDLOG_DEBUG("Partial: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
@@ -84,7 +84,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 		SPDLOG_DEBUG("Full: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
 		std::memcpy(buf + buf_size, bytes.data(), bytes_remaining);
 		buf_size += bytes_remaining;
-		bytes.cover(bytes_remaining);
+		bytes.cover_unsafe(bytes_remaining);
 		bytes_remaining = 0;
 
 		if(state == State::Idle) {
@@ -116,13 +116,13 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				crypto.get_nonce(resp_ptxt + 69);
 				resp_ptxt[101] = 0x04;
 
-				net::Buffer resp(new char[217], 217);
-				resp.write_uint16_be(0, 215);
-				crypto.ecies_encrypt(resp_ptxt, 102, (uint8_t *)resp.data());
+				core::Buffer resp(217);
+				resp.write_uint16_be_unsafe(0, 215);
+				crypto.ecies_encrypt(resp_ptxt, 102, resp.data());
 
 				buf_size == 307
-				? crypto.compute_secrets_old(buf_backup, buf, buf_size, (uint8_t *)resp.data(), 217)
-				: crypto.compute_secrets(buf_backup, buf, buf_size, (uint8_t *)resp.data(), 217);
+				? crypto.compute_secrets_old(buf_backup, buf, buf_size, resp.data(), 217)
+				: crypto.compute_secrets(buf_backup, buf, buf_size, resp.data(), 217);
 
 				transport.send(std::move(resp));
 
@@ -147,7 +147,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 
 				crypto.frame_encrypt(hello + 32, 112, hello + 32);
 
-				transport.send(net::Buffer((char *)hello, 144));
+				transport.send(core::Buffer(hello, 144));
 
 				bytes_remaining = 32;
 				buf_size = 0;
@@ -209,16 +209,16 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				ubuf[0] = buf[0];
 				snappy::RawUncompress((char *)buf + 1, length - 1, (char *)ubuf + 1);
 
-				net::Buffer message((char *)ubuf, ulen + 1);
+				core::Buffer message(ubuf, ulen + 1);
 
 				SPDLOG_DEBUG("Message: {} bytes: {}", ulen, spdlog::to_hex(ubuf, ubuf + ulen + 1));
 
 				if(message.data()[0] == 0x02) { // p2p Ping
 					auto pong = RlpItem::from_list({});
 
-					net::Buffer res(new char[pong.enc_size + 1], pong.enc_size + 1);
+					core::Buffer res(pong.enc_size + 1);
 					res.data()[0] = 0x03;
-					pong.encode((uint8_t *)res.data() + 1);
+					pong.encode(res.data() + 1);
 
 					this->send(std::move(res));
 				} else {
@@ -243,7 +243,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 template<typename DelegateType>
 void RlpxTransport<DelegateType>::did_send_bytes(
 	BaseTransport &,
-	net::Buffer &&
+	core::Buffer &&
 ) {
 	// TODO: Notify delegate
 }
@@ -253,8 +253,8 @@ void RlpxTransport<DelegateType>::did_send_bytes(
 
 template<typename DelegateType>
 RlpxTransport<DelegateType>::RlpxTransport(
-	net::SocketAddress const &src_addr,
-	net::SocketAddress const &dst_addr,
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
 	BaseTransport &transport
 ) : transport(transport), src_addr(src_addr), dst_addr(dst_addr) {}
 
@@ -269,7 +269,7 @@ void RlpxTransport<DelegateType>::setup(
 
 template<typename DelegateType>
 int RlpxTransport<DelegateType>::send(
-	net::Buffer &&message
+	core::Buffer &&message
 ) {
 	uint64_t length = 1 + snappy::MaxCompressedLength(message.size() - 1);
 	if(length % 16 != 0) {
@@ -280,7 +280,7 @@ int RlpxTransport<DelegateType>::send(
 	std::memset(encoded, 0, length + 48);
 
 	size_t complen;
-	snappy::RawCompress(message.data() + 1, message.size() - 1, encoded + 33, &complen);
+	snappy::RawCompress((char*)message.data() + 1, message.size() - 1, encoded + 33, &complen);
 	encoded[32] = message.data()[0];
 
 	complen += 1;
@@ -301,7 +301,7 @@ int RlpxTransport<DelegateType>::send(
 
 	crypto.frame_encrypt((uint8_t *)encoded + 32, length - 32, (uint8_t *)encoded + 32);
 
-	net::Buffer bytes(encoded, length);
+	core::Buffer bytes((uint8_t *)encoded, length);
 	return transport.send(std::move(bytes));
 }
 
