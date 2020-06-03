@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
-		std::vector<uint16_t>(0, 1),
+		std::vector<uint16_t>({0, 1}),
 		beacon_addr,
 		discovery_addr,
 		pubsub_addr
