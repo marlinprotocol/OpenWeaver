@@ -182,7 +182,7 @@ public:
 		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
-		if((message_id & 0xff) == 0) {
+		if((message_id & 0x0) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
