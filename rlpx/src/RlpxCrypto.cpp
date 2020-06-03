@@ -109,6 +109,61 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	return true;
 }
 
+bool RlpxCrypto::ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out) {
+	using namespace CryptoPP;
+
+	{
+		ECPPoint R(
+			Integer(in + 1, 32),
+			Integer(in + 33, 32)
+		);
+
+		ECP const &curve = static_private_key.GetGroupParameters().GetCurve();
+		ECPPoint Pxy = curve.Multiply(static_private_key.GetPrivateExponent(), R);
+
+		uint8_t S[32];
+		Pxy.x.Encode(S, 32);
+
+		SHA256 sha256;
+		uint8_t c[4] = {0,0,0,1};
+		sha256.Update(c, 4);
+		sha256.Update(S, 32);
+		sha256.Update(nullptr, 0);
+		uint8_t kEM[32];
+		sha256.TruncatedFinal(kEM, 32);
+
+		sha256.Restart();
+		sha256.Update(kEM + 16, 16);
+		uint8_t kMhash[32];
+		sha256.TruncatedFinal(kMhash, 32);
+
+		uint8_t digest[32];
+		HMAC<SHA256> hmac(kMhash, 32);
+		hmac.Update(in + 65, in_size - 97);
+		// hmac.Update(in, 2);
+		hmac.TruncatedFinal(digest, 32);
+
+		bool is_verified = (std::memcmp(in + in_size - 32, digest, 32) == 0);
+
+		if(!is_verified) {
+			return false;
+		}
+
+		CTR_Mode<AES>::Decryption d;
+		d.SetKeyWithIV(kEM, 16, in + 65, 16);
+
+		d.ProcessData(out, in + 81, in_size - 113);
+
+		ECPPoint RSPK(
+			Integer(out + 97, 32),
+			Integer(out + 129, 32)
+		);
+		remote_static_public_key.Initialize(static_private_key.GetGroupParameters(), RSPK);
+	}
+
+	return true;
+}
+
 void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	using namespace CryptoPP;
 
@@ -266,6 +321,125 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 
 		for(int i = 0; i < 32; i++) {
 			temp[i] = macs[i] ^ out[136 + i];
+		}
+		egress_mac.Update(temp, 32);
+		egress_mac.Update(ack, ack_size);
+
+		for(int i = 0; i < 32; i++) {
+			temp[i] = macs[i] ^ nonce[i];
+		}
+		ingress_mac.Update(temp, 32);
+		ingress_mac.Update(auth, auth_size);
+
+		uint8_t digest[32];
+		auto temp_mac = ingress_mac;
+		temp_mac.TruncatedFinal(digest, 32);
+		SPDLOG_DEBUG("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+
+		temp_mac = egress_mac;
+		temp_mac.TruncatedFinal(digest, 32);
+		SPDLOG_DEBUG("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+	}
+}
+
+void RlpxCrypto::compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t auth_size, uint8_t *ack, size_t ack_size) {
+	using namespace CryptoPP;
+
+	CryptoPP::ECDSA<
+		CryptoPP::ECP,
+		CryptoPP::SHA256
+	>::PublicKey remote_ephemeral_public_key;
+
+	{
+		uint8_t *out = authplain + 81;
+
+		uint8_t priv[32];
+		static_private_key.GetPrivateExponent().Encode(priv, 32);
+
+		ECDH<ECP>::Domain dh(ASN1::secp256k1());
+		uint8_t sss[32];
+		uint8_t temp = out[96];
+		out[96] = 0x04;
+		dh.Agree(sss, priv, out + 96);
+		out[96] = temp;
+
+		uint8_t e[32];
+		for(int i = 0; i < 32; i++) {
+			e[i] = sss[i] ^ out[161 + i];
+		}
+		Integer E(e, 32);
+
+		uint8_t Rx[33];
+		Rx[0] = 2 + out[64];
+		std::memcpy(Rx+1, out, 32);
+
+		ECP const &curve = static_private_key.GetGroupParameters().GetCurve();
+		ECPPoint R;
+		curve.DecodePoint(R, Rx, 33);
+
+		Integer S(out + 32, 32);
+		ModularArithmetic ma(static_private_key.GetGroupParameters().GetGroupOrder());
+		Integer u1 = ma.Inverse(ma.Multiply(E, ma.MultiplicativeInverse(R.x)));
+		Integer u2 = ma.Multiply(S, ma.MultiplicativeInverse(R.x));
+
+		ECPPoint EPK = curve.Add(
+			static_private_key.GetGroupParameters().ExponentiateBase(u1),
+			curve.Multiply(u2, R)
+		);
+
+		remote_ephemeral_public_key.Initialize(static_private_key.GetGroupParameters(), EPK);
+	}
+
+	{
+		uint8_t *out = authplain + 81;
+
+		uint8_t priv[32];
+		ephemeral_private_key.GetPrivateExponent().Encode(priv, 32);
+
+		uint8_t pubs[65];
+		CryptoPP::ArraySink ssink(pubs, 65);
+		remote_ephemeral_public_key.DEREncodePublicKey(ssink);
+
+		ECDH<ECP>::Domain dh(ASN1::secp256k1());
+		uint8_t ek[32];
+		dh.Agree(ek, priv, pubs);
+
+		uint8_t digest[32];
+
+		Keccak_256 keccak256;
+		keccak256.Update(nonce, 32);
+		keccak256.Update(out + 161, 32);
+		keccak256.TruncatedFinal(digest, 32);
+
+		keccak256.Restart();
+		keccak256.Update(ek, 32);
+		keccak256.Update(digest, 32);
+		keccak256.TruncatedFinal(digest, 32);
+
+		keccak256.Restart();
+		keccak256.Update(ek, 32);
+		keccak256.Update(digest, 32);
+		keccak256.TruncatedFinal(aess, 32);
+		SPDLOG_DEBUG("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
+
+		keccak256.Restart();
+		keccak256.Update(ek, 32);
+		keccak256.Update(aess, 32);
+		keccak256.TruncatedFinal(macs, 32);
+		SPDLOG_DEBUG("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
+
+		uint8_t iv[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+		d.SetKeyWithIV(aess, 32, iv, 16);
+		encryption.SetKeyWithIV(aess, 32, iv, 16);
+	}
+
+	{
+		uint8_t *out = authplain + 81;
+
+		uint8_t temp[32];
+
+		for(int i = 0; i < 32; i++) {
+			temp[i] = macs[i] ^ out[161 + i];
 		}
 		egress_mac.Update(temp, 32);
 		egress_mac.Update(ack, ack_size);

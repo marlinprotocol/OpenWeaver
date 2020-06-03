@@ -13,11 +13,50 @@ struct Delegate {
 		);
 
 		if(message.data()[0] == 0x10) { // eth63 Status
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: Status message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
 			transport.send(std::move(message));
 		} else if(message.data()[0] == 0x13) { // eth63 GetBlockHeaders
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: GetBlockHeaders message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
 			transport.send(Buffer(new char[2]{0x14, (char)0xc0}, 2));
 		} else if(message.data()[0] == 0x15) { // eth63 GetBlockBodies
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: GetBlockBodies message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
 			transport.send(Buffer(new char[2]{0x16, (char)0xc0}, 2));
+		} else if(message.data()[0] == 0x12) { // eth63 Transactions
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: Transactions message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
+		} else if(message.data()[0] == 0x17) { // eth63 NewBlock
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: NewBlock message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
+		} else {
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: Unknown message: {} bytes: {}",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				spdlog::to_hex(message.data(), message.data() + message.size())
+			);
 		}
 	}
 

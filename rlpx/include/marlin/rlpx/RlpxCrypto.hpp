@@ -56,12 +56,14 @@ public:
 	RlpxCrypto();
 
 	bool ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out);
+	bool ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out);
 	void ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out);
 	void get_static_public_key(uint8_t *out);
 	void get_ephemeral_public_key(uint8_t *out);
 	void get_nonce(uint8_t *out);
 
 	void compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_size, uint8_t *ack, size_t ack_size);
+	void compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t auth_size, uint8_t *ack, size_t ack_size);
 
 	bool header_decrypt(uint8_t *in, size_t in_size, uint8_t *out);
 	bool header_encrypt(uint8_t *in, size_t in_size, uint8_t *out);
