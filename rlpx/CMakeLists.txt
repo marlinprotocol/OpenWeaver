@@ -19,6 +19,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 add_library(rlpx STATIC
 	src/RlpxCrypto.cpp
 )
+add_library(marlin::rlpx ALIAS rlpx)
 
 target_include_directories(rlpx
 	PUBLIC
