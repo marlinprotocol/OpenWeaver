@@ -6,10 +6,12 @@ using namespace marlin::beacon;
 using namespace marlin::pubsub;
 using namespace marlin::rlpx;
 
-int main() {
+int main(int , char **argv) {
+	std::string beacon_addr(argv[1]);
+
 	OnRamp onramp;
 
-	PubSubNode<OnRamp> ps(SocketAddress::from_string("0.0.0.0:8000"));
+	PubSubClient<OnRamp> ps(SocketAddress::from_string("0.0.0.0:8000"));
 	ps.delegate = &onramp;
 	onramp.ps = &ps;
 
@@ -17,7 +19,7 @@ int main() {
 	b.delegate = &onramp;
 	onramp.b = &b;
 
-	b.start_discovery(SocketAddress::from_string("18.224.44.185:8002"));
+	b.start_discovery(SocketAddress::from_string(beacon_addr));
 
 	RlpxTransportFactory<OnRamp, OnRamp> f;
 	f.bind(SocketAddress::loopback_ipv4(9000));
