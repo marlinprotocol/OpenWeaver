@@ -88,16 +88,24 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 		bytes_remaining = 0;
 
 		if(state == State::Idle) {
-			bytes_remaining = 2;
-			state = State::LengthWait;
+			if(bytes.size() == 307) {
+				bytes_remaining = 307;
+				state = State::AuthWait;
+			} else {
+				bytes_remaining = 2;
+				state = State::LengthWait;
+			}
 		} else if(state == State::LengthWait) {
 			bytes_remaining = ((uint32_t)buf[0] << 8) | (uint32_t)buf[1];
 			state = State::AuthWait;
 		} else if(state == State::AuthWait) {
 			// Have full auth message
-			uint8_t buf_backup[1000];
+			uint8_t buf_backup[1500];
 			std::memcpy(buf_backup, buf, buf_size);
-			bool is_verified = crypto.ecies_decrypt(buf, buf_size, buf + 83);
+
+			bool is_verified = buf_size == 307
+								? crypto.ecies_decrypt_old(buf, buf_size, buf + 81)
+								: crypto.ecies_decrypt(buf, buf_size, buf + 83);
 
 			if(is_verified) {
 				// Respond
@@ -112,7 +120,9 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				resp.write_uint16_be(0, 215);
 				crypto.ecies_encrypt(resp_ptxt, 102, (uint8_t *)resp.data());
 
-				crypto.compute_secrets(buf_backup, buf, buf_size, (uint8_t *)resp.data(), 217);
+				buf_size == 307
+				? crypto.compute_secrets_old(buf_backup, buf, buf_size, (uint8_t *)resp.data(), 217)
+				: crypto.compute_secrets(buf_backup, buf, buf_size, (uint8_t *)resp.data(), 217);
 
 				transport.send(std::move(resp));
 
@@ -143,6 +153,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				buf_size = 0;
 				state = State::HelloHeaderWait;
 			} else {
+				SPDLOG_ERROR("Verification failed");
 				// TODO: Abort and close transport
 			}
 		} else if(state == State::HelloHeaderWait) {
@@ -163,13 +174,14 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 			SPDLOG_DEBUG("Hello Frame: {}", spdlog::to_hex(buf, buf + buf_size));
 
 			if(is_verified) {
-				std::string cl(buf + 6, buf + 6 + (int)buf[5]);
+				std::string cl(buf + 5, buf + 5 + (uint8_t)buf[4] - 0x80);
 				SPDLOG_DEBUG("Client: {}", cl);
 
 				bytes_remaining = 32;
 				buf_size = 0;
 				state = State::RecvHeaderWait;
 			} else {
+				SPDLOG_ERROR("Verification failed");
 				// TODO: Abort and close transport
 			}
 		} else if(state == State::RecvHeaderWait) {
@@ -217,6 +229,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				buf_size = 0;
 				state = State::RecvHeaderWait;
 			} else {
+				SPDLOG_ERROR("Verification failed");
 				// TODO: Abort and close transport
 			}
 		}
