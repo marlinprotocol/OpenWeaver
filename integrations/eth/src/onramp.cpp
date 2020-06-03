@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 	std::string pubsub_addr = "0.0.0.0:15000";
 
 	char c;
-	while ((c = getopt (argc, argv, "b::d::p::l::")) != -1) {
+	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
 		switch (c) {
 			case 'b':
 				beacon_addr = std::string(optarg);
