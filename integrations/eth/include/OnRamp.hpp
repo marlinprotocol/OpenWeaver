@@ -246,7 +246,7 @@ public:
 				final.size()
 			);
 
-			transport.send(std::move(final));
+			// transport.send(std::move(final));
 		} else if(message.data()[0] == 0x1d) { // eth63 GetNodeData
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: GetNodeData message: {} bytes",
