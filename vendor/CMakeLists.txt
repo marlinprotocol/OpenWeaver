@@ -42,7 +42,7 @@ add_subdirectory(spdlog)
 include(ExternalProject)
 ExternalProject_Add(libsodium
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libsodium
-	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && ./autogen.sh && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libsodium CFLAGS=-fPIC
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libsodium CFLAGS=-fPIC
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && make -j8
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && make install
 )
@@ -98,3 +98,7 @@ set_target_properties(secp256k1 PROPERTIES
 #-------- boost --------#
 set(BOOST_ENABLE_CMAKE ON)
 add_subdirectory(boost)
+
+
+#-------- snappy --------#
+add_subdirectory(snappy)
