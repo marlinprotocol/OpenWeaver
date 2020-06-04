@@ -18,7 +18,7 @@ int main(int , char **argv) {
 		beacon_addr
 	);
 
-	Relay<true, true, true> master1(
+	Relay<false, true, true> master1(
 		RELAY_PUBSUB_PROTOCOL_NUMBER,
 		pubsub_port,
 		SocketAddress::from_string("0.0.0.0:5000"),
