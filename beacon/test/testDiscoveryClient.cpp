@@ -77,9 +77,6 @@ struct Listener final : public NetworkListener<NetworkInterfaceType> {
 };
 
 TEST_F(DefaultNetworkFixture, DiscoversPeers) {
-	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
-	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
-
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 	crypto_box_keypair(static_pk, static_sk);

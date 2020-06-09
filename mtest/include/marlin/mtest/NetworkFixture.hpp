@@ -19,8 +19,19 @@ struct NetworkFixture : public ::testing::Test {
 	NetworkType network;
 
 	using NetworkInterfaceType = simulator::NetworkInterface<NetworkType>;
+	NetworkInterfaceType& i1;
+	NetworkInterfaceType& i2;
+	NetworkInterfaceType& i3;
+	NetworkInterfaceType& i4;
+	NetworkInterfaceType& i5;
 
-	NetworkFixture() : network(nc) {}
+	NetworkFixture() :
+		network(nc),
+		i1(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.1:0"))),
+		i2(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.2:0"))),
+		i3(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.3:0"))),
+		i4(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.4:0"))),
+		i5(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.5:0"))) {}
 
 	template<typename Delegate>
 	using TransportType = simulator::SimulatedTransport<
