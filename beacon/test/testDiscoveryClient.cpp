@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
-#include <marlin/simulator/core/Simulator.hpp>
-#include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
-#include <marlin/simulator/network/Network.hpp>
+#include <marlin/mtest/NetworkFixture.hpp>
 
 #include <marlin/beacon/DiscoveryClient.hpp>
 
@@ -14,6 +12,7 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 using namespace marlin::simulator;
 using namespace marlin::beacon;
+using namespace marlin::mtest;
 
 
 struct Delegate {
@@ -103,7 +102,7 @@ struct Listener final : public NetworkListener<NetworkInterfaceType> {
 	}
 };
 
-TEST_F(DiscoveryClientProtocolTest, DiscoversPeers) {
+TEST_F(DefaultNetworkFixture, DiscoversPeers) {
 	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
 	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
 

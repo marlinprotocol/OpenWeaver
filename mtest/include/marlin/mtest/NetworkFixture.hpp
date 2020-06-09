@@ -37,6 +37,8 @@ struct NetworkFixture : public ::testing::Test {
 	>;
 };
 
+using DefaultNetworkFixture = NetworkFixture<>;
+
 } // namespace mtest
 } // namespace marlin
 
