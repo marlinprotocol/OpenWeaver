@@ -26,17 +26,14 @@ target_include_directories(mtest
 )
 target_compile_features(mtest INTERFACE cxx_std_17)
 
-# libsodium
-target_link_libraries(mtest INTERFACE sodium::sodium)
-
-# marlin::asyncio
-target_link_libraries(mtest INTERFACE marlin::asyncio)
+# marlin::simulator
+target_link_libraries(mtest INTERFACE marlin::simulator)
 
 # spdlog
 target_link_libraries(mtest INTERFACE spdlog::spdlog)
 
-# Boost::iterator
-target_link_libraries(mtest INTERFACE Boost::iterator)
+# gtest
+target_link_libraries(mtest INTERFACE GTest::GTest)
 
 install(TARGETS mtest
 	EXPORT marlin-mtest-export
