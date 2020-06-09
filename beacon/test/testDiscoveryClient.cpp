@@ -46,36 +46,6 @@ TEST(DiscoveryClientTest, Constructible) {
 	DiscoveryClient<Delegate> client(SocketAddress::loopback_ipv4(8000), static_sk);
 }
 
-
-template<typename NetworkInterfaceType>
-struct Listener final : public NetworkListener<NetworkInterfaceType> {
-	std::function<void(
-		NetworkInterfaceType&,
-		uint16_t,
-		SocketAddress const&,
-		Buffer&&
-	)> t_did_recv = [](
-		NetworkInterfaceType&,
-		uint16_t,
-		SocketAddress const&,
-		Buffer&&
-	) {};
-	std::function<void()> t_did_close = []() {};
-
-	void did_recv(
-		NetworkInterfaceType& interface,
-		uint16_t port,
-		SocketAddress const& addr,
-		Buffer&& packet
-	) override {
-		t_did_recv(interface, port, addr, std::move(packet));
-	}
-
-	void did_close() override {
-		t_did_close();
-	}
-};
-
 TEST_F(DefaultNetworkFixture, DiscoversPeers) {
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
