@@ -47,13 +47,9 @@ TEST(DiscoveryClientTest, Constructible) {
 }
 
 TEST_F(DefaultNetworkFixture, DiscoversPeers) {
-	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
-	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-	crypto_box_keypair(static_pk, static_sk);
-
 	DiscoveryClient<Delegate, TransportFactoryType, TransportType> client(
 		SocketAddress::from_string("192.168.0.1:8002"),
-		static_sk,
+		static_sk1,
 		i1,
 		simulator
 	);

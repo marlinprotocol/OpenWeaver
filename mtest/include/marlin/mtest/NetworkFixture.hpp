@@ -5,6 +5,8 @@
 #include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
 #include <marlin/simulator/network/Network.hpp>
 
+#include <sodium.h>
+
 #include "Listener.hpp"
 
 namespace marlin {
@@ -44,6 +46,10 @@ struct NetworkFixture : public ::testing::Test {
 		i3(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.3:0"))),
 		i4(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.4:0"))),
 		i5(network.get_or_create_interface(core::SocketAddress::from_string("192.168.0.5:0"))) {
+		if(sodium_init() == -1) {
+			throw;
+		}
+
 		crypto_box_keypair(static_pk1, static_sk1);
 		crypto_box_keypair(static_pk2, static_sk2);
 		crypto_box_keypair(static_pk3, static_sk3);
