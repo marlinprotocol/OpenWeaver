@@ -5,6 +5,7 @@
 #include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
 #include <marlin/simulator/network/Network.hpp>
 
+#include "Listener.hpp"
 
 namespace marlin {
 namespace mtest {
@@ -46,6 +47,8 @@ struct NetworkFixture : public ::testing::Test {
 		ListenDelegate,
 		TransportDelegate
 	>;
+
+	using ListenerType = Listener<NetworkInterfaceType>;
 };
 
 using DefaultNetworkFixture = NetworkFixture<>;

@@ -89,7 +89,7 @@ TEST_F(DefaultNetworkFixture, DiscoversPeers) {
 	);
 
 	bool listener_called = false;
-	Listener<NetworkInterfaceType> l;
+	ListenerType l;
 	l.t_did_recv = [&](
 		NetworkInterfaceType& interface,
 		uint16_t port,
