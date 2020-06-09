@@ -47,32 +47,6 @@ TEST(DiscoveryClientTest, Constructible) {
 }
 
 
-struct DiscoveryClientProtocolTest : public ::testing::Test {
-	template<typename Delegate>
-	using TransportType = SimulatedTransport<
-		Simulator,
-		NetworkInterface<Network<NetworkConditioner>>,
-		Delegate
-	>;
-	template<typename ListenDelegate, typename TransportDelegate>
-	using TransportFactoryType = SimulatedTransportFactory<
-		Simulator,
-		NetworkInterface<Network<NetworkConditioner>>,
-		ListenDelegate,
-		TransportDelegate
-	>;
-
-	Simulator& simulator = Simulator::default_instance;
-	NetworkConditioner nc;
-
-	using NetworkType = Network<NetworkConditioner>;
-	NetworkType network;
-
-	using NetworkInterfaceType = NetworkInterface<Network<NetworkConditioner>>;
-
-	DiscoveryClientProtocolTest() : network(nc) {}
-};
-
 template<typename NetworkInterfaceType>
 struct Listener final : public NetworkListener<NetworkInterfaceType> {
 	std::function<void(
