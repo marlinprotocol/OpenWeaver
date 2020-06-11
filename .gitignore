@@ -36,6 +36,7 @@ build
 # Doxygen related
 html
 latex
+*.tag
 
 .DS_Store
 .vscode

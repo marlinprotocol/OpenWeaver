@@ -9,7 +9,7 @@
 #include <memory>
 #include <utility>
 #include <optional>
-//! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
+// DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
 #include <array>
 
 #include "WeakBuffer.hpp"

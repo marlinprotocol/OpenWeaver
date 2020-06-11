@@ -79,9 +79,6 @@ add_custom_target(core_docs
 	COMMENT "Generating API documentation with Doxygen"
 	VERBATIM
 )
-if(TARGET docs)
-	add_dependencies(docs core_docs)
-endif()
 
 
 ##########################################################
