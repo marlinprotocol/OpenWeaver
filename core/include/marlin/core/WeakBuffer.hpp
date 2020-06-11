@@ -15,7 +15,7 @@
 namespace marlin {
 namespace core {
 
-//! Marlin byte buffer implementation
+//! Byte buffer implementation with modifiable bounds
 class WeakBuffer {
 protected:
 	uint8_t *buf;
@@ -49,7 +49,10 @@ public:
 		return end_index - start_index;
 	}
 
-	/// Moves start of buffer forward and covers given number of bytes
+	/// @name Bounds change
+	/// @{
+
+	//! Moves start of buffer forward and covers given number of bytes
 	[[nodiscard]] bool cover(size_t const num);
 	/// Moves start of buffer forward and covers given number of bytes without bounds checking
 	void cover_unsafe(size_t const num);
@@ -68,7 +71,10 @@ public:
 	[[nodiscard]] bool expand(size_t const num);
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
 	void expand_unsafe(size_t const num);
+	/// @}
 
+	/// @name Read/Write arbitrary data
+	/// @{
 	//-------- Arbitrary reads begin --------//
 
 	/// Read arbitrary data starting at given byte
@@ -78,7 +84,6 @@ public:
 
 	//-------- Arbitrary reads end --------//
 
-
 	//-------- Arbitrary writes begin --------//
 
 	/// Write arbitrary data starting at given byte
@@ -87,8 +92,10 @@ public:
 	void write_unsafe(size_t const pos, uint8_t const* const in, size_t const size);
 
 	//-------- Arbitrary writes end --------//
+	/// @}
 
-
+	/// @name Read/Write uint8_t
+	/// @{
 	//-------- 8 bit reads begin --------//
 
 	/// Read uint8_t starting at given byte
@@ -107,8 +114,10 @@ public:
 	void write_uint8_unsafe(size_t const pos, uint8_t const num);
 
 	//-------- 8 bit writes end --------//
+	/// @}
 
-
+	/// @name Read/Write uint16_t
+	/// @{
 	//-------- 16 bit reads begin --------//
 
 	/// Read uint16_t starting at given byte
@@ -119,6 +128,7 @@ public:
 	/// Read uint16_t starting at given byte,
 	/// converting from LE to host endian
 	std::optional<uint16_t> read_uint16_le(size_t const pos) const;
+
 	/// Read uint16_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
 	uint16_t read_uint16_le_unsafe(size_t const pos) const;
@@ -131,7 +141,6 @@ public:
 	uint16_t read_uint16_be_unsafe(size_t const pos) const;
 
 	//-------- 16 bit reads end --------//
-
 
 	//-------- 16 bit writes begin --------//
 
@@ -155,8 +164,10 @@ public:
 	void write_uint16_be_unsafe(size_t const pos, uint16_t const num);
 
 	//-------- 16 bit writes end --------//
+	/// @}
 
-
+	/// @name Read/Write uint32_t
+	/// @{
 	//-------- 32 bit reads begin --------//
 
 	/// Read uint32_t starting at given byte
@@ -180,7 +191,6 @@ public:
 
 	//-------- 32 bit reads end --------//
 
-
 	//-------- 32 bit writes begin --------//
 
 	/// Write uint32_t starting at given byte
@@ -203,8 +213,10 @@ public:
 	void write_uint32_be_unsafe(size_t const pos, uint32_t const num);
 
 	//-------- 32 bit writes end --------//
+	/// @}
 
-
+	/// @name Read/Write uint64_t
+	/// @{
 	//-------- 64 bit reads begin --------//
 
 	/// Read uint64_t starting at given byte
@@ -228,7 +240,6 @@ public:
 
 	//-------- 64 bit reads end --------//
 
-
 	//-------- 64 bit writes begin --------//
 
 	/// Write uint64_t starting at given byte
@@ -251,6 +262,7 @@ public:
 	void write_uint64_be_unsafe(size_t const pos, uint64_t const num);
 
 	//-------- 64 bit writes end --------//
+	/// @}
 };
 
 } // namespace core
