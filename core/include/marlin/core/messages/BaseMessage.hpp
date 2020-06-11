@@ -27,17 +27,20 @@ struct BaseMessage {
 	/// @{
 	/// Sets the payload given a byte address and size
 	BaseMessage& set_payload(uint8_t const* in, size_t size) &;
+	/// Sets the payload given a byte address and size
 	BaseMessage&& set_payload(uint8_t const* in, size_t size) &&;
 	/// @}
 	/// @{
 	/// Sets the payload given a initializer list with bytes
 	BaseMessage& set_payload(std::initializer_list<uint8_t> il) &;
+	/// Sets the payload given a initializer list with bytes
 	BaseMessage&& set_payload(std::initializer_list<uint8_t> il) &&;
 	/// @}
 
 	/// @{
 	/// Truncates the underlying buffer to the given size
 	BaseMessage& truncate_unsafe(size_t size) &;
+	/// Truncates the underlying buffer to the given size
 	BaseMessage&& truncate_unsafe(size_t size) &&;
 	/// @}
 };
