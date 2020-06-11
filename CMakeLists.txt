@@ -12,6 +12,8 @@ endif()
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 enable_testing()
+add_custom_target(docs)
+
 add_subdirectory(core)
 add_subdirectory(asyncio)
 add_subdirectory(des)
