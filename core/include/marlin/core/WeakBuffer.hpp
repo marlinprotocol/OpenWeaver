@@ -16,9 +16,13 @@ namespace core {
 /// @headerfile WeakBuffer.hpp <marlin/core/WeakBuffer.hpp>
 class WeakBuffer {
 protected:
+	/// Pointer to underlying memory
 	uint8_t *buf;
+	/// Capacity of memory
 	size_t capacity;
+	/// Start index in memory, inclusive
 	size_t start_index;
+	/// End index in memory, non-inclusive
 	size_t end_index;
 
 public:
