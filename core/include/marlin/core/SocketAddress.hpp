@@ -77,6 +77,7 @@ namespace std {
 	template <>
 	struct hash<marlin::core::SocketAddress>
 	{
+		/// Hash function for SocketAddress so it can be used as a key
 		size_t operator()(const marlin::core::SocketAddress &addr) const
 		{
 			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr) ^ std::hash<uint16_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_port);
