@@ -22,7 +22,9 @@ protected:
 	size_t end_index;
 
 public:
-	/// Construct from uint8_t array
+	/// @brief Construct from uint8_t array
+	/// @param buf Pointer to bytes
+	/// @param size Size of bytes
 	WeakBuffer(uint8_t *const buf, size_t const size);
 
 	/// Move contructor

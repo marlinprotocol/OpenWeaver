@@ -1,9 +1,9 @@
 <h1 align="center">
-  <img height="200" src="https://www.marlin.pro/images/set2/join.svg"/><br/><p>OpenWeaver</p>
+  <img height="200" src="https://www.marlin.pro/images/set2/join.svg"/><br/>OpenWeaver
 </h1>
 
 <h2 align="right">
-<p>By&nbsp;&nbsp;<img padding-top= "10px" height="20" src="https://www.marlin.pro/images/marlin-logo.svg"/></p>
+By&nbsp;&nbsp;<img padding-top= "10px" height="20" src="https://www.marlin.pro/images/marlin-logo.svg"/>
 </h2>
 
 ---
