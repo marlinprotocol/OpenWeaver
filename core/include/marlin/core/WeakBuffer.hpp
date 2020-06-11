@@ -1,6 +1,3 @@
-/*! \file WeakBuffer.hpp
-*/
-
 #ifndef MARLIN_CORE_WEAKBUFFER_HPP
 #define MARLIN_CORE_WEAKBUFFER_HPP
 
@@ -15,7 +12,8 @@
 namespace marlin {
 namespace core {
 
-//! Byte buffer implementation with modifiable bounds
+/// @brief Byte buffer implementation with modifiable bounds
+/// @headerfile WeakBuffer.hpp <marlin/core/WeakBuffer.hpp>
 class WeakBuffer {
 protected:
 	uint8_t *buf;
