@@ -17,7 +17,8 @@
 namespace marlin {
 namespace core {
 
-//! Marlin byte buffer implementation
+/// @brief Byte buffer implementation with modifiable bounds and memory ownership
+/// @headerfile Buffer.hpp <marlin/core/Buffer.hpp>
 class Buffer : public WeakBuffer {
 public:
 	/// Construct with given size - preferred constructor
@@ -46,6 +47,7 @@ public:
 
 	~Buffer();
 
+	/// Release the memory held by the buffer
 	inline uint8_t *release() {
 		uint8_t *_buf = buf;
 
