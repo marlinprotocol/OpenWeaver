@@ -12,7 +12,12 @@ endif()
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 enable_testing()
-add_custom_target(docs)
+add_custom_target(docs
+	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	COMMENT "Generating API documentation with Doxygen"
+	VERBATIM
+)
 
 add_subdirectory(core)
 add_subdirectory(asyncio)
