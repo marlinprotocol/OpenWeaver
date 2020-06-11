@@ -73,10 +73,9 @@ install(FILES
 ##########################################################
 
 find_package(Doxygen REQUIRED)
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/docs/core)
 add_custom_target(core_docs
 	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
-	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/docs/core
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 	COMMENT "Generating API documentation with Doxygen"
 	VERBATIM
 )
