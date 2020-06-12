@@ -7,6 +7,7 @@ namespace marlin {
 namespace stream {
 
 /// @brief Factory class to create and manage StreamTranport instances providing stream semantics.
+///
 /// Wraps around a base transport factory providing datagram semantics.
 /// Exposes functions to bind to a socket, listening to incoming connections and dialing to a peer.
 template<
