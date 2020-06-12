@@ -74,6 +74,7 @@ public:
 } // namespace marlin
 
 namespace std {
+	/// Hash function for SocketAddress so it can be used as a key
 	template <>
 	struct hash<marlin::core::SocketAddress>
 	{
