@@ -1,8 +1,3 @@
-/*! \file StreamTransport.hpp
-	\brief Building on UDP
-*/
-
-
 #ifndef MARLIN_STREAM_STREAMTRANSPORT_HPP
 #define MARLIN_STREAM_STREAMTRANSPORT_HPP
 
