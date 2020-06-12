@@ -11,9 +11,13 @@ namespace stream {
 
 /// Store a received packet with a few header fields
 struct RecvPacketInfo {
+	/// Time it was received (relative to arbitrary epoch)
 	uint64_t recv_time;
+	/// Offset of data in stream
 	uint64_t offset;
+	/// Length of length
 	uint16_t length;
+	/// Data that was received
 	core::Buffer packet;
 
 	/// Constructor
@@ -125,7 +129,7 @@ struct RecvStream {
 
 	/// Timer interval for the state timer
 	uint64_t state_timer_interval = 1000;
-	/// Timer to retry SKIPSTREAM/FLUSHSTREAM
+	/// Timer to retry SKIPSTREAM
 	asyncio::Timer state_timer;
 };
 

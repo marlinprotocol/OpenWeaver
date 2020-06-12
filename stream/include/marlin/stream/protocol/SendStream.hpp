@@ -14,12 +14,16 @@
 namespace marlin {
 namespace stream {
 
-//! Struct to store data (and its params) which is queued to the output/send stream
+/// Struct to store data (and its params) which is queued to the output/send stream
 struct DataItem {
+	/// Data buffer which is to be sent
 	core::Buffer data;
+	/// Offset in buffer which has already been sent at least once
 	uint64_t sent_offset = 0;
+	/// Offset of the start of the data buffer in the stream
 	uint64_t stream_offset;
 
+	/// Constructor
 	DataItem(
 		core::Buffer &&_data,
 		uint64_t _stream_offset
@@ -28,13 +32,20 @@ struct DataItem {
 
 struct SendStream;
 
+/// Information about a sent packet
 struct SentPacketInfo {
+	/// Time it was sent (relative to arbitrary epoch)
 	uint64_t sent_time;
+	/// Stream it was sent on
 	SendStream *stream;
+	/// Data item whose data was sent
 	DataItem *data_item;
+	/// Offset in the data item from which data was went
 	uint64_t offset;
+	/// Length of the data sent
 	uint16_t length;
 
+	/// Constructor
 	SentPacketInfo(
 		uint64_t sent_time,
 		SendStream *stream,
@@ -49,8 +60,10 @@ struct SentPacketInfo {
 		this->length = length;
 	}
 
+	/// Default constructor
 	SentPacketInfo() {}
 
+	/// Equality
 	bool operator==(SentPacketInfo& other) {
 		return this->sent_time == other.sent_time &&
 			this->stream == other.stream &&
@@ -59,28 +72,28 @@ struct SentPacketInfo {
 			this->length == other.length;
 	}
 
+	/// Inequality
 	bool operator!=(SentPacketInfo& other) {
 		return !(*this == other);
 	}
 };
 
-//! Implementation for individual stream in multi-stream transport protocol
-/*!
-	Features:
-	\li has its own congestion control
-	\li is responsible for ensuring the packet delivery of its dataItems
-*/
+/// A send stream which can send queued data
 struct SendStream {
+	/// Stream id
 	uint16_t stream_id;
 
+	/// Stream state
 	enum class State {
 		Ready,
 		Send,
 		Sent,
 		Acked
 	};
+	/// Stream state
 	State state;
 
+	/// Constructor
 	template<typename DelegateType>
 	SendStream(uint16_t stream_id, DelegateType* delegate) : state_timer(delegate) {
 		this->stream_id = stream_id;
@@ -91,24 +104,31 @@ struct SendStream {
 		state_timer.set_data(this);
 	}
 
+	/// Data queue which needs to be sent
 	std::list<DataItem> data_queue;
 
-	/*!
-		Represents the total number of bytes added to the queue
-	*/
+	/// Offset of end of queued data in the stream
 	uint64_t queue_offset = 0;
 
+	/// Offset of end of sent data in the stream
 	uint64_t sent_offset = 0;
+	/// Next item which is to be sent
 	std::list<DataItem>::iterator next_item_iterator;
 
+	/// Number of bytes sent but not acked
 	uint64_t bytes_in_flight = 0;
 
+	/// Is the application done adding data to the queue?
 	bool done_queueing = false;
 
+	/// Offset of end of acked data in the stream
 	uint64_t acked_offset = 0;
+	/// Acks which have not been processed yet, usually due to having unacked data in front
 	std::map<uint64_t, uint16_t> outstanding_acks;
 
+	/// Timer interval for the state timer
 	uint64_t state_timer_interval = 1000;
+	/// Timer to retry SKIPSTREAM
 	asyncio::Timer state_timer;
 };
 
