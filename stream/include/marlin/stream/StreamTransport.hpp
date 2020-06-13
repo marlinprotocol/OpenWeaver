@@ -73,6 +73,10 @@ private:
 	using FLUSHSTREAM = FLUSHSTREAMWrapper<BaseMessageType>;
 	/// FLUSHCONF message type
 	using FLUSHCONF = FLUSHCONFWrapper<BaseMessageType>;
+	/// CLOSE message type
+	using CLOSE = CLOSEWrapper<BaseMessageType>;
+	/// CLOSECONF message type
+	using CLOSECONF = CLOSECONFWrapper<BaseMessageType>;
 
 	/// Base transport instance
 	BaseTransport &transport;
@@ -87,7 +91,8 @@ private:
 		Listen,
 		DialSent,
 		DialRcvd,
-		Established
+		Established,
+		Closing
 	} conn_state = ConnectionState::Listen;
 
 	/// Src connection id
@@ -220,6 +225,12 @@ private:
 
 	void send_FLUSHCONF(uint16_t stream_id);
 	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
+
+	void send_CLOSE();
+	void did_recv_CLOSE(CLOSE &&packet);
+
+	void send_CLOSECONF();
+	void did_recv_CLOSECONF(CLOSECONF &&packet);
 
 public:
 	/// Delegate calls from base transport
@@ -1685,6 +1696,97 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	stream.state_timer.stop();
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE() {
+	transport.send(
+		CLOSE()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+	);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
+	CLOSE &&packet
+) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	SPDLOG_TRACE("CLOSE <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: CLOSE: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		// send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	if(conn_state != ConnectionState::Established) {
+		return;
+	}
+
+	conn_state = ConnectionState::Closing;
+	send_CLOSECONF();
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
+	uint16_t stream_id
+) {
+	transport.send(
+		CLOSECONF()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_stream_id(stream_id)
+	);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
+	CLOSECONF &&packet
+) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	SPDLOG_TRACE("CLOSECONF <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: CLOSECONF: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		// send_RST(src_conn_id, dst_conn_id);
+		return;
+	}
+
+	// if(conn_state != ConnectionState::Established) {
+	// 	return;
+	// }
+
+	// auto stream_id = packet.stream_id();
+	// auto &stream = get_or_create_send_stream(stream_id);
+
+	// stream.state_timer.stop();
 }
 
 //---------------- Protocol functions end ----------------//
