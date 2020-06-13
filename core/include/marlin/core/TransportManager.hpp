@@ -11,7 +11,7 @@
 namespace marlin {
 namespace core {
 
-//! Template Class which acts as a helper to store and retreive transport instances of template type against a query address
+/// Template Class which acts as a helper to store and retreive transport instances of template type against a query address
 template<typename TransportType>
 class TransportManager {
 	std::unordered_map<
@@ -19,6 +19,8 @@ class TransportManager {
 		TransportType
 	> transport_map;
 public:
+	/// Get transport with a given destination address,
+	/// returns nullptr if no transport is found
 	TransportType *get(SocketAddress const &addr) {
 		auto iter = transport_map.find(addr);
 		if(iter == transport_map.end()) {
@@ -28,6 +30,8 @@ public:
 		return &iter->second;
 	}
 
+	/// Get transport with a given destination address,
+	/// creating one if not found
 	template<class... Args>
 	std::pair<TransportType *, bool> get_or_create(
 		SocketAddress const &addr,
@@ -40,6 +44,7 @@ public:
 		return std::make_pair(&res.first->second, res.second);
 	}
 
+	/// Remove transport with the given destination address
 	void erase(SocketAddress const &addr) {
 		transport_map.erase(addr);
 	}
