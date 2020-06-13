@@ -9,12 +9,18 @@
 namespace marlin {
 namespace stream {
 
+/// Store a received packet with a few header fields
 struct RecvPacketInfo {
+	/// Time it was received (relative to arbitrary epoch)
 	uint64_t recv_time;
+	/// Offset of data in stream
 	uint64_t offset;
+	/// Length of length
 	uint16_t length;
+	/// Data that was received
 	core::Buffer packet;
 
+	/// Constructor
 	RecvPacketInfo(
 		uint64_t recv_time,
 		uint64_t offset,
@@ -26,20 +32,24 @@ struct RecvPacketInfo {
 		this->length = length;
 	}
 
+	/// Default constructor
 	RecvPacketInfo() : packet(nullptr, 0) {
 		recv_time = 0;
 		offset = 0;
 		length = 0;
 	}
 
+	/// Delete copy constructor
 	RecvPacketInfo(const RecvPacketInfo &) = delete;
 
+	/// Move constructor
 	RecvPacketInfo(RecvPacketInfo &&info) : packet(std::move(info.packet)) {
 		this->recv_time = info.recv_time;
 		this->offset = info.offset;
 		this->length = info.length;
 	};
 
+	/// Move assign
 	RecvPacketInfo &operator=(RecvPacketInfo &&info) {
 		this->recv_time = info.recv_time;
 		this->offset = info.offset;
@@ -50,20 +60,27 @@ struct RecvPacketInfo {
 	};
 };
 
+/// A recv stream which handles incoming data
 struct RecvStream {
+	/// Stream id
 	uint16_t stream_id;
 
+	/// Stream state
 	enum class State {
 		Recv,
 		SizeKnown,
 		AllRecv,
 		Read
 	};
+	/// Stream state
 	State state;
+	/// Is it waiting for the destination to flush the stream?
 	bool wait_flush = false;
 
+	/// Total size of the stream
 	uint64_t size = 0;
 
+	/// Constructor
 	template<typename DelegateType>
 	RecvStream(uint16_t stream_id, DelegateType* delegate) : state_timer(delegate) {
 		this->stream_id = stream_id;
@@ -72,8 +89,10 @@ struct RecvStream {
 		state_timer.set_data(this);
 	}
 
+	/// List of received packets
 	std::map<uint64_t, RecvPacketInfo> recv_packets;
 
+	/// Check if entire data on stream has been received
 	bool check_finish() const {
 		if (this->state == State::Recv) {
 			return false;
@@ -96,8 +115,10 @@ struct RecvStream {
 		return offset == this->size;
 	}
 
+	/// Offset marking application read position on the stream
 	uint64_t read_offset = 0;
 
+	/// Check if all data on stream has been read by application
 	bool check_read() const {
 		if (this->state == State::Recv) {
 			return false;
@@ -106,7 +127,9 @@ struct RecvStream {
 		return this->read_offset == this->size;
 	}
 
+	/// Timer interval for the state timer
 	uint64_t state_timer_interval = 1000;
+	/// Timer to retry SKIPSTREAM
 	asyncio::Timer state_timer;
 };
 

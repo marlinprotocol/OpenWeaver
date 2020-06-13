@@ -6,12 +6,10 @@
 namespace marlin {
 namespace stream {
 
-//! Factory class to create and manage StreamTranport instances
-/*!
-	Features:
-	\li creates StreamTransport instances for every new peer
-	\li exposes functions to bind to a socket, setting up a UDP listener and dialing to a peer
-*/
+/// @brief Factory class to create and manage StreamTranport instances providing stream semantics.
+///
+/// Wraps around a base transport factory providing datagram semantics.
+/// Exposes functions to bind to a socket, listening to incoming connections and dialing to a peer.
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -39,10 +37,13 @@ private:
 	core::TransportManager<StreamTransport<TransportDelegate, DatagramTransport>> transport_manager;
 
 public:
+	/// Constructor which forwards all arguments to the base transport's constructor
 	template<typename ...Args>
 	StreamTransportFactory(Args&&... args);
 
+	/// Delegate callback from base transport on new incoming connection
 	bool should_accept(core::SocketAddress const &addr);
+	/// Delegate callback from base transport on creating a base transport
 	void did_create_transport(
 		DatagramTransport<
 			StreamTransport<
@@ -53,11 +54,16 @@ public:
 		uint8_t const* remote_static_pk = nullptr
 	);
 
+	/// Own address
 	core::SocketAddress addr;
 
+	/// Bind to the given interface and port
 	int bind(core::SocketAddress const &addr);
+	/// Listen for incoming connections and data
 	int listen(ListenDelegate &delegate);
+	/// Dial the given destination address
 	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* key);
+	/// Get the transport corresponding to the given destination address
 	StreamTransport<TransportDelegate, DatagramTransport> *get_transport(
 		core::SocketAddress const &addr
 	);
@@ -96,9 +102,6 @@ bool StreamTransportFactory<
 	return delegate->should_accept(addr);
 }
 
-/*!
-	callback function after establishment of a new transport at lower level
-*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -131,11 +134,6 @@ void StreamTransportFactory<
 }
 
 
-//! calls bind() method of the underlying datagram transport factory
-/*!
-	/param addr address to bind to
-	/return an integer 0 if successful, negative otherwise
-*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -152,11 +150,6 @@ int StreamTransportFactory<
 	return f.bind(addr);
 }
 
-//! calls listen() method of the underlying datagram transport factory to listen for requests on given address and sets up the given delegate as the listen delegate
-/*!
-	/param delegate sets up the given delegate as the listen delegate
-	/return an integer 0 if successful, negative otherwise
-*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,
@@ -173,13 +166,6 @@ int StreamTransportFactory<
 	return f.listen(*this);
 }
 
-
-//! calls dial() method of the underlying datagram transport factory and sets up the given delegate as the listen delegate
-/*!
-	/param addr socket address to dial/connect to
-	/param delegate sets up the given delegate as the listen delegate
-	/return an integer 0 if successful, negative otherwise
-*/
 template<
 	typename ListenDelegate,
 	typename TransportDelegate,

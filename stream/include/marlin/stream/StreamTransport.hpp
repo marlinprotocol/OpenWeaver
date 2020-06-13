@@ -1,8 +1,3 @@
-/*! \file StreamTransport.hpp
-	\brief Building on UDP
-*/
-
-
 #ifndef MARLIN_STREAM_STREAMTRANSPORT_HPP
 #define MARLIN_STREAM_STREAMTRANSPORT_HPP
 
@@ -29,79 +24,113 @@
 namespace marlin {
 namespace stream {
 
+/// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
+/// Bytes that can be sent in a given batch, used by the packet pacing mechanism
 #define DEFAULT_PACING_LIMIT 25000
+/// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
 #define DEFAULT_FRAGMENT_SIZE (1400 - crypto_aead_aes256gcm_NPUBBYTES)
 
-//! Custom transport class building upon UDP
-/*!
-	A higher order transport (HOT) building over Marlin UDPTransport
-
-	Features:
-	\li 3 way handshake for connection establishment
-	\li supports multiple streams
-	\li FEC support to be integrated
-*/
+/// @brief Transport class which provides stream semantics.
+///
+/// Wraps around a base transport providing datagram semantics.
+///
+/// Features:
+/// \li In-order delivery
+/// \li Reliable delivery
+/// \li Congestion control
+/// \li Transport layer encryption
+/// \li Stream multiplexing
+/// \li No head-of-line blocking
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
 public:
+	/// Variable which says if the current transport is encrypted or not
 	static constexpr bool is_encrypted = true;
 private:
+	/// Self type
 	using Self = StreamTransport<DelegateType, DatagramTransport>;
+	/// Base transport type
 	using BaseTransport = DatagramTransport<Self>;
+	/// Base message type
 	using BaseMessageType = typename BaseTransport::MessageType;
 
+	/// DATA message type
 	using DATA = DATAWrapper<BaseMessageType>;
+	/// ACK message type
 	using ACK = ACKWrapper<BaseMessageType>;
+	/// DIAL message type
 	using DIAL = DIALWrapper<BaseMessageType>;
+	/// DIALCONF message type
 	using DIALCONF = DIALCONFWrapper<BaseMessageType>;
+	/// CONF message type
 	using CONF = CONFWrapper<BaseMessageType>;
+	/// RST message type
 	using RST = RSTWrapper<BaseMessageType>;
+	/// SKIPSTREAM message type
 	using SKIPSTREAM = SKIPSTREAMWrapper<BaseMessageType>;
+	/// FLUSHSTREAM message type
 	using FLUSHSTREAM = FLUSHSTREAMWrapper<BaseMessageType>;
+	/// FLUSHCONF message type
 	using FLUSHCONF = FLUSHCONFWrapper<BaseMessageType>;
 
+	/// Base transport instance
 	BaseTransport &transport;
+	/// Transport manager of self
 	core::TransportManager<Self> &transport_manager;
 
+	/// Reset the transport's state (connection state, timers, streams, data queues, buffers, etc)
 	void reset();
 
-	// Connection
+	/// List of possible connection states
 	enum struct ConnectionState {
 		Listen,
 		DialSent,
 		DialRcvd,
 		Established
 	} conn_state = ConnectionState::Listen;
+
+	/// Src connection id
 	uint32_t src_conn_id = 0;
+	/// Dst connection id
 	uint32_t dst_conn_id = 0;
-	bool dialled = false;
+
+	/// Timer instance to handle timeouts in the ConnectionState state machine
 	asyncio::Timer state_timer;
+	/// Timer interval for the state timer
+	/// Can be used to handle things like exponential backoff
 	uint64_t state_timer_interval = 0;
 
+	/// Did we initiate the connection by dialling?
+	bool dialled = false;
+	/// Timer callback for handling DIAL timeouts
 	void dial_timer_cb();
 
 	// Streams
+	/// List of streams on which we send data
 	std::unordered_map<uint16_t, SendStream> send_streams;
+	/// List of streams from which we recv data
 	std::unordered_map<uint16_t, RecvStream> recv_streams;
 
+	/// Helper function to get a send stream of given stream id, creating one if needed
 	SendStream &get_or_create_send_stream(uint16_t const stream_id);
+	/// Helper function to get a recv stream of given stream id, creating one if needed
 	RecvStream &get_or_create_recv_stream(uint16_t const stream_id);
 
 	// Packets
-
-	/*!
-		strictly increasing packet number so that all packets including the lost ones which are being retransmitted have unique packet number
-	*/
+	/// Packet number of last sent packet.
+	/// Strictly increasing, retransmitted packets have different packet number than the original
 	uint64_t last_sent_packet = -1;
+	/// List of sent packets which have not been acked yet
 	std::map<uint64_t, SentPacketInfo> sent_packets;
 
-	/*!
-		packets which not have been acked since long time
-	*/
+	/// List of packets marked as lost.
+	/// Can happen if packets sent much later were acknowledged.
+	/// Can happen if an ack is not received for a long time.
 	std::map<uint64_t, SentPacketInfo> lost_packets;
 
 	// RTT estimate
+	/// RTT estimate of connection
 	double rtt = -1;
 
 	// Congestion control
@@ -115,32 +144,48 @@ private:
 	uint64_t largest_sent_time = 0;
 
 	// Send
+	/// List of stream ids with data ready to be sent
 	std::unordered_set<uint16_t> send_queue_ids;
+	/// List of send streams with data ready to be sent
 	std::list<SendStream *> send_queue;
 
+	/// Add the given stream to the list of streams with data ready to be sent
 	bool register_send_intent(SendStream &stream);
 
+	/// Send any pending data that needs to be sent.
+	/// Main entry point which keeps the transmission moving forward.
+	/// First retransmits any lost data, then any new data.
+	/// Packets are paced using the pacing timer.
 	void send_pending_data();
+	/// Send any lost data if possible
 	int send_lost_data(uint64_t initial_bytes_in_flight);
+	/// Send any new data if possible
 	int send_new_data(SendStream &stream, uint64_t initial_bytes_in_flight);
 
 	// Pacing
+	/// Timer to enforce packet pacing
 	asyncio::Timer pacing_timer;
+	/// Is the pacing timer active?
 	bool is_pacing_timer_active = false;
-
+	/// Pacing timer callback to send a new batch of packets
 	void pacing_timer_cb();
 
-	// TLP
+	// TLP (Tail Loss Probe)
+	/// Timer to detect no acks for a long time
 	asyncio::Timer tlp_timer;
+	/// Timer interval for the tlp timer
 	uint64_t tlp_interval = DEFAULT_TLP_INTERVAL;
-
+	/// Timer callback for handling tlp timeouts
 	void tlp_timer_cb();
 
 	// ACKs
+	/// Stores ranges of packet numbers that have and haven't been seen
 	AckRanges ack_ranges;
+	/// Timer to batch acks for multiple packets
 	asyncio::Timer ack_timer;
+	/// Is the ack timer active?
 	bool ack_timer_active = false;
-
+	/// Timer callback for sending an ack
 	void ack_timer_cb();
 
 	// Protocol
@@ -177,17 +222,24 @@ private:
 	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
 
 public:
-	// Delegate
+	/// Delegate calls from base transport
 	void did_dial(BaseTransport &transport);
+	/// Delegate calls from base transport
 	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
+	/// Delegate calls from base transport
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	/// Delegate calls from base transport
 	void did_close(BaseTransport &transport);
 
+	/// Own address
 	core::SocketAddress src_addr;
+	/// Destination address
 	core::SocketAddress dst_addr;
 
+	/// Delegate to notify of any events
 	DelegateType *delegate = nullptr;
 
+	/// Constructor
 	StreamTransport(
 		core::SocketAddress const &src_addr,
 		core::SocketAddress const &dst_addr,
@@ -196,17 +248,29 @@ public:
 		uint8_t const* remote_static_pk
 	);
 
+	/// Setup function that can be called to set the delegate and the private key
 	void setup(DelegateType *delegate, uint8_t const* static_sk);
+	/// Queues the given buffer for transmission
 	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
+	/// Closes the transport, ignores any further data received or queued
 	void close();
 
+	/// Is the transport ready to send data?
 	bool is_active();
+	/// Get the RTT estimate of the connection
 	double get_rtt();
 
+	/// Timer callback for SKIPSTREAM timeout
 	void skip_timer_cb(RecvStream& stream);
+	/// Ask the sender to skip to the end of the current transmission
+	/// Can be used to skip receiving data we already have
 	void skip_stream(uint16_t stream_id);
 
+	/// Timer callback for FLUSHSTREAM timeout
 	void flush_timer_cb(SendStream& stream);
+	/// Tells the receiver that we are skipping to the end of the current transmission
+	/// Can be used to skip sending data the receiver already has
+	/// Can be used to skip sending data that we sent partially but can't send anymore
 	void flush_stream(uint16_t stream_id);
 
 private:
@@ -228,16 +292,15 @@ private:
 	alignas(16) crypto_aead_aes256gcm_state rx_ctx;
 	alignas(16) crypto_aead_aes256gcm_state tx_ctx;
 public:
+	/// Get the public key of self
 	uint8_t const* get_static_pk();
+	/// Get the public key of the destination
 	uint8_t const* get_remote_static_pk();
 };
 
 
 // Impl
 
-/*!
-	Resets and clears connection-state, timers, streams and various other tranport related params
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	// Reset transport
@@ -288,7 +351,6 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 
 // Impl
 
-//! a callback function which sends dial message with exponential interval increases
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 	if(this->state_timer_interval >= 64000) { // Abort on too many retries
@@ -313,13 +375,6 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 //---------------- Stream functions begin ----------------//
 
 
-//! creates or return sendstream of given stream_id
-/*!
-	Takes in the stream_id and returns the SendStream corresponding to it. Creates and return if none found.
-
-	\param stream_id stream id to search for
-	\return SendStream object corresponding for given param stream_id
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send_stream(
 	uint16_t const stream_id
@@ -334,13 +389,6 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 }
 
 
-//! creates or return recvstream of given stream_id
-/*!
-	Takes in the stream_id and returns the RecvStream corresponding to it. Creates and return if none found.
-
-	\param stream_id stream id to search for
-	\return RecvStream object corresponding for given param stream_id
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv_stream(
 	uint16_t const stream_id
@@ -360,13 +408,6 @@ RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv
 //---------------- Send functions end ----------------//
 
 
-//! adds given SendStream to send_queue
-/*!
-	Takes in the stream and adds it to the queue of streams which are inspected for data packets during the sending phase
-
-	\param stream object to be added to the queue
-	\return false if stream already in queue otherwise true
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	SendStream &stream
@@ -381,7 +422,6 @@ bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	return true;
 }
 
-//! Schedules pacing timer callback
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	if(is_pacing_timer_active == false) {
@@ -390,7 +430,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_pending_data() {
 	}
 }
 
-//! Attempts to send again the lost packets
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 	uint64_t initial_bytes_in_flight
@@ -428,12 +467,6 @@ int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 	return 0;
 }
 
-//! Attempts to send new packets in the given stream
-/*!
-	fragments dataItems in the stream and sends them across until congestion or pacing limit is not hit
-	\param stream SendStream from which DataItems/Packets needs to be dequeued for sending
-	\param initial_bytes_in_flight for the purpose of keeping a check on congestion and pacing limit
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 	SendStream &stream,
@@ -516,11 +549,6 @@ void StreamTransport<DelegateType, DatagramTransport>::pacing_timer_cb() {
 
 
 //---------------- TLP functions begin ----------------//
-
-//! tail loss probe (tlp) function to detect inactivity
-/*!
-	called at TLP_INTERVAL to detect inactivity. examines for packet losses and adjusts congestion window accordingly
-*/
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
@@ -1004,13 +1032,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	}
 }
 
-//! Sends across given data item fragment
-/*!
-	\param stream SendStream to which the fragment's dataItem belongs to
-	\param data_item DataItem to which the fragment belongs to
-	\param offset integer offset of the fragment in the data_item
-	\param length byte length of the fragment
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	SendStream &stream,
@@ -1068,13 +1089,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	}
 }
 
-/*!
-	\li handles the packet fragments received on the connection.
-	\li queues the packets if they are received out of order
-	\li if/once all data before the current packet is received, its read and passed onto the delegate to be reassembled into meaningful message
-
-	\param packet the bytes received
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	DATA &&packet
@@ -1840,10 +1854,6 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 }
 
 
-//! sets up the delegate when building an application over this transport. Also sets this class as the delegate of the underlying datagram_transport
-/*!
-	\param delegate a DelegateType pointer to the application class instance which uses this transport
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::setup(
 	DelegateType *delegate,
@@ -1860,13 +1870,6 @@ void StreamTransport<DelegateType, DatagramTransport>::setup(
 }
 
 
-//! called by higher level application to send data
-/*!
-	\li adds data to appropriate send stream and
-	\li calls send_pending_data to schedule pacing_timer_cb
-
-	\return an integer 0 if successful, negative otherwise
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send(
 	core::Buffer &&bytes,
@@ -1913,22 +1916,12 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	return 0;
 }
 
-//! closes the connection and clears the entries
-/*!
-	\li resets all the connection data
-	\li calls the close for underlying datagram transport
-	\li notifies the delegate application about the close
-	\li erases self entry from the transport manager which in turn destroys this instance
-*/
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
 	reset();
 	transport.close();
 }
 
-/*!
- * \return \b True if Stream connection state is Established. For other Conn. states returns \b False.
- */
 template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 	if(conn_state == ConnectionState::Established) {
@@ -1938,9 +1931,6 @@ bool StreamTransport<DelegateType, DatagramTransport>::is_active() {
 	return false;
 }
 
-/*!
- * \return adaptive rtt calculated for given Stream Transport
- */
 template<typename DelegateType, template<typename> class DatagramTransport>
 double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 	return rtt;

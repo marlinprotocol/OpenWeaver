@@ -69,6 +69,19 @@ install(FILES
 
 
 ##########################################################
+# Docs
+##########################################################
+
+find_package(Doxygen REQUIRED)
+add_custom_target(core_docs
+	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	COMMENT "Generating API documentation with Doxygen"
+	VERBATIM
+)
+
+
+##########################################################
 # Tests
 ##########################################################
 
