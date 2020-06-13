@@ -386,6 +386,24 @@ struct CLOSEWrapper {
 	}
 };
 
+/// CLOSECONF message template
+template<typename BaseMessageType>
+struct CLOSECONFWrapper {
+	MARLIN_MESSAGES_BASE(CLOSECONFWrapper);
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2);
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6);
+
+	/// Construct a CLOSECONF message
+	CLOSECONFWrapper() : base(10) {
+		base.set_payload({0, 11});
+	}
+
+	/// Validate the CLOSECONF message
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 10;
+	}
+};
+
 #undef MARLIN_MESSAGES_UINT16_FIELD
 #undef MARLIN_MESSAGES_UINT32_FIELD
 #undef MARLIN_MESSAGES_UINT64_FIELD
