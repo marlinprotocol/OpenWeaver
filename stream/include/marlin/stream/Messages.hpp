@@ -368,6 +368,24 @@ struct FLUSHCONFWrapper {
 	}
 };
 
+/// CLOSE message template
+template<typename BaseMessageType>
+struct CLOSEWrapper {
+	MARLIN_MESSAGES_BASE(CLOSEWrapper);
+	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2);
+	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6);
+
+	/// Construct a CLOSE message
+	CLOSEWrapper() : base(10) {
+		base.set_payload({0, 10});
+	}
+
+	/// Validate the CLOSE message
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() >= 10;
+	}
+};
+
 #undef MARLIN_MESSAGES_UINT16_FIELD
 #undef MARLIN_MESSAGES_UINT32_FIELD
 #undef MARLIN_MESSAGES_UINT64_FIELD
