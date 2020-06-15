@@ -124,7 +124,7 @@ ELSE()
 target_link_libraries(stream_client PUBLIC stream stdc++fs)
 ENDIF()
 
-target_compile_options(stream_client PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_options(stream_client PRIVATE -Werror -Wall -Wimplicit-fallthrough -Wextra -pedantic-errors)
 target_compile_features(stream_client PRIVATE cxx_std_17)
 
 add_executable(stream_simulated_example
