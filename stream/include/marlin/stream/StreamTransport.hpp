@@ -989,7 +989,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		return;
 	}
 
-	if(conn_state == ConnectionState::DialRcvd) {
+	switch(conn_state) {
+	case ConnectionState::DialRcvd: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -1012,7 +1013,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::Established: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -1029,7 +1034,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 
 			return;
 		}
-	} else {
+
+		break;
+	}
+
+	// TODO
+	default: {
 		// Shouldn't receive CONF in other states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: CONF: Unexpected",
@@ -1037,6 +1047,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 			dst_addr.to_string()
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
+
+		break;
+	}
 	}
 }
 
