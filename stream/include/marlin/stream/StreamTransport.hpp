@@ -842,7 +842,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		return;
 	}
 
-	if(conn_state == ConnectionState::DialSent) {
+	switch(conn_state) {
+	case ConnectionState::DialSent: {
 		auto src_conn_id = packet.src_conn_id();
 		if(src_conn_id != this->src_conn_id) {
 			// On conn id mismatch, send RST for that id
@@ -895,7 +896,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::DialRcvd) {
+
+		break;
+	}
+
+	case ConnectionState::DialRcvd: {
 		// Usually happend in case of simultaneous open
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
@@ -926,7 +931,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::Established: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -944,7 +953,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 
 		send_CONF();
-	} else {
+
+		break;
+	}
+
+	// TODO
+	default: {
 		// Shouldn't receive DIALCONF in other states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
@@ -952,6 +966,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			dst_addr.to_string()
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
+
+		break;
+	}
 	}
 }
 
