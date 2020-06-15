@@ -687,7 +687,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		return;
 	}
 
-	if(conn_state == ConnectionState::Listen) {
+	switch(conn_state) {
+	case ConnectionState::Listen: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
@@ -741,7 +742,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
-	} else if(conn_state == ConnectionState::DialSent) {
+
+		break;
+	}
+
+	case ConnectionState::DialSent: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
@@ -789,16 +794,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
-	} else if(conn_state == ConnectionState::DialRcvd) {
-		// Send existing ids
-		// Wait for dst to RST and try to establish again
-		// if this DIAL is latest one
-		send_DIALCONF();
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::DialRcvd:
+	case ConnectionState::Established: {
 		// Send existing ids
 		// Wait for dst to RST and try to establish again
 		// if this connection is stale
 		send_DIALCONF();
+
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// TODO
+		break;
+	}
 	}
 }
 
@@ -1742,14 +1755,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
-	uint16_t stream_id
-) {
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF() {
 	transport.send(
 		CLOSECONF()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
-		.set_stream_id(stream_id)
 	);
 }
 
