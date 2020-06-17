@@ -263,8 +263,11 @@ public:
 	void setup(DelegateType *delegate, uint8_t const* static_sk);
 	/// Queues the given buffer for transmission
 	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
+
 	/// Closes the transport, ignores any further data received or queued
 	void close();
+	/// Timer callback for close conf timeout
+	void close_timer_cb();
 
 	/// Is the transport ready to send data?
 	bool is_active();
@@ -1871,8 +1874,10 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_close(
 	BaseTransport &
 ) {
-	delegate->did_close(*this);
-	transport_manager.erase(dst_addr);
+	state_timer_interval = 1000;
+	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
+
+	send_CLOSE();
 }
 
 //! Receives the packet and processes them
@@ -2073,8 +2078,28 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
-	reset();
+	conn_state = ConnectionState::Closing;
 	transport.close();
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
+	if(state_timer_interval >= 8000) { // Abort on too many retries
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Close timeout",
+			this->src_addr.to_string(),
+			this->dst_addr.to_string()
+		);
+		reset();
+		delegate->did_close(*this);
+		transport_manager.erase(dst_addr);
+		return;
+	}
+
+	send_CLOSE();
+
+	state_timer_interval *= 2;
+	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
