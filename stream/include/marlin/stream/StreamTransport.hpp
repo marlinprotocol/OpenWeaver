@@ -809,7 +809,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	}
 
 	case ConnectionState::Closing: {
-		// TODO
+		// Ignore
 		break;
 	}
 	}
@@ -957,9 +957,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		break;
 	}
 
-	// TODO
-	default: {
-		// Shouldn't receive DIALCONF in other states, unrecoverable
+	case ConnectionState::Listen: {
+		// Shouldn't receive DIALCONF in these states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
 			src_addr.to_string(),
@@ -967,6 +966,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// Ignore
 		break;
 	}
 	}
@@ -1038,9 +1042,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		break;
 	}
 
-	// TODO
-	default: {
-		// Shouldn't receive CONF in other states, unrecoverable
+	case ConnectionState::Listen:
+	case ConnectionState::DialSent: {
+		// Shouldn't receive CONF in these states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: CONF: Unexpected",
 			src_addr.to_string(),
@@ -1048,6 +1052,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
 
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// Ignore
 		break;
 	}
 	}
