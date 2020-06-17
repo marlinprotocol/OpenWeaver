@@ -1204,6 +1204,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
+
+		if(dialled) {
+			delegate->did_dial(*this);
+		}
 	} else if(conn_state != ConnectionState::Established) {
 		return;
 	}
