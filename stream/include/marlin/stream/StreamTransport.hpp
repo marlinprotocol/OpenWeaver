@@ -229,7 +229,7 @@ private:
 	void send_CLOSE();
 	void did_recv_CLOSE(CLOSE &&packet);
 
-	void send_CLOSECONF();
+	void send_CLOSECONF(uint32_t src_conn_id, uint32_t dst_conn_id);
 	void did_recv_CLOSECONF(CLOSECONF &&packet);
 
 public:
@@ -374,7 +374,8 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 			this->src_addr.to_string(),
 			this->dst_addr.to_string()
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 
@@ -633,7 +634,8 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 	} else {
 		// Abort on too many retries
 		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
-		this->close();
+		reset();
+		transport.close();
 	}
 }
 
@@ -1094,7 +1096,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 			dst_addr.to_string()
 		);
 		reset();
-		close();
+		transport.close();
 	}
 }
 
@@ -1788,20 +1790,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 			dst_conn_id,
 			this->dst_conn_id
 		);
-		// send_RST(src_conn_id, dst_conn_id);
+		send_CLOSECONF(src_conn_id, dst_conn_id);
 		return;
 	}
 
-	if(conn_state != ConnectionState::Established) {
-		return;
+	if(conn_state == ConnectionState::Established || conn_state == ConnectionState::Closing) {
+		send_CLOSECONF(src_conn_id, dst_conn_id);
+		reset();
+		transport.close();
+	} else {
+		// Ignore in other states
 	}
-
-	conn_state = ConnectionState::Closing;
-	send_CLOSECONF();
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF() {
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
+	uint32_t src_conn_id,
+	uint32_t dst_conn_id
+) {
 	transport.send(
 		CLOSECONF()
 		.set_src_conn_id(src_conn_id)
@@ -1819,9 +1825,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 
 	SPDLOG_TRACE("CLOSECONF <<< {}: {}", dst_addr.to_string(), packet.stream_id());
 
+	state_timer.stop();
+
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
-	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: CLOSECONF: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
@@ -1831,18 +1839,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 			dst_conn_id,
 			this->dst_conn_id
 		);
-		// send_RST(src_conn_id, dst_conn_id);
 		return;
 	}
 
-	// if(conn_state != ConnectionState::Established) {
-	// 	return;
-	// }
-
-	// auto stream_id = packet.stream_id();
-	// auto &stream = get_or_create_send_stream(stream_id);
-
-	// stream.state_timer.stop();
+	reset();
+	transport.close();
 }
 
 //---------------- Protocol functions end ----------------//
@@ -1874,10 +1875,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_close(
 	BaseTransport &
 ) {
-	state_timer_interval = 1000;
-	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
-
-	send_CLOSE();
+	delegate->did_close(*this);
+	transport_manager.erase(dst_addr);
 }
 
 //! Receives the packet and processes them
@@ -2079,7 +2078,10 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
 	conn_state = ConnectionState::Closing;
-	transport.close();
+	send_CLOSE();
+
+	state_timer_interval = 1000;
+	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -2091,8 +2093,7 @@ void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
 			this->dst_addr.to_string()
 		);
 		reset();
-		delegate->did_close(*this);
-		transport_manager.erase(dst_addr);
+		transport.close();
 		return;
 	}
 
@@ -2126,7 +2127,8 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream&
 			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 
@@ -2177,7 +2179,8 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream
 			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 
