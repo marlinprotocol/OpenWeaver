@@ -1790,10 +1790,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 			dst_conn_id,
 			this->dst_conn_id
 		);
+		// If connection ids don't match, send CLOSECONF so the other side can close if needed
+		// but don't reset/close the current connection in case the CLOSE is stale
 		send_CLOSECONF(src_conn_id, dst_conn_id);
 		return;
 	}
 
+	// Transport is closed after sending CLOSECONF
+	// A new transport will be created in case the other side retries and will follow the above code path
 	if(conn_state == ConnectionState::Established || conn_state == ConnectionState::Closing) {
 		send_CLOSECONF(src_conn_id, dst_conn_id);
 		reset();
@@ -1839,6 +1843,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 			dst_conn_id,
 			this->dst_conn_id
 		);
+		// Not meant for this connection, stale CLOSECONF
 		return;
 	}
 
@@ -2077,6 +2082,14 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close() {
+	// Preserve conn ids so retries work
+	auto src_conn_id = this->src_conn_id;
+	auto dst_conn_id = this->dst_conn_id;
+	reset();
+	this->src_conn_id = src_conn_id;
+	this->dst_conn_id = dst_conn_id;
+
+	// Initiate close
 	conn_state = ConnectionState::Closing;
 	send_CLOSE();
 
