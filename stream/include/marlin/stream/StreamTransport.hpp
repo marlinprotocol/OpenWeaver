@@ -240,7 +240,7 @@ public:
 	/// Delegate calls from base transport
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 	/// Delegate calls from base transport
-	void did_close(BaseTransport &transport);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	/// Own address
 	core::SocketAddress src_addr;
@@ -1878,9 +1878,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_close(
-	BaseTransport &
+	BaseTransport &,
+	uint16_t reason
 ) {
-	delegate->did_close(*this);
+	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
 
