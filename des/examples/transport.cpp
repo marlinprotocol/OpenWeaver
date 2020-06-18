@@ -47,7 +47,7 @@ struct Delegate {
 		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
-	void did_close(TransportType&) {
+	void did_close(TransportType&, uint16_t) {
 		SPDLOG_INFO("Did close");
 	}
 

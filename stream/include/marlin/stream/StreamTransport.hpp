@@ -226,7 +226,7 @@ private:
 	void send_FLUSHCONF(uint16_t stream_id);
 	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
 
-	void send_CLOSE();
+	void send_CLOSE(uint16_t reason);
 	void did_recv_CLOSE(CLOSE &&packet);
 
 	void send_CLOSECONF(uint32_t src_conn_id, uint32_t dst_conn_id);
@@ -264,6 +264,8 @@ public:
 	/// Queues the given buffer for transmission
 	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
 
+	/// Close reason
+	uint16_t close_reason = 0;
 	/// Closes the transport, ignores any further data received or queued
 	void close(uint16_t reason = 0);
 	/// Timer callback for close conf timeout
@@ -1760,11 +1762,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE() {
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE(uint16_t reason) {
 	transport.send(
 		CLOSE()
 		.set_src_conn_id(src_conn_id)
 		.set_dst_conn_id(dst_conn_id)
+		.set_reason(reason)
 	);
 }
 
@@ -2092,6 +2095,7 @@ void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
 
 	// Initiate close
 	conn_state = ConnectionState::Closing;
+	close_reason = reason;
 	send_CLOSE(reason);
 
 	state_timer_interval = 1000;
@@ -2111,7 +2115,7 @@ void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
 		return;
 	}
 
-	send_CLOSE();
+	send_CLOSE(close_reason);
 
 	state_timer_interval *= 2;
 	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
