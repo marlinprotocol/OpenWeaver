@@ -265,7 +265,7 @@ public:
 	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
 
 	/// Closes the transport, ignores any further data received or queued
-	void close();
+	void close(uint16_t reason = 0);
 	/// Timer callback for close conf timeout
 	void close_timer_cb();
 
@@ -2082,7 +2082,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::close() {
+void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
 	// Preserve conn ids so retries work
 	auto src_conn_id = this->src_conn_id;
 	auto dst_conn_id = this->dst_conn_id;
@@ -2092,7 +2092,7 @@ void StreamTransport<DelegateType, DatagramTransport>::close() {
 
 	// Initiate close
 	conn_state = ConnectionState::Closing;
-	send_CLOSE();
+	send_CLOSE(reason);
 
 	state_timer_interval = 1000;
 	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);

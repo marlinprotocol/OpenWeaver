@@ -374,15 +374,16 @@ struct CLOSEWrapper {
 	MARLIN_MESSAGES_BASE(CLOSEWrapper);
 	MARLIN_MESSAGES_UINT32_FIELD(src_conn_id, 6, 2);
 	MARLIN_MESSAGES_UINT32_FIELD(dst_conn_id, 2, 6);
+	MARLIN_MESSAGES_UINT16_FIELD(reason, 10);
 
 	/// Construct a CLOSE message
-	CLOSEWrapper() : base(10) {
-		base.set_payload({0, 10});
+	CLOSEWrapper() : base(12) {
+		base.set_payload({0, 12});
 	}
 
 	/// Validate the CLOSE message
 	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() >= 10;
+		return base.payload_buffer().size() >= 12;
 	}
 };
 
