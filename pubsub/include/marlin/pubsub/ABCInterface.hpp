@@ -323,7 +323,7 @@ public:
 		core::Buffer &&
 	) {}
 
-	void did_close(LpfTcpTransport &transport  [[maybe_unused]]) {
+	void did_close(LpfTcpTransport &transport [[maybe_unused]], uint16_t) {
 		SPDLOG_DEBUG(
 			"Closed connection with client: {}",
 			transport.dst_addr.to_string()
