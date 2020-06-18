@@ -49,7 +49,7 @@ public:
 	void did_dial(BaseTransport &transport);
 	int did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes, uint16_t stream_id = 0);
 	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
-	void did_close(BaseTransport& transport);
+	void did_close(BaseTransport& transport, uint16_t reason);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
 	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
 
@@ -68,7 +68,7 @@ public:
 	void setup(DelegateType *delegate, uint8_t const* keys = nullptr);
 
 	int send(core::Buffer &&message);
-	void close();
+	void close(uint16_t reason = 0);
 
 	bool is_active();
 	double get_rtt();
@@ -214,9 +214,10 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::did_close(
-	BaseTransport&
+	BaseTransport&,
+	uint16_t reason
 ) {
-	delegate->did_close(*this);
+	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
 
@@ -355,8 +356,8 @@ void LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::close() {
-	transport.close();
+>::close(uint16_t reason) {
+	transport.close(reason);
 }
 
 template<

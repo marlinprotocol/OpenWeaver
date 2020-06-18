@@ -47,7 +47,7 @@ struct Delegate {
 		transport.setup(this);
 	}
 
-	void did_close(TransportType<Delegate> &) {
+	void did_close(TransportType<Delegate> &, uint16_t) {
 		SPDLOG_INFO("Did close");
 	}
 
