@@ -1804,7 +1804,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 	if(conn_state == ConnectionState::Established || conn_state == ConnectionState::Closing) {
 		send_CLOSECONF(src_conn_id, dst_conn_id);
 		reset();
-		transport.close();
+		transport.close(packet.reason());
 	} else {
 		// Ignore in other states
 	}
