@@ -1093,8 +1093,6 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 */
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
-
-
 	// TODO: written so that relays with full unsol list dont occupy sol/standby lists in clients, and similarly masters with full unsol list dont occupy sol/standby lists in relays
 	if (blacklist_addr.find(addr) != blacklist_addr.end())
 		return;
@@ -1228,11 +1226,6 @@ bool PUBSUBNODETYPE::remove_conn(TransportSet &t_set, BaseTransport &transport) 
 		);
 
 		t_set.erase(&transport);
-
-		//TODO Send response
-		if (&t_set == &sol_conns) {
-			send_RESPONSE(transport, true, "UNSUBSCRIBED");
-		}
 
 		return true;
 	}
