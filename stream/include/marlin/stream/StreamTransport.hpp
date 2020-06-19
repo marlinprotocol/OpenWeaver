@@ -1099,6 +1099,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 		);
 		reset();
 		transport.close();
+	} else if (conn_state == ConnectionState::Listen) {
+		// Remove idle connection, usually happens if multiple RST are sent
+		reset();
+		transport.close();
 	}
 }
 
