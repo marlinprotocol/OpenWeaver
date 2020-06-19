@@ -1800,6 +1800,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 		// If connection ids don't match, send CLOSECONF so the other side can close if needed
 		// but don't reset/close the current connection in case the CLOSE is stale
 		send_CLOSECONF(src_conn_id, dst_conn_id);
+		if(conn_state == ConnectionState::Listen) {
+			// Close idle connections
+			reset();
+			transport.close();
+		}
 		return;
 	}
 
@@ -1809,6 +1814,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 		send_CLOSECONF(src_conn_id, dst_conn_id);
 		reset();
 		transport.close(packet.reason());
+	} else if(conn_state == ConnectionState::Listen) {
+		// Close idle connections
+		reset();
+		transport.close();
 	} else {
 		// Ignore in other states
 	}
