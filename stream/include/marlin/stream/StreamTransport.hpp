@@ -73,6 +73,10 @@ private:
 	using FLUSHSTREAM = FLUSHSTREAMWrapper<BaseMessageType>;
 	/// FLUSHCONF message type
 	using FLUSHCONF = FLUSHCONFWrapper<BaseMessageType>;
+	/// CLOSE message type
+	using CLOSE = CLOSEWrapper<BaseMessageType>;
+	/// CLOSECONF message type
+	using CLOSECONF = CLOSECONFWrapper<BaseMessageType>;
 
 	/// Base transport instance
 	BaseTransport &transport;
@@ -87,7 +91,8 @@ private:
 		Listen,
 		DialSent,
 		DialRcvd,
-		Established
+		Established,
+		Closing
 	} conn_state = ConnectionState::Listen;
 
 	/// Src connection id
@@ -221,6 +226,12 @@ private:
 	void send_FLUSHCONF(uint16_t stream_id);
 	void did_recv_FLUSHCONF(FLUSHCONF &&packet);
 
+	void send_CLOSE(uint16_t reason);
+	void did_recv_CLOSE(CLOSE &&packet);
+
+	void send_CLOSECONF(uint32_t src_conn_id, uint32_t dst_conn_id);
+	void did_recv_CLOSECONF(CLOSECONF &&packet);
+
 public:
 	/// Delegate calls from base transport
 	void did_dial(BaseTransport &transport);
@@ -229,7 +240,7 @@ public:
 	/// Delegate calls from base transport
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 	/// Delegate calls from base transport
-	void did_close(BaseTransport &transport);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	/// Own address
 	core::SocketAddress src_addr;
@@ -252,8 +263,13 @@ public:
 	void setup(DelegateType *delegate, uint8_t const* static_sk);
 	/// Queues the given buffer for transmission
 	int send(core::Buffer &&bytes, uint16_t stream_id = 0);
+
+	/// Close reason
+	uint16_t close_reason = 0;
 	/// Closes the transport, ignores any further data received or queued
-	void close();
+	void close(uint16_t reason = 0);
+	/// Timer callback for close conf timeout
+	void close_timer_cb();
 
 	/// Is the transport ready to send data?
 	bool is_active();
@@ -360,7 +376,8 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 			this->src_addr.to_string(),
 			this->dst_addr.to_string()
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 
@@ -619,7 +636,8 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 	} else {
 		// Abort on too many retries
 		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
-		this->close();
+		reset();
+		transport.close();
 	}
 }
 
@@ -676,7 +694,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		return;
 	}
 
-	if(conn_state == ConnectionState::Listen) {
+	switch(conn_state) {
+	case ConnectionState::Listen: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
@@ -730,7 +749,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
-	} else if(conn_state == ConnectionState::DialSent) {
+
+		break;
+	}
+
+	case ConnectionState::DialSent: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
 			SPDLOG_ERROR(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
@@ -778,16 +801,24 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		send_DIALCONF();
 
 		conn_state = ConnectionState::DialRcvd;
-	} else if(conn_state == ConnectionState::DialRcvd) {
-		// Send existing ids
-		// Wait for dst to RST and try to establish again
-		// if this DIAL is latest one
-		send_DIALCONF();
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::DialRcvd:
+	case ConnectionState::Established: {
 		// Send existing ids
 		// Wait for dst to RST and try to establish again
 		// if this connection is stale
 		send_DIALCONF();
+
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// Ignore
+		break;
+	}
 	}
 }
 
@@ -818,7 +849,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		return;
 	}
 
-	if(conn_state == ConnectionState::DialSent) {
+	switch(conn_state) {
+	case ConnectionState::DialSent: {
 		auto src_conn_id = packet.src_conn_id();
 		if(src_conn_id != this->src_conn_id) {
 			// On conn id mismatch, send RST for that id
@@ -871,7 +903,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::DialRcvd) {
+
+		break;
+	}
+
+	case ConnectionState::DialRcvd: {
 		// Usually happend in case of simultaneous open
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
@@ -902,7 +938,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::Established: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -920,14 +960,26 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 
 		send_CONF();
-	} else {
-		// Shouldn't receive DIALCONF in other states, unrecoverable
+
+		break;
+	}
+
+	case ConnectionState::Listen: {
+		// Shouldn't receive DIALCONF in these states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
+
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// Ignore
+		break;
+	}
 	}
 }
 
@@ -948,7 +1000,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		return;
 	}
 
-	if(conn_state == ConnectionState::DialRcvd) {
+	switch(conn_state) {
+	case ConnectionState::DialRcvd: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -971,7 +1024,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		if(dialled) {
 			delegate->did_dial(*this);
 		}
-	} else if(conn_state == ConnectionState::Established) {
+
+		break;
+	}
+
+	case ConnectionState::Established: {
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
@@ -988,14 +1045,27 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 
 			return;
 		}
-	} else {
-		// Shouldn't receive CONF in other states, unrecoverable
+
+		break;
+	}
+
+	case ConnectionState::Listen:
+	case ConnectionState::DialSent: {
+		// Shouldn't receive CONF in these states, unrecoverable
 		SPDLOG_ERROR(
 			"Stream transport {{ Src: {}, Dst: {} }}: CONF: Unexpected",
 			src_addr.to_string(),
 			dst_addr.to_string()
 		);
 		send_RST(packet.src_conn_id(), packet.dst_conn_id());
+
+		break;
+	}
+
+	case ConnectionState::Closing: {
+		// Ignore
+		break;
+	}
 	}
 }
 
@@ -1028,7 +1098,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 			dst_addr.to_string()
 		);
 		reset();
-		close();
+		transport.close();
+	} else if (conn_state == ConnectionState::Listen) {
+		// Remove idle connection, usually happens if multiple RST are sent
+		reset();
+		transport.close();
 	}
 }
 
@@ -1141,6 +1215,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 	if(conn_state == ConnectionState::DialRcvd) {
 		conn_state = ConnectionState::Established;
+
+		if(dialled) {
+			delegate->did_dial(*this);
+		}
 	} else if(conn_state != ConnectionState::Established) {
 		return;
 	}
@@ -1687,6 +1765,108 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	stream.state_timer.stop();
 }
 
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE(uint16_t reason) {
+	transport.send(
+		CLOSE()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+		.set_reason(reason)
+	);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
+	CLOSE &&packet
+) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	SPDLOG_TRACE("CLOSE <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: CLOSE: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		// If connection ids don't match, send CLOSECONF so the other side can close if needed
+		// but don't reset/close the current connection in case the CLOSE is stale
+		send_CLOSECONF(src_conn_id, dst_conn_id);
+		if(conn_state == ConnectionState::Listen) {
+			// Close idle connections
+			reset();
+			transport.close();
+		}
+		return;
+	}
+
+	// Transport is closed after sending CLOSECONF
+	// A new transport will be created in case the other side retries and will follow the above code path
+	if(conn_state == ConnectionState::Established || conn_state == ConnectionState::Closing) {
+		send_CLOSECONF(src_conn_id, dst_conn_id);
+		reset();
+		transport.close(packet.reason());
+	} else if(conn_state == ConnectionState::Listen) {
+		// Close idle connections
+		reset();
+		transport.close();
+	} else {
+		// Ignore in other states
+	}
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
+	uint32_t src_conn_id,
+	uint32_t dst_conn_id
+) {
+	transport.send(
+		CLOSECONF()
+		.set_src_conn_id(src_conn_id)
+		.set_dst_conn_id(dst_conn_id)
+	);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
+	CLOSECONF &&packet
+) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	SPDLOG_TRACE("CLOSECONF <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+
+	state_timer.stop();
+
+	auto src_conn_id = packet.src_conn_id();
+	auto dst_conn_id = packet.dst_conn_id();
+	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: CLOSECONF: Connection id mismatch: {}, {}, {}, {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			src_conn_id,
+			this->src_conn_id,
+			dst_conn_id,
+			this->dst_conn_id
+		);
+		// Not meant for this connection, stale CLOSECONF
+		return;
+	}
+
+	reset();
+	transport.close();
+}
+
 //---------------- Protocol functions end ----------------//
 
 
@@ -1714,9 +1894,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_close(
-	BaseTransport &
+	BaseTransport &,
+	uint16_t reason
 ) {
-	delegate->did_close(*this);
+	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
 
@@ -1917,9 +2098,40 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::close() {
+void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
+	// Preserve conn ids so retries work
+	auto src_conn_id = this->src_conn_id;
+	auto dst_conn_id = this->dst_conn_id;
 	reset();
-	transport.close();
+	this->src_conn_id = src_conn_id;
+	this->dst_conn_id = dst_conn_id;
+
+	// Initiate close
+	conn_state = ConnectionState::Closing;
+	close_reason = reason;
+	send_CLOSE(reason);
+
+	state_timer_interval = 1000;
+	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
+	if(state_timer_interval >= 8000) { // Abort on too many retries
+		SPDLOG_ERROR(
+			"Stream transport {{ Src: {}, Dst: {} }}: Close timeout",
+			this->src_addr.to_string(),
+			this->dst_addr.to_string()
+		);
+		reset();
+		transport.close();
+		return;
+	}
+
+	send_CLOSE(close_reason);
+
+	state_timer_interval *= 2;
+	state_timer.template start<Self, &Self::close_timer_cb>(state_timer_interval, 0);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1946,7 +2158,8 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream&
 			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 
@@ -1997,7 +2210,8 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream
 			this->dst_addr.to_string(),
 			stream.stream_id
 		);
-		this->close();
+		reset();
+		transport.close();
 		return;
 	}
 

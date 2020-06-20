@@ -314,6 +314,10 @@ public:
 		rlpxt  = &transport;
 		transport.setup(this);
 	}
+
+	void did_close(RlpxTransport<OnRamp> &, uint16_t) {
+		rlpxt = nullptr;
+	}
 };
 
 #endif // MARLIN_ONRAMP_ETH_ONRAMP_HPP

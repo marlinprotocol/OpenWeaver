@@ -15,7 +15,7 @@ public:
 		uint16_t channel,
 		uint64_t message_id
 	) {
-		if((message_id & 0xff) == 0) {
+		if((message_id & 0x0) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
@@ -53,7 +53,7 @@ void msggen_timer_cb(uv_timer_t *handle) {
 			msg,
 			msg_size
 		);
-		if((message_id & 0xff) == 0) {
+		if((message_id & 0x0) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,

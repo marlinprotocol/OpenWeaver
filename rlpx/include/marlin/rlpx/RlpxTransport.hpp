@@ -42,6 +42,7 @@ public:
 	void did_dial(BaseTransport &transport);
 	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
 	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
@@ -246,6 +247,14 @@ void RlpxTransport<DelegateType>::did_send_bytes(
 	core::Buffer &&
 ) {
 	// TODO: Notify delegate
+}
+
+template<typename DelegateType>
+void RlpxTransport<DelegateType>::did_close(
+	BaseTransport &,
+	uint16_t reason
+) {
+	delegate->did_close(*this, reason);
 }
 
 //---------------- Delegate functions end ----------------//

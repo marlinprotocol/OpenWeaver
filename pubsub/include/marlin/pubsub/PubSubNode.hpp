@@ -213,7 +213,7 @@ public:
 	void did_dial(BaseTransport &transport);
 	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
 	void did_send_message(BaseTransport &transport, core::Buffer &&message);
-	void did_close(BaseTransport &transport);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	int dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
@@ -417,7 +417,7 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 
 		add_unsol_conn(transport);
 		if (!check_tranport_present(transport)) {
-			transport.close();
+			transport.close(1); // Add reason to indicate blacklist
 			SPDLOG_DEBUG("CLOSING TRANSPORT, RETURNING -1");
 			return -1;
 		}
@@ -875,7 +875,7 @@ void PUBSUBNODETYPE::did_send_message(
 ) {}
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_close(BaseTransport &transport) {
+void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// Remove from subscribers
 	// std::for_each(
 	// 	delegate->channels.begin(),
@@ -886,7 +886,7 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport) {
 	// 	}
 	// );
 
-	if (remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport)) {
+	if ((remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport)) && reason == 1) {
 		// add to blacklist
 		blacklist_addr.insert(transport.dst_addr);
 	}
@@ -1093,8 +1093,6 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 */
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
-
-
 	// TODO: written so that relays with full unsol list dont occupy sol/standby lists in clients, and similarly masters with full unsol list dont occupy sol/standby lists in relays
 	if (blacklist_addr.find(addr) != blacklist_addr.end())
 		return;
@@ -1228,11 +1226,6 @@ bool PUBSUBNODETYPE::remove_conn(TransportSet &t_set, BaseTransport &transport) 
 		);
 
 		t_set.erase(&transport);
-
-		//TODO Send response
-		if (&t_set == &sol_conns) {
-			send_RESPONSE(transport, true, "UNSUBSCRIBED");
-		}
 
 		return true;
 	}

@@ -47,7 +47,7 @@ public:
 	);
 
 	void setup(DelegateType* delegate);
-	void close();
+	void close(uint16_t reason = 0);
 
 	int send(core::Buffer&& buf);
 	int send(MessageType&& buf);
@@ -101,8 +101,8 @@ void SimulatedTransport<
 	EventManager,
 	NetworkInterfaceType,
 	DelegateType
->::close() {
-	delegate->did_close(*this);
+>::close(uint16_t reason) {
+	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
 

@@ -60,7 +60,7 @@ public:
 	void did_recv_packet(core::Buffer &&packet);
 	int send(core::Buffer &&packet);
 	int send(MessageType &&packet);
-	void close();
+	void close(uint16_t reason = 0);
 };
 
 
@@ -165,8 +165,8 @@ int UdpTransport<DelegateType>::send(MessageType &&packet) {
 
 //! erases self entry from the transport manager which in turn destroys this instance. No other action required sinces its a virtual connection anyways
 template<typename DelegateType>
-void UdpTransport<DelegateType>::close() {
-	delegate->did_close(*this);
+void UdpTransport<DelegateType>::close(uint16_t reason) {
+	delegate->did_close(*this, reason);
 	for (auto *req : pending_req) {
 		auto *data = (SendPayload *)req->data;
 		data->transport = nullptr;
