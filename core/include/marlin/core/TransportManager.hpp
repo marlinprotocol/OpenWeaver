@@ -18,7 +18,13 @@ class TransportManager {
 		SocketAddress,
 		TransportType
 	> transport_map;
+
+	// Prevent copy, causes subtle bugs with objects holding onto different instances because of implicit copy somewhere
+	TransportManager(TransportManager const&) = delete;
 public:
+	/// Default constructor
+	TransportManager() = default;
+
 	/// Get transport with a given destination address,
 	/// returns nullptr if no transport is found
 	TransportType *get(SocketAddress const &addr) {

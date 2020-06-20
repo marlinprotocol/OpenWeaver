@@ -62,7 +62,8 @@ public:
 	void setup(DelegateType *delegate);
 	void did_recv_bytes(core::Buffer &&bytes);
 	int send(core::Buffer &&bytes);
-	void close();
+	uint16_t close_reason = 0;
+	void close(uint16_t reason = 0);
 };
 
 
@@ -183,6 +184,7 @@ void TcpTransport<DelegateType>::send_cb(
 template<typename DelegateType>
 void TcpTransport<DelegateType>::close_cb(uv_handle_t *handle) {
 	auto &transport = *(TcpTransport<DelegateType> *)handle->data;
+	transport.delegate->did_close(transport, transport.close_reason);
 	transport.transport_manager.erase(transport.dst_addr);
 	delete handle;
 }
@@ -222,7 +224,8 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 
 //! closes the underlying tcp socket. calls the close callback which erases self entry from the transport manager, which in turn destroys this instance
 template<typename DelegateType>
-void TcpTransport<DelegateType>::close() {
+void TcpTransport<DelegateType>::close(uint16_t reason) {
+	close_reason = reason;
 	uv_close((uv_handle_t *)socket, close_cb);
 }
 
