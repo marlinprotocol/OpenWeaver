@@ -47,7 +47,7 @@ public:
 		size_t offset = 0;
 
 		// Copy misc bufs
-		final_buf.write_uint64_le_unsafe(offset, misc_bufs.size());
+		final_buf.write_uint64_le_unsafe(offset, misc_size + 8*misc_bufs.size());
 		offset += 8;
 		for(auto iter = misc_bufs.begin(); iter != misc_bufs.end(); iter++) {
 			final_buf.write_uint64_le_unsafe(offset, iter->size());
@@ -87,6 +87,79 @@ public:
 		final_buf.truncate_unsafe(final_buf.size() - offset);
 
 		return final_buf;
+	}
+
+	std::optional<std::tuple<std::vector<core::Buffer>, std::vector<core::Buffer>>> decompress(core::WeakBuffer const& buf) {
+		std::vector<core::Buffer> misc_bufs, txn_bufs;
+
+		// Bounds check
+		if(buf.size() < 8) return std::nullopt;
+		// Read misc size
+		auto misc_size = buf.read_uint64_le_unsafe(0);
+		// Bounds check
+		if(buf.size() < 8 + misc_size) return std::nullopt;
+
+		size_t offset = 8;
+		// Read misc items
+		while(offset < 8 + misc_size) {
+			// Bounds check
+			if(buf.size() < offset + 8) return std::nullopt;
+			// Read misc item size
+			auto item_size = buf.read_uint64_le_unsafe(offset);
+			// Bounds check
+			if(buf.size() < offset + 8 + item_size) return std::nullopt;
+			// Copy misc item
+			core::Buffer item(item_size);
+			buf.read_unsafe(offset + 8, item.data(), item_size);
+			misc_bufs.push_back(std::move(item));
+
+			offset += 8 + item_size;
+		}
+
+		// Malformed block
+		if(offset != 8 + misc_size) return std::nullopt;
+
+		// Read txns
+		while(offset < buf.size()) {
+			// Bounds check
+			if(buf.size() < offset + 9) return std::nullopt;
+
+			// Check type of txn encoding
+			uint8_t type = buf.read_uint8_unsafe(offset);
+			if(type == 0x00) { // Full txn
+				// Get txn size
+				auto txn_size = buf.read_uint64_le_unsafe(offset + 1);
+				// Bounds check
+				if(buf.size() < offset + 9 + txn_size) return std::nullopt;
+
+				// Copy txn
+				core::Buffer txn(txn_size);
+				buf.read_unsafe(offset + 9, txn.data(), txn_size);
+				txn_bufs.push_back(std::move(txn));
+
+				offset += 9 + txn_size;
+			} else if(type == 0x01) { // Txn id
+				// Get txn id
+				auto txn_id = buf.read_uint64_unsafe(offset + 1);
+				// Note: Read txn_id without endian conversions,
+				// the hash was directly copied to txn_id memory
+
+				// Find txn
+				auto iter = txns.find(txn_id);
+				if(iter == txns.end()) return std::nullopt;
+
+				// Copy txn
+				core::Buffer txn(iter->second.size());
+				txn.write_unsafe(0, iter->second.data(), iter->second.size());
+				txn_bufs.push_back(std::move(txn));
+
+				offset += 9;
+			} else {
+				return std::nullopt;
+			}
+		}
+
+		return std::make_tuple(std::move(misc_bufs), std::move(txn_bufs));
 	}
 };
 
