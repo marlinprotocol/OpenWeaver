@@ -47,7 +47,7 @@ public:
 		size_t offset = 0;
 
 		// Copy misc bufs
-		final_buf.write_uint64_le_unsafe(offset, misc_size);
+		final_buf.write_uint64_le_unsafe(offset, misc_bufs.size());
 		offset += 8;
 		for(auto iter = misc_bufs.begin(); iter != misc_bufs.end(); iter++) {
 			final_buf.write_uint64_le_unsafe(offset, iter->size());
@@ -76,11 +76,15 @@ public:
 			} else {
 				// Found txn in cache, copy id
 				final_buf.write_uint8_unsafe(offset, 0x01);
-				final_buf.write_uint64_le_unsafe(offset+1, txn_id);
+				final_buf.write_uint64_unsafe(offset+1, txn_id);
+				// Note: Write txn_id without endian conversions,
+				// the hash was directly copied to txn_id memory
 
 				offset += 9;
 			}
 		}
+
+		final_buf.truncate_unsafe(final_buf.size() - offset);
 
 		return final_buf;
 	}
