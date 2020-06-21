@@ -2,7 +2,7 @@
 #define MARLIN_COMPRESSION_BLOCKCOMPRESSOR_HPP
 
 #include <marlin/core/Buffer.hpp>
-#include <marlin/asyncio/EventLoop.hpp>
+#include <marlin/asyncio/core/EventLoop.hpp>
 #include <cryptopp/blake2.h>
 
 #include <unordered_map>
