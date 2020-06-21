@@ -2,7 +2,6 @@
 #define MARLIN_COMPRESSION_BLOCKCOMPRESSOR_HPP
 
 #include <marlin/core/Buffer.hpp>
-#include <marlin/asyncio/core/EventLoop.hpp>
 #include <cryptopp/blake2.h>
 
 #include <unordered_map>
@@ -17,7 +16,7 @@ private:
 	std::unordered_map<uint64_t, core::Buffer> txns;
 	std::unordered_map<uint64_t, uint64_t> txn_seen;
 public:
-	void add_txn(core::Buffer&& txn) {
+	void add_txn(core::Buffer&& txn, uint64_t timestamp) {
 		CryptoPP::BLAKE2b blake2b((uint)8);
 		blake2b.Update(txn.data(), txn.size());
 		uint64_t txn_id;
@@ -28,7 +27,7 @@ public:
 			std::move(txn)
 		);
 
-		txn_seen[txn_id] = asyncio::EventLoop::now();
+		txn_seen[txn_id] = timestamp;
 	}
 
 	core::Buffer compress(
