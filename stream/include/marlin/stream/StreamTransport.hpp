@@ -27,9 +27,9 @@ namespace stream {
 /// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
 /// Bytes that can be sent in a given batch, used by the packet pacing mechanism
-#define DEFAULT_PACING_LIMIT 25000
+#define DEFAULT_PACING_LIMIT 20000
 /// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
-#define DEFAULT_FRAGMENT_SIZE (1400 - crypto_aead_aes256gcm_NPUBBYTES)
+#define DEFAULT_FRAGMENT_SIZE 1350
 
 /// @brief Transport class which provides stream semantics.
 ///
@@ -39,15 +39,14 @@ namespace stream {
 /// \li In-order delivery
 /// \li Reliable delivery
 /// \li Congestion control
-/// \li Transport layer encryption
+/// \li Transport layer encryption (disabled by default)
 /// \li Stream multiplexing
 /// \li No head-of-line blocking
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
-public:
-	/// Variable which says if the current transport is encrypted or not
-	static constexpr bool is_encrypted = true;
 private:
+	static constexpr bool is_encrypted = false;
+
 	/// Self type
 	using Self = StreamTransport<DelegateType, DatagramTransport>;
 	/// Base transport type
@@ -1131,18 +1130,21 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	packet.uncover_unsafe(30);
 	packet.write_unsafe(30, data_item.data.data()+offset, length);
 	packet.write_unsafe(30 + length + crypto_aead_aes256gcm_ABYTES, nonce, 12);
-	crypto_aead_aes256gcm_encrypt_afternm(
-		packet.data() + 18,
-		nullptr,
-		packet.data() + 18,
-		12 + length,
-		packet.data() + 2,
-		16,
-		nullptr,
-		nonce,
-		&tx_ctx
-	);
-	sodium_increment(nonce, 12);
+
+	if constexpr (is_encrypted) {
+		crypto_aead_aes256gcm_encrypt_afternm(
+			packet.data() + 18,
+			nullptr,
+			packet.data() + 18,
+			12 + length,
+			packet.data() + 2,
+			16,
+			nullptr,
+			nonce,
+			&tx_ctx
+		);
+		sodium_increment(nonce, 12);
+	}
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -1187,28 +1189,30 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	auto res = crypto_aead_aes256gcm_decrypt_afternm(
-		packet.payload() - 12,
-		nullptr,
-		nullptr,
-		packet.payload() - 12,
-		packet.payload_buffer().size(),
-		packet.payload() - 28,
-		16,
-		packet.payload() + packet.payload_buffer().size() - 12,
-		&rx_ctx
-	);
-
-	if(res < 0) {
-		SPDLOG_ERROR(
-			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
-			src_addr.to_string(),
-			dst_addr.to_string(),
-			this->src_conn_id,
-			this->dst_conn_id
+	if constexpr (is_encrypted) {
+		auto res = crypto_aead_aes256gcm_decrypt_afternm(
+			packet.payload() - 12,
+			nullptr,
+			nullptr,
+			packet.payload() - 12,
+			packet.payload_buffer().size(),
+			packet.payload() - 28,
+			16,
+			packet.payload() + packet.payload_buffer().size() - 12,
+			&rx_ctx
 		);
-		send_RST(src_conn_id, dst_conn_id);
-		return;
+
+		if(res < 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
+				this->src_conn_id,
+				this->dst_conn_id
+			);
+			send_RST(src_conn_id, dst_conn_id);
+			return;
+		}
 	}
 
 	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), packet.offset(), packet.length());
