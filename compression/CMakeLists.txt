@@ -94,19 +94,19 @@ endforeach(TEST_SOURCE)
 
 add_custom_target(compression_examples)
 
-add_executable(compressor
+add_executable(compressor_example
 	examples/compressor.cpp
 )
-add_dependencies(compression_examples compressor)
+add_dependencies(compression_examples compressor_example)
 
-target_include_directories(compressor
+target_include_directories(compressor_example
 	PUBLIC
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-target_link_libraries(compressor PUBLIC compression)
-target_compile_options(compressor PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_link_libraries(compressor_example PUBLIC compression)
+target_compile_options(compressor_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 
 ##########################################################
