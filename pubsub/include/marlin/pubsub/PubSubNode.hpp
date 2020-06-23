@@ -1271,35 +1271,30 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	uint16_t id,
 	core::Buffer &&bytes
 ) {
-	// SPDLOG_DEBUG(
-	// 	"Pubsub {} <<<< {}: CTR recv: {}",
-	// 	transport.src_addr.to_string(),
-	// 	transport.dst_addr.to_string(),
-	// 	id
-	// );
+	SPDLOG_INFO(
+		"Pubsub {} <<<< {}: CTR recv: {}, {}",
+		transport.src_addr.to_string(),
+		transport.dst_addr.to_string(),
+		id,
+		bytes.size()
+	);
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
-		auto witness_length = bytes.read_uint16_be(11).value();  // FIXME: Check
-
-		// Check overflow
-		if((uint16_t)bytes.size() < 13 + witness_length) {
-			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), witness_length);
-			transport.close();
+		// Bounds check on header
+		if(bytes.size() < 11) {
+			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), 10);
 			return -1;
 		}
 
 		auto message_id = bytes.read_uint64_be_unsafe(1);
+		auto channel = bytes.read_uint16_be_unsafe(9);
+
 		SPDLOG_INFO(
 			"Pubsub {} <<<< {}: CTR message id: {}",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
 			message_id
 		);
-		SPDLOG_INFO(
-			"Pubsub {} <<<< {}: CTR witness: {}",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string(),
-			spdlog::to_hex(bytes.data() + 13, bytes.data() + 13 + witness_length)
-		);
+
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
 
 		if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
@@ -1310,15 +1305,59 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			return -1;
 		}
 
+		size_t offset = 11;
+		MessageHeaderType header = {};
+
+		auto att_opt = attester.parse_size(bytes, offset);
+		if(!att_opt.has_value()) {
+			SPDLOG_ERROR("Attestation size parse failure");
+			transport.close();
+			return -1;
+		}
+
+		header.attestation_data = bytes.data() + offset;
+		header.attestation_size = att_opt.value();
+		offset += header.attestation_size;
+
+		if(bytes.size() < offset) {
+			SPDLOG_ERROR("Attestation too long: {}", header.attestation_size);
+			transport.close();
+			return -1;
+		}
+
+		auto wit_opt = witnesser.parse_size(bytes, offset);
+		if(!wit_opt.has_value()) {
+			SPDLOG_ERROR("Witness size parse failure");
+			transport.close();
+			return -1;
+		}
+
+		header.witness_data = bytes.data() + offset;
+		header.witness_size = wit_opt.value();
+		offset += header.witness_size;
+
+		if(bytes.size() < offset) {
+			SPDLOG_ERROR("Witness too long: {}", header.witness_size);
+			transport.close();
+			return -1;
+		}
+
+		SPDLOG_INFO(
+			"Pubsub {} <<<< {}: CTR witness: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			spdlog::to_hex(header.witness_data, header.witness_data + header.witness_size)
+		);
+
+		if(!attester.verify(message_id, channel, bytes.data() + offset, bytes.size() - offset, header)) {
+			SPDLOG_ERROR("Attestation verification failed");
+			transport.close();
+			return -1;
+		}
+
 		for(auto *subscriber : sol_conns) {
 			if(&transport == subscriber) continue;
-			bool found = false;
-			for(uint i = 0; i < witness_length/32; i++) {
-				if(std::memcmp(bytes.data() + 13 + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
-					found = true;
-					break;
-				}
-			}
+			bool found = witnesser.contains(header, subscriber->get_remote_static_pk());
 			if (found) continue;
 
 			auto sub_id = subscriber->cut_through_send_start(
@@ -1336,13 +1375,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 
 		for(auto *subscriber : unsol_conns) {
 			if(&transport == subscriber) continue;
-			bool found = false;
-			for(uint i = 0; i < witness_length/32; i++) {
-				if(std::memcmp(bytes.data() + 13 + 32*i, subscriber->get_remote_static_pk(), 32) == 0) {
-					found = true;
-					break;
-				}
-			}
+			bool found = witnesser.contains(header, subscriber->get_remote_static_pk());
 			if (found) continue;
 
 			auto sub_id = subscriber->cut_through_send_start(
@@ -1358,20 +1391,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			);
 		}
 
-		uint8_t *new_header = new uint8_t[13+witness_length+32];
-		std::memcpy(new_header, bytes.data(), 13+witness_length);
-
-		bytes.cover_unsafe(13 + witness_length);  // FIXME: Have to check
-
-		crypto_scalarmult_base(new_header+13+witness_length, keys);
-
-		core::Buffer buf(new_header, 13+witness_length+32);
-		buf.write_uint16_be_unsafe(11, witness_length + 32);
-
-		auto res = cut_through_recv_bytes(transport, id, std::move(buf));
-		if(res < 0) {
-			return -1;
-		}
+		witnesser.witness(header, bytes, 11 + header.attestation_size);
 
 		return cut_through_recv_bytes(transport, id, std::move(bytes));
 	} else {
