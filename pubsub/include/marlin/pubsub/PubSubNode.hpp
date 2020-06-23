@@ -621,7 +621,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		bytes.cover_unsafe(10);
 		MessageHeaderType header = {};
 
-		auto att_opt = witnesser.parse_size(bytes, 0);
+		auto att_opt = attester.parse_size(bytes, 0);
 		if(!att_opt.has_value()) {
 			SPDLOG_ERROR("Attestation size parse failure");
 			transport.close();
