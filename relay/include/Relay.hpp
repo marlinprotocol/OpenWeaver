@@ -2,6 +2,7 @@
 #define MARLIN_RELAY_RELAY_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <fstream>
 #include <experimental/filesystem>
@@ -37,7 +38,9 @@ private:
 		Self,
 		enable_cut_through,
 		accept_unsol_conn,
-		enable_relay
+		enable_relay,
+		marlin::pubsub::EmptyAttester,
+		marlin::pubsub::BloomWitnesser
 	>;
 
 	uint32_t my_protocol;
@@ -117,7 +120,7 @@ public:
 				max_unsol_conns = 16;
 			}
 
-			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk);
+			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk));
 			ps->delegate = this;
 			b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 			b->is_discoverable = this->is_discoverable;

@@ -56,6 +56,7 @@ int main() {
 
 	MarlinMulticastClient_t *m2 = marlin_multicast_client_create(
 		static_sk2,
+		static_pk2,
 		"127.0.0.1:9002",
 		"127.0.0.1:7002",
 		"127.0.0.1:7000"
@@ -64,6 +65,7 @@ int main() {
 
 	MarlinMulticastClient_t *m1 = marlin_multicast_client_create(
 		static_sk1,
+		static_pk1,
 		"127.0.0.1:9002",
 		"127.0.0.1:8002",
 		"127.0.0.1:8000"

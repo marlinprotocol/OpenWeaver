@@ -3,8 +3,8 @@
 #include <cstring>
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/ChainWitnesser.hpp>
-#include <marlin/pubsub/attestation/StakeAttester.hpp>
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/attestation/EmptyAttester.hpp>
 #include <sodium.h>
 
 using namespace marlin::core;
@@ -13,11 +13,9 @@ using namespace marlin::stream;
 using namespace marlin::pubsub;
 using namespace std;
 
-using namespace CryptoPP;
-
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>;
 
 public:
 	std::vector<uint16_t> channels = {100, 101};
@@ -27,7 +25,8 @@ public:
 	}
 
 	void did_subscribe(PubSubNodeType &ps, uint16_t channel) {
-		ps.send_message_on_channel(channel, (uint8_t const*)"hey", 3);
+		uint8_t message[100000];
+		ps.send_message_on_channel(channel, message, 100000);
 		SPDLOG_INFO("Did subscribe: {}", channel);
 	}
 
@@ -68,13 +67,11 @@ int main() {
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 
-	ABCInterface abcIface;
-
-	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
+	auto b = new PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>(addr, max_sol_conn, max_unsol_conn, static_sk, {}, std::tie(static_pk));
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, StakeAttester, ChainWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, std::tie(abcIface), std::tie(static_sk));
+	auto b2 = new PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>(addr2, max_sol_conn, max_unsol_conn, static_sk, {}, std::tie(static_pk));
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
