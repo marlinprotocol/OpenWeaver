@@ -80,6 +80,7 @@ int main(int , char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
+		static_pk,
 		{0},
 		std::string(argv[1]),
 		"0.0.0.0:15002",

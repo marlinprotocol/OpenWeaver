@@ -192,6 +192,7 @@ int main(int argc, char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
+		static_pk,
 		std::vector<uint16_t>(1, blockchainChannel),
 		beacon_addr,
 		discovery_addr,

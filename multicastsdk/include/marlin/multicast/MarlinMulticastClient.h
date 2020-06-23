@@ -50,6 +50,7 @@ void marlin_multicast_clientdelegate_set_did_unsubscribe(
 // Client
 MarlinMulticastClient_t* marlin_multicast_client_create(
 	uint8_t* static_sk,
+	uint8_t* static_pk,
 	char* beacon_addr,
 	char* discovery_addr,
 	char* pubsub_addr

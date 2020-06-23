@@ -104,6 +104,7 @@ void marlin_multicast_clientdelegate_set_did_unsubscribe(
 // Client impl
 MarlinMulticastClient_t* marlin_multicast_client_create(
 	uint8_t* static_sk,
+	uint8_t* static_pk,
 	char* beacon_addr,
 	char* discovery_addr,
 	char* pubsub_addr
@@ -111,6 +112,7 @@ MarlinMulticastClient_t* marlin_multicast_client_create(
 	// TODO: edit default 0 channel, a list of channels through arguement instead?
 	DefaultMulticastClientOptions clop1 {
 		static_sk,
+		static_pk,
 		{0},
 		beacon_addr,
 		discovery_addr,
