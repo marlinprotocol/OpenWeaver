@@ -34,13 +34,13 @@ private:
 		enable_relay
 	>;
 
-	using PubSubNodeType = marlin::pubsub::PubSubNode<
+	using PubSubNodeType = PubSubNode<
 		Self,
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		marlin::pubsub::EmptyAttester,
-		marlin::pubsub::BloomWitnesser
+		EmptyAttester,
+		BloomWitnesser
 	>;
 
 	uint32_t my_protocol;
