@@ -1271,7 +1271,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	uint16_t id,
 	core::Buffer &&bytes
 ) {
-	SPDLOG_INFO(
+	SPDLOG_DEBUG(
 		"Pubsub {} <<<< {}: CTR recv: {}, {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),
@@ -1288,13 +1288,6 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		auto message_id = bytes.read_uint64_be_unsafe(1);
 		auto channel = bytes.read_uint16_be_unsafe(9);
 
-		SPDLOG_INFO(
-			"Pubsub {} <<<< {}: CTR message id: {}",
-			transport.src_addr.to_string(),
-			transport.dst_addr.to_string(),
-			message_id
-		);
-
 		cut_through_header_recv[std::make_pair(&transport, id)] = true;
 
 		if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
@@ -1304,6 +1297,13 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			transport.cut_through_send_skip(id);
 			return -1;
 		}
+
+		SPDLOG_INFO(
+			"Pubsub {} <<<< {}: CTR message id: {}",
+			transport.src_addr.to_string(),
+			transport.dst_addr.to_string(),
+			message_id
+		);
 
 		size_t offset = 11;
 		MessageHeaderType header = {};
@@ -1342,7 +1342,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			return -1;
 		}
 
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Pubsub {} <<<< {}: CTR witness: {}",
 			transport.src_addr.to_string(),
 			transport.dst_addr.to_string(),
