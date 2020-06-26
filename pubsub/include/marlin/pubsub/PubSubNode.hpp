@@ -1361,7 +1361,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			if (found) continue;
 
 			auto sub_id = subscriber->cut_through_send_start(
-				cut_through_length[std::make_pair(&transport, id)] + 32
+				cut_through_length[std::make_pair(&transport, id)]
 			);
 			if(sub_id == 0) {
 				SPDLOG_ERROR("Cannot send to subscriber");
@@ -1379,7 +1379,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			if (found) continue;
 
 			auto sub_id = subscriber->cut_through_send_start(
-				cut_through_length[std::make_pair(&transport, id)] + 32
+				cut_through_length[std::make_pair(&transport, id)]
 			);
 			if(sub_id == 0) {
 				SPDLOG_ERROR("Cannot send to subscriber");
