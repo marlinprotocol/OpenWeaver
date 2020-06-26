@@ -27,9 +27,9 @@ namespace stream {
 /// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
 /// Bytes that can be sent in a given batch, used by the packet pacing mechanism
-#define DEFAULT_PACING_LIMIT 25000
+#define DEFAULT_PACING_LIMIT 20000
 /// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
-#define DEFAULT_FRAGMENT_SIZE (1400 - crypto_aead_aes256gcm_NPUBBYTES)
+#define DEFAULT_FRAGMENT_SIZE 1350
 
 /// @brief Transport class which provides stream semantics.
 ///
@@ -39,15 +39,14 @@ namespace stream {
 /// \li In-order delivery
 /// \li Reliable delivery
 /// \li Congestion control
-/// \li Transport layer encryption
+/// \li Transport layer encryption (disabled by default)
 /// \li Stream multiplexing
 /// \li No head-of-line blocking
 template<typename DelegateType, template<typename> class DatagramTransport>
 class StreamTransport {
-public:
-	/// Variable which says if the current transport is encrypted or not
-	static constexpr bool is_encrypted = true;
 private:
+	static constexpr bool is_encrypted = false;
+
 	/// Self type
 	using Self = StreamTransport<DelegateType, DatagramTransport>;
 	/// Base transport type
@@ -507,16 +506,16 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 			if(this->bytes_in_flight > this->congestion_window - dsize)
 				return -2;
 
+			if(this->bytes_in_flight - initial_bytes_in_flight > DEFAULT_PACING_LIMIT) {
+				return -1;
+			}
+
 			send_DATA(stream, data_item, i, dsize);
 
 			stream.bytes_in_flight += dsize;
 			stream.sent_offset += dsize;
 			this->bytes_in_flight += dsize;
 			data_item.sent_offset += dsize;
-
-			if(this->bytes_in_flight - initial_bytes_in_flight >= DEFAULT_PACING_LIMIT) {
-				return -1;
-			}
 		}
 	}
 
@@ -575,6 +574,8 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 		this->tlp_interval = DEFAULT_TLP_INTERVAL;
 		return;
 	}
+
+	SPDLOG_INFO("TLP timer: {}, {}, {}", this->sent_packets.size(), this->lost_packets.size(), this->send_queue.size() == 0);
 
 	auto sent_iter = this->sent_packets.cbegin();
 
@@ -1131,18 +1132,21 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	packet.uncover_unsafe(30);
 	packet.write_unsafe(30, data_item.data.data()+offset, length);
 	packet.write_unsafe(30 + length + crypto_aead_aes256gcm_ABYTES, nonce, 12);
-	crypto_aead_aes256gcm_encrypt_afternm(
-		packet.data() + 18,
-		nullptr,
-		packet.data() + 18,
-		12 + length,
-		packet.data() + 2,
-		16,
-		nullptr,
-		nonce,
-		&tx_ctx
-	);
-	sodium_increment(nonce, 12);
+
+	if constexpr (is_encrypted) {
+		crypto_aead_aes256gcm_encrypt_afternm(
+			packet.data() + 18,
+			nullptr,
+			packet.data() + 18,
+			12 + length,
+			packet.data() + 2,
+			16,
+			nullptr,
+			nonce,
+			&tx_ctx
+		);
+		sodium_increment(nonce, 12);
+	}
 
 	this->sent_packets.emplace(
 		std::piecewise_construct,
@@ -1174,7 +1178,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1187,28 +1191,30 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		return;
 	}
 
-	auto res = crypto_aead_aes256gcm_decrypt_afternm(
-		packet.payload() - 12,
-		nullptr,
-		nullptr,
-		packet.payload() - 12,
-		packet.payload_buffer().size(),
-		packet.payload() - 28,
-		16,
-		packet.payload() + packet.payload_buffer().size() - 12,
-		&rx_ctx
-	);
-
-	if(res < 0) {
-		SPDLOG_ERROR(
-			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
-			src_addr.to_string(),
-			dst_addr.to_string(),
-			this->src_conn_id,
-			this->dst_conn_id
+	if constexpr (is_encrypted) {
+		auto res = crypto_aead_aes256gcm_decrypt_afternm(
+			packet.payload() - 12,
+			nullptr,
+			nullptr,
+			packet.payload() - 12,
+			packet.payload_buffer().size(),
+			packet.payload() - 28,
+			16,
+			packet.payload() + packet.payload_buffer().size() - 12,
+			&rx_ctx
 		);
-		send_RST(src_conn_id, dst_conn_id);
-		return;
+
+		if(res < 0) {
+			SPDLOG_ERROR(
+				"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
+				src_addr.to_string(),
+				dst_addr.to_string(),
+				this->src_conn_id,
+				this->dst_conn_id
+			);
+			send_RST(src_conn_id, dst_conn_id);
+			return;
+		}
 	}
 
 	SPDLOG_TRACE("DATA <<< {}: {}, {}", dst_addr.to_string(), packet.offset(), packet.length());
@@ -1454,6 +1460,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 					}
 				}
 
+				bool fully_acked = true;
 				// Cleanup acked data items
 				for(
 					auto iter = stream.data_queue.begin();
@@ -1462,6 +1469,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 				) {
 					if(stream.acked_offset < iter->stream_offset + iter->data.size()) {
 						// Still not fully acked, skip erase and abort
+						fully_acked = false;
 						break;
 					}
 
@@ -1469,6 +1477,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						*this,
 						std::move(iter->data)
 					);
+				}
+
+				if(fully_acked) {
+					stream.next_item_iterator = stream.data_queue.end();
 				}
 			} else {
 				// Already acked range, ignore
@@ -1614,7 +1626,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 		return;
 	}
 
-	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}, {}", dst_addr.to_string(), packet.stream_id(), packet.offset());
 
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
@@ -1673,7 +1685,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 		return;
 	}
 
-	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}, {}", dst_addr.to_string(), packet.stream_id(), packet.offset());
 
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
@@ -1703,12 +1715,17 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	// Check for duplicate
 	if(old_offset >= offset) {
+		SPDLOG_INFO(
+			"Stream transport {{ Src: {}, Dst: {} }}: Duplicate flush: {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			stream_id
+		);
 		return;
 	}
 
 	stream.state_timer.stop();
 
-	stream.recv_packets.clear();
 	stream.read_offset = offset;
 	stream.wait_flush = false;
 
@@ -1763,6 +1780,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	stream.state_timer.stop();
+
+	delegate->did_recv_flush_conf(*this, stream_id);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -2073,6 +2092,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	auto size = bytes.size();
 
+	// Check idle stream
+	bool idle = stream.next_item_iterator == stream.data_queue.end();
+
 	// Add data to send queue
 	stream.data_queue.emplace_back(
 		std::move(bytes),
@@ -2082,7 +2104,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	stream.queue_offset += size;
 
 	// Handle idle stream
-	if(stream.next_item_iterator == stream.data_queue.end()) {
+	if(idle) {
 		stream.next_item_iterator = std::prev(stream.data_queue.end());
 	}
 
@@ -2227,13 +2249,6 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 ) {
 	auto &stream = get_or_create_send_stream(stream_id);
 
-	stream.data_queue.clear();
-	stream.queue_offset = stream.sent_offset;
-	stream.next_item_iterator = stream.data_queue.end();
-	stream.bytes_in_flight = 0;
-	stream.acked_offset = stream.sent_offset;
-	stream.outstanding_acks.clear();
-
 	// Remove previously sent packets
 	auto sent_iter = sent_packets.cbegin();
 	while(sent_iter != sent_packets.cend()) {
@@ -2257,6 +2272,13 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 		bytes_in_flight -= lost_iter->second.length;
 		lost_iter = lost_packets.erase(lost_iter);
 	}
+
+	stream.data_queue.clear();
+	stream.queue_offset = stream.sent_offset;
+	stream.next_item_iterator = stream.data_queue.end();
+	stream.bytes_in_flight = 0;
+	stream.acked_offset = stream.sent_offset;
+	stream.outstanding_acks.clear();
 
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
 

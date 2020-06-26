@@ -52,6 +52,7 @@ public:
 	void did_close(BaseTransport& transport, uint16_t reason);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
 	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
+	void did_recv_flush_conf(BaseTransport &transport, uint16_t id);
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
@@ -257,6 +258,21 @@ template<
 	bool should_cut_through,
 	int prefix_length
 >
+void LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::did_recv_flush_conf(BaseTransport &, uint16_t id) {
+	cut_through_send_end(id);
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
 LpfTransport<
 	DelegateType,
 	StreamTransportType,
@@ -402,9 +418,25 @@ uint16_t LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send_start(uint64_t length) {
+	if(cut_through_reserve_ids.size() == 0) {
+		SPDLOG_ERROR(
+			"Lpf {} >>>> {}: Exhausted CTR streams",
+			src_addr.to_string(),
+			dst_addr.to_string()
+		);
+		return 0;
+	}
+
 	auto id = cut_through_reserve_ids.front();
 	cut_through_reserve_ids.pop_front();
 	cut_through_used_ids.insert(id);
+
+	SPDLOG_DEBUG(
+		"Lpf {} >>>> {}: CTR start: {}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		id
+	);
 
 	core::Buffer m(8);
 	m.write_uint64_be_unsafe(0, length);
@@ -442,8 +474,14 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send_end(uint16_t id) {
-	cut_through_used_ids.erase(id);
-	cut_through_reserve_ids.push_back(id);
+	SPDLOG_DEBUG(
+		"Lpf {} >>>> {}: CTR end: {}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		id
+	);
+	if(cut_through_used_ids.erase(id) > 0)
+		cut_through_reserve_ids.push_back(id);
 }
 
 template<
@@ -458,8 +496,13 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send_flush(uint16_t id) {
+	SPDLOG_DEBUG(
+		"Lpf {} >>>> {}: CTR flush: {}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		id
+	);
 	transport.flush_stream(id);
-	cut_through_send_end(id);
 }
 
 template<
@@ -474,6 +517,12 @@ void LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send_skip(uint16_t id) {
+	SPDLOG_DEBUG(
+		"Lpf {} >>>> {}: CTR skip: {}",
+		src_addr.to_string(),
+		dst_addr.to_string(),
+		id
+	);
 	transport.skip_stream(id);
 }
 
