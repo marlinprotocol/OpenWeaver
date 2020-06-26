@@ -1294,8 +1294,8 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			message_id_set.insert(message_id);
 			message_id_events[message_id_idx].push_back(message_id);
 		} else {
-			transport.cut_through_send_skip(id);
-			return -1;
+			// transport.cut_through_send_skip(id);
+			return 0;
 		}
 
 		SPDLOG_INFO(
