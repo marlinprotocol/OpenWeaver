@@ -575,6 +575,8 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 		return;
 	}
 
+	SPDLOG_INFO("TLP timer: {}, {}, {}", this->sent_packets.size(), this->lost_packets.size(), this->send_queue.size() == 0);
+
 	auto sent_iter = this->sent_packets.cbegin();
 
 	// Retry lost packets
@@ -1176,7 +1178,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: DATA: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1624,7 +1626,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 		return;
 	}
 
-	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+	SPDLOG_TRACE("SKIPSTREAM <<< {}: {}, {}", dst_addr.to_string(), packet.stream_id(), packet.offset());
 
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
@@ -1683,7 +1685,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 		return;
 	}
 
-	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}", dst_addr.to_string(), packet.stream_id());
+	SPDLOG_TRACE("FLUSHSTREAM <<< {}: {}, {}", dst_addr.to_string(), packet.stream_id(), packet.offset());
 
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
@@ -1713,6 +1715,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	// Check for duplicate
 	if(old_offset >= offset) {
+		SPDLOG_INFO(
+			"Stream transport {{ Src: {}, Dst: {} }}: Duplicate flush: {}",
+			src_addr.to_string(),
+			dst_addr.to_string(),
+			stream_id
+		);
 		return;
 	}
 
