@@ -52,6 +52,7 @@ public:
 	void did_close(BaseTransport& transport, uint16_t reason);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
 	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
+	void did_recv_flush_conf(BaseTransport &transport, uint16_t id);
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
@@ -249,6 +250,21 @@ void LpfTransport<
 	prefix_length
 >::did_recv_skip_stream(BaseTransport &, uint16_t id) {
 	cut_through_recv_skip(id);
+}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+void LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::did_recv_flush_conf(BaseTransport &, uint16_t id) {
+	cut_through_send_end(id);
 }
 
 template<
