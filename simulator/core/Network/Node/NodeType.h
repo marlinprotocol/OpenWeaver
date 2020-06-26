@@ -1,1 +1,0 @@
-enum class NodeType {Miner, Validator};
