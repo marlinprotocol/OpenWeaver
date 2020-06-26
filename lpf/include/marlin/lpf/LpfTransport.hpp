@@ -418,6 +418,15 @@ uint16_t LpfTransport<
 	should_cut_through,
 	prefix_length
 >::cut_through_send_start(uint64_t length) {
+	if(cut_through_reserve_ids.size() == 0) {
+		SPDLOG_ERROR(
+			"Lpf {} >>>> {}: Exhausted CTR streams",
+			src_addr.to_string(),
+			dst_addr.to_string()
+		);
+		return 0;
+	}
+
 	auto id = cut_through_reserve_ids.front();
 	cut_through_reserve_ids.pop_front();
 	cut_through_used_ids.insert(id);
