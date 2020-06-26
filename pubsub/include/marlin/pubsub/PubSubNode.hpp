@@ -395,6 +395,7 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 ) {
 	// Bounds check
 	if(bytes.size() < 2) {
+		transport.close();
 		return -1;
 	}
 
@@ -474,6 +475,7 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 ) {
 	// Bounds check
 	if(bytes.size() < 2) {
+		transport.close();
 		return;
 	}
 
@@ -526,13 +528,14 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 */
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_recv_RESPONSE(
-	BaseTransport &,
+	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
 	bool success [[maybe_unused]] = bytes.data()[0];
 
 	// Bounds check on header
 	if(bytes.size() < 1) {
+		transport.close();
 		return;
 	}
 
@@ -608,6 +611,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 ) {
 	// Bounds check on header
 	if(bytes.size() < 10) {
+		transport.close();
 		return -1;
 	}
 
@@ -839,6 +843,7 @@ int PUBSUBNODETYPE::did_recv_message(
 
 	// Bounds check on header
 	if(bytes.size() < 1) {
+		transport.close();
 		return -1;
 	}
 
@@ -1283,7 +1288,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
 		// Bounds check on header
 		if(bytes.size() < 11) {
-			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), 10);
+			transport.close();
 			return -1;
 		}
 
