@@ -106,6 +106,11 @@ struct Delegate {
 		TransportType &transport [[maybe_unused]],
 		uint16_t stream_id [[maybe_unused]]
 	) {}
+
+	void did_recv_flush_conf(
+		TransportType &transport [[maybe_unused]],
+		uint16_t stream_id [[maybe_unused]]
+	) {}
 };
 
 int main() {
