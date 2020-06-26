@@ -1772,6 +1772,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto &stream = get_or_create_send_stream(stream_id);
 
 	stream.state_timer.stop();
+
+	delegate->did_recv_flush_conf(*this, stream_id);
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
