@@ -1458,6 +1458,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 					}
 				}
 
+				bool fully_acked = true;
 				// Cleanup acked data items
 				for(
 					auto iter = stream.data_queue.begin();
@@ -1466,6 +1467,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 				) {
 					if(stream.acked_offset < iter->stream_offset + iter->data.size()) {
 						// Still not fully acked, skip erase and abort
+						fully_acked = false;
 						break;
 					}
 
@@ -1473,6 +1475,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						*this,
 						std::move(iter->data)
 					);
+				}
+
+				if(fully_acked) {
+					stream.next_item_iterator = stream.data_queue.end();
 				}
 			} else {
 				// Already acked range, ignore
