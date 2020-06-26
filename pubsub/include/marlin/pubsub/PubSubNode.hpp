@@ -886,7 +886,8 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// 	}
 	// );
 
-	if ((remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport)) && reason == 1) {
+	bool is_sol = remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport);
+	if (is_sol && reason == 1) {
 		// add to blacklist
 		blacklist_addr.insert(transport.dst_addr);
 	}
@@ -915,7 +916,8 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	}
 
 	// Call Manage_subscribers to rebalance lists
-	delegate->manage_subscriptions(max_sol_conns, sol_conns, sol_standby_conns);
+	if(is_sol)
+		delegate->manage_subscriptions(max_sol_conns, sol_conns, sol_standby_conns);
 }
 
 //---------------- Transport delegate functions end ----------------//
