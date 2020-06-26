@@ -506,16 +506,16 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 			if(this->bytes_in_flight > this->congestion_window - dsize)
 				return -2;
 
+			if(this->bytes_in_flight - initial_bytes_in_flight > DEFAULT_PACING_LIMIT) {
+				return -1;
+			}
+
 			send_DATA(stream, data_item, i, dsize);
 
 			stream.bytes_in_flight += dsize;
 			stream.sent_offset += dsize;
 			this->bytes_in_flight += dsize;
 			data_item.sent_offset += dsize;
-
-			if(this->bytes_in_flight - initial_bytes_in_flight >= DEFAULT_PACING_LIMIT) {
-				return -1;
-			}
 		}
 	}
 
