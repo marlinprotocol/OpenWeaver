@@ -1264,7 +1264,7 @@ void PUBSUBNODETYPE::cut_through_recv_start(
 	cut_through_header_recv[std::make_pair(&transport, id)] = false;
 	cut_through_length[std::make_pair(&transport, id)] = length;
 
-	SPDLOG_INFO(
+	SPDLOG_DEBUG(
 		"Pubsub {} <<<< {}: CTR start: {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),
@@ -1288,6 +1288,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 	if(!cut_through_header_recv[std::make_pair(&transport, id)]) {
 		// Bounds check on header
 		if(bytes.size() < 11) {
+			SPDLOG_ERROR("Not enough header: {}, {}", bytes.size(), 11);
 			transport.close();
 			return -1;
 		}
@@ -1427,7 +1428,7 @@ void PUBSUBNODETYPE::cut_through_recv_end(
 	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 		subscriber->cut_through_send_end(sub_id);
 	}
-	SPDLOG_INFO(
+	SPDLOG_DEBUG(
 		"Pubsub {} <<<< {}: CTR end: {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),
@@ -1443,7 +1444,7 @@ void PUBSUBNODETYPE::cut_through_recv_flush(
 	for(auto [subscriber, sub_id] : cut_through_map[std::make_pair(&transport, id)]) {
 		subscriber->cut_through_send_flush(sub_id);
 	}
-	SPDLOG_INFO(
+	SPDLOG_DEBUG(
 		"Pubsub {} <<<< {}: CTR flush: {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),
@@ -1467,7 +1468,7 @@ void PUBSUBNODETYPE::cut_through_recv_skip(
 			}
 		}
 	}
-	SPDLOG_INFO(
+	SPDLOG_DEBUG(
 		"Pubsub {} <<<< {}: CTR skip: {}",
 		transport.src_addr.to_string(),
 		transport.dst_addr.to_string(),

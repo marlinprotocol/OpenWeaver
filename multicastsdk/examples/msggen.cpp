@@ -15,7 +15,7 @@ public:
 		uint16_t channel,
 		uint64_t message_id
 	) {
-		if((message_id & 0x7) == 0) {
+		if((message_id & 0x0) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
@@ -36,8 +36,8 @@ public:
 };
 
 constexpr uint msg_rate = 1;
-constexpr uint msg_size = 500000;
-constexpr float randomness = 0.1;
+constexpr uint msg_size = 500;
+constexpr float randomness = 1;
 
 std::mt19937 gen((std::random_device())());
 
@@ -56,7 +56,7 @@ void msggen_timer_cb(uv_timer_t *handle) {
 			msg,
 			msg_size
 		);
-		if((message_id & 0x7) == 0) {
+		if((message_id & 0x0) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
