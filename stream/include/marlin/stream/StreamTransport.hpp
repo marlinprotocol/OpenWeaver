@@ -1718,7 +1718,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	stream.state_timer.stop();
 
-	stream.recv_packets.clear();
 	stream.read_offset = offset;
 	stream.wait_flush = false;
 
@@ -2083,6 +2082,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	auto size = bytes.size();
 
+	// Check idle stream
+	bool idle = stream.next_item_iterator == stream.data_queue.end();
+
 	// Add data to send queue
 	stream.data_queue.emplace_back(
 		std::move(bytes),
@@ -2092,7 +2094,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 	stream.queue_offset += size;
 
 	// Handle idle stream
-	if(stream.next_item_iterator == stream.data_queue.end()) {
+	if(idle) {
 		stream.next_item_iterator = std::prev(stream.data_queue.end());
 	}
 
@@ -2237,13 +2239,6 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 ) {
 	auto &stream = get_or_create_send_stream(stream_id);
 
-	stream.data_queue.clear();
-	stream.queue_offset = stream.sent_offset;
-	stream.next_item_iterator = stream.data_queue.end();
-	stream.bytes_in_flight = 0;
-	stream.acked_offset = stream.sent_offset;
-	stream.outstanding_acks.clear();
-
 	// Remove previously sent packets
 	auto sent_iter = sent_packets.cbegin();
 	while(sent_iter != sent_packets.cend()) {
@@ -2267,6 +2262,13 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 		bytes_in_flight -= lost_iter->second.length;
 		lost_iter = lost_packets.erase(lost_iter);
 	}
+
+	stream.data_queue.clear();
+	stream.queue_offset = stream.sent_offset;
+	stream.next_item_iterator = stream.data_queue.end();
+	stream.bytes_in_flight = 0;
+	stream.acked_offset = stream.sent_offset;
+	stream.outstanding_acks.clear();
 
 	send_FLUSHSTREAM(stream_id, stream.sent_offset);
 
