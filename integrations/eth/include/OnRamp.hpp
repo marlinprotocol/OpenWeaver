@@ -26,6 +26,7 @@ public:
 	}
 
 	OnRamp(DefaultMulticastClientOptions clop) : multicastClient(clop), header(0) {
+		multicastClient.delegate = this;
 		f.bind(SocketAddress::loopback_ipv4(12121));
 		f.listen(*this);
 	}
