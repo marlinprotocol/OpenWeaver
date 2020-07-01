@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img height="200" src="https://www.marlin.pro/images/set2/join.svg"/><br/>OpenWeaver
+  <img height="200" src="https://github.com/marlinprotocol/OpenWeaver/blob/master/img/OpenWeaver_Black.jpg?raw=true"/><br/>OpenWeaver
 </h1>
 
 ---
