@@ -2,8 +2,6 @@
   <img height="130" src="https://github.com/marlinprotocol/OpenWeaver/blob/master/img/OpenWeaver_Black.jpg?raw=true"/>
 </h1>
 
-# FIBRE for altcoins
-
 OpenWeaver is a framework that provides components to easily deploy a high-performance relay network across a global cluster of nodes. Design goals include:
 
 - Speed - Latency optimized relaying
