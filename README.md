@@ -66,8 +66,18 @@ or
 $ ctest
 ```
 
+## Support
+
+| Topic  | Link  |
+|---|---|
+|Development   | <a href="https://discord.gg/pdQZyyy">Discord</a>  |
+|Research   | <a href="https://research.marlin.pro">Discourse</a>  |
+|Bug(s)  | <a href="https://github.com/marlinprotocol/OpenWeaver/issues/new">Issues</a>  |
+|Memes  | <a href="https://t.me/marlinprotocol">Telegram</a>  |
+|Spam  | info@marlin.pro  |
+
 ## License
 
-Copyright (c) 2020 Marlin Contributors.
+Copyright (c) 2020 Marlin Contributors. Licensed under the MIT license. See LICENSE for more information.
 
-Licensed under the MIT license. See LICENSE for more information.
+Includes third party software in the vendor directory with their own licenses.
