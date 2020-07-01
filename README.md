@@ -65,3 +65,9 @@ or
 ```
 $ ctest
 ```
+
+## License
+
+Copyright (c) 2020 Marlin Contributors.
+
+Licensed under the MIT license. See LICENSE for more information.
