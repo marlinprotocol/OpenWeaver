@@ -1,11 +1,8 @@
 <h1 align="center">
-  <img height="200" src="https://www.marlin.pro/images/set2/join.svg"/><br/>OpenWeaver
+  <img height="130" src="https://github.com/marlinprotocol/OpenWeaver/blob/master/img/OpenWeaver_Black.jpg?raw=true"/>
 </h1>
 
----
-
-<h2 align="center">FIBRE for altcoins</h2>
-
+<!-- <h2 align="center">FIBRE for altcoins</h2> -->
 The codebase is a pretty standard C++/CMake project. It has submodules, so be sure to checkout/clone recursively to include them.
 
 ## Building
