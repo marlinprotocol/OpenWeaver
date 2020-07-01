@@ -18,3 +18,13 @@ The codebase is a pretty standard C++/CMake project. It has submodules, so be su
 ## Integrations
 
 - Ethereum - A bridge between eth nodes and the core network is built at `./integrations/eth/onramp_eth`
+
+## Support
+
+| Topic  | Link  |
+|---|---|
+|Development   | <a href="https://discord.gg/pdQZyyy">Discord</a>  |
+|Research   | <a href="https://research.marlin.pro">Discourse</a>  |
+|Bug(s)  | <a href="https://github.com/marlinprotocol/OpenWeaver/issues/new">Issues</a>  |
+|Memes  | <a href="https://t.me/marlinprotocol">Telegram</a>  |
+|Spam  | info@marlin.pro  |
