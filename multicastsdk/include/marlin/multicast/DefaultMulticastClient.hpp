@@ -2,6 +2,7 @@
 #define MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 
 
@@ -12,6 +13,7 @@ namespace multicast {
 
 struct DefaultMulticastClientOptions {
 	uint8_t* static_sk;
+	uint8_t* static_pk;
 	std::vector<uint16_t> channels = {0};
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
@@ -27,7 +29,9 @@ public:
 		Self,
 		false,
 		false,
-		false
+		false,
+		pubsub::EmptyAttester,
+		pubsub::BloomWitnesser
 	>;
 
 	beacon::DiscoveryClient<Self> b;
@@ -165,7 +169,9 @@ public:
 			core::SocketAddress::from_string(options.pubsub_addr),
 			options.max_conn,
 			0,
-			options.static_sk
+			options.static_sk,
+			{},
+			std::tie(options.static_pk)
 		),
 		channels(options.channels) {
 		SPDLOG_INFO(

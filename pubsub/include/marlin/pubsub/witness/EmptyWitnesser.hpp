@@ -28,6 +28,11 @@ struct EmptyWitnesser {
 	constexpr std::optional<uint64_t> parse_size(core::Buffer&, uint64_t = 0) {
 		return 0;
 	}
+
+	template<typename HeaderType, typename... Params>
+	constexpr bool contains(HeaderType, Params&&...) {
+		return false;
+	}
 };
 
 } // namespace pubsub
