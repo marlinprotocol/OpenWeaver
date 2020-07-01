@@ -46,6 +46,15 @@ After building, you can find the following binaries in the build directory:
 
 - Ethereum - A bridge between Ethereum nodes and the core network is built at `./integrations/eth/onramp_eth`
 
+## Running locally
+
+After building,
+1. Set up a beacon - `./beacon/server`
+2. Set up a master - `./relay/masterexec "127.0.0.1:8002"`
+3. Set up a relay - `./relay/relayexec "127.0.0.1:8002"`
+
+You now have a local network running. In a production setting, you would want to run these in different instances as a globally distributed network.
+
 ## Testing
 
 OpenWeaver has a test suite that's integrated with CTest. After building, tests can be run using
