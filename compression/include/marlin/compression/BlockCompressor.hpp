@@ -104,8 +104,10 @@ public:
 		return final_buf;
 	}
 
-	std::optional<std::tuple<std::vector<core::Buffer>, std::vector<core::Buffer>>> decompress(core::WeakBuffer const& buf) const {
-		std::vector<core::Buffer> misc_bufs, txn_bufs;
+	std::optional<std::tuple<
+		std::vector<core::WeakBuffer>, std::vector<core::WeakBuffer>
+	>> decompress(core::WeakBuffer const& buf) const {
+		std::vector<core::WeakBuffer> misc_bufs, txn_bufs;
 
 		// Bounds check
 		if(buf.size() < 8) return std::nullopt;
@@ -123,10 +125,8 @@ public:
 			auto item_size = buf.read_uint64_le_unsafe(offset);
 			// Bounds check
 			if(buf.size() < offset + 8 + item_size) return std::nullopt;
-			// Copy misc item
-			core::Buffer item(item_size);
-			buf.read_unsafe(offset + 8, item.data(), item_size);
-			misc_bufs.push_back(std::move(item));
+			// Add misc item
+			misc_bufs.emplace_back(buf.data() + offset + 8, item_size);
 
 			offset += 8 + item_size;
 		}
@@ -147,10 +147,8 @@ public:
 				// Bounds check
 				if(buf.size() < offset + 9 + txn_size) return std::nullopt;
 
-				// Copy txn
-				core::Buffer txn(txn_size);
-				buf.read_unsafe(offset + 9, txn.data(), txn_size);
-				txn_bufs.push_back(std::move(txn));
+				// Add txn
+				txn_bufs.emplace_back(buf.data() + offset + 9, txn_size);
 
 				offset += 9 + txn_size;
 			} else if(type == 0x01) { // Txn id
@@ -164,9 +162,7 @@ public:
 				if(iter == txns.end()) return std::nullopt;
 
 				// Copy txn
-				core::Buffer txn(iter->second.size());
-				txn.write_unsafe(0, iter->second.data(), iter->second.size());
-				txn_bufs.push_back(std::move(txn));
+				txn_bufs.emplace_back(iter->second.data(), iter->second.size());
 
 				offset += 9;
 			} else {

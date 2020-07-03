@@ -17,7 +17,7 @@ int main() {
 
 	auto compressed = c.compress(
 		{Buffer({0xff,0xff,0xff,0xff,0xff}, 5)},
-		{Buffer({2,2,2,2,2}, 5),Buffer({1,1,1,1,1}, 5),Buffer({4,4,4,4,4}, 5)}
+		{Buffer({2,2,2,2,2}, 5),Buffer({0,0}, 2),Buffer({4,4,4,4,4}, 5),Buffer({0,0,0,0,0}, 5)}
 	);
 
 	SPDLOG_INFO("Compressed: {}", spdlog::to_hex(compressed.data(), compressed.data() + compressed.size()));
