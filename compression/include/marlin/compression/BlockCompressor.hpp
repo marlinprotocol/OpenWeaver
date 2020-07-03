@@ -30,6 +30,16 @@ public:
 		txn_seen[txn_id] = timestamp;
 	}
 
+	void remove_txn(core::Buffer&& txn, uint64_t timestamp) {
+		CryptoPP::BLAKE2b blake2b((uint)8);
+		blake2b.Update(txn.data(), txn.size());
+		uint64_t txn_id;
+		blake2b.TruncatedFinal((uint8_t*)&txn_id, 8);
+
+		txns.erase(txn_id);
+		txn_seen.erase(txn_id);
+	}
+
 	core::Buffer compress(
 		std::vector<core::WeakBuffer> const& misc_bufs,
 		std::vector<core::WeakBuffer> const& txn_bufs
