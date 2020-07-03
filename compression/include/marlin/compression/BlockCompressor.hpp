@@ -48,7 +48,7 @@ public:
 	core::Buffer compress(
 		std::vector<core::WeakBuffer> const& misc_bufs,
 		std::vector<core::WeakBuffer> const& txn_bufs
-	) {
+	) const {
 		// Compute total size of misc bufs
 		size_t misc_size = std::transform_reduce(
 			misc_bufs.begin(),
@@ -104,7 +104,7 @@ public:
 		return final_buf;
 	}
 
-	std::optional<std::tuple<std::vector<core::Buffer>, std::vector<core::Buffer>>> decompress(core::WeakBuffer const& buf) {
+	std::optional<std::tuple<std::vector<core::Buffer>, std::vector<core::Buffer>>> decompress(core::WeakBuffer const& buf) const {
 		std::vector<core::Buffer> misc_bufs, txn_bufs;
 
 		// Bounds check
