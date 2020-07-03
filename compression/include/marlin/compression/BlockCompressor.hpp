@@ -105,9 +105,12 @@ public:
 	}
 
 	std::optional<std::tuple<
-		std::vector<core::WeakBuffer>, std::vector<core::WeakBuffer>
+		std::vector<core::WeakBuffer>,  // Misc bufs
+		std::vector<core::WeakBuffer>,  // Txn bufs
+		std::unordered_map<uint64_t, uint64_t>  // Holes - txn_id -> idx map
 	>> decompress(core::WeakBuffer const& buf) const {
 		std::vector<core::WeakBuffer> misc_bufs, txn_bufs;
+		std::unordered_map<uint64_t, uint64_t> holes;
 
 		// Bounds check
 		if(buf.size() < 8) return std::nullopt;
@@ -159,10 +162,15 @@ public:
 
 				// Find txn
 				auto iter = txns.find(txn_id);
-				if(iter == txns.end()) return std::nullopt;
-
-				// Copy txn
-				txn_bufs.emplace_back(iter->second.data(), iter->second.size());
+				if(iter == txns.end()) {
+					// Add hole
+					holes[txn_id] = txn_bufs.size();
+					// Add empty marker
+					txn_bufs.emplace_back(nullptr, 0);
+				} else {
+					// Add txn
+					txn_bufs.emplace_back(iter->second.data(), iter->second.size());
+				}
 
 				offset += 9;
 			} else {
@@ -170,7 +178,7 @@ public:
 			}
 		}
 
-		return std::make_tuple(std::move(misc_bufs), std::move(txn_bufs));
+		return std::make_tuple(std::move(misc_bufs), std::move(txn_bufs), std::move(holes));
 	}
 };
 

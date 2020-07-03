@@ -22,17 +22,42 @@ int main() {
 
 	SPDLOG_INFO("Compressed: {}", spdlog::to_hex(compressed.data(), compressed.data() + compressed.size()));
 
-	auto res = c.decompress(compressed);
-	if(res == std::nullopt) {
-		SPDLOG_INFO("Decompress failure");
+	{
+		auto res = c.decompress(compressed);
+		if(res == std::nullopt) {
+			SPDLOG_INFO("Decompress failure");
+		}
+
+		auto& [misc_bufs, txn_bufs, holes] = res.value();
+		for(auto iter = misc_bufs.begin(); iter != misc_bufs.end(); iter++) {
+			SPDLOG_INFO("Misc: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
+		}
+		for(auto iter = txn_bufs.begin(); iter != txn_bufs.end(); iter++) {
+			SPDLOG_INFO("Txn: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
+		}
+		for(auto iter = holes.begin(); iter != holes.end(); iter++) {
+			SPDLOG_INFO("Hole: {}, {}", iter->first, iter->second);
+		}
+
+		c.remove_txn(txn_bufs[2]);
 	}
 
-	auto& [misc_bufs, txn_bufs] = res.value();
-	for(auto iter = misc_bufs.begin(); iter != misc_bufs.end(); iter++) {
-		SPDLOG_INFO("Misc: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
-	}
-	for(auto iter = txn_bufs.begin(); iter != txn_bufs.end(); iter++) {
-		SPDLOG_INFO("Txn: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
+	{
+		auto res = c.decompress(compressed);
+		if(res == std::nullopt) {
+			SPDLOG_INFO("Decompress failure");
+		}
+
+		auto& [misc_bufs, txn_bufs, holes] = res.value();
+		for(auto iter = misc_bufs.begin(); iter != misc_bufs.end(); iter++) {
+			SPDLOG_INFO("Misc: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
+		}
+		for(auto iter = txn_bufs.begin(); iter != txn_bufs.end(); iter++) {
+			SPDLOG_INFO("Txn: {}", spdlog::to_hex(iter->data(), iter->data() + iter->size()));
+		}
+		for(auto iter = holes.begin(); iter != holes.end(); iter++) {
+			SPDLOG_INFO("Hole: {}, {}", iter->first, iter->second);
+		}
 	}
 
 	return 0;
