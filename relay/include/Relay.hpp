@@ -227,7 +227,7 @@ public:
 				std::for_each(
 					channels.begin(),
 					channels.end(),
-					[&] (uint16_t const channel) {
+					[&] (uint16_t channel) {
 						ps->send_UNSUBSCRIBE(*toReplaceTransport, channel);
 					}
 				);
