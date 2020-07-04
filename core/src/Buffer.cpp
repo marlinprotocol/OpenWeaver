@@ -7,16 +7,16 @@
 namespace marlin {
 namespace core {
 
-Buffer::Buffer(size_t const size) :
+Buffer::Buffer(size_t size) :
 WeakBuffer(new uint8_t[size], size) {}
 
-Buffer::Buffer(std::initializer_list<uint8_t> il, size_t const size) :
+Buffer::Buffer(std::initializer_list<uint8_t> il, size_t size) :
 WeakBuffer(new uint8_t[size], size) {
 	assert(il.size() <= size);
 	std::copy(il.begin(), il.end(), buf);
 }
 
-Buffer::Buffer(uint8_t *const buf, size_t const size) :
+Buffer::Buffer(uint8_t *buf, size_t size) :
 WeakBuffer(buf, size) {}
 
 Buffer::Buffer(Buffer &&b) noexcept :
