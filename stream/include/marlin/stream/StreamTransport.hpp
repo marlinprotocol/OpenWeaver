@@ -117,9 +117,9 @@ private:
 	std::unordered_map<uint16_t, RecvStream> recv_streams;
 
 	/// Helper function to get a send stream of given stream id, creating one if needed
-	SendStream &get_or_create_send_stream(uint16_t const stream_id);
+	SendStream &get_or_create_send_stream(uint16_t stream_id);
 	/// Helper function to get a recv stream of given stream id, creating one if needed
-	RecvStream &get_or_create_recv_stream(uint16_t const stream_id);
+	RecvStream &get_or_create_recv_stream(uint16_t stream_id);
 
 	// Packets
 	/// Packet number of last sent packet.
@@ -393,7 +393,7 @@ void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send_stream(
-	uint16_t const stream_id
+	uint16_t stream_id
 ) {
 	auto iter = send_streams.try_emplace(
 		stream_id,
@@ -407,7 +407,7 @@ SendStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_send
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 RecvStream &StreamTransport<DelegateType, DatagramTransport>::get_or_create_recv_stream(
-	uint16_t const stream_id
+	uint16_t stream_id
 ) {
 	auto iter = recv_streams.try_emplace(
 		stream_id,
