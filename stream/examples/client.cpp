@@ -13,9 +13,9 @@ struct Delegate;
 
 using TransportType = StreamTransport<Delegate, UdpTransport>;
 
-#define l_SIZE 100000000
-#define m_SIZE 100000
-#define s_SIZE 100
+#define l_SIZE 125000000
+#define m_SIZE 125000
+#define s_SIZE 125
 
 #define SIZE l_SIZE
 
