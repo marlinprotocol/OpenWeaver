@@ -20,3 +20,6 @@
 [submodule "vendor/googletest"]
 	path = vendor/googletest
 	url = https://github.com/google/googletest.git
+[submodule "vendor/cryptopp"]
+	path = vendor/cryptopp
+	url = https://github.com/weidai11/cryptopp.git
