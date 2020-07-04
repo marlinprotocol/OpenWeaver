@@ -12,7 +12,7 @@
 // DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
 #include <array>
 
-#include "WeakBuffer.hpp"
+#include "marlin/core/WeakBuffer.hpp"
 
 namespace marlin {
 namespace core {
@@ -22,16 +22,16 @@ namespace core {
 class Buffer : public WeakBuffer {
 public:
 	/// Construct with given size - preferred constructor
-	Buffer(size_t const size);
+	Buffer(size_t size);
 
 	/// Construct with initializer list and given size - preferred constructor
-	Buffer(std::initializer_list<uint8_t> il, size_t const size);
+	Buffer(std::initializer_list<uint8_t> il, size_t size);
 	// Initializer lists are preferable to partially initialized uint8_t arrays
 	// Buffer(new uint8_t[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
 	// Buffer({'0','1'}, 10) doesn't
 
 	/// Construct from uint8_t array - unsafe if uint8_t * isn't obtained from new
-	Buffer(uint8_t *const buf, size_t const size);
+	Buffer(uint8_t *buf, size_t size);
 
 	/// Move contructor
 	Buffer(Buffer &&b) noexcept;

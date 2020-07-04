@@ -89,11 +89,11 @@ uint16_t SocketAddress::get_port() const {
 	return ntohs(reinterpret_cast<const sockaddr_in *>(this)->sin_port);
 }
 
-void SocketAddress::set_port(uint16_t const port) {
+void SocketAddress::set_port(uint16_t port) {
 	reinterpret_cast<sockaddr_in *>(this)->sin_port = ntohs(port);
 }
 
-SocketAddress SocketAddress::loopback_ipv4(const uint16_t port) {
+SocketAddress SocketAddress::loopback_ipv4(uint16_t port) {
 	return from_string(std::string("127.0.0.1:").append(std::to_string(port)));
 }
 
@@ -127,7 +127,7 @@ size_t SocketAddress::serialize(uint8_t* bytes, size_t size) const {
 	return 8;
 }
 
-SocketAddress SocketAddress::deserialize(uint8_t const* bytes, size_t const size) {
+SocketAddress SocketAddress::deserialize(uint8_t const* bytes, size_t size) {
 	SocketAddress addr;
 
 	if(size < 8) {

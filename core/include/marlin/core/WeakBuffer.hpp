@@ -29,7 +29,7 @@ public:
 	/// @brief Construct from uint8_t array
 	/// @param buf Pointer to bytes
 	/// @param size Size of bytes
-	WeakBuffer(uint8_t *const buf, size_t const size);
+	WeakBuffer(uint8_t *buf, size_t size);
 
 	/// Move contructor
 	WeakBuffer(WeakBuffer &&b) = default;
@@ -57,24 +57,24 @@ public:
 	/// @{
 
 	//! Moves start of buffer forward and covers given number of bytes
-	[[nodiscard]] bool cover(size_t const num);
+	[[nodiscard]] bool cover(size_t num);
 	/// Moves start of buffer forward and covers given number of bytes without bounds checking
-	void cover_unsafe(size_t const num);
+	void cover_unsafe(size_t num);
 
 	/// Moves start of buffer backward and uncovers given number of bytes
-	[[nodiscard]] bool uncover(size_t const num);
+	[[nodiscard]] bool uncover(size_t num);
 	/// Moves start of buffer backward and uncovers given number of bytes without bounds checking
-	void uncover_unsafe(size_t const num);
+	void uncover_unsafe(size_t num);
 
 	/// Moves end of buffer backward and covers given number of bytes
-	[[nodiscard]] bool truncate(size_t const num);
+	[[nodiscard]] bool truncate(size_t num);
 	/// Moves end of buffer backward and covers given number of bytes without bounds checking
-	void truncate_unsafe(size_t const num);
+	void truncate_unsafe(size_t num);
 
 	/// Moves end of buffer forward and uncovers given number of bytes
-	[[nodiscard]] bool expand(size_t const num);
+	[[nodiscard]] bool expand(size_t num);
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
-	void expand_unsafe(size_t const num);
+	void expand_unsafe(size_t num);
 	/// @}
 
 	/// @name Read/Write arbitrary data
@@ -82,18 +82,18 @@ public:
 	//-------- Arbitrary reads begin --------//
 
 	/// Read arbitrary data starting at given byte
-	[[nodiscard]] bool read(size_t const pos, uint8_t* const out, size_t const size) const;
+	[[nodiscard]] bool read(size_t pos, uint8_t* out, size_t size) const;
 	/// Read arbitrary data starting at given byte without bounds checking
-	void read_unsafe(size_t const pos, uint8_t* const out, size_t const size) const;
+	void read_unsafe(size_t pos, uint8_t* out, size_t size) const;
 
 	//-------- Arbitrary reads end --------//
 
 	//-------- Arbitrary writes begin --------//
 
 	/// Write arbitrary data starting at given byte
-	[[nodiscard]] bool write(size_t const pos, uint8_t const* const in, size_t const size);
+	[[nodiscard]] bool write(size_t pos, uint8_t const* in, size_t size);
 	/// Write arbitrary data starting at given byte without bounds checking
-	void write_unsafe(size_t const pos, uint8_t const* const in, size_t const size);
+	void write_unsafe(size_t pos, uint8_t const* in, size_t size);
 
 	//-------- Arbitrary writes end --------//
 	/// @}
@@ -103,9 +103,9 @@ public:
 	//-------- 8 bit reads begin --------//
 
 	/// Read uint8_t starting at given byte
-	std::optional<uint8_t> read_uint8(size_t const pos) const;
+	std::optional<uint8_t> read_uint8(size_t pos) const;
 	/// Read uint8_t starting at given byte without bounds checking
-	uint8_t read_uint8_unsafe(size_t const pos) const;
+	uint8_t read_uint8_unsafe(size_t pos) const;
 
 	//-------- 8 bit reads end --------//
 
@@ -113,9 +113,9 @@ public:
 	//-------- 8 bit writes begin --------//
 
 	/// Write uint8_t starting at given byte
-	[[nodiscard]] bool write_uint8(size_t const pos, uint8_t const num);
+	[[nodiscard]] bool write_uint8(size_t pos, uint8_t num);
 	/// Write uint8_t starting at given byte without bounds checking
-	void write_uint8_unsafe(size_t const pos, uint8_t const num);
+	void write_uint8_unsafe(size_t pos, uint8_t num);
 
 	//-------- 8 bit writes end --------//
 	/// @}
@@ -125,47 +125,47 @@ public:
 	//-------- 16 bit reads begin --------//
 
 	/// Read uint16_t starting at given byte
-	std::optional<uint16_t> read_uint16(size_t const pos) const;
+	std::optional<uint16_t> read_uint16(size_t pos) const;
 	/// Read uint16_t starting at given byte without bounds checking
-	uint16_t read_uint16_unsafe(size_t const pos) const;
+	uint16_t read_uint16_unsafe(size_t pos) const;
 
 	/// Read uint16_t starting at given byte,
 	/// converting from LE to host endian
-	std::optional<uint16_t> read_uint16_le(size_t const pos) const;
+	std::optional<uint16_t> read_uint16_le(size_t pos) const;
 
 	/// Read uint16_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
-	uint16_t read_uint16_le_unsafe(size_t const pos) const;
+	uint16_t read_uint16_le_unsafe(size_t pos) const;
 
 	/// Read uint16_t starting at given byte,
 	/// converting from BE to host endian
-	std::optional<uint16_t> read_uint16_be(size_t const pos) const;
+	std::optional<uint16_t> read_uint16_be(size_t pos) const;
 	/// Read uint16_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
-	uint16_t read_uint16_be_unsafe(size_t const pos) const;
+	uint16_t read_uint16_be_unsafe(size_t pos) const;
 
 	//-------- 16 bit reads end --------//
 
 	//-------- 16 bit writes begin --------//
 
 	/// Write uint16_t starting at given byte
-	[[nodiscard]] bool write_uint16(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking
-	void write_uint16_unsafe(size_t const pos, uint16_t const num);
+	void write_uint16_unsafe(size_t pos, uint16_t num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to LE
-	[[nodiscard]] bool write_uint16_le(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16_le(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint16_le_unsafe(size_t const pos, uint16_t const num);
+	void write_uint16_le_unsafe(size_t pos, uint16_t num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to BE
-	[[nodiscard]] bool write_uint16_be(size_t const pos, uint16_t const num);
+	[[nodiscard]] bool write_uint16_be(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint16_be_unsafe(size_t const pos, uint16_t const num);
+	void write_uint16_be_unsafe(size_t pos, uint16_t num);
 
 	//-------- 16 bit writes end --------//
 	/// @}
@@ -175,46 +175,46 @@ public:
 	//-------- 32 bit reads begin --------//
 
 	/// Read uint32_t starting at given byte
-	std::optional<uint32_t> read_uint32(size_t const pos) const;
+	std::optional<uint32_t> read_uint32(size_t pos) const;
 	/// Read uint32_t starting at given byte without bounds checking
-	uint32_t read_uint32_unsafe(size_t const pos) const;
+	uint32_t read_uint32_unsafe(size_t pos) const;
 
 	/// Read uint32_t starting at given byte,
 	/// converting from LE to host endian
-	std::optional<uint32_t> read_uint32_le(size_t const pos) const;
+	std::optional<uint32_t> read_uint32_le(size_t pos) const;
 	/// Read uint32_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
-	uint32_t read_uint32_le_unsafe(size_t const pos) const;
+	uint32_t read_uint32_le_unsafe(size_t pos) const;
 
 	/// Read uint32_t starting at given byte,
 	/// converting from BE to host endian
-	std::optional<uint32_t> read_uint32_be(size_t const pos) const;
+	std::optional<uint32_t> read_uint32_be(size_t pos) const;
 	/// Read uint32_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
-	uint32_t read_uint32_be_unsafe(size_t const pos) const;
+	uint32_t read_uint32_be_unsafe(size_t pos) const;
 
 	//-------- 32 bit reads end --------//
 
 	//-------- 32 bit writes begin --------//
 
 	/// Write uint32_t starting at given byte
-	[[nodiscard]] bool write_uint32(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking
-	void write_uint32_unsafe(size_t const pos, uint32_t const num);
+	void write_uint32_unsafe(size_t pos, uint32_t num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to LE
-	[[nodiscard]] bool write_uint32_le(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32_le(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint32_le_unsafe(size_t const pos, uint32_t const num);
+	void write_uint32_le_unsafe(size_t pos, uint32_t num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to BE
-	[[nodiscard]] bool write_uint32_be(size_t const pos, uint32_t const num);
+	[[nodiscard]] bool write_uint32_be(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint32_be_unsafe(size_t const pos, uint32_t const num);
+	void write_uint32_be_unsafe(size_t pos, uint32_t num);
 
 	//-------- 32 bit writes end --------//
 	/// @}
@@ -224,46 +224,46 @@ public:
 	//-------- 64 bit reads begin --------//
 
 	/// Read uint64_t starting at given byte
-	std::optional<uint64_t> read_uint64(size_t const pos) const;
+	std::optional<uint64_t> read_uint64(size_t pos) const;
 	/// Read uint64_t starting at given byte without bounds checking
-	uint64_t read_uint64_unsafe(size_t const pos) const;
+	uint64_t read_uint64_unsafe(size_t pos) const;
 
 	/// Read uint64_t starting at given byte,
 	/// converting from LE to host endian
-	std::optional<uint64_t> read_uint64_le(size_t const pos) const;
+	std::optional<uint64_t> read_uint64_le(size_t pos) const;
 	/// Read uint64_t starting at given byte without bounds checking,
 	/// converting from LE to host endian
-	uint64_t read_uint64_le_unsafe(size_t const pos) const;
+	uint64_t read_uint64_le_unsafe(size_t pos) const;
 
 	/// Read uint64_t starting at given byte,
 	/// converting from BE to host endian
-	std::optional<uint64_t> read_uint64_be(size_t const pos) const;
+	std::optional<uint64_t> read_uint64_be(size_t pos) const;
 	/// Read uint64_t starting at given byte without bounds checking,
 	/// converting from BE to host endian
-	uint64_t read_uint64_be_unsafe(size_t const pos) const;
+	uint64_t read_uint64_be_unsafe(size_t pos) const;
 
 	//-------- 64 bit reads end --------//
 
 	//-------- 64 bit writes begin --------//
 
 	/// Write uint64_t starting at given byte
-	[[nodiscard]] bool write_uint64(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking
-	void write_uint64_unsafe(size_t const pos, uint64_t const num);
+	void write_uint64_unsafe(size_t pos, uint64_t num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to LE
-	[[nodiscard]] bool write_uint64_le(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64_le(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint64_le_unsafe(size_t const pos, uint64_t const num);
+	void write_uint64_le_unsafe(size_t pos, uint64_t num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to BE
-	[[nodiscard]] bool write_uint64_be(size_t const pos, uint64_t const num);
+	[[nodiscard]] bool write_uint64_be(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint64_be_unsafe(size_t const pos, uint64_t const num);
+	void write_uint64_be_unsafe(size_t pos, uint64_t num);
 
 	//-------- 64 bit writes end --------//
 	/// @}

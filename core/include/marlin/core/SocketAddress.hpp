@@ -53,10 +53,10 @@ public:
 	/// Return the port
 	uint16_t get_port() const;
 	/// Set the port
-	void set_port(uint16_t const port);
+	void set_port(uint16_t port);
 
 	/// Loopback IPv4 address
-	static SocketAddress loopback_ipv4(const uint16_t port);
+	static SocketAddress loopback_ipv4(uint16_t port);
 
 	/// Equality operator
 	bool operator==(const SocketAddress &other) const;
@@ -67,7 +67,7 @@ public:
 	/// Serialize into bytes
 	size_t serialize(uint8_t* bytes, size_t size) const;
 	/// Deserialize from bytes
-	static SocketAddress deserialize(uint8_t const* bytes, size_t const size);
+	static SocketAddress deserialize(uint8_t const* bytes, size_t size);
 };
 
 } // namespace core

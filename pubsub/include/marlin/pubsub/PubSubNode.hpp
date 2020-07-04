@@ -128,8 +128,8 @@ public:
 	std::unordered_set<core::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
 
-	void send_SUBSCRIBE(BaseTransport &transport, uint16_t const channel);
-	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t const channel);
+	void send_SUBSCRIBE(BaseTransport &transport, uint16_t channel);
+	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t channel);
 
 	bool add_sol_conn(core::SocketAddress const &addr);
 	bool add_sol_conn(BaseTransport &transport);
@@ -155,7 +155,7 @@ private:
 		// std::for_each(
 		// 	this->delegate->channels.begin(),
 		// 	this->delegate->channels.end(),
-		// 	[&] (uint16_t const channel) {
+		// 	[&] (uint16_t channel) {
 		// 		this->delegate->manage_subscribers(channel, this->channel_subscriptions[channel], this->potential_channel_subscriptions[channel]);
 		// 	}
 		// );
@@ -312,7 +312,7 @@ private:
 		// std::for_each(
 		// 	this->delegate->channels.begin(),
 		// 	this->delegate->channels.end(),
-		// 	[&] (uint16_t const channel) {
+		// 	[&] (uint16_t channel) {
 		// 		for (auto* transport : this->channel_subscriptions[channel]) {
 		// 			this->send_HEARTBEAT(*transport);
 		// 		}
@@ -449,7 +449,7 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::send_SUBSCRIBE(
 	BaseTransport &transport,
-	uint16_t const channel
+	uint16_t channel
 ) {
 	core::Buffer bytes({0}, 3);
 	bytes.write_uint16_be_unsafe(1, channel);
@@ -513,7 +513,7 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::send_UNSUBSCRIBE(
 	BaseTransport &transport,
-	uint16_t const channel
+	uint16_t channel
 ) {
 	core::Buffer bytes({1}, 3);
 	bytes.write_uint16_be_unsafe(1, channel);
@@ -885,7 +885,7 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// std::for_each(
 	// 	delegate->channels.begin(),
 	// 	delegate->channels.end(),
-	// 	[&] (uint16_t const channel) {
+	// 	[&] (uint16_t channel) {
 	// 		channel_subscriptions[channel].erase(&transport);
 	// 		potential_channel_subscriptions[channel].erase(&transport);
 	// 	}
@@ -1131,7 +1131,7 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
-		[&] (uint16_t const channel) {
+		[&] (uint16_t channel) {
 			send_UNSUBSCRIBE(*transport, channel);
 		}
 	);
@@ -1166,7 +1166,7 @@ bool PUBSUBNODETYPE::add_sol_conn(BaseTransport &transport) {
 		std::for_each(
 			delegate->channels.begin(),
 			delegate->channels.end(),
-			[&] (uint16_t const channel) {
+			[&] (uint16_t channel) {
 				send_SUBSCRIBE(transport, channel);
 			}
 		);
