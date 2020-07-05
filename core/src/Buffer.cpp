@@ -8,19 +8,19 @@ namespace marlin {
 namespace core {
 
 Buffer::Buffer(size_t size) :
-WeakBuffer(new uint8_t[size], size) {}
+BaseBuffer(new uint8_t[size], size) {}
 
 Buffer::Buffer(std::initializer_list<uint8_t> il, size_t size) :
-WeakBuffer(new uint8_t[size], size) {
+BaseBuffer(new uint8_t[size], size) {
 	assert(il.size() <= size);
 	std::copy(il.begin(), il.end(), buf);
 }
 
 Buffer::Buffer(uint8_t *buf, size_t size) :
-WeakBuffer(buf, size) {}
+BaseBuffer(buf, size) {}
 
 Buffer::Buffer(Buffer &&b) noexcept :
-WeakBuffer(static_cast<WeakBuffer&&>(std::move(b))) {
+BaseBuffer(static_cast<BaseBuffer&&>(std::move(b))) {
 	b.buf = nullptr;
 	b.capacity = 0;
 	b.start_index = 0;
