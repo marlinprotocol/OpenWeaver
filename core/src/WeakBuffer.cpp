@@ -20,12 +20,16 @@ bool WeakBuffer::cover(size_t num) {
 	return true;
 }
 
-WeakBuffer& WeakBuffer::cover_unsafe(size_t num) {
+WeakBuffer& WeakBuffer::cover_unsafe(size_t num) & {
 	assert(num <= size());
 
 	start_index += num;
 
 	return *this;
+}
+
+WeakBuffer&& WeakBuffer::cover_unsafe(size_t num) && {
+	return std::move(cover_unsafe(num));
 }
 
 bool WeakBuffer::uncover(size_t num) {
@@ -38,12 +42,16 @@ bool WeakBuffer::uncover(size_t num) {
 	return true;
 }
 
-WeakBuffer& WeakBuffer::uncover_unsafe(size_t num) {
+WeakBuffer& WeakBuffer::uncover_unsafe(size_t num) & {
 	assert(start_index >= num);
 
 	start_index -= num;
 
 	return *this;
+}
+
+WeakBuffer&& WeakBuffer::uncover_unsafe(size_t num) && {
+	return std::move(uncover_unsafe(num));
 }
 
 bool WeakBuffer::truncate(size_t num) {
@@ -56,12 +64,16 @@ bool WeakBuffer::truncate(size_t num) {
 	return true;
 }
 
-WeakBuffer& WeakBuffer::truncate_unsafe(size_t num) {
+WeakBuffer& WeakBuffer::truncate_unsafe(size_t num) & {
 	assert(num <= size());
 
 	end_index -= num;
 
 	return *this;
+}
+
+WeakBuffer&& WeakBuffer::truncate_unsafe(size_t num) && {
+	return std::move(truncate_unsafe(num));
 }
 
 bool WeakBuffer::expand(size_t num) {
@@ -74,12 +86,16 @@ bool WeakBuffer::expand(size_t num) {
 	return true;
 }
 
-WeakBuffer& WeakBuffer::expand_unsafe(size_t num) {
+WeakBuffer& WeakBuffer::expand_unsafe(size_t num) & {
 	assert(capacity - end_index >= num);
 
 	end_index += num;
 
 	return *this;
+}
+
+WeakBuffer&& WeakBuffer::expand_unsafe(size_t num) && {
+	return std::move(expand_unsafe(num));
 }
 
 void WeakBuffer::read_unsafe(size_t pos, uint8_t* out, size_t size) const {
@@ -158,7 +174,7 @@ std::optional<uint64_t> WeakBuffer::read_uint64(size_t pos) const {
 	return read_uint64_unsafe(pos);
 }
 
-WeakBuffer& WeakBuffer::write_unsafe(size_t pos, uint8_t const* in, size_t size) {
+WeakBuffer& WeakBuffer::write_unsafe(size_t pos, uint8_t const* in, size_t size) & {
 	assert(this->size() >= size && this->size() - size >= pos);
 
 	std::memcpy(data()+pos, in, size);
@@ -166,28 +182,40 @@ WeakBuffer& WeakBuffer::write_unsafe(size_t pos, uint8_t const* in, size_t size)
 	return *this;
 }
 
-WeakBuffer& WeakBuffer::write_uint8_unsafe(size_t pos, uint8_t num) {
-	write_unsafe(pos, (uint8_t const*)&num, 1);
-
-	return *this;
+WeakBuffer&& WeakBuffer::write_unsafe(size_t pos, uint8_t const* in, size_t size) && {
+	return std::move(write_unsafe(pos, in, size));
 }
 
-WeakBuffer& WeakBuffer::write_uint16_unsafe(size_t pos, uint16_t num) {
-	write_unsafe(pos, (uint8_t const*)&num, 2);
-
-	return *this;
+WeakBuffer& WeakBuffer::write_uint8_unsafe(size_t pos, uint8_t num) & {
+	return write_unsafe(pos, (uint8_t const*)&num, 1);
 }
 
-WeakBuffer& WeakBuffer::write_uint32_unsafe(size_t pos, uint32_t num) {
-	write_unsafe(pos, (uint8_t const*)&num, 4);
-
-	return *this;
+WeakBuffer&& WeakBuffer::write_uint8_unsafe(size_t pos, uint8_t num) && {
+	return std::move(write_uint8_unsafe(pos, num));
 }
 
-WeakBuffer& WeakBuffer::write_uint64_unsafe(size_t pos, uint64_t num) {
-	write_unsafe(pos, (uint8_t const*)&num, 8);
+WeakBuffer& WeakBuffer::write_uint16_unsafe(size_t pos, uint16_t num) & {
+	return write_unsafe(pos, (uint8_t const*)&num, 2);
+}
 
-	return *this;
+WeakBuffer&& WeakBuffer::write_uint16_unsafe(size_t pos, uint16_t num) && {
+	return std::move(write_uint16_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint32_unsafe(size_t pos, uint32_t num) & {
+	return write_unsafe(pos, (uint8_t const*)&num, 4);
+}
+
+WeakBuffer&& WeakBuffer::write_uint32_unsafe(size_t pos, uint32_t num) && {
+	return std::move(write_uint32_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint64_unsafe(size_t pos, uint64_t num) & {
+	return write_unsafe(pos, (uint8_t const*)&num, 8);
+}
+
+WeakBuffer&& WeakBuffer::write_uint64_unsafe(size_t pos, uint64_t num) && {
+	return std::move(write_uint64_unsafe(pos, num));
 }
 
 bool WeakBuffer::write(size_t pos, uint8_t const* in, size_t size) {
@@ -305,16 +333,28 @@ bool WeakBuffer::write_uint64_le(size_t pos, uint64_t num) {
 	return write_uint64(pos, __builtin_bswap64(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) {
+WeakBuffer& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) & {
 	return write_uint16_unsafe(pos, __builtin_bswap16(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) {
+WeakBuffer&& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) && {
+	return std::move(write_uint16_le_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) & {
 	return write_uint32_unsafe(pos, __builtin_bswap32(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) {
+WeakBuffer&& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) && {
+	return std::move(write_uint32_le_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) & {
 	return write_uint64_unsafe(pos, __builtin_bswap64(num));
+}
+
+WeakBuffer&& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) && {
+	return std::move(write_uint64_le_unsafe(pos, num));
 }
 
 bool WeakBuffer::write_uint16_be(size_t pos, uint16_t num) {
@@ -329,16 +369,28 @@ bool WeakBuffer::write_uint64_be(size_t pos, uint64_t num) {
 	return write_uint64(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) {
+WeakBuffer& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) & {
 	return write_uint16_unsafe(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) {
+WeakBuffer&& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) && {
+	return std::move(write_uint16_be_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) & {
 	return write_uint32_unsafe(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) {
+WeakBuffer&& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) && {
+	return std::move(write_uint32_be_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) & {
 	return write_uint64_unsafe(pos, num);
+}
+
+WeakBuffer&& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) && {
+	return std::move(write_uint64_be_unsafe(pos, num));
 }
 
 #elif MARLIN_CORE_ENDIANNESS == MARLIN_CORE_LITTLE_ENDIAN
@@ -406,16 +458,28 @@ bool WeakBuffer::write_uint64_be(size_t pos, uint64_t num) {
 	return write_uint64(pos, __builtin_bswap64(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) {
+WeakBuffer& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) & {
 	return write_uint16_unsafe(pos, __builtin_bswap16(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) {
+WeakBuffer&& WeakBuffer::write_uint16_be_unsafe(size_t pos, uint16_t num) && {
+	return std::move(write_uint16_be_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) & {
 	return write_uint32_unsafe(pos, __builtin_bswap32(num));
 }
 
-WeakBuffer& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) {
+WeakBuffer&& WeakBuffer::write_uint32_be_unsafe(size_t pos, uint32_t num) && {
+	return std::move(write_uint32_be_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) & {
 	return write_uint64_unsafe(pos, __builtin_bswap64(num));
+}
+
+WeakBuffer&& WeakBuffer::write_uint64_be_unsafe(size_t pos, uint64_t num) && {
+	return std::move(write_uint64_be_unsafe(pos, num));
 }
 
 bool WeakBuffer::write_uint16_le(size_t pos, uint16_t num) {
@@ -430,16 +494,28 @@ bool WeakBuffer::write_uint64_le(size_t pos, uint64_t num) {
 	return write_uint64(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) {
+WeakBuffer& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) & {
 	return write_uint16_unsafe(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) {
+WeakBuffer&& WeakBuffer::write_uint16_le_unsafe(size_t pos, uint16_t num) && {
+	return std::move(write_uint16_le_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) & {
 	return write_uint32_unsafe(pos, num);
 }
 
-WeakBuffer& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) {
+WeakBuffer&& WeakBuffer::write_uint32_le_unsafe(size_t pos, uint32_t num) && {
+	return std::move(write_uint32_le_unsafe(pos, num));
+}
+
+WeakBuffer& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) & {
 	return write_uint64_unsafe(pos, num);
+}
+
+WeakBuffer&& WeakBuffer::write_uint64_le_unsafe(size_t pos, uint64_t num) && {
+	return std::move(write_uint64_le_unsafe(pos, num));
 }
 
 #endif
