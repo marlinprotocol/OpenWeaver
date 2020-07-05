@@ -4,14 +4,6 @@
 #ifndef MARLIN_CORE_BUFFER_HPP
 #define MARLIN_CORE_BUFFER_HPP
 
-#include <stdint.h>
-#include <uv.h>
-#include <memory>
-#include <utility>
-#include <optional>
-// DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
-#include <array>
-
 #include "marlin/core/WeakBuffer.hpp"
 
 namespace marlin {
@@ -19,8 +11,10 @@ namespace core {
 
 /// @brief Byte buffer implementation with modifiable bounds and memory ownership
 /// @headerfile Buffer.hpp <marlin/core/Buffer.hpp>
-class Buffer : public WeakBuffer {
+class Buffer : public BaseBuffer<Buffer> {
 public:
+	using BaseBuffer<Buffer>::BaseBuffer;
+
 	/// Construct with given size - preferred constructor
 	Buffer(size_t size);
 
@@ -46,6 +40,16 @@ public:
 	Buffer &operator=(Buffer const &p) = delete;
 
 	~Buffer();
+
+	/// Implicit conversion to WeakBuffer
+	operator WeakBuffer() {
+		return WeakBuffer(data(), size());
+	}
+
+	operator WeakBuffer const() const {
+		// Note: Const stripping, but safe since return value is const
+		return WeakBuffer((uint8_t*)data(), size());
+	}
 
 	/// Release the memory held by the buffer
 	inline uint8_t *release() {

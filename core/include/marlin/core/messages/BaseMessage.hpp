@@ -18,11 +18,13 @@ struct BaseMessage {
 	BaseMessage(Buffer&& buf);
 
 	/// Get a WeakBuffer corresponding to the payload area
-	WeakBuffer payload_buffer() const&;
+	WeakBuffer payload_buffer() &;
+	WeakBuffer const payload_buffer() const&;
 	/// Get a Buffer corresponding to the payload area, consumes the BaseMessage object
 	Buffer payload_buffer() &&;
 	/// Get a uint8_t* corresponding to the payload area
-	uint8_t* payload() const;
+	uint8_t* payload();
+	uint8_t const* payload() const;
 
 	/// Sets the payload given a byte address and size
 	BaseMessage& set_payload(uint8_t const* in, size_t size) &;
