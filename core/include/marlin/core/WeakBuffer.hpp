@@ -59,22 +59,22 @@ public:
 	//! Moves start of buffer forward and covers given number of bytes
 	[[nodiscard]] bool cover(size_t num);
 	/// Moves start of buffer forward and covers given number of bytes without bounds checking
-	void cover_unsafe(size_t num);
+	WeakBuffer& cover_unsafe(size_t num);
 
 	/// Moves start of buffer backward and uncovers given number of bytes
 	[[nodiscard]] bool uncover(size_t num);
 	/// Moves start of buffer backward and uncovers given number of bytes without bounds checking
-	void uncover_unsafe(size_t num);
+	WeakBuffer& uncover_unsafe(size_t num);
 
 	/// Moves end of buffer backward and covers given number of bytes
 	[[nodiscard]] bool truncate(size_t num);
 	/// Moves end of buffer backward and covers given number of bytes without bounds checking
-	void truncate_unsafe(size_t num);
+	WeakBuffer& truncate_unsafe(size_t num);
 
 	/// Moves end of buffer forward and uncovers given number of bytes
 	[[nodiscard]] bool expand(size_t num);
 	/// Moves end of buffer forward and uncovers given number of bytes without bounds checking
-	void expand_unsafe(size_t num);
+	WeakBuffer& expand_unsafe(size_t num);
 	/// @}
 
 	/// @name Read/Write arbitrary data
@@ -93,7 +93,7 @@ public:
 	/// Write arbitrary data starting at given byte
 	[[nodiscard]] bool write(size_t pos, uint8_t const* in, size_t size);
 	/// Write arbitrary data starting at given byte without bounds checking
-	void write_unsafe(size_t pos, uint8_t const* in, size_t size);
+	WeakBuffer& write_unsafe(size_t pos, uint8_t const* in, size_t size);
 
 	//-------- Arbitrary writes end --------//
 	/// @}
@@ -115,7 +115,7 @@ public:
 	/// Write uint8_t starting at given byte
 	[[nodiscard]] bool write_uint8(size_t pos, uint8_t num);
 	/// Write uint8_t starting at given byte without bounds checking
-	void write_uint8_unsafe(size_t pos, uint8_t num);
+	WeakBuffer& write_uint8_unsafe(size_t pos, uint8_t num);
 
 	//-------- 8 bit writes end --------//
 	/// @}
@@ -151,21 +151,21 @@ public:
 	/// Write uint16_t starting at given byte
 	[[nodiscard]] bool write_uint16(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking
-	void write_uint16_unsafe(size_t pos, uint16_t num);
+	WeakBuffer& write_uint16_unsafe(size_t pos, uint16_t num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to LE
 	[[nodiscard]] bool write_uint16_le(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint16_le_unsafe(size_t pos, uint16_t num);
+	WeakBuffer& write_uint16_le_unsafe(size_t pos, uint16_t num);
 
 	/// Write uint16_t starting at given byte,
 	/// converting from host endian to BE
 	[[nodiscard]] bool write_uint16_be(size_t pos, uint16_t num);
 	/// Write uint16_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint16_be_unsafe(size_t pos, uint16_t num);
+	WeakBuffer& write_uint16_be_unsafe(size_t pos, uint16_t num);
 
 	//-------- 16 bit writes end --------//
 	/// @}
@@ -200,21 +200,21 @@ public:
 	/// Write uint32_t starting at given byte
 	[[nodiscard]] bool write_uint32(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking
-	void write_uint32_unsafe(size_t pos, uint32_t num);
+	WeakBuffer& write_uint32_unsafe(size_t pos, uint32_t num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to LE
 	[[nodiscard]] bool write_uint32_le(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint32_le_unsafe(size_t pos, uint32_t num);
+	WeakBuffer& write_uint32_le_unsafe(size_t pos, uint32_t num);
 
 	/// Write uint32_t starting at given byte,
 	/// converting from host endian to BE
 	[[nodiscard]] bool write_uint32_be(size_t pos, uint32_t num);
 	/// Write uint32_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint32_be_unsafe(size_t pos, uint32_t num);
+	WeakBuffer& write_uint32_be_unsafe(size_t pos, uint32_t num);
 
 	//-------- 32 bit writes end --------//
 	/// @}
@@ -249,21 +249,21 @@ public:
 	/// Write uint64_t starting at given byte
 	[[nodiscard]] bool write_uint64(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking
-	void write_uint64_unsafe(size_t pos, uint64_t num);
+	WeakBuffer& write_uint64_unsafe(size_t pos, uint64_t num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to LE
 	[[nodiscard]] bool write_uint64_le(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to LE
-	void write_uint64_le_unsafe(size_t pos, uint64_t num);
+	WeakBuffer& write_uint64_le_unsafe(size_t pos, uint64_t num);
 
 	/// Write uint64_t starting at given byte,
 	/// converting from host endian to BE
 	[[nodiscard]] bool write_uint64_be(size_t pos, uint64_t num);
 	/// Write uint64_t starting at given byte without bounds checking,
 	/// converting from host endian to BE
-	void write_uint64_be_unsafe(size_t pos, uint64_t num);
+	WeakBuffer& write_uint64_be_unsafe(size_t pos, uint64_t num);
 
 	//-------- 64 bit writes end --------//
 	/// @}
