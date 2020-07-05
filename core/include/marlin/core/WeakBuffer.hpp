@@ -44,7 +44,11 @@ public:
 	WeakBuffer &operator=(WeakBuffer const &b) = default;
 
 	/// Start of buffer
-	inline uint8_t *data() const {
+	inline uint8_t *data() {
+		return buf + start_index;
+	}
+
+	inline uint8_t const *data() const {
 		return buf + start_index;
 	}
 

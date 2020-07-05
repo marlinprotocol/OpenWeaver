@@ -74,7 +74,7 @@ namespace stream {
 	} \
  \
 	/** @brief Get a WeakBuffer corresponding to the payload area */ \
-	core::WeakBuffer payload_buffer() const& { \
+	core::WeakBuffer payload_buffer() & { \
 		auto buf = base.payload_buffer(); \
 		buf.cover_unsafe(offset); \
  \

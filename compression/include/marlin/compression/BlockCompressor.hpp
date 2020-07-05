@@ -129,7 +129,8 @@ public:
 			// Bounds check
 			if(buf.size() < offset + 8 + item_size) return std::nullopt;
 			// Add misc item
-			misc_bufs.emplace_back(buf.data() + offset + 8, item_size);
+			// FIXME: Const stripping, vector cannot hold const objects
+			misc_bufs.emplace_back((uint8_t*)buf.data() + offset + 8, item_size);
 
 			offset += 8 + item_size;
 		}
@@ -151,7 +152,8 @@ public:
 				if(buf.size() < offset + 9 + txn_size) return std::nullopt;
 
 				// Add txn
-				txn_bufs.emplace_back(buf.data() + offset + 9, txn_size);
+				// FIXME: Const stripping, vector cannot hold const objects
+				txn_bufs.emplace_back((uint8_t*)buf.data() + offset + 9, txn_size);
 
 				offset += 9 + txn_size;
 			} else if(type == 0x01) { // Txn id
@@ -169,7 +171,8 @@ public:
 					txn_bufs.emplace_back(nullptr, 0);
 				} else {
 					// Add txn
-					txn_bufs.emplace_back(iter->second.data(), iter->second.size());
+					// FIXME: Const stripping, vector cannot hold const objects
+					txn_bufs.emplace_back((uint8_t*)iter->second.data(), iter->second.size());
 				}
 
 				offset += 9;
