@@ -41,6 +41,16 @@ public:
 
 	~Buffer();
 
+	/// Implicit conversion to WeakBuffer
+	operator WeakBuffer() {
+		return WeakBuffer(data(), size());
+	}
+
+	operator WeakBuffer const() const {
+		// Note: Const stripping, but safe since return value is const
+		return WeakBuffer((uint8_t*)data(), size());
+	}
+
 	/// Release the memory held by the buffer
 	inline uint8_t *release() {
 		uint8_t *_buf = buf;
