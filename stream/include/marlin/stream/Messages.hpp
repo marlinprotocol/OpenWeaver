@@ -75,18 +75,12 @@ namespace stream {
  \
 	/** @brief Get a WeakBuffer corresponding to the payload area */ \
 	core::WeakBuffer payload_buffer() & { \
-		auto buf = base.payload_buffer(); \
-		buf.cover_unsafe(offset); \
- \
-		return buf; \
+		return base.payload_buffer().cover_unsafe(offset); \
 	} \
  \
 	/** @brief Get a Buffer corresponding to the payload area, consumes the object */ \
 	core::Buffer payload_buffer() && { \
-		auto buf = std::move(base).payload_buffer(); \
-		buf.cover_unsafe(offset); \
- \
-		return std::move(buf); \
+		return std::move(base).payload_buffer().cover_unsafe(offset); \
 	} \
  \
 	/** @brief Get a uint8_t* corresponding to the payload area */ \
