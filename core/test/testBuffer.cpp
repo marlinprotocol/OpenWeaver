@@ -5,6 +5,13 @@
 
 using namespace marlin::core;
 
+namespace marlin {
+namespace core {
+// Explicit instantiation hack for accurate coverage of templates
+template class BaseBuffer<Buffer>;
+}
+}
+
 TEST(BufferConstruct, SizeConstructible) {
 	auto buf = Buffer(1400);
 
