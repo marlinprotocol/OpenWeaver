@@ -33,8 +33,7 @@ target_link_libraries(stream INTERFACE sodium::sodium)
 target_link_libraries(stream INTERFACE marlin::asyncio)
 
 # spdlog
-target_link_libraries(stream INTERFACE spdlog::spdlog_header_only
-)
+target_link_libraries(stream INTERFACE spdlog::spdlog_header_only)
 
 install(TARGETS stream
 	EXPORT marlin-stream-export

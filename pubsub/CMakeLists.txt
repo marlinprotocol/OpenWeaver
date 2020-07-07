@@ -36,8 +36,7 @@ target_link_libraries(pubsub INTERFACE marlin::stream)
 target_link_libraries(pubsub INTERFACE marlin::asyncio)
 
 # spdlog
-target_link_libraries(pubsub INTERFACE spdlog::spdlog_header_only
-)
+target_link_libraries(pubsub INTERFACE spdlog::spdlog_header_only)
 
 # cryptopp
 target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
