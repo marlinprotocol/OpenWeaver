@@ -14,7 +14,7 @@ namespace core {
 
 /// @brief 256-bit number
 /// @headerfile BN.hpp <marlin/core/BN.hpp>
-struct __attribute__((packed)) alignas(32) uint256_t {
+struct alignas(32) uint256_t {
 private:
 #if MARLIN_CORE_ENDIANNESS == MARLIN_CORE_BIG_ENDIAN
 	uint64_t hi;
@@ -52,7 +52,7 @@ public:
 	bool operator==(uint256_t const& other) const;
 	/// Comparison
 	bool operator<(uint256_t const& other) const;
-};
+} __attribute__((packed));
 
 } // namespace core
 } // namespace marlin
