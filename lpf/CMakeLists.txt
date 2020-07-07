@@ -24,7 +24,8 @@ target_include_directories(lpf
 target_link_libraries(lpf INTERFACE marlin::asyncio)
 
 # spdlog
-target_link_libraries(lpf INTERFACE spdlog::spdlog)
+target_link_libraries(lpf INTERFACE spdlog::spdlog_header_only
+)
 
 install(TARGETS lpf
 	EXPORT marlin-lpf-export

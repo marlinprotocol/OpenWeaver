@@ -30,7 +30,8 @@ target_compile_features(compression INTERFACE cxx_std_17)
 target_link_libraries(compression INTERFACE marlin::core)
 
 # spdlog
-target_link_libraries(compression INTERFACE spdlog::spdlog)
+target_link_libraries(compression INTERFACE spdlog::spdlog_header_only
+)
 
 # cryptopp
 target_link_libraries(compression INTERFACE cryptopp::CryptoPP)

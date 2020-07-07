@@ -30,7 +30,8 @@ target_link_libraries(multicastsdk INTERFACE marlin::beacon)
 target_link_libraries(multicastsdk INTERFACE marlin::asyncio)
 
 # spdlog
-target_link_libraries(multicastsdk INTERFACE spdlog::spdlog)
+target_link_libraries(multicastsdk INTERFACE spdlog::spdlog_header_only
+)
 
 install(TARGETS multicastsdk
 	EXPORT marlin-multicastsdk-export
@@ -98,7 +99,8 @@ target_include_directories(multicastsdk_c
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(multicastsdk_c PUBLIC spdlog::spdlog)
+target_link_libraries(multicastsdk_c PUBLIC spdlog::spdlog_header_only
+)
 target_link_libraries(multicastsdk_c PUBLIC multicastsdk)
 
 target_compile_options(multicastsdk_c PRIVATE -Werror -Wall -Wextra -pedantic-errors)

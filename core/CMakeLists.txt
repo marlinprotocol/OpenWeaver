@@ -38,7 +38,8 @@ set_target_properties(core PROPERTIES
 target_link_libraries(core PUBLIC libuv::uv_a)
 
 # spdlog
-target_link_libraries(core PUBLIC spdlog::spdlog)
+target_link_libraries(core PUBLIC spdlog::spdlog_header_only
+)
 
 install(TARGETS core
 	EXPORT marlin-core-export

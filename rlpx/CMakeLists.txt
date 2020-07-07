@@ -42,7 +42,8 @@ target_link_libraries(rlpx INTERFACE cryptopp::CryptoPP)
 target_link_libraries(rlpx PUBLIC marlin::asyncio)
 
 # spdlog
-target_link_libraries(rlpx PUBLIC spdlog::spdlog)
+target_link_libraries(rlpx PUBLIC spdlog::spdlog_header_only
+)
 
 # snappy
 target_link_libraries(rlpx PUBLIC snappy)
