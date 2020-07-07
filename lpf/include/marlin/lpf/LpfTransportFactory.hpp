@@ -162,7 +162,7 @@ int LpfTransportFactory<
 	StreamTransport,
 	should_cut_through,
 	prefix_length
->::dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys) {
+>::dial(core::SocketAddress const &addr, ListenDelegate &delegate, uint8_t const* keys [[maybe_unused]]) {
 	this->delegate = &delegate;
 
 	if constexpr (IsTransportEncrypted<StreamTransport<TransportDelegate>>::value) {

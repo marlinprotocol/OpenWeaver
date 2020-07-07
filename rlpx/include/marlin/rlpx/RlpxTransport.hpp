@@ -302,9 +302,9 @@ int RlpxTransport<DelegateType>::send(
 	encoded[0] = (uint8_t)(complen >> 16);
 	encoded[1] = (uint8_t)(complen >> 8);
 	encoded[2] = (uint8_t)(complen);
-	encoded[3] = 0xc2;
-	encoded[4] = 0x80;
-	encoded[5] = 0x80;
+	encoded[3] = (uint8_t)0xc2;
+	encoded[4] = (uint8_t)0x80;
+	encoded[5] = (uint8_t)0x80;
 
 	crypto.header_encrypt((uint8_t *)encoded, 32, (uint8_t *)encoded);
 

@@ -297,7 +297,7 @@ void LpfTransport<
 	prefix_length
 >::setup(
 	DelegateType *delegate,
-	uint8_t const* keys
+	uint8_t const* keys [[maybe_unused]]
 ) {
 	this->delegate = delegate;
 
