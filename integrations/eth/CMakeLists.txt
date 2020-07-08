@@ -40,4 +40,4 @@ target_link_libraries(onramp-eth PUBLIC marlin::multicastsdk)
 target_link_libraries(onramp-eth PUBLIC marlin::rlpx)
 
 # spdlog
-target_link_libraries(onramp-eth PUBLIC spdlog::spdlog)
+target_link_libraries(onramp-eth PUBLIC spdlog::spdlog_header_only)

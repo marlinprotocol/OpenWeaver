@@ -327,10 +327,12 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	state_timer_interval = 0;
 
 	for(auto& [_, stream] : send_streams) {
+		(void)_;
 		stream.state_timer.stop();
 	}
 	send_streams.clear();
 	for(auto& [_, stream] : recv_streams) {
+		(void)_;
 		stream.state_timer.stop();
 	}
 	recv_streams.clear();

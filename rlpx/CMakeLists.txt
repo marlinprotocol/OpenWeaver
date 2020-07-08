@@ -36,13 +36,13 @@ set_target_properties(rlpx PROPERTIES
 )
 
 # cryptopp
-target_link_libraries(rlpx INTERFACE cryptopp::CryptoPP)
+target_link_libraries(rlpx PUBLIC cryptopp::CryptoPP)
 
 # marlin::asyncio
 target_link_libraries(rlpx PUBLIC marlin::asyncio)
 
 # spdlog
-target_link_libraries(rlpx PUBLIC spdlog::spdlog)
+target_link_libraries(rlpx PUBLIC spdlog::spdlog_header_only)
 
 # snappy
 target_link_libraries(rlpx PUBLIC snappy)
