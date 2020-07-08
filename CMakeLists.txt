@@ -4,12 +4,22 @@ project(marlin VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
-cmake_policy(SET CMP0069 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+	cmake_policy(SET CMP0069 NEW)
+	set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
+	set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
+
+if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	add_compile_options(--coverage)
+	add_link_options(--coverage)
+
+	file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/coverage)
+	add_custom_target(coverage
+		COMMAND gcovr -r ${CMAKE_CURRENT_SOURCE_DIR} --gcov-executable 'llvm-cov gcov' --html-details ${CMAKE_CURRENT_BINARY_DIR}/coverage/index.html -e '.*/?vendor/.*' -e '.*/?build/.*' -e '.*/examples/.*'
+	)
+endif()
 
 enable_testing()
 add_custom_target(docs
