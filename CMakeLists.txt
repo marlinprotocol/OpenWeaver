@@ -15,8 +15,9 @@ if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND CMAKE_CXX_COMPILER_ID MATCHE
 	add_compile_options(--coverage)
 	add_link_options(--coverage)
 
+	file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/coverage)
 	add_custom_target(coverage
-		COMMAND gcovr -r ${CMAKE_CURRENT_SOURCE_DIR} --gcov-executable 'llvm-cov gcov' --html-details coverage/index.html -e '.*/?vendor/.*' -e '.*/?build/.*' -e '.*/examples/.*'
+		COMMAND gcovr -r ${CMAKE_CURRENT_SOURCE_DIR} --gcov-executable 'llvm-cov gcov' --html-details ${CMAKE_CURRENT_BINARY_DIR}/coverage/index.html -e '.*/?vendor/.*' -e '.*/?build/.*' -e '.*/examples/.*'
 	)
 endif()
 
