@@ -213,7 +213,7 @@ private:
 		}
 	};
 public:
-	MARLIN_MESSAGES_ARRAY_FIELD(range, 20, 20 + 8*size());
+	MARLIN_MESSAGES_ARRAY_FIELD(range, 20, 20 + 8*size())
 
 	/// Construct an ACK message to hold a given number of ack ranges
 	ACKWrapper(size_t num_ranges) : base(20 + 8*num_ranges) {
@@ -222,7 +222,7 @@ public:
 
 	/// Validate the ACK message
 	[[nodiscard]] bool validate() const {
-		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + size()*8) {
+		if(base.payload_buffer().size() < 20 || base.payload_buffer().size() != 20 + (size_t)size()*8) {
 			return false;
 		}
 		return true;

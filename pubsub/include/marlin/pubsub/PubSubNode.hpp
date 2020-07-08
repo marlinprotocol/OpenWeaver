@@ -910,6 +910,7 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 
 	// Remove subscriptions
 	for(auto& [_, subscribers] : cut_through_map) {
+		(void)_;
 		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
 			if(iter->first == &transport) {
 				iter = subscribers.erase(iter);
@@ -962,8 +963,8 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	std::tuple<AttesterArgs...> attester_args,
-	std::tuple<WitnesserArgs...> witnesser_args,
+	std::tuple<AttesterArgs...> attester_args  [[maybe_unused]],
+	std::tuple<WitnesserArgs...> witnesser_args  [[maybe_unused]],
 	std::index_sequence<AI...>,
 	std::index_sequence<WI...>
 ) : max_sol_conns(max_sol),
@@ -1459,6 +1460,7 @@ void PUBSUBNODETYPE::cut_through_recv_skip(
 ) {
 	// Remove subscriptions
 	for(auto& [_, subscribers] : cut_through_map) {
+		(void)_;
 		for (auto iter = subscribers.begin(); iter != subscribers.end();) {
 			if(iter->first == &transport && iter->second == id) {
 				iter = subscribers.erase(iter);

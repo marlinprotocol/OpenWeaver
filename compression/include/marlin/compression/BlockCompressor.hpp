@@ -50,12 +50,11 @@ public:
 		std::vector<core::WeakBuffer> const& txn_bufs
 	) const {
 		// Compute total size of misc bufs
-		size_t misc_size = std::transform_reduce(
+		size_t misc_size = std::accumulate(
 			misc_bufs.begin(),
 			misc_bufs.end(),
 			0,
-			std::plus<>(),
-			[](core::WeakBuffer const& buf) { return buf.size(); }
+			[](size_t size, core::WeakBuffer const& buf) { return size + buf.size(); }
 		);
 		size_t total_size = misc_size + txn_bufs.size()*8 + 10000; // Add space for txn ids and extra space for any full size txns
 		core::Buffer final_buf(total_size);
