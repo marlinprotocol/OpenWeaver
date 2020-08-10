@@ -30,8 +30,9 @@ add_custom_target(docs
 )
 
 add_subdirectory(core)
-add_subdirectory(asyncio)
 add_subdirectory(simulator)
+add_subdirectory(mtest)
+add_subdirectory(asyncio)
 add_subdirectory(beacon)
 add_subdirectory(stream)
 add_subdirectory(lpf)

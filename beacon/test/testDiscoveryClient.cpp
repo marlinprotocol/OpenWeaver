@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
-#include <marlin/simulator/core/Simulator.hpp>
-#include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
-#include <marlin/simulator/network/Network.hpp>
+#include <marlin/mtest/NetworkFixture.hpp>
 
 #include <marlin/beacon/DiscoveryClient.hpp>
 
@@ -14,6 +12,7 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 using namespace marlin::simulator;
 using namespace marlin::beacon;
+using namespace marlin::mtest;
 
 
 struct Delegate {
@@ -47,79 +46,16 @@ TEST(DiscoveryClientTest, Constructible) {
 	DiscoveryClient<Delegate> client(SocketAddress::loopback_ipv4(8000), static_sk);
 }
 
-
-struct DiscoveryClientProtocolTest : public ::testing::Test {
-	template<typename Delegate>
-	using TransportType = SimulatedTransport<
-		Simulator,
-		NetworkInterface<Network<NetworkConditioner>>,
-		Delegate
-	>;
-	template<typename ListenDelegate, typename TransportDelegate>
-	using TransportFactoryType = SimulatedTransportFactory<
-		Simulator,
-		NetworkInterface<Network<NetworkConditioner>>,
-		ListenDelegate,
-		TransportDelegate
-	>;
-
-	Simulator& simulator = Simulator::default_instance;
-	NetworkConditioner nc;
-
-	using NetworkType = Network<NetworkConditioner>;
-	NetworkType network;
-
-	using NetworkInterfaceType = NetworkInterface<Network<NetworkConditioner>>;
-
-	DiscoveryClientProtocolTest() : network(nc) {}
-};
-
-template<typename NetworkInterfaceType>
-struct Listener final : public NetworkListener<NetworkInterfaceType> {
-	std::function<void(
-		NetworkInterfaceType&,
-		uint16_t,
-		SocketAddress const&,
-		Buffer&&
-	)> t_did_recv = [](
-		NetworkInterfaceType&,
-		uint16_t,
-		SocketAddress const&,
-		Buffer&&
-	) {};
-	std::function<void()> t_did_close = []() {};
-
-	void did_recv(
-		NetworkInterfaceType& interface,
-		uint16_t port,
-		SocketAddress const& addr,
-		Buffer&& packet
-	) override {
-		t_did_recv(interface, port, addr, std::move(packet));
-	}
-
-	void did_close() override {
-		t_did_close();
-	}
-};
-
-TEST_F(DiscoveryClientProtocolTest, DiscoversPeers) {
-	auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
-	auto& i2 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.2:0"));
-
-	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
-	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-	crypto_box_keypair(static_pk, static_sk);
-
+TEST_F(DefaultNetworkFixture, DiscoversPeers) {
 	DiscoveryClient<Delegate, TransportFactoryType, TransportType> client(
 		SocketAddress::from_string("192.168.0.1:8002"),
-		static_sk,
+		static_sk1,
 		i1,
 		simulator
 	);
 
 	bool listener_called = false;
-	Listener<NetworkInterfaceType> l;
+	ListenerType l;
 	l.t_did_recv = [&](
 		NetworkInterfaceType& interface,
 		uint16_t port,
