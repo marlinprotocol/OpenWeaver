@@ -12,7 +12,9 @@
 namespace marlin {
 namespace core {
 
-struct __attribute__((packed)) alignas(32) uint256_t {
+/// @brief 256-bit number
+/// @headerfile BN.hpp <marlin/core/BN.hpp>
+struct alignas(32) uint256_t {
 private:
 #if MARLIN_CORE_ENDIANNESS == MARLIN_CORE_BIG_ENDIAN
 	uint64_t hi;
@@ -26,9 +28,11 @@ private:
 	uint64_t hi;
 #endif
 public:
+	/// Default constructor
 	uint256_t() = default;
+	/// Copy constructor
 	uint256_t(uint256_t const& other) = default;
-
+	/// Construct from four 64-bit numbers
 	uint256_t(
 		uint64_t const& lo,
 		uint64_t const& lohi = 0,
@@ -36,13 +40,19 @@ public:
 		uint64_t const& hi = 0
 	);
 
+	/// Addition
 	uint256_t operator+(uint256_t const& other) const;
+	/// Compound assignment - addition
 	uint256_t& operator+=(uint256_t const& other);
+	/// Subtraction
 	uint256_t operator-(uint256_t const& other) const;
+	/// Compound assignment - subtraction
 	uint256_t& operator-=(uint256_t const& other);
+	/// Equality
 	bool operator==(uint256_t const& other) const;
+	/// Comparison
 	bool operator<(uint256_t const& other) const;
-};
+} __attribute__((packed));
 
 } // namespace core
 } // namespace marlin

@@ -33,7 +33,7 @@ struct Delegate {
 		);
 	}
 
-	void did_close(UdpTransport<Delegate> &) {}
+	void did_close(UdpTransport<Delegate> &, uint16_t) {}
 
 	bool should_accept(SocketAddress const &) {
 		return true;

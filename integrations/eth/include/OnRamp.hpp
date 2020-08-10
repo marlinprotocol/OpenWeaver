@@ -26,6 +26,7 @@ public:
 	}
 
 	OnRamp(DefaultMulticastClientOptions clop) : multicastClient(clop), header(0) {
+		multicastClient.delegate = this;
 		f.bind(SocketAddress::loopback_ipv4(12121));
 		f.listen(*this);
 	}
@@ -313,6 +314,10 @@ public:
 	void did_create_transport(RlpxTransport<OnRamp> &transport) {
 		rlpxt  = &transport;
 		transport.setup(this);
+	}
+
+	void did_close(RlpxTransport<OnRamp> &, uint16_t) {
+		rlpxt = nullptr;
 	}
 };
 

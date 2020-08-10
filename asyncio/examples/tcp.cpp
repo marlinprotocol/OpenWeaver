@@ -36,6 +36,8 @@ struct Delegate {
 	void did_create_transport(TcpTransport<Delegate> &transport) {
 		transport.setup(this);
 	}
+
+	void did_close(TcpTransport<Delegate> &, uint16_t) {}
 };
 
 int main() {

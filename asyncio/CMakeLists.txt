@@ -31,7 +31,7 @@ target_link_libraries(asyncio INTERFACE marlin::simulator)
 target_link_libraries(asyncio INTERFACE libuv::uv_a)
 
 # spdlog
-target_link_libraries(asyncio INTERFACE spdlog::spdlog)
+target_link_libraries(asyncio INTERFACE spdlog::spdlog_header_only)
 
 install(TARGETS asyncio
 	EXPORT marlin-asyncio-export

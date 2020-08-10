@@ -103,7 +103,7 @@ public:
 	void did_send_message(LpfTcpTransport &transport, Buffer &&message) {}
 
 	// TODO:
-	void did_close(LpfTcpTransport &transport) {
+	void did_close(LpfTcpTransport &transport, uint16_t) {
 		SPDLOG_DEBUG(
 			"Closed connection with client: {}",
 			transport.dst_addr.to_string()
@@ -192,6 +192,7 @@ int main(int argc, char **argv) {
 
 	DefaultMulticastClientOptions clop {
 		static_sk,
+		static_pk,
 		std::vector<uint16_t>(1, blockchainChannel),
 		beacon_addr,
 		discovery_addr,

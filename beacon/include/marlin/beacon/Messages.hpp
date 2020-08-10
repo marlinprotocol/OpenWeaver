@@ -103,7 +103,7 @@ struct LISTPROTOWrapper {
 		uint8_t num_proto = base.payload_buffer().read_uint8_unsafe(2);
 
 		// Bounds check
-		if(base.payload_buffer().size() < 3 + num_proto*8) {
+		if(base.payload_buffer().size() < 3 + (size_t)num_proto*8) {
 			return false;
 		}
 

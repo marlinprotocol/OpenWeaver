@@ -52,7 +52,7 @@ struct Delegate {
 		transport.send(std::move(buf));
 	}
 
-	void did_close(TransportType &) {}
+	void did_close(TransportType &, uint16_t) {}
 
 	bool should_accept(SocketAddress const &) {
 		return true;
@@ -70,6 +70,11 @@ struct Delegate {
 	) {}
 
 	void did_recv_skip_stream(
+		TransportType &transport [[maybe_unused]],
+		uint16_t stream_id [[maybe_unused]]
+	) {}
+
+	void did_recv_flush_conf(
 		TransportType &transport [[maybe_unused]],
 		uint16_t stream_id [[maybe_unused]]
 	) {}

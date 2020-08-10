@@ -13,9 +13,9 @@ struct Delegate;
 
 using TransportType = StreamTransport<Delegate, UdpTransport>;
 
-#define l_SIZE 100000000
-#define m_SIZE 100000
-#define s_SIZE 100
+#define l_SIZE 125000000
+#define m_SIZE 125000
+#define s_SIZE 125
 
 #define SIZE l_SIZE
 
@@ -56,7 +56,7 @@ struct Delegate {
 		transport.send(std::move(buf));
 	}
 
-	void did_close(TransportType &) {}
+	void did_close(TransportType &, uint16_t) {}
 
 	bool should_accept(SocketAddress const &) {
 		return true;
@@ -74,6 +74,11 @@ struct Delegate {
 	) {}
 
 	void did_recv_skip_stream(
+		TransportType &transport [[maybe_unused]],
+		uint16_t stream_id [[maybe_unused]]
+	) {}
+
+	void did_recv_flush_conf(
 		TransportType &transport [[maybe_unused]],
 		uint16_t stream_id [[maybe_unused]]
 	) {}

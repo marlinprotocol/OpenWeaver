@@ -4,33 +4,28 @@
 #ifndef MARLIN_CORE_BUFFER_HPP
 #define MARLIN_CORE_BUFFER_HPP
 
-#include <stdint.h>
-#include <uv.h>
-#include <memory>
-#include <utility>
-#include <optional>
-//! DONOT REMOVE. FAILS TO COMPILE ON MAC OTHERWISE
-#include <array>
-
-#include "WeakBuffer.hpp"
+#include "marlin/core/WeakBuffer.hpp"
 
 namespace marlin {
 namespace core {
 
-//! Marlin byte buffer implementation
-class Buffer : public WeakBuffer {
+/// @brief Byte buffer implementation with modifiable bounds and memory ownership
+/// @headerfile Buffer.hpp <marlin/core/Buffer.hpp>
+class Buffer : public BaseBuffer<Buffer> {
 public:
+	using BaseBuffer<Buffer>::BaseBuffer;
+
 	/// Construct with given size - preferred constructor
-	Buffer(size_t const size);
+	Buffer(size_t size);
 
 	/// Construct with initializer list and given size - preferred constructor
-	Buffer(std::initializer_list<uint8_t> il, size_t const size);
+	Buffer(std::initializer_list<uint8_t> il, size_t size);
 	// Initializer lists are preferable to partially initialized uint8_t arrays
 	// Buffer(new uint8_t[10] {'0','1'}, 10) causes zeroing of remaining 8 bytes
 	// Buffer({'0','1'}, 10) doesn't
 
 	/// Construct from uint8_t array - unsafe if uint8_t * isn't obtained from new
-	Buffer(uint8_t *const buf, size_t const size);
+	Buffer(uint8_t *buf, size_t size);
 
 	/// Move contructor
 	Buffer(Buffer &&b) noexcept;
@@ -46,6 +41,17 @@ public:
 
 	~Buffer();
 
+	/// Implicit conversion to WeakBuffer
+	operator WeakBuffer() {
+		return WeakBuffer(data(), size());
+	}
+
+	operator WeakBuffer const() const {
+		// Note: Const stripping, but safe since return value is const
+		return WeakBuffer((uint8_t*)data(), size());
+	}
+
+	/// Release the memory held by the buffer
 	inline uint8_t *release() {
 		uint8_t *_buf = buf;
 

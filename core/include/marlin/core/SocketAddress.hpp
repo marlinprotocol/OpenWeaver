@@ -53,10 +53,10 @@ public:
 	/// Return the port
 	uint16_t get_port() const;
 	/// Set the port
-	void set_port(uint16_t const port);
+	void set_port(uint16_t port);
 
 	/// Loopback IPv4 address
-	static SocketAddress loopback_ipv4(const uint16_t port);
+	static SocketAddress loopback_ipv4(uint16_t port);
 
 	/// Equality operator
 	bool operator==(const SocketAddress &other) const;
@@ -67,16 +67,18 @@ public:
 	/// Serialize into bytes
 	size_t serialize(uint8_t* bytes, size_t size) const;
 	/// Deserialize from bytes
-	static SocketAddress deserialize(uint8_t const* bytes, size_t const size);
+	static SocketAddress deserialize(uint8_t const* bytes, size_t size);
 };
 
 } // namespace core
 } // namespace marlin
 
 namespace std {
+	/// Hash function for SocketAddress so it can be used as a key
 	template <>
 	struct hash<marlin::core::SocketAddress>
 	{
+		/// Hash function for SocketAddress so it can be used as a key
 		size_t operator()(const marlin::core::SocketAddress &addr) const
 		{
 			return std::hash<uint32_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_addr.s_addr) ^ std::hash<uint16_t>()(reinterpret_cast<const sockaddr_in *>(&addr)->sin_port);

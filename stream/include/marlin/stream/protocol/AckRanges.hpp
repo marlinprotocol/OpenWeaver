@@ -7,11 +7,15 @@
 namespace marlin {
 namespace stream {
 
+/// Stores ranges of packet numbers that have and haven't been seen
 class AckRanges {
 public:
+	/// Alternating ranges of seen and not seen packet numbers
 	std::list<uint64_t> ranges;
+	/// Largest seen packet number
 	uint64_t largest;
 
+	/// Mark a packet number as seen
 	void add_packet_number(uint64_t num) {
 		// Initial
 		if(ranges.size() == 0) {

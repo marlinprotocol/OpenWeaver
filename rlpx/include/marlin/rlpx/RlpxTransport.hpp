@@ -42,6 +42,7 @@ public:
 	void did_dial(BaseTransport &transport);
 	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
 	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
@@ -248,6 +249,14 @@ void RlpxTransport<DelegateType>::did_send_bytes(
 	// TODO: Notify delegate
 }
 
+template<typename DelegateType>
+void RlpxTransport<DelegateType>::did_close(
+	BaseTransport &,
+	uint16_t reason
+) {
+	delegate->did_close(*this, reason);
+}
+
 //---------------- Delegate functions end ----------------//
 
 
@@ -293,9 +302,9 @@ int RlpxTransport<DelegateType>::send(
 	encoded[0] = (uint8_t)(complen >> 16);
 	encoded[1] = (uint8_t)(complen >> 8);
 	encoded[2] = (uint8_t)(complen);
-	encoded[3] = 0xc2;
-	encoded[4] = 0x80;
-	encoded[5] = 0x80;
+	encoded[3] = (uint8_t)0xc2;
+	encoded[4] = (uint8_t)0x80;
+	encoded[5] = (uint8_t)0x80;
 
 	crypto.header_encrypt((uint8_t *)encoded, 32, (uint8_t *)encoded);
 

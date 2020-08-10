@@ -82,6 +82,8 @@ struct Delegate {
 	void did_create_transport(RlpxTransport<Delegate> &transport) {
 		transport.setup(this);
 	}
+
+	void did_close(RlpxTransport<Delegate> &, uint16_t) {}
 };
 
 int main() {

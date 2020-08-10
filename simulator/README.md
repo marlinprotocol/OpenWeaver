@@ -1,1 +1,0 @@
-* We assume that nodes won't lag by more than 50 blocks (reflected in size of MAX in CircularArray used to represent Blockchain in a Node to save memory)

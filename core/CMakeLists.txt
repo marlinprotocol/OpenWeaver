@@ -17,7 +17,6 @@ add_library(core STATIC
 	src/CidrBlock.cpp
 	src/Buffer.cpp
 	src/SocketAddress.cpp
-	src/WeakBuffer.cpp
 )
 add_library(marlin::core ALIAS core)
 
@@ -39,7 +38,7 @@ set_target_properties(core PROPERTIES
 target_link_libraries(core PUBLIC libuv::uv_a)
 
 # spdlog
-target_link_libraries(core PUBLIC spdlog::spdlog)
+target_link_libraries(core PUBLIC spdlog::spdlog_header_only)
 
 install(TARGETS core
 	EXPORT marlin-core-export
@@ -65,6 +64,19 @@ install(EXPORT marlin-core-export
 install(FILES
 	${CMAKE_CURRENT_LIST_DIR}/cmake/MarlinCoreConfig.cmake
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/marlinCore
+)
+
+
+##########################################################
+# Docs
+##########################################################
+
+find_package(Doxygen REQUIRED)
+add_custom_target(core_docs
+	COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	COMMENT "Generating API documentation with Doxygen"
+	VERBATIM
 )
 
 

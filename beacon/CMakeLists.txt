@@ -33,7 +33,7 @@ target_link_libraries(beacon INTERFACE sodium::sodium)
 target_link_libraries(beacon INTERFACE marlin::asyncio)
 
 # spdlog
-target_link_libraries(beacon INTERFACE spdlog::spdlog)
+target_link_libraries(beacon INTERFACE spdlog::spdlog_header_only)
 
 # Boost::iterator
 target_link_libraries(beacon INTERFACE Boost::iterator)
