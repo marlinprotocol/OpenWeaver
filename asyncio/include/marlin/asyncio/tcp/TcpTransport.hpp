@@ -6,8 +6,9 @@
 #ifndef MARLIN_ASYNCIO_TCPTRANSPORT_HPP
 #define MARLIN_ASYNCIO_TCPTRANSPORT_HPP
 
-#include "marlin/core/SocketAddress.hpp"
-#include "marlin/core/TransportManager.hpp"
+#include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/CidrBlock.hpp>
+#include <marlin/core/TransportManager.hpp>
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
@@ -66,6 +67,8 @@ public:
 	int send(core::Buffer &&bytes);
 	uint16_t close_reason = 0;
 	void close(uint16_t reason = 0);
+
+	bool is_internal();
 };
 
 
@@ -73,12 +76,12 @@ public:
 
 template<typename DelegateType>
 TcpTransport<DelegateType>::TcpTransport(
-	core::SocketAddress const &_src_addr,
-	core::SocketAddress const &_dst_addr,
-	uv_tcp_t *_socket,
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
+	uv_tcp_t *socket,
 	core::TransportManager<TcpTransport<DelegateType>> &transport_manager
-) : socket(_socket), transport_manager(transport_manager),
-	src_addr(_src_addr), dst_addr(_dst_addr) {
+) : socket(socket), transport_manager(transport_manager),
+	src_addr(src_addr), dst_addr(dst_addr) {
 	if(
 		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
 		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
@@ -237,6 +240,11 @@ template<typename DelegateType>
 void TcpTransport<DelegateType>::close(uint16_t reason) {
 	close_reason = reason;
 	uv_close((uv_handle_t *)socket, close_cb);
+}
+
+template<typename DelegateType>
+bool TcpTransport<DelegateType>::is_internal() {
+	return internal;
 }
 
 } // namespace asyncio
