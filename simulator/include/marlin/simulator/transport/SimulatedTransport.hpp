@@ -36,6 +36,8 @@ public:
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
+	bool internal = false;
+
 	DelegateType* delegate = nullptr;
 
 	SimulatedTransport(
@@ -76,7 +78,15 @@ SimulatedTransport<
 	core::TransportManager<SelfType>& transport_manager,
 	EventManager& manager
 ) : interface(interface), transport_manager(transport_manager),
-	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {}
+	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {
+	if(
+		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("192.168.0.0/16").does_contain_address(dst_addr)
+	) {
+		internal = true;
+	}
+}
 
 
 template<

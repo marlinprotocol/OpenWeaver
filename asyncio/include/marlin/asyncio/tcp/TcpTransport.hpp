@@ -49,7 +49,7 @@ public:
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
-	bool internal;
+	bool internal = false;
 
 	DelegateType *delegate;
 
