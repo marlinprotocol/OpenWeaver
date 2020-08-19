@@ -82,7 +82,8 @@ UdpTransport<DelegateType>::UdpTransport(
 	if(
 		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
 		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
-		core::CidrBlock::from_string("192.168.0.0/16").does_contain_address(dst_addr)
+		core::CidrBlock::from_string("192.168.0.0/16").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("127.0.0.0/8").does_contain_address(dst_addr)
 	) {
 		internal = true;
 	}
