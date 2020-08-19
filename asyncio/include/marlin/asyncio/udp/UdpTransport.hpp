@@ -64,6 +64,8 @@ public:
 	int send(core::Buffer &&packet);
 	int send(MessageType &&packet);
 	void close(uint16_t reason = 0);
+
+	bool is_internal();
 };
 
 
@@ -183,6 +185,11 @@ void UdpTransport<DelegateType>::close(uint16_t reason) {
 		data->transport = nullptr;
 	}
 	transport_manager.erase(dst_addr);
+}
+
+template<typename DelegateType>
+bool UdpTransport<DelegateType>::is_internal() {
+	return internal;
 }
 
 } // namespace asyncio
