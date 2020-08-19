@@ -12,6 +12,7 @@
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/CidrBlock.hpp>
 #include <marlin/core/TransportManager.hpp>
 #include <uv.h>
 #include <spdlog/spdlog.h>
@@ -46,6 +47,8 @@ public:
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
+	bool internal = false;
+
 	DelegateType *delegate = nullptr;
 
 	UdpTransport(
@@ -68,12 +71,20 @@ public:
 
 template<typename DelegateType>
 UdpTransport<DelegateType>::UdpTransport(
-	core::SocketAddress const &_src_addr,
-	core::SocketAddress const &_dst_addr,
-	uv_udp_t *_socket,
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
+	uv_udp_t *socket,
 	core::TransportManager<UdpTransport<DelegateType>> &transport_manager
-) : socket(_socket), transport_manager(transport_manager),
-	src_addr(_src_addr), dst_addr(_dst_addr), delegate(nullptr) {}
+) : socket(socket), transport_manager(transport_manager),
+	src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
+	if(
+		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("192.168.0.0/16").does_contain_address(dst_addr)
+	) {
+		internal = true;
+	}
+}
 
 
 //! sets up the delegate when building an application or Higher Order Transport (Transport) over this transport
