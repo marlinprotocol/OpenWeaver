@@ -6,6 +6,7 @@
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/CidrBlock.hpp>
 #include <marlin/core/TransportManager.hpp>
 
 
@@ -57,6 +58,8 @@ public:
 		core::SocketAddress const& addr,
 		core::Buffer&& message
 	);
+
+	bool is_internal();
 };
 
 
@@ -161,6 +164,19 @@ void SimulatedTransport<
 	core::Buffer&& message
 ) {
 	delegate->did_recv_packet(*this, std::move(message));
+}
+
+template<
+	typename EventManager,
+	typename NetworkInterfaceType,
+	typename DelegateType
+>
+bool SimulatedTransport<
+	EventManager,
+	NetworkInterfaceType,
+	DelegateType
+>::is_internal() {
+	return internal;
 }
 
 } // namespace simulator
