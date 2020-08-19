@@ -153,7 +153,7 @@ int LpfTransport<
 	uint16_t stream_id
 ) {
 	if constexpr (should_cut_through) {
-		if(should_cut_through && stream_id >= 10 && stream_id < 20) {
+		if(transport.is_internal() && stream_id >= 10 && stream_id < 20) {
 			auto &rbuf = cut_through_buffers[stream_id];
 
 			if(rbuf.id == 0) { // New buf
