@@ -6,6 +6,7 @@
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/core/SocketAddress.hpp>
+#include <marlin/core/CidrBlock.hpp>
 #include <marlin/core/TransportManager.hpp>
 
 
@@ -36,6 +37,8 @@ public:
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
 
+	bool internal = false;
+
 	DelegateType* delegate = nullptr;
 
 	SimulatedTransport(
@@ -55,6 +58,8 @@ public:
 		core::SocketAddress const& addr,
 		core::Buffer&& message
 	);
+
+	bool is_internal();
 };
 
 
@@ -76,7 +81,16 @@ SimulatedTransport<
 	core::TransportManager<SelfType>& transport_manager,
 	EventManager& manager
 ) : interface(interface), transport_manager(transport_manager),
-	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {}
+	manager(manager), src_addr(src_addr), dst_addr(dst_addr) {
+	if(
+		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("192.168.0.0/16").does_contain_address(dst_addr) ||
+		core::CidrBlock::from_string("127.0.0.0/8").does_contain_address(dst_addr)
+	) {
+		internal = true;
+	}
+}
 
 
 template<
@@ -151,6 +165,19 @@ void SimulatedTransport<
 	core::Buffer&& message
 ) {
 	delegate->did_recv_packet(*this, std::move(message));
+}
+
+template<
+	typename EventManager,
+	typename NetworkInterfaceType,
+	typename DelegateType
+>
+bool SimulatedTransport<
+	EventManager,
+	NetworkInterfaceType,
+	DelegateType
+>::is_internal() {
+	return internal;
 }
 
 } // namespace simulator

@@ -288,6 +288,8 @@ public:
 	/// Can be used to skip sending data that we sent partially but can't send anymore
 	void flush_stream(uint16_t stream_id);
 
+	bool is_internal();
+
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -2286,6 +2288,11 @@ void StreamTransport<DelegateType, DatagramTransport>::flush_stream(
 
 	stream.state_timer_interval = 1000;
 	stream.state_timer.template start<Self, SendStream, &Self::flush_timer_cb>(stream.state_timer_interval, 0);
+}
+
+template<typename DelegateType, template<typename> class DatagramTransport>
+bool StreamTransport<DelegateType, DatagramTransport>::is_internal() {
+	return transport.is_internal();
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
