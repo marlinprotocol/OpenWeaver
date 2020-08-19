@@ -66,6 +66,8 @@ public:
 		core::TransportManager<Self> &transport_manager
 	);
 
+	bool is_internal();
+
 	void setup(DelegateType *delegate, uint8_t const* keys = nullptr);
 
 	int send(core::Buffer &&message);
@@ -283,6 +285,21 @@ LpfTransport<
 	BaseTransport &transport,
 	core::TransportManager<Self> &transport_manager
 ) : transport(transport), transport_manager(transport_manager), src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {}
+
+template<
+	typename DelegateType,
+	template<typename> class StreamTransportType,
+	bool should_cut_through,
+	int prefix_length
+>
+bool LpfTransport<
+	DelegateType,
+	StreamTransportType,
+	should_cut_through,
+	prefix_length
+>::is_internal() {
+	return transport.is_internal();
+}
 
 template<
 	typename DelegateType,
