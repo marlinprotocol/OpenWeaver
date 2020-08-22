@@ -598,6 +598,15 @@ void PUBSUBNODETYPE::send_RESPONSE(
 	transport.send(std::move(m));
 }
 
+
+bool check_reward_worthy(core::Buffer bytes) {
+	return true;
+}
+
+Buffer encrypt_message(MessageHeaderType header, uint8_t key) {
+
+}
+
 //! Callback on receipt of message data
 /*!
 	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
@@ -650,7 +659,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		}
 
 		header.witness_data = bytes.data();
-		header.witness_size = wit_opt.value();
+		header.witness_size = wit_opt.value(); 
 		res = bytes.cover(header.witness_size);
 
 		if(!res) {
@@ -679,6 +688,58 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			);
 		}
 
+		if(!transport.is_internal() && check_reward_worthy(bytes.data())) {
+			Buffer out;
+			uint8_t hash[32];
+			CryptoPP::Keccak_256 hasher;
+			hasher.CalculateTruncatedDigest(hash, 32, header.attestation_data, header.attestation_size);
+			hasher.update((uint8_t*)header.witness_data, header.witness_size);
+			hasher.update(hash, 32);
+			hasher.TruncatedFinal(hash, 32);
+
+			// ABCInterface abci
+			auto* key = abci.get_key();
+			if(key == nullptr) {
+				std::cout << "Key not created" << std::endl;
+				return -1;
+			}
+
+			secp256k1_context* ctx_signer = nullptr;
+			// Sign
+			secp256k1_ecdsa_recoverable_signature sig;
+			auto res = secp256k1_ecdsa_sign_recoverable(
+				ctx_signer,
+				&sig,
+				hash,
+				key,
+				nullptr,
+				nullptr
+			);
+
+			if(res == 0) {
+				// Sign failed
+				std::cout << "Signing of message failed" << std::endl;
+				return -1;
+			}
+
+			// Output
+			int recid;
+			secp256k1_ecdsa_recoverable_signature_serialize_compact(
+				ctx_signer,
+				out.data()+offset+16,
+				&recid,
+				&sig
+			);
+
+			out.data()[offset+80] = (uint8_t)recid;
+
+
+
+			auto destination_address = transport.src_addr;
+			auto receipt = encrypt_message(header, relayerKey);
+			transport.send(receipt);
+		}
+
 		// Call delegate with old witness
 		delegate->did_recv_message(
 			*this,
@@ -691,6 +752,23 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 	return 0;
 }
+
+
+
+// int PUBSUBNODETYPE::did_recv_RECEIPT(
+// 	BaseTransport &transport,
+// 	core::Buffer &&bytes
+// ) {
+	
+// 	if(check_reward_worthy(bytes)) {
+// 		// Send message back to 'transport.src_addr	' 
+// 		auto channel = bytes.read_uint16_be_unsafe(8);
+// 		send_message_on_channel
+// 	}
+
+}
+
+
 
 
 /*!
