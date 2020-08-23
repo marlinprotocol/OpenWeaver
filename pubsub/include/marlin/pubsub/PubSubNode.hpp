@@ -689,7 +689,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		}
 
 		if(!transport.is_internal() && check_reward_worthy(bytes.data())) {
-			Buffer out;
+			core::Buffer out;
 			uint8_t hash[32];
 			CryptoPP::Keccak_256 hasher;
 			hasher.CalculateTruncatedDigest(hash, 32, header.attestation_data, header.attestation_size);
@@ -726,12 +726,12 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			int recid;
 			secp256k1_ecdsa_recoverable_signature_serialize_compact(
 				ctx_signer,
-				out.data()+offset+16,
+				out.data(),
 				&recid,
 				&sig
 			);
 
-			out.data()[offset+80] = (uint8_t)recid;
+			out.data()[64] = (uint8_t)recid;
 
 
 
