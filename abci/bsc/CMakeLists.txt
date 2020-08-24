@@ -84,17 +84,18 @@ endforeach(TEST_SOURCE)
 ##########################################################
 
 set(EXAMPLE_SOURCES
+	examples/abci.cpp
 )
 
 add_custom_target(abci_bsc_examples)
 foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
 	get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
-	add_executable(${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
-	target_link_libraries(${EXAMPLE_NAME}_example PUBLIC abci_bsc)
-	target_compile_options(${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-	target_compile_features(${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
+	add_executable(bsc_${EXAMPLE_NAME}_example ${EXAMPLE_SOURCE})
+	target_link_libraries(bsc_${EXAMPLE_NAME}_example PUBLIC abci_bsc)
+	target_compile_options(bsc_${EXAMPLE_NAME}_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_compile_features(bsc_${EXAMPLE_NAME}_example PRIVATE cxx_std_17)
 
-	add_dependencies(abci_bsc_examples ${EXAMPLE_NAME}_example)
+	add_dependencies(abci_bsc_examples bsc_${EXAMPLE_NAME}_example)
 endforeach(EXAMPLE_SOURCE)
 
 
