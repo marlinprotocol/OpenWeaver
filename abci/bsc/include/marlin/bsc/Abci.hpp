@@ -13,17 +13,6 @@ public:
 	using SelfType = Abci<DelegateType>;
 private:
 	uv_pipe_t* pipe;
-
-	static void connect_cb(uv_connect_t* req, int status) {
-		if(status < 0) {
-			SPDLOG_ERROR("Abci connection error: {}", status);
-			return;
-		}
-
-		auto* abci = (SelfType*)req->data;
-		delete req;
-		abci->delegate->did_connect(*abci);
-	}
 public:
 	DelegateType* delegate;
 
@@ -34,7 +23,21 @@ public:
 
 		auto req = new uv_connect_t();
 		req->data = this;
-		uv_pipe_connect(req, pipe, (datadir + "/geth.ipc").c_str(), connect_cb);
+		uv_pipe_connect(
+			req,
+			pipe,
+			(datadir + "/geth.ipc").c_str(),
+			[](uv_connect_t* req, int status) {
+				if(status < 0) {
+					SPDLOG_ERROR("Abci connection error: {}", status);
+					return;
+				}
+
+				auto* abci = (SelfType*)req->data;
+				delete req;
+				abci->delegate->did_connect(*abci);
+			}
+		);
 	}
 };
 
