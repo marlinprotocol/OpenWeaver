@@ -3,6 +3,7 @@
 #include <marlin/asyncio/core/EventLoop.hpp>
 
 using namespace marlin::bsc;
+using namespace marlin::asyncio;
 
 struct Delegate {
 	template<typename AbciType>
@@ -11,5 +12,5 @@ struct Delegate {
 
 int main() {
 	Abci<Delegate> abci("~/.bsc");
-	return marlin::asyncio::EventLoop::run();
+	return EventLoop::run();
 }
