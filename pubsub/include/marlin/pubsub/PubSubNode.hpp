@@ -689,14 +689,12 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		}
 
 		if(!transport.is_internal() && check_reward_worthy(bytes.data())) {
-			core::Buffer out;
+			core::WeakBuffer blockHeader = abci.get_header(bytes);
+
 			uint8_t hash[32];
 			CryptoPP::Keccak_256 hasher;
-			hasher.CalculateTruncatedDigest(hash, 32, header.attestation_data, header.attestation_size);
-			hasher.update((uint8_t*)header.witness_data, header.witness_size);
-			hasher.update(hash, 32);
-			hasher.TruncatedFinal(hash, 32);
-
+			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.buf, blockHeader.capacity);
+			
 			// ABCInterface abci
 			auto* key = abci.get_key();
 			if(key == nullptr) {
@@ -704,7 +702,8 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 				return -1;
 			}
 
-			secp256k1_context* ctx_signer = nullptr;
+			secp256k1_context* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+
 			// Sign
 			secp256k1_ecdsa_recoverable_signature sig;
 			auto res = secp256k1_ecdsa_sign_recoverable(
@@ -724,6 +723,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			// Output
 			int recid;
+			core::Buffer out = Buffer(65);
 			secp256k1_ecdsa_recoverable_signature_serialize_compact(
 				ctx_signer,
 				out.data(),
@@ -733,11 +733,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			out.data()[64] = (uint8_t)recid;
 
-
-
-			auto destination_address = transport.src_addr;
-			auto receipt = encrypt_message(header, relayerKey);
-			transport.send(receipt);
+			transport.send(std::move(out));
 		}
 
 		// Call delegate with old witness
