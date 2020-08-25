@@ -6,10 +6,16 @@
 
 using namespace marlin::bsc;
 using namespace marlin::asyncio;
+using namespace marlin::core;
 
 struct Delegate {
 	template<typename AbciType>
 	void did_connect(AbciType&) {}
+
+	template<typename AbciType>
+	void did_recv(AbciType&, Buffer&& bytes) {
+		SPDLOG_INFO("{.{}s}", bytes.data(), bytes.size());
+	}
 };
 
 struct Options {
