@@ -3,6 +3,8 @@
 
 #include <uv.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
+#include <marlin/core/Buffer.hpp>
 
 namespace marlin {
 namespace bsc {
@@ -13,6 +15,42 @@ public:
 	using SelfType = Abci<DelegateType>;
 private:
 	uv_pipe_t* pipe;
+
+	static void recv_cb(
+		uv_stream_t* handle,
+		ssize_t nread,
+		uv_buf_t const* buf
+	) {
+		auto* abci = (SelfType*)handle->data;
+
+		// EOF
+		if(nread == -4095) {
+			// TODO: Close pipe
+			delete[] buf->base;
+			return;
+		}
+
+		// Error
+		if(nread < 0) {
+			SPDLOG_ERROR(
+				"Abci: Recv callback error: {}",
+				nread
+			);
+
+			delete[] buf->base;
+			return;
+		}
+
+		if(nread == 0) {
+			delete[] buf->base;
+			return;
+		}
+
+		abci->delegate->did_recv(
+			*abci,
+			core::Buffer((uint8_t*)buf->base, nread)
+		);
+	}
 public:
 	DelegateType* delegate;
 
@@ -36,6 +74,26 @@ public:
 				auto* abci = (SelfType*)req->data;
 				delete req;
 				abci->delegate->did_connect(*abci);
+
+				auto res = uv_read_start(
+					(uv_stream_t*)abci->pipe,
+					[](
+						uv_handle_t*,
+						size_t suggested_size,
+						uv_buf_t* buf
+					) {
+						buf->base = new char[suggested_size];
+						buf->len = suggested_size;
+					},
+					recv_cb
+				);
+
+				if (res < 0) {
+					SPDLOG_ERROR(
+						"Abci: Read start error: {}",
+						res
+					);
+				}
 			}
 		);
 	}
