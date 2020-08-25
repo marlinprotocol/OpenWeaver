@@ -51,10 +51,41 @@ private:
 			core::Buffer((uint8_t*)buf->base, nread)
 		);
 	}
+
+	static void connect_cb(uv_connect_t* req, int status) {
+		if(status < 0) {
+			SPDLOG_ERROR("Abci connection error: {}", status);
+			return;
+		}
+
+		auto* abci = (SelfType*)req->data;
+		delete req;
+		abci->delegate->did_connect(*abci);
+
+		auto res = uv_read_start(
+			(uv_stream_t*)abci->pipe,
+			[](
+				uv_handle_t*,
+				size_t suggested_size,
+				uv_buf_t* buf
+			) {
+				buf->base = new char[suggested_size];
+				buf->len = suggested_size;
+			},
+			recv_cb
+		);
+
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Abci: Read start error: {}",
+				res
+			);
+		}
+	}
 public:
 	DelegateType* delegate;
 
-	Abci(std::string datadir) {
+	Abci(std::string datadir) : connect_timer(this) {
 		pipe = new uv_pipe_t();
 		pipe->data = this;
 		uv_pipe_init(uv_default_loop(), pipe, 0);
@@ -65,36 +96,7 @@ public:
 			req,
 			pipe,
 			(datadir + "/geth.ipc").c_str(),
-			[](uv_connect_t* req, int status) {
-				if(status < 0) {
-					SPDLOG_ERROR("Abci connection error: {}", status);
-					return;
-				}
-
-				auto* abci = (SelfType*)req->data;
-				delete req;
-				abci->delegate->did_connect(*abci);
-
-				auto res = uv_read_start(
-					(uv_stream_t*)abci->pipe,
-					[](
-						uv_handle_t*,
-						size_t suggested_size,
-						uv_buf_t* buf
-					) {
-						buf->base = new char[suggested_size];
-						buf->len = suggested_size;
-					},
-					recv_cb
-				);
-
-				if (res < 0) {
-					SPDLOG_ERROR(
-						"Abci: Read start error: {}",
-						res
-					);
-				}
-			}
+			connect_cb
 		);
 	}
 
