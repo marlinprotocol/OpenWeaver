@@ -97,6 +97,38 @@ public:
 			}
 		);
 	}
+
+	void get_block_number() {
+		std::string rpc = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":0}";
+
+		auto* req = new uv_write_t();
+		req->data = this;
+
+		auto buf = uv_buf_init(rpc.data(), rpc.size());
+		int res = uv_write(
+			req,
+			(uv_stream_t*)pipe,
+			&buf,
+			1,
+			[](uv_write_t *req, int status) {
+				if(status < 0) {
+					SPDLOG_ERROR(
+						"Abci: Send callback error: {}",
+						status
+					);
+				}
+
+				delete req;
+			}
+		);
+
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Abci: Send error: {}",
+				res
+			);
+		}
+	}
 };
 
 }  // namespace bsc

@@ -10,11 +10,13 @@ using namespace marlin::core;
 
 struct Delegate {
 	template<typename AbciType>
-	void did_connect(AbciType&) {}
+	void did_connect(AbciType& abci) {
+		abci.get_block_number();
+	}
 
 	template<typename AbciType>
 	void did_recv(AbciType&, Buffer&& bytes) {
-		SPDLOG_INFO("{.{}s}", bytes.data(), bytes.size());
+		SPDLOG_INFO("{:.{}s}", bytes.data(), bytes.size());
 	}
 };
 
