@@ -22,9 +22,12 @@ int main(int argc, char** argv) {
 		auto options = structopt::app("abci").parse<Options>(argc, argv);
 
 		Abci<Delegate> abci(options.datadir);
+
+		return EventLoop::run();
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
 		SPDLOG_ERROR("{}", e.help());
 	}
-	return EventLoop::run();
+
+	return -1;
 }
