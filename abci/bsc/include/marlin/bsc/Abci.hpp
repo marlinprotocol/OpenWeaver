@@ -63,10 +63,12 @@ private:
 		auto* abci = (SelfType*)req->data;
 
 		if(status < 0) {
-			abci->connect_timer.template start<
-				SelfType,
-				&SelfType::connect_timer_cb
-			>(abci->connect_timer_interval, 0);
+			if(status != -106) {  // Already connected
+				abci->connect_timer.template start<
+					SelfType,
+					&SelfType::connect_timer_cb
+				>(abci->connect_timer_interval, 0);
+			}
 			return;
 		}
 
