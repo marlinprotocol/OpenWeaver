@@ -129,6 +129,13 @@ public:
 			);
 		}
 	}
+
+	void close() {
+		uv_close((uv_handle_t*)pipe, [](uv_handle_t* handle) {
+			delete handle;
+		});
+		delegate->did_close(*this);
+	}
 };
 
 }  // namespace bsc

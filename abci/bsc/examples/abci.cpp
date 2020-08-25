@@ -18,6 +18,11 @@ struct Delegate {
 	void did_recv(AbciType&, Buffer&& bytes) {
 		SPDLOG_INFO("{:.{}s}", bytes.data(), bytes.size());
 	}
+
+	template<typename AbciType>
+	void did_close(AbciType&) {
+		SPDLOG_INFO("Did close");
+	}
 };
 
 struct Options {
