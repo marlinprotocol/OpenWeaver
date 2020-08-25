@@ -25,7 +25,7 @@ private:
 
 		// EOF
 		if(nread == -4095) {
-			// TODO: Close pipe
+			abci->close();
 			delete[] buf->base;
 			return;
 		}
