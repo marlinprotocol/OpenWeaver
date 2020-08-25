@@ -5,7 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <marlin/core/Buffer.hpp>
-#include <marlin/asyncio/Timer.hpp>
+#include <marlin/asyncio/core/Timer.hpp>
 
 namespace marlin {
 namespace bsc {
@@ -43,6 +43,7 @@ private:
 				nread
 			);
 
+			abci->close();
 			delete[] buf->base;
 			return;
 		}
@@ -59,13 +60,18 @@ private:
 	}
 
 	static void connect_cb(uv_connect_t* req, int status) {
+		auto* abci = (SelfType*)req->data;
+
 		if(status < 0) {
-			SPDLOG_ERROR("Abci connection error: {}", status);
+			abci->connect_timer.template start<
+				SelfType,
+				&SelfType::connect_timer_cb
+			>(abci->connect_timer_interval, 0);
 			return;
 		}
 
-		auto* abci = (SelfType*)req->data;
 		delete req;
+		abci->connect_timer_interval = 1000;
 		abci->delegate->did_connect(*abci);
 
 		auto res = uv_read_start(
@@ -86,10 +92,12 @@ private:
 				"Abci: Read start error: {}",
 				res
 			);
+			abci->close();
 		}
 	}
 
 	void connect_timer_cb() {
+		SPDLOG_INFO("Abci: Connecting");
 		connect_timer_interval *= 2;
 		if(connect_timer_interval > 64000) {
 			connect_timer_interval = 64000;
@@ -106,8 +114,9 @@ private:
 	}
 public:
 	DelegateType* delegate;
+	std::string datadir;
 
-	Abci(std::string datadir) : connect_timer(this) {
+	Abci(std::string datadir) : connect_timer(this), datadir(datadir) {
 		pipe = new uv_pipe_t();
 		pipe->data = this;
 		uv_pipe_init(uv_default_loop(), pipe, 0);
