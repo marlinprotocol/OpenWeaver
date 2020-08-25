@@ -82,13 +82,12 @@ private:
 			);
 		}
 	}
-public:
-	DelegateType* delegate;
 
-	Abci(std::string datadir) : connect_timer(this) {
-		pipe = new uv_pipe_t();
-		pipe->data = this;
-		uv_pipe_init(uv_default_loop(), pipe, 0);
+	void connect_timer_cb() {
+		connect_timer_interval *= 2;
+		if(connect_timer_interval > 64000) {
+			connect_timer_interval = 64000;
+		}
 
 		auto req = new uv_connect_t();
 		req->data = this;
@@ -98,6 +97,16 @@ public:
 			(datadir + "/geth.ipc").c_str(),
 			connect_cb
 		);
+	}
+public:
+	DelegateType* delegate;
+
+	Abci(std::string datadir) : connect_timer(this) {
+		pipe = new uv_pipe_t();
+		pipe->data = this;
+		uv_pipe_init(uv_default_loop(), pipe, 0);
+
+		connect_timer_cb();
 	}
 
 	void get_block_number() {
