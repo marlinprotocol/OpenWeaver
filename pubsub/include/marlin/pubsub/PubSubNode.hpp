@@ -4,7 +4,7 @@
 
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
-
+		
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
@@ -20,8 +20,11 @@
 #include <random>
 #include <unordered_set>
 #include <tuple>
+#include "marlin/pubsub/ABCInterface.hpp"
 
+#include <secp256k1_recovery.h>
 #include <marlin/pubsub/PubSubTransportSet.hpp>
+#include <cryptopp/keccak.h>
 
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
@@ -113,7 +116,8 @@ public:
 private:
 	AttesterType attester;
 	WitnesserType witnesser;
-//---------------- Subscription management ----------------//
+	// ABCInterface& abci;
+// ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
 	typedef std::unordered_map<uint16_t, TransportSet> TransportSetMap;
@@ -599,13 +603,11 @@ void PUBSUBNODETYPE::send_RESPONSE(
 }
 
 
-bool check_reward_worthy(core::Buffer bytes) {
-	return true;
+bool check_reward_worthy(uint8_t *buf, size_t capacity) {
+	uint8_t tmp = buf[capacity - capacity]; // Just to use them so no error.
+	return tmp > 0;
 }
 
-Buffer encrypt_message(MessageHeaderType header, uint8_t key) {
-
-}
 
 //! Callback on receipt of message data
 /*!
@@ -688,15 +690,14 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			);
 		}
 
-		if(!transport.is_internal() && check_reward_worthy(bytes.data())) {
+		if(!transport.is_internal() && check_reward_worthy(bytes.data(), bytes.size())) {
+			ABCInterface abci;
 			core::WeakBuffer blockHeader = abci.get_header(bytes);
-
 			uint8_t hash[32];
 			CryptoPP::Keccak_256 hasher;
-			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.buf, blockHeader.capacity);
+			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.data(), blockHeader.size());
 			
-			// ABCInterface abci
-			auto* key = abci.get_key();
+			uint8_t* key = abci.get_key();
 			if(key == nullptr) {
 				std::cout << "Key not created" << std::endl;
 				return -1;
@@ -723,7 +724,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			// Output
 			int recid;
-			core::Buffer out = Buffer(65);
+			core::Buffer out(65);
 			secp256k1_ecdsa_recoverable_signature_serialize_compact(
 				ctx_signer,
 				out.data(),
@@ -761,9 +762,6 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 // 		auto channel = bytes.read_uint16_be_unsafe(8);
 // 		send_message_on_channel
 // 	}
-
-}
-
 
 
 
@@ -1023,7 +1021,9 @@ PUBSUBNODETYPE::PubSubNode(
 	std::move(witnesser_args),
 	std::index_sequence_for<AttesterArgs...>{},
 	std::index_sequence_for<WitnesserArgs...>{}
-) {}
+) {
+	// abci = ABCInterface();
+}
 
 template<PUBSUBNODE_TEMPLATE>
 template<
@@ -1054,7 +1054,7 @@ PUBSUBNODETYPE::PubSubNode(
 {
 	f.bind(addr);
 	f.listen(*this);
-
+	// abci = ABCInterface();
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
@@ -1561,5 +1561,4 @@ void PUBSUBNODETYPE::cut_through_recv_skip(
 
 } // namespace pubsub
 } // namespace marlin
-
 #endif // MARLIN_PUBSUB_PUBSUBNODE_HPP

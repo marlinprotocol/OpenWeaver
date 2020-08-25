@@ -10,6 +10,7 @@
 #include <marlin/core/BN.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
+#include "marlin/core/WeakBuffer.hpp"
 #include <marlin/asyncio/core/EventLoop.hpp>
 
 namespace marlin {
@@ -346,6 +347,10 @@ public:
 		if (have_key)
 			return private_key;
 		return nullptr;
+	}
+
+	core::WeakBuffer get_header(core::WeakBuffer bytes) {
+		return core::WeakBuffer(bytes.data(), bytes.size());
 	}
 
 };

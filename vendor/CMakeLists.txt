@@ -72,6 +72,7 @@ add_library(cryptopp STATIC IMPORTED GLOBAL)
 add_library(cryptopp::CryptoPP ALIAS cryptopp)
 add_dependencies(cryptopp libcryptopp)
 
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/include)
 set_target_properties(cryptopp PROPERTIES
 	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/lib/libcryptopp.a
 	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/cryptopp/include
