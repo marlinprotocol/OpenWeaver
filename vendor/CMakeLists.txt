@@ -104,3 +104,22 @@ add_subdirectory(boost)
 
 #-------- snappy --------#
 add_subdirectory(snappy)
+
+
+#-------- structopt --------#
+add_subdirectory(structopt)
+
+install(TARGETS structopt
+	EXPORT structopt-export
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(EXPORT structopt-export
+	FILE
+		StructoptTargets.cmake
+	NAMESPACE
+		structopt::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/structopt
+)
