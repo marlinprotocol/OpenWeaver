@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <marlin/core/Buffer.hpp>
+#include <marlin/asyncio/Timer.hpp>
 
 namespace marlin {
 namespace bsc {
@@ -15,6 +16,8 @@ public:
 	using SelfType = Abci<DelegateType>;
 private:
 	uv_pipe_t* pipe;
+	uint64_t connect_timer_interval = 1000;
+	asyncio::Timer connect_timer;
 
 	static void recv_cb(
 		uv_stream_t* handle,
@@ -25,7 +28,10 @@ private:
 
 		// EOF
 		if(nread == -4095) {
-			abci->close();
+			abci->connect_timer.template start<
+				SelfType,
+				&SelfType::connect_timer_cb
+			>(abci->connect_timer_interval, 0);
 			delete[] buf->base;
 			return;
 		}
