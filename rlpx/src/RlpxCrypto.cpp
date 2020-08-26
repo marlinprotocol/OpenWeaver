@@ -29,6 +29,15 @@ void RlpxCrypto::generate_key() {
 void RlpxCrypto::generate_ephemeral_key() {
 	ephemeral_private_key.Initialize(prng, CryptoPP::ASN1::secp256k1());
 	ephemeral_private_key.MakePublicKey(ephemeral_public_key);
+
+	// Generate a valid key pair
+	do {
+		CryptoPP::OS_GenerateRandomBlock(false, ephemeral_seckey, 32);
+	}
+	while(
+		secp256k1_ec_seckey_verify(ctx, ephemeral_seckey) != 1 &&
+		secp256k1_ec_pubkey_create(ctx, &ephemeral_pubkey, ephemeral_seckey) != 1
+	);
 }
 
 void RlpxCrypto::store_key() {
