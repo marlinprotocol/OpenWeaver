@@ -52,6 +52,12 @@ RlpxCrypto::RlpxCrypto() {
 	log_pub_key();
 	generate_ephemeral_key();
 	CryptoPP::OS_GenerateRandomBlock(false, nonce, 32);
+
+	ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+}
+
+RlpxCrypto::~RlpxCrypto() {
+	secp256k1_context_destroy(ctx);
 }
 
 bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {

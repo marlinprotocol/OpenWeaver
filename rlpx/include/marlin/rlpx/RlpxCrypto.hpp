@@ -23,6 +23,8 @@ private:
 		CryptoPP::SHA256
 	>::PublicKey static_public_key;
 
+	secp256k1_context* ctx = nullptr;
+
 	CryptoPP::ECDSA<
 		CryptoPP::ECP,
 		CryptoPP::SHA256
@@ -54,6 +56,7 @@ private:
 	void log_pub_key();
 public:
 	RlpxCrypto();
+	~RlpxCrypto();
 
 	bool ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out);
 	bool ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out);
