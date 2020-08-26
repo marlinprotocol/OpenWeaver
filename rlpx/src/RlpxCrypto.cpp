@@ -101,7 +101,81 @@ RlpxCrypto::~RlpxCrypto() {
 }
 
 bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
+	// in:
+	// 0	2	length
+	// 2	65	ecies pubkey (R)
+	// 67	16	iv
+	// 83	X	ciphertext
+	// 83+X	16	mac
+
+	// R
+	secp256k1_pubkey pubkey;
+	if(secp256k1_ec_pubkey_parse(ctx, &pubkey, in+2, 65) != 1) {
+		return false;
+	}
+
+	// Px, Py
+	if(secp256k1_ec_pubkey_tweak_mul(ctx, &pubkey, static_seckey) != 1) {
+		return false;
+	}
+
+	// S
+	uint8_t S[65];
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, S, &size, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+
 	using namespace CryptoPP;
+
+	// kE, kM
+	SHA256 sha256;
+	uint8_t c[4] = {0,0,0,1};
+	sha256.Update(c, 4);
+	sha256.Update(S+1, 32);
+	sha256.Update(nullptr, 0);
+	uint8_t kEM[32];
+	sha256.TruncatedFinal(kEM, 32);
+
+	// Verify hmac
+	sha256.Update(kEM + 16, 16);
+	uint8_t kMhash[32];
+	sha256.TruncatedFinal(kMhash, 32);
+
+	uint8_t digest[32];
+	HMAC<SHA256> hmac(kMhash, 32);
+	hmac.Update(in + 67, in_size - 99);
+	hmac.Update(in, 2);
+	hmac.TruncatedFinal(digest, 32);
+
+	bool is_verified = (std::memcmp(in + in_size - 32, digest, 32) == 0);
+
+	if(!is_verified) {
+		return false;
+	}
+
+	// Decrypt
+	CTR_Mode<AES>::Decryption d;
+	d.SetKeyWithIV(kEM, 16, in + 67, 16);
+
+	d.ProcessData(out, in + 83, in_size - 115);
+
+	// out:
+	// 0	1	0xf8
+	// 1	1	length
+	// 2	1	0xb8
+	// 3	1	0x41
+	// 4	65	remote eph sig
+	// 69	1	0xb8
+	// 70	1	0x40
+	// 71	64	remote static pubkey
+	// ...
+
+	// Set remote_static_pubkey
+	out[70] = 0x04;
+	if(secp256k1_ec_pubkey_parse(ctx, &remote_static_pubkey, out+70, 65) != 1) {
+		return false;
+	}
+
+	return true;
 
 	{
 		ECPPoint R(

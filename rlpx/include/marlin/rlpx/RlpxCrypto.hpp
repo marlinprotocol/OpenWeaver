@@ -14,6 +14,7 @@ namespace rlpx {
 
 class RlpxCrypto {
 private:
+	CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP> GroupParameters;
 	CryptoPP::AutoSeededRandomPool prng;
 
 	CryptoPP::ECDSA<
@@ -46,6 +47,8 @@ private:
 		CryptoPP::ECP,
 		CryptoPP::SHA256
 	>::PublicKey remote_static_public_key;
+
+	secp256k1_pubkey remote_static_pubkey;
 
 	uint8_t nonce[32];
 	uint8_t aess[32];
