@@ -65,8 +65,7 @@ private:
 		delete req;
 
 		SPDLOG_INFO("Abci: Status: {}", status);
-		if(status < 0 && status != -106) {  // 106 - Already connected
-			abci->delegate->did_disconnect(*abci);
+		if(status < 0) {
 			abci->connect_timer.template start<
 				SelfType,
 				&SelfType::connect_timer_cb
@@ -95,15 +94,7 @@ private:
 				"Abci: Read start error: {}",
 				res
 			);
-			if(res == -107) {  // 107 - No connection
-				abci->delegate->did_disconnect(*abci);
-				abci->connect_timer.template start<
-					SelfType,
-					&SelfType::connect_timer_cb
-				>(abci->connect_timer_interval, 0);
-			} else {
-				abci->close();
-			}
+			abci->close();
 		}
 	}
 
@@ -164,17 +155,7 @@ public:
 				"Abci: Send error: {}",
 				res
 			);
-
-			if(res == -32) {  // 32 - Broken pipe
-				this->delegate->did_disconnect(*this);
-				this->connect_timer.template start<
-					SelfType,
-					&SelfType::connect_timer_cb
-				>(this->connect_timer_interval, 0);
-				return;
-			} else {
-				this->close();
-			}
+			this->close();
 		}
 	}
 
