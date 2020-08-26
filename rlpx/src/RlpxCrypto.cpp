@@ -19,8 +19,7 @@ void RlpxCrypto::generate_key() {
 	// Generate a valid key pair
 	do {
 		CryptoPP::OS_GenerateRandomBlock(false, static_seckey, 32);
-	}
-	while(
+	} while(
 		secp256k1_ec_seckey_verify(ctx, static_seckey) != 1 &&
 		secp256k1_ec_pubkey_create(ctx, &static_pubkey, static_seckey) != 1
 	);
@@ -33,16 +32,21 @@ void RlpxCrypto::generate_ephemeral_key() {
 	// Generate a valid key pair
 	do {
 		CryptoPP::OS_GenerateRandomBlock(false, ephemeral_seckey, 32);
-	}
-	while(
+	} while(
 		secp256k1_ec_seckey_verify(ctx, ephemeral_seckey) != 1 &&
 		secp256k1_ec_pubkey_create(ctx, &ephemeral_pubkey, ephemeral_seckey) != 1
 	);
 }
 
 void RlpxCrypto::store_key() {
-	CryptoPP::FileSink fs("pkey.ec.der", true);
-	static_private_key.Save(fs);
+	CryptoPP::FileSink fsold("pkey.ec.der", true);
+	static_private_key.Save(fsold);
+
+	CryptoPP::FileSink fs("key.sec", true);
+	uint num = 32;
+	do {
+		num = fs.Put(static_seckey + (32 - num), num);
+	} while(num != 0);
 }
 
 void RlpxCrypto::load_key() {
