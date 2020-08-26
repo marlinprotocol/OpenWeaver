@@ -82,6 +82,8 @@ void RlpxCrypto::log_pub_key() {
 }
 
 RlpxCrypto::RlpxCrypto() {
+	ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+
 	try {
 		load_key();
 	} catch(CryptoPP::FileStore::OpenErr &e) {
@@ -92,8 +94,6 @@ RlpxCrypto::RlpxCrypto() {
 	log_pub_key();
 	generate_ephemeral_key();
 	CryptoPP::OS_GenerateRandomBlock(false, nonce, 32);
-
-	ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
 }
 
 RlpxCrypto::~RlpxCrypto() {
