@@ -15,6 +15,11 @@ struct Delegate {
 	}
 
 	template<typename AbciType>
+	void did_disconnect(AbciType&) {
+		SPDLOG_INFO("Did disconnect");
+	}
+
+	template<typename AbciType>
 	void did_recv(AbciType&, Buffer&& bytes) {
 		SPDLOG_INFO("{:.{}s}", bytes.data(), bytes.size());
 	}

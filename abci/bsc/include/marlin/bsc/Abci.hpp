@@ -28,6 +28,7 @@ private:
 
 		// EOF
 		if(nread == -4095) {
+			abci->delegate->did_disconnect(*abci);
 			abci->connect_timer.template start<
 				SelfType,
 				&SelfType::connect_timer_cb
@@ -61,18 +62,18 @@ private:
 
 	static void connect_cb(uv_connect_t* req, int status) {
 		auto* abci = (SelfType*)req->data;
+		delete req;
 
-		if(status < 0) {
-			if(status != -106) {  // Already connected
-				abci->connect_timer.template start<
-					SelfType,
-					&SelfType::connect_timer_cb
-				>(abci->connect_timer_interval, 0);
-			}
+		SPDLOG_INFO("Abci: Status: {}", status);
+		if(status < 0 && status != -106) {  // 106 - Already connected
+			abci->delegate->did_disconnect(*abci);
+			abci->connect_timer.template start<
+				SelfType,
+				&SelfType::connect_timer_cb
+			>(abci->connect_timer_interval, 0);
 			return;
 		}
 
-		delete req;
 		abci->connect_timer_interval = 1000;
 		abci->delegate->did_connect(*abci);
 
@@ -94,12 +95,22 @@ private:
 				"Abci: Read start error: {}",
 				res
 			);
-			abci->close();
+			if(res == -107) {  // 107 - No connection
+				abci->delegate->did_disconnect(*abci);
+				abci->connect_timer.template start<
+					SelfType,
+					&SelfType::connect_timer_cb
+				>(abci->connect_timer_interval, 0);
+			} else {
+				abci->close();
+			}
 		}
 	}
 
 	void connect_timer_cb() {
 		SPDLOG_INFO("Abci: Connecting");
+		// TODO: Is this correct? Seems to be required to make reconnects work
+		uv_pipe_init(uv_default_loop(), pipe, 0);
 		connect_timer_interval *= 2;
 		if(connect_timer_interval > 64000) {
 			connect_timer_interval = 64000;
@@ -121,7 +132,6 @@ public:
 	Abci(std::string datadir) : connect_timer(this), datadir(datadir) {
 		pipe = new uv_pipe_t();
 		pipe->data = this;
-		uv_pipe_init(uv_default_loop(), pipe, 0);
 
 		connect_timer_cb();
 	}
@@ -139,14 +149,13 @@ public:
 			&buf,
 			1,
 			[](uv_write_t *req, int status) {
+				delete req;
 				if(status < 0) {
 					SPDLOG_ERROR(
 						"Abci: Send callback error: {}",
 						status
 					);
 				}
-
-				delete req;
 			}
 		);
 
@@ -155,6 +164,17 @@ public:
 				"Abci: Send error: {}",
 				res
 			);
+
+			if(res == -32) {  // 32 - Broken pipe
+				this->delegate->did_disconnect(*this);
+				this->connect_timer.template start<
+					SelfType,
+					&SelfType::connect_timer_cb
+				>(this->connect_timer_interval, 0);
+				return;
+			} else {
+				this->close();
+			}
 		}
 	}
 
