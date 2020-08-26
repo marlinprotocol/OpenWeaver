@@ -74,7 +74,11 @@ void RlpxCrypto::log_pub_key() {
 	CryptoPP::StringSink ss(pubs);
 	static_public_key.DEREncodePublicKey(ss);
 
-	SPDLOG_INFO("Enode: enode://{:spn}@127.0.0.1:12121", spdlog::to_hex(pubs.substr(1)));
+	uint8_t pubkey[65];
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, pubkey, &size, &static_pubkey, SECP256K1_EC_UNCOMPRESSED);
+
+	SPDLOG_INFO("Enode: enode://{:spn}@127.0.0.1:12121", spdlog::to_hex(pubkey+1, pubkey+65));
 }
 
 RlpxCrypto::RlpxCrypto() {
