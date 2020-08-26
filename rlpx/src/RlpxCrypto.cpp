@@ -50,9 +50,23 @@ void RlpxCrypto::store_key() {
 }
 
 void RlpxCrypto::load_key() {
-	CryptoPP::FileSource fs("pkey.ec.der", true);
-	static_private_key.Load(fs);
+	CryptoPP::FileSource fsold("pkey.ec.der", true);
+	static_private_key.Load(fsold);
 	static_private_key.MakePublicKey(static_public_key);
+
+	// Load seckey
+	CryptoPP::FileSource fs("key.sec", true);
+	uint num = 0;
+	do {
+		num += fs.Get(static_seckey + num, 32 - num);
+	} while(num < 32);
+
+	// Load pubkey
+	if(secp256k1_ec_pubkey_create(ctx, &static_pubkey, static_seckey) != 1) {
+		// Make a new keypair on error
+		SPDLOG_ERROR("Invalid private key, creating a temporary");
+		generate_key();
+	}
 }
 
 void RlpxCrypto::log_pub_key() {
