@@ -7,6 +7,8 @@
 #include <cryptopp/sha.h>
 #include <cryptopp/modes.h>
 
+#include <secp256k1.h>
+
 namespace marlin {
 namespace rlpx {
 
@@ -24,6 +26,9 @@ private:
 	>::PublicKey static_public_key;
 
 	secp256k1_context* ctx = nullptr;
+
+	uint8_t static_seckey[32];
+	secp256k1_pubkey static_pubkey;
 
 	CryptoPP::ECDSA<
 		CryptoPP::ECP,

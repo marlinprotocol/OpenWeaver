@@ -15,6 +15,15 @@ namespace rlpx {
 void RlpxCrypto::generate_key() {
 	static_private_key.Initialize(prng, CryptoPP::ASN1::secp256k1());
 	static_private_key.MakePublicKey(static_public_key);
+
+	// Generate a valid key pair
+	do {
+		CryptoPP::OS_GenerateRandomBlock(false, static_seckey, 32);
+	}
+	while(
+		secp256k1_ec_seckey_verify(ctx, static_seckey) != 1 &&
+		secp256k1_ec_pubkey_create(ctx, &static_pubkey, static_seckey) != 1
+	);
 }
 
 void RlpxCrypto::generate_ephemeral_key() {
