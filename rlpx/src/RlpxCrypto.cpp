@@ -81,7 +81,7 @@ void RlpxCrypto::log_pub_key() {
 	SPDLOG_INFO("Enode: enode://{:spn}@127.0.0.1:12121", spdlog::to_hex(pubkey+1, pubkey+65));
 }
 
-RlpxCrypto::RlpxCrypto() {
+RlpxCrypto::RlpxCrypto() : GroupParameters(CryptoPP::ASN1::secp256k1()) {
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
 
 	try {
@@ -109,7 +109,7 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 			Integer(in + 35, 32)
 		);
 
-		ECP const &curve = CryptoPP::ASN1::secp256k1().GetCurve();
+		ECP const &curve = GroupParameters.GetCurve();
 		ECPPoint Pxy = curve.Multiply(static_private_key.GetPrivateExponent(), R);
 
 		uint8_t S[32];
@@ -164,7 +164,7 @@ bool RlpxCrypto::ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out) {
 			Integer(in + 33, 32)
 		);
 
-		ECP const &curve = CryptoPP::ASN1::secp256k1().GetCurve();
+		ECP const &curve = GroupParameters.GetCurve();
 		ECPPoint Pxy = curve.Multiply(static_private_key.GetPrivateExponent(), R);
 
 		uint8_t S[32];
@@ -214,9 +214,9 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	using namespace CryptoPP;
 
 	Integer r(prng, 32*8);
-	ECP const &curve = CryptoPP::ASN1::secp256k1().GetCurve();
+	ECP const &curve = GroupParameters.GetCurve();
 
-	ECPPoint R = CryptoPP::ASN1::secp256k1().ExponentiateBase(r);
+	ECPPoint R = GroupParameters.ExponentiateBase(r);
 	out[2] = 0x04;
 	R.x.Encode(out + 3, 32);
 	R.y.Encode(out + 35, 32);
@@ -300,17 +300,17 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 		Rx[0] = 2 + out[68];
 		std::memcpy(Rx+1, out+4, 32);
 
-		ECP const &curve = CryptoPP::ASN1::secp256k1().GetCurve();
+		ECP const &curve = GroupParameters.GetCurve();
 		ECPPoint R;
 		curve.DecodePoint(R, Rx, 33);
 
 		Integer S(out + 36, 32);
-		ModularArithmetic ma(CryptoPP::ASN1::secp256k1().GetGroupOrder());
+		ModularArithmetic ma(GroupParameters.GetGroupOrder());
 		Integer u1 = ma.Inverse(ma.Multiply(E, ma.MultiplicativeInverse(R.x)));
 		Integer u2 = ma.Multiply(S, ma.MultiplicativeInverse(R.x));
 
 		ECPPoint EPK = curve.Add(
-			CryptoPP::ASN1::secp256k1().ExponentiateBase(u1),
+			GroupParameters.ExponentiateBase(u1),
 			curve.Multiply(u2, R)
 		);
 
@@ -421,17 +421,17 @@ void RlpxCrypto::compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t a
 		Rx[0] = 2 + out[64];
 		std::memcpy(Rx+1, out, 32);
 
-		ECP const &curve = CryptoPP::ASN1::secp256k1().GetCurve();
+		ECP const &curve = GroupParameters.GetCurve();
 		ECPPoint R;
 		curve.DecodePoint(R, Rx, 33);
 
 		Integer S(out + 32, 32);
-		ModularArithmetic ma(CryptoPP::ASN1::secp256k1().GetGroupOrder());
+		ModularArithmetic ma(GroupParameters.GetGroupOrder());
 		Integer u1 = ma.Inverse(ma.Multiply(E, ma.MultiplicativeInverse(R.x)));
 		Integer u2 = ma.Multiply(S, ma.MultiplicativeInverse(R.x));
 
 		ECPPoint EPK = curve.Add(
-			CryptoPP::ASN1::secp256k1().ExponentiateBase(u1),
+			GroupParameters.ExponentiateBase(u1),
 			curve.Multiply(u2, R)
 		);
 
