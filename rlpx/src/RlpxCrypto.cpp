@@ -9,6 +9,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 
+#include <secp256k1_recovery.h>
+
 namespace marlin {
 namespace rlpx {
 
@@ -411,7 +413,113 @@ void RlpxCrypto::get_nonce(uint8_t *out) {
 }
 
 void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_size, uint8_t *ack, size_t ack_size) {
+	// authplain:
+	// 0	2	length
+	// 2	65	ecies pubkey (R)
+	// 67	16	iv
+	// 83	X	plaintext
+	// 83+X	16	mac
+
+	// plaintext:
+	// 0	1	0xf8
+	// 1	1	length
+	// 2	1	0xb8
+	// 3	1	0x41
+	// 4	65	remote eph sig
+	// 69	1	0xb8
+	// 70	1	0x40
+	// 71	64	remote static pubkey
+	// 135	1	0xa0
+	// 136	32	nonce
+
+	// sss
+	secp256k1_pubkey rspk = remote_static_pubkey;
+	if(secp256k1_ec_pubkey_tweak_mul(ctx, &rspk, static_seckey) != 1) {
+		return;
+	}
+	uint8_t sss[65];
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, sss, &size, &rspk, SECP256K1_EC_UNCOMPRESSED);
+
+	// remote_ephemeral_pubkey
+	secp256k1_ecdsa_recoverable_signature sig;
+	secp256k1_ecdsa_recoverable_signature_parse_compact(
+		ctx,
+		&sig,
+		authplain + 87,
+		authplain[151]
+	);
+	uint8_t m[32];
+	for(int i = 0; i < 32; i++) {
+		m[i] = sss[1+i] ^ authplain[219 + i];
+	}
+	secp256k1_pubkey repk;
+	if(secp256k1_ecdsa_recover(ctx, &repk, &sig, m) != 1) {
+		return;
+	}
+
+	// eph secret
+	if(secp256k1_ec_pubkey_tweak_mul(ctx, &repk, ephemeral_seckey) != 1) {
+		return;
+	}
+	uint8_t es[65];
+	size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, es, &size, &repk, SECP256K1_EC_UNCOMPRESSED);
+
 	using namespace CryptoPP;
+
+	uint8_t digest[32];
+
+	// hash(nonce || remote nonce)
+	Keccak_256 keccak256;
+	keccak256.Update(nonce, 32);
+	keccak256.Update(authplain + 219, 32);
+	keccak256.TruncatedFinal(digest, 32);
+
+	// shared-secret
+	keccak256.Update(es, 32);
+	keccak256.Update(digest, 32);
+	keccak256.TruncatedFinal(digest, 32);
+
+	// aes secret
+	keccak256.Update(es, 32);
+	keccak256.Update(digest, 32);
+	keccak256.TruncatedFinal(aess, 32);
+	SPDLOG_INFO("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
+
+	// mac secret
+	keccak256.Update(es, 32);
+	keccak256.Update(aess, 32);
+	keccak256.TruncatedFinal(macs, 32);
+	SPDLOG_INFO("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
+
+	// inititalize enc/dec
+	uint8_t iv[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	d.SetKeyWithIV(aess, 32, iv, 16);
+	encryption.SetKeyWithIV(aess, 32, iv, 16);
+
+	// egress mac
+	uint8_t temp[32];
+	for(int i = 0; i < 32; i++) {
+		temp[i] = macs[i] ^ authplain[219 + i];
+	}
+	egress_mac.Update(temp, 32);
+	egress_mac.Update(ack, ack_size);
+
+	// ingress mac
+	for(int i = 0; i < 32; i++) {
+		temp[i] = macs[i] ^ nonce[i];
+	}
+	ingress_mac.Update(temp, 32);
+	ingress_mac.Update(auth, auth_size);
+
+	auto temp_mac = ingress_mac;
+	temp_mac.TruncatedFinal(digest, 32);
+	SPDLOG_INFO("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+
+	temp_mac = egress_mac;
+	temp_mac.TruncatedFinal(digest, 32);
+	SPDLOG_INFO("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 
 	CryptoPP::ECDSA<
 		CryptoPP::ECP,
