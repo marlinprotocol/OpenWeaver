@@ -33,6 +33,9 @@ target_link_libraries(abci_bsc INTERFACE spdlog::spdlog_header_only)
 # structopt
 target_link_libraries(abci_bsc INTERFACE structopt::structopt)
 
+# rapidjson
+target_link_libraries(abci_bsc INTERFACE rapidjson)
+
 install(TARGETS abci_bsc
 	EXPORT marlin-abci-bsc-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
