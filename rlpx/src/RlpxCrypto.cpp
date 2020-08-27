@@ -354,33 +354,39 @@ bool RlpxCrypto::ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out) {
 }
 
 void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
-	using namespace CryptoPP;
-
-	Integer r(prng, 32*8);
-	ECP const &curve = GroupParameters.GetCurve();
-
-	ECPPoint R = GroupParameters.ExponentiateBase(r);
-	out[2] = 0x04;
-	R.x.Encode(out + 3, 32);
-	R.y.Encode(out + 35, 32);
-
-	ECPPoint Pxy = curve.Multiply(
-		r,
-		remote_static_public_key.GetPublicElement()
+	// Generate a random key pair
+	uint8_t seckey[32];
+	secp256k1_pubkey pubkey;
+	do {
+		CryptoPP::OS_GenerateRandomBlock(false, seckey, 32);
+	} while(
+		secp256k1_ec_seckey_verify(ctx, seckey) != 1 &&
+		secp256k1_ec_pubkey_create(ctx, &pubkey, seckey) != 1
 	);
 
-	uint8_t S[32];
-	Pxy.x.Encode(S, 32);
+	// Serialize pubkey
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, out+2, &size, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+
+	// Px, Py
+	secp256k1_pubkey Pxy = remote_static_pubkey;
+	if(secp256k1_ec_pubkey_tweak_mul(ctx, &Pxy, seckey) != 1) {
+		return;
+	}
+	uint8_t S[65];
+	size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, S, &size, &Pxy, SECP256K1_EC_UNCOMPRESSED);
+
+	using namespace CryptoPP;
 
 	SHA256 sha256;
 	uint8_t c[4] = {0,0,0,1};
 	sha256.Update(c, 4);
-	sha256.Update(S, 32);
+	sha256.Update(S+1, 32);
 	sha256.Update(nullptr, 0);
 	uint8_t kEM[32];
 	sha256.TruncatedFinal(kEM, 32);
 
-	sha256.Restart();
 	sha256.Update(kEM + 16, 16);
 	uint8_t kMhash[32];
 	sha256.TruncatedFinal(kMhash, 32);
@@ -396,6 +402,49 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	hmac.Update(out + 67, in_size + 16);
 	hmac.Update(out, 2);
 	hmac.TruncatedFinal(out + 83 + in_size, 32);
+
+	{
+		Integer r(prng, 32*8);
+		ECP const &curve = GroupParameters.GetCurve();
+
+		ECPPoint R = GroupParameters.ExponentiateBase(r);
+		out[2] = 0x04;
+		R.x.Encode(out + 3, 32);
+		R.y.Encode(out + 35, 32);
+
+		ECPPoint Pxy = curve.Multiply(
+			r,
+			remote_static_public_key.GetPublicElement()
+		);
+
+		uint8_t S[32];
+		Pxy.x.Encode(S, 32);
+
+		SHA256 sha256;
+		uint8_t c[4] = {0,0,0,1};
+		sha256.Update(c, 4);
+		sha256.Update(S, 32);
+		sha256.Update(nullptr, 0);
+		uint8_t kEM[32];
+		sha256.TruncatedFinal(kEM, 32);
+
+		sha256.Restart();
+		sha256.Update(kEM + 16, 16);
+		uint8_t kMhash[32];
+		sha256.TruncatedFinal(kMhash, 32);
+
+		OS_GenerateRandomBlock(false, out + 67, 16);
+
+		CTR_Mode<AES>::Encryption e;
+		e.SetKeyWithIV(kEM, 16, out + 67, 16);
+
+		e.ProcessData(out + 83, in, in_size);
+
+		HMAC<SHA256> hmac(kMhash, 32);
+		hmac.Update(out + 67, in_size + 16);
+		hmac.Update(out, 2);
+		hmac.TruncatedFinal(out + 83 + in_size, 32);
+	}
 }
 
 void RlpxCrypto::get_static_public_key(uint8_t *out) {
