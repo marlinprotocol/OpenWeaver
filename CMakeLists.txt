@@ -11,7 +11,8 @@ endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
-if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+option(COVERAGE "Code coverage" OFF)
+if(COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(--coverage)
 	add_link_options(--coverage)
 
