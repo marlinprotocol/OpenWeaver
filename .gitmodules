@@ -26,3 +26,6 @@
 [submodule "vendor/structopt"]
 	path = vendor/structopt
 	url = https://github.com/p-ranav/structopt.git
+[submodule "vendor/rapidjson"]
+	path = vendor/rapidjson
+	url = https://github.com/Tencent/rapidjson.git
