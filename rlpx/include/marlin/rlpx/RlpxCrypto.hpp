@@ -17,11 +17,6 @@ private:
 	CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP> GroupParameters;
 	CryptoPP::AutoSeededRandomPool prng;
 
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PrivateKey static_private_key;
-
 	secp256k1_context* ctx = nullptr;
 
 	uint8_t static_seckey[32];
