@@ -1,6 +1,7 @@
 #ifndef MARLIN_PUBSUB_ABCINTERFACE_HPP
 #define MARLIN_PUBSUB_ABCINTERFACE_HPP
 
+#include <iostream>
 #include <fstream>
 #include <experimental/filesystem>
 #include <sodium.h>
@@ -351,6 +352,11 @@ public:
 
 	core::WeakBuffer get_header(core::WeakBuffer bytes) {
 		return core::WeakBuffer(bytes.data(), bytes.size());
+	}
+
+	bool check_reward_worthy(core::WeakBuffer bytes) {
+		std::cout << bytes.size() << std::endl;
+		return true;
 	}
 
 };

@@ -4,12 +4,13 @@
 
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
-		
+
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 
+#include <iostream>
 #include <algorithm>
 #include <map>
 #include <string>
@@ -186,7 +187,6 @@ private:
 	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
 
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-
 	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
@@ -194,6 +194,7 @@ private:
 		std::string msg_string
 	);
 
+	int did_recv_RECEIPT(BaseTransport&, core::Buffer&&);
 	int did_recv_MESSAGE(BaseTransport &transport, core::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
@@ -603,12 +604,6 @@ void PUBSUBNODETYPE::send_RESPONSE(
 }
 
 
-bool check_reward_worthy(uint8_t *buf, size_t capacity) {
-	uint8_t tmp = buf[capacity - capacity]; // Just to use them so no error.
-	return tmp > 0;
-}
-
-
 //! Callback on receipt of message data
 /*!
 	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
@@ -661,7 +656,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		}
 
 		header.witness_data = bytes.data();
-		header.witness_size = wit_opt.value(); 
+		header.witness_size = wit_opt.value();
 		res = bytes.cover(header.witness_size);
 
 		if(!res) {
@@ -690,13 +685,13 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			);
 		}
 
-		if(!transport.is_internal() && check_reward_worthy(bytes.data(), bytes.size())) {
-			ABCInterface abci;
+		ABCInterface abci;
+		if(!transport.is_internal() && abci.check_reward_worthy(bytes)) {
 			core::WeakBuffer blockHeader = abci.get_header(bytes);
 			uint8_t hash[32];
 			CryptoPP::Keccak_256 hasher;
 			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.data(), blockHeader.size());
-			
+
 			uint8_t* key = abci.get_key();
 			if(key == nullptr) {
 				std::cout << "Key not created" << std::endl;
@@ -724,16 +719,17 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			// Output
 			int recid;
-			core::Buffer out(65);
+			core::Buffer out(66);
+			int offset = 1;
+			out.data()[0] = 4;
 			secp256k1_ecdsa_recoverable_signature_serialize_compact(
 				ctx_signer,
-				out.data(),
+				out.data() + offset,
 				&recid,
 				&sig
 			);
-
-			out.data()[64] = (uint8_t)recid;
-
+			out.data()[65] = (uint8_t)recid;
+			secp256k1_context_destroy(ctx_signer);
 			transport.send(std::move(out));
 		}
 
@@ -751,18 +747,10 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 }
 
 
-
-// int PUBSUBNODETYPE::did_recv_RECEIPT(
-// 	BaseTransport &transport,
-// 	core::Buffer &&bytes
-// ) {
-	
-// 	if(check_reward_worthy(bytes)) {
-// 		// Send message back to 'transport.src_addr	' 
-// 		auto channel = bytes.read_uint16_be_unsafe(8);
-// 		send_message_on_channel
-// 	}
-
+template<PUBSUBNODE_TEMPLATE>
+int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&&) {
+	return 1;
+}
 
 
 /*!
@@ -937,8 +925,11 @@ int PUBSUBNODETYPE::did_recv_message(
 		// MESSAGE
 		case 3: return this->did_recv_MESSAGE(transport, std::move(bytes));
 		break;
+		// RECEIPT
+		case 4: return this->did_recv_RECEIPT(transport, std::move(bytes));
+		break;
 		// HEARTBEAT, ignore
-		case 4:
+		case 5:
 		break;
 	}
 
