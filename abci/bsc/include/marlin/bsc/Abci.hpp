@@ -2,6 +2,7 @@
 #define MARLIN_BSC_ABCI
 
 #include <uv.h>
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <marlin/core/Buffer.hpp>
@@ -164,6 +165,45 @@ public:
 			delete handle;
 		});
 		delegate->did_close(*this);
+	}
+
+	void analyze_block(uint64_t id, core::WeakBuffer block) {
+		std::string hex_block("0x");
+		hex_block.reserve(2 + block.size()*2);
+
+		for(size_t i = 0; i < block.size(); i++) {
+			hex_block += fmt::format("{:x}", block.data()[i]);
+		}
+
+		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_spamCheckBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
+
+		auto* req = new uv_write_t();
+		req->data = this;
+
+		auto buf = uv_buf_init(rpc.data(), rpc.size());
+		int res = uv_write(
+			req,
+			(uv_stream_t*)pipe,
+			&buf,
+			1,
+			[](uv_write_t *req, int status) {
+				delete req;
+				if(status < 0) {
+					SPDLOG_ERROR(
+						"Abci: Send callback error: {}",
+						status
+					);
+				}
+			}
+		);
+
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Abci: Send error: {}",
+				res
+			);
+			this->close();
+		}
 	}
 };
 
