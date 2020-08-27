@@ -22,15 +22,6 @@ private:
 	uint8_t static_seckey[32];
 	secp256k1_pubkey static_pubkey;
 
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PrivateKey ephemeral_private_key;
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PublicKey ephemeral_public_key;
-
 	uint8_t ephemeral_seckey[32];
 	secp256k1_pubkey ephemeral_pubkey;
 
