@@ -19,7 +19,7 @@ void RlpxCrypto::generate_key() {
 	do {
 		CryptoPP::OS_GenerateRandomBlock(false, static_seckey, 32);
 	} while(
-		secp256k1_ec_seckey_verify(ctx, static_seckey) != 1 &&
+		secp256k1_ec_seckey_verify(ctx, static_seckey) != 1 ||
 		secp256k1_ec_pubkey_create(ctx, &static_pubkey, static_seckey) != 1
 	);
 }
@@ -29,7 +29,7 @@ void RlpxCrypto::generate_ephemeral_key() {
 	do {
 		CryptoPP::OS_GenerateRandomBlock(false, ephemeral_seckey, 32);
 	} while(
-		secp256k1_ec_seckey_verify(ctx, ephemeral_seckey) != 1 &&
+		secp256k1_ec_seckey_verify(ctx, ephemeral_seckey) != 1 ||
 		secp256k1_ec_pubkey_create(ctx, &ephemeral_pubkey, ephemeral_seckey) != 1
 	);
 }
@@ -98,6 +98,7 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	if(secp256k1_ec_pubkey_parse(ctx, &pubkey, in+2, 65) != 1) {
 		return false;
 	}
+	SPDLOG_DEBUG("R: {}", spdlog::to_hex(in+2, in+67));
 
 	// Px, Py
 	if(secp256k1_ec_pubkey_tweak_mul(ctx, &pubkey, static_seckey) != 1) {
@@ -108,6 +109,7 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	uint8_t S[65];
 	size_t size = 65;
 	secp256k1_ec_pubkey_serialize(ctx, S, &size, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+	SPDLOG_DEBUG("S: {}", spdlog::to_hex(S, S+65));
 
 	using namespace CryptoPP;
 
@@ -119,11 +121,13 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	sha256.Update(nullptr, 0);
 	uint8_t kEM[32];
 	sha256.TruncatedFinal(kEM, 32);
+	SPDLOG_DEBUG("kEM: {}", spdlog::to_hex(kEM, kEM+32));
 
 	// Verify hmac
 	sha256.Update(kEM + 16, 16);
 	uint8_t kMhash[32];
 	sha256.TruncatedFinal(kMhash, 32);
+	SPDLOG_DEBUG("kMhash: {}", spdlog::to_hex(kMhash, kMhash+32));
 
 	uint8_t digest[32];
 	HMAC<SHA256> hmac(kMhash, 32);
@@ -159,6 +163,7 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	if(secp256k1_ec_pubkey_parse(ctx, &remote_static_pubkey, out+70, 65) != 1) {
 		return false;
 	}
+	SPDLOG_DEBUG("rspk: {}", spdlog::to_hex(out+70, out+135));
 
 	return true;
 }
@@ -241,7 +246,7 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	do {
 		CryptoPP::OS_GenerateRandomBlock(false, seckey, 32);
 	} while(
-		secp256k1_ec_seckey_verify(ctx, seckey) != 1 &&
+		secp256k1_ec_seckey_verify(ctx, seckey) != 1 ||
 		secp256k1_ec_pubkey_create(ctx, &pubkey, seckey) != 1
 	);
 
@@ -327,6 +332,7 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 	uint8_t sss[65];
 	size_t size = 65;
 	secp256k1_ec_pubkey_serialize(ctx, sss, &size, &rspk, SECP256K1_EC_UNCOMPRESSED);
+	SPDLOG_DEBUG("sss: {}", spdlog::to_hex(sss, sss+65));
 
 	// remote_ephemeral_pubkey
 	secp256k1_ecdsa_recoverable_signature sig;
@@ -336,6 +342,7 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 		authplain + 87,
 		authplain[151]
 	);
+	SPDLOG_DEBUG("sig: {}", spdlog::to_hex(authplain+87, authplain+152));
 	uint8_t m[32];
 	for(int i = 0; i < 32; i++) {
 		m[i] = sss[1+i] ^ authplain[219 + i];
@@ -352,6 +359,7 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 	uint8_t es[65];
 	size = 65;
 	secp256k1_ec_pubkey_serialize(ctx, es, &size, &repk, SECP256K1_EC_UNCOMPRESSED);
+	SPDLOG_DEBUG("es: {}", spdlog::to_hex(es, es+65));
 
 	using namespace CryptoPP;
 
@@ -362,23 +370,27 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 	keccak256.Update(nonce, 32);
 	keccak256.Update(authplain + 219, 32);
 	keccak256.TruncatedFinal(digest, 32);
+	SPDLOG_DEBUG("nonce: {}", spdlog::to_hex(nonce, nonce+32));
+	SPDLOG_DEBUG("rnonce: {}", spdlog::to_hex(authplain+219, authplain+251));
+	SPDLOG_DEBUG("nhash: {}", spdlog::to_hex(digest, digest+32));
 
 	// shared-secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(digest, 32);
 	keccak256.TruncatedFinal(digest, 32);
+	SPDLOG_DEBUG("ss: {}", spdlog::to_hex(digest, digest+32));
 
 	// aes secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(digest, 32);
 	keccak256.TruncatedFinal(aess, 32);
-	SPDLOG_INFO("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
+	SPDLOG_DEBUG("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
 
 	// mac secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(aess, 32);
 	keccak256.TruncatedFinal(macs, 32);
-	SPDLOG_INFO("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
+	SPDLOG_DEBUG("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
 
 	// inititalize enc/dec
 	uint8_t iv[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -402,11 +414,11 @@ void RlpxCrypto::compute_secrets(uint8_t *auth, uint8_t *authplain, size_t auth_
 
 	auto temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 32);
-	SPDLOG_INFO("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+	SPDLOG_DEBUG("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 32);
-	SPDLOG_INFO("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+	SPDLOG_DEBUG("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 }
 
 void RlpxCrypto::compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t auth_size, uint8_t *ack, size_t ack_size) {
@@ -467,21 +479,21 @@ void RlpxCrypto::compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t a
 	keccak256.TruncatedFinal(digest, 32);
 
 	// shared-secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(digest, 32);
 	keccak256.TruncatedFinal(digest, 32);
 
 	// aes secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(digest, 32);
 	keccak256.TruncatedFinal(aess, 32);
-	SPDLOG_INFO("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
+	SPDLOG_DEBUG("AESS: {:spn}", spdlog::to_hex(aess, aess + 32));
 
 	// mac secret
-	keccak256.Update(es, 32);
+	keccak256.Update(es+1, 32);
 	keccak256.Update(aess, 32);
 	keccak256.TruncatedFinal(macs, 32);
-	SPDLOG_INFO("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
+	SPDLOG_DEBUG("MACS: {:spn}", spdlog::to_hex(macs, macs + 32));
 
 	// inititalize enc/dec
 	uint8_t iv[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -505,11 +517,11 @@ void RlpxCrypto::compute_secrets_old(uint8_t *auth, uint8_t *authplain, size_t a
 
 	auto temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 32);
-	SPDLOG_INFO("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+	SPDLOG_DEBUG("IGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 32);
-	SPDLOG_INFO("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
+	SPDLOG_DEBUG("EGD: {:spn}", spdlog::to_hex(digest, digest + 32));
 }
 
 bool RlpxCrypto::header_decrypt(uint8_t *in, size_t, uint8_t *out) {
@@ -523,19 +535,19 @@ bool RlpxCrypto::header_decrypt(uint8_t *in, size_t, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, digest, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ in[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	ingress_mac.Update(digest, 16);
 	temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	if(std::memcmp(in + 16, digest, 16) != 0) {
 		return false;
@@ -559,19 +571,19 @@ bool RlpxCrypto::header_encrypt(uint8_t *in, size_t, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, digest, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ out[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	egress_mac.Update(digest, 16);
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	std::memcpy(out + 16, digest, 16);
 
@@ -591,19 +603,19 @@ bool RlpxCrypto::frame_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, temp, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ temp[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	ingress_mac.Update(digest, 16);
 	temp_mac = ingress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	if(std::memcmp(in + in_size - 16, digest, 16) != 0) {
 		return false;
@@ -629,19 +641,19 @@ bool RlpxCrypto::frame_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	e.SetKey(macs, 32);
 	e.ProcessData(digest, temp, 16);
 
-	SPDLOG_INFO("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("AES: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	for(int i = 0; i < 16; i++) {
 		digest[i] = digest[i] ^ temp[i];
 	}
 
-	SPDLOG_INFO("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("XOR: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	egress_mac.Update(digest, 16);
 	temp_mac = egress_mac;
 	temp_mac.TruncatedFinal(digest, 16);
 
-	SPDLOG_INFO("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
+	SPDLOG_DEBUG("MAC: {:spn}", spdlog::to_hex(digest, digest + 16));
 
 	std::memcpy(out + in_size - 16, digest, 16);
 
