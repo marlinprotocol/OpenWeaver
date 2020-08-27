@@ -66,7 +66,7 @@ void RlpxCrypto::log_pub_key() {
 	SPDLOG_INFO("Enode: enode://{:spn}@127.0.0.1:12121", spdlog::to_hex(pubkey+1, pubkey+65));
 }
 
-RlpxCrypto::RlpxCrypto() : GroupParameters(CryptoPP::ASN1::secp256k1()) {
+RlpxCrypto::RlpxCrypto() {
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
 
 	try {
@@ -283,49 +283,6 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	hmac.Update(out + 67, in_size + 16);
 	hmac.Update(out, 2);
 	hmac.TruncatedFinal(out + 83 + in_size, 32);
-
-	{
-		Integer r(prng, 32*8);
-		ECP const &curve = GroupParameters.GetCurve();
-
-		ECPPoint R = GroupParameters.ExponentiateBase(r);
-		out[2] = 0x04;
-		R.x.Encode(out + 3, 32);
-		R.y.Encode(out + 35, 32);
-
-		ECPPoint Pxy = curve.Multiply(
-			r,
-			remote_static_public_key.GetPublicElement()
-		);
-
-		uint8_t S[32];
-		Pxy.x.Encode(S, 32);
-
-		SHA256 sha256;
-		uint8_t c[4] = {0,0,0,1};
-		sha256.Update(c, 4);
-		sha256.Update(S, 32);
-		sha256.Update(nullptr, 0);
-		uint8_t kEM[32];
-		sha256.TruncatedFinal(kEM, 32);
-
-		sha256.Restart();
-		sha256.Update(kEM + 16, 16);
-		uint8_t kMhash[32];
-		sha256.TruncatedFinal(kMhash, 32);
-
-		OS_GenerateRandomBlock(false, out + 67, 16);
-
-		CTR_Mode<AES>::Encryption e;
-		e.SetKeyWithIV(kEM, 16, out + 67, 16);
-
-		e.ProcessData(out + 83, in, in_size);
-
-		HMAC<SHA256> hmac(kMhash, 32);
-		hmac.Update(out + 67, in_size + 16);
-		hmac.Update(out, 2);
-		hmac.TruncatedFinal(out + 83 + in_size, 32);
-	}
 }
 
 void RlpxCrypto::get_static_public_key(uint8_t *out) {
