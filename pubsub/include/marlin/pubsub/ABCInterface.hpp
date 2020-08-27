@@ -350,10 +350,12 @@ public:
 	}
 
 	core::WeakBuffer get_header(core::WeakBuffer bytes) {
+		// TODO: Extract header from 'bytes'.
 		return bytes;
 	}
 
 	bool check_reward_worthy(core::WeakBuffer bytes) {
+		// TODO: return true if the sender who sent 'bytes' should be rewarded .
 		SPDLOG_DEBUG(
 			"In check_reward_worthy",
 			bytes.size()
