@@ -155,7 +155,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				state = State::HelloHeaderWait;
 			} else {
 				SPDLOG_ERROR("Verification failed");
-				// TODO: Abort and close transport
+				transport.close();
 			}
 		} else if(state == State::HelloHeaderWait) {
 			bool is_verified = crypto.header_decrypt(buf, 32, buf);
@@ -169,6 +169,9 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				bytes_remaining += 16;
 				buf_size = 0;
 				state = State::HelloFrameWait;
+			} else {
+				SPDLOG_ERROR("Verification failed");
+				transport.close();
 			}
 		} else if(state == State::HelloFrameWait) {
 			bool is_verified = crypto.frame_decrypt(buf, buf_size, buf);
@@ -183,7 +186,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				state = State::RecvHeaderWait;
 			} else {
 				SPDLOG_ERROR("Verification failed");
-				// TODO: Abort and close transport
+				transport.close();
 			}
 		} else if(state == State::RecvHeaderWait) {
 			bool is_verified = crypto.header_decrypt(buf, 32, buf);
@@ -197,6 +200,9 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				bytes_remaining += 16;
 				buf_size = 0;
 				state = State::RecvFrameWait;
+			} else {
+				SPDLOG_ERROR("Verification failed");
+				transport.close();
 			}
 		} else if(state == State::RecvFrameWait) {
 			bool is_verified = crypto.frame_decrypt(buf, buf_size, buf);
@@ -231,7 +237,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 				state = State::RecvHeaderWait;
 			} else {
 				SPDLOG_ERROR("Verification failed");
-				// TODO: Abort and close transport
+				transport.close();
 			}
 		}
 
