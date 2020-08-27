@@ -10,7 +10,6 @@
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
 
-#include <iostream>
 #include <algorithm>
 #include <map>
 #include <string>
@@ -603,7 +602,6 @@ void PUBSUBNODETYPE::send_RESPONSE(
 	transport.send(std::move(m));
 }
 
-
 //! Callback on receipt of message data
 /*!
 	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
@@ -693,7 +691,9 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			uint8_t* key = abci.get_key();
 			if(key == nullptr) {
-				std::cout << "Key not created" << std::endl;
+				SPDLOG_INFO(
+					"In did_recv_MESSAGE, key creation failed",
+				);
 				return -1;
 			}
 
@@ -712,7 +712,9 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 			if(res == 0) {
 				// Sign failed
-				std::cout << "Signing of message failed" << std::endl;
+				SPDLOG_INFO(
+					"In did_recv_MESSAGE, sign failed",
+				);
 				return -1;
 			}
 
@@ -1012,8 +1014,7 @@ PUBSUBNODETYPE::PubSubNode(
 	std::move(witnesser_args),
 	std::index_sequence_for<AttesterArgs...>{},
 	std::index_sequence_for<WitnesserArgs...>{}
-) {
-}
+) {}
 
 template<PUBSUBNODE_TEMPLATE>
 template<
@@ -1044,6 +1045,7 @@ PUBSUBNODETYPE::PubSubNode(
 {
 	f.bind(addr);
 	f.listen(*this);
+
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
@@ -1550,4 +1552,5 @@ void PUBSUBNODETYPE::cut_through_recv_skip(
 
 } // namespace pubsub
 } // namespace marlin
+
 #endif // MARLIN_PUBSUB_PUBSUBNODE_HPP
