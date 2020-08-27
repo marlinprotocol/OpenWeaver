@@ -21,10 +21,6 @@ private:
 		CryptoPP::ECP,
 		CryptoPP::SHA256
 	>::PrivateKey static_private_key;
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PublicKey static_public_key;
 
 	secp256k1_context* ctx = nullptr;
 

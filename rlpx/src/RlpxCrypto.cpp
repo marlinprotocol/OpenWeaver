@@ -16,7 +16,6 @@ namespace rlpx {
 
 void RlpxCrypto::generate_key() {
 	static_private_key.Initialize(prng, CryptoPP::ASN1::secp256k1());
-	static_private_key.MakePublicKey(static_public_key);
 
 	// Generate a valid key pair
 	do {
@@ -54,7 +53,6 @@ void RlpxCrypto::store_key() {
 void RlpxCrypto::load_key() {
 	CryptoPP::FileSource fsold("pkey.ec.der", true);
 	static_private_key.Load(fsold);
-	static_private_key.MakePublicKey(static_public_key);
 
 	// Load seckey
 	CryptoPP::FileSource fs("key.sec", true);
@@ -72,10 +70,6 @@ void RlpxCrypto::load_key() {
 }
 
 void RlpxCrypto::log_pub_key() {
-	std::string pubs;
-	CryptoPP::StringSink ss(pubs);
-	static_public_key.DEREncodePublicKey(ss);
-
 	uint8_t pubkey[65];
 	size_t size = 65;
 	secp256k1_ec_pubkey_serialize(ctx, pubkey, &size, &static_pubkey, SECP256K1_EC_UNCOMPRESSED);
@@ -448,9 +442,6 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 }
 
 void RlpxCrypto::get_static_public_key(uint8_t *out) {
-	CryptoPP::ArraySink ssink(out, 65);
-	static_public_key.DEREncodePublicKey(ssink);
-
 	size_t size = 65;
 	secp256k1_ec_pubkey_serialize(ctx, out, &size, &static_pubkey, SECP256K1_EC_UNCOMPRESSED);
 }
