@@ -401,11 +401,17 @@ void RlpxCrypto::ecies_encrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 void RlpxCrypto::get_static_public_key(uint8_t *out) {
 	CryptoPP::ArraySink ssink(out, 65);
 	static_public_key.DEREncodePublicKey(ssink);
+
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, out, &size, &static_pubkey, SECP256K1_EC_UNCOMPRESSED);
 }
 
 void RlpxCrypto::get_ephemeral_public_key(uint8_t *out) {
 	CryptoPP::ArraySink ssink(out, 65);
 	ephemeral_public_key.DEREncodePublicKey(ssink);
+
+	size_t size = 65;
+	secp256k1_ec_pubkey_serialize(ctx, out, &size, &ephemeral_pubkey, SECP256K1_EC_UNCOMPRESSED);
 }
 
 void RlpxCrypto::get_nonce(uint8_t *out) {
