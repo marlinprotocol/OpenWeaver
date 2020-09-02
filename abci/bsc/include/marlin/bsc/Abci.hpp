@@ -58,7 +58,7 @@ public:
 			hex_block += fmt::format("{:x}", block.data()[i]);
 		}
 
-		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_spamCheckBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
+		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_analyzeBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
 
 		pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
 	}
