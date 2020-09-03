@@ -1,3 +1,5 @@
+#include <rapidjson/document.h>
+
 namespace marlin {
 namespace bsc {
 
@@ -19,8 +21,62 @@ void ABCI::did_connect(BaseTransport&) {
 
 template<ABCI_TEMPLATE>
 void ABCI::did_recv(BaseTransport&, core::Buffer&& bytes) {
-	// TODO: json parse and handle
-	delegate->did_recv(*this, std::move(bytes));
+	// TODO: Need to do framing, most implementations seem to use newline as delimiter
+	rapidjson::Document d;
+	d.Parse((char*)bytes.data(), bytes.size());
+
+	if(!(
+		!d.HasParseError() && d.IsObject() &&
+		d.HasMember("id") && d["id"].IsUint64() && (
+			(
+				d.HasMember("error") && d["error"].IsObject() &&
+				d["error"].HasMember("message") && d["error"]["message"].IsString()
+			) || (
+				d.HasMember("result") && d["result"].IsObject() &&
+				d["result"].HasMember("hash") && d["result"]["hash"].IsString() &&
+				d["result"].HasMember("headerOffset") && d["result"]["headerOffset"].IsUint64() &&
+				d["result"].HasMember("headerLength") && d["result"]["headerLength"].IsUint64() &&
+				d["result"].HasMember("coinbase") && d["result"]["coinbase"].IsString()
+			)
+		)
+	)) {
+		// Failed to validate, shouldn't happen!!!
+		SPDLOG_ERROR("Abci: Failed to validate response");
+		return;
+	}
+
+	if(d.HasMember("error")) {
+		// RPC error
+		SPDLOG_ERROR(
+			"Abci: RPC error: {}",
+			std::string(d["error"]["message"].GetString(), d["error"]["message"].GetStringLength())
+		);
+		block_store.erase(d["id"].GetUint64());
+		return;
+	}
+
+	auto iter = block_store.find(d["id"].GetUint64());
+	if(iter == block_store.end()) {
+		// Unknown request
+		SPDLOG_ERROR("Abci: Unknown request");
+		return;
+	}
+
+	core::Buffer block = std::move(iter->second);
+	block_store.erase(iter);
+
+	core::WeakBuffer header(
+		block.data() + d["result"]["headerOffset"].GetUint64(),
+		d["result"]["headerLength"].GetUint64()
+	);
+
+	delegate->did_analyze_block(
+		*this,
+		std::move(block),
+		std::string(d["result"]["hash"].GetString(), d["result"]["hash"].GetStringLength()),
+		std::string(d["result"]["coinbase"].GetString(), d["result"]["coinbase"].GetStringLength()),
+		header
+	);
 }
 
 template<ABCI_TEMPLATE>
