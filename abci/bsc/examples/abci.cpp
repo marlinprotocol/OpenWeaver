@@ -20,8 +20,19 @@ struct Delegate {
 	}
 
 	template<typename AbciType>
-	void did_recv(AbciType&, Buffer&& bytes) {
-		SPDLOG_INFO("{:.{}s}", bytes.data(), bytes.size());
+	void did_analyze_block(
+		AbciType&,
+		Buffer&&,
+		std::string hash,
+		std::string coinbase,
+		WeakBuffer header
+	) {
+		SPDLOG_INFO(
+			"Analyzed block: Hash: {}, Coinbase: {}, Header: {}",
+			hash,
+			coinbase,
+			spdlog::to_hex(header.data(), header.data() + header.size())
+		);
 	}
 
 	template<typename AbciType>
