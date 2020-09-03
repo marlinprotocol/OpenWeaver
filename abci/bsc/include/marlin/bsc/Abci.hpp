@@ -65,7 +65,7 @@ public:
 
 		pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
 
-		block_store[id] = std::move(block);
+		block_store.emplace(id, std::move(block));
 		return id++;
 	}
 };
