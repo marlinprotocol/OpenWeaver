@@ -27,6 +27,7 @@ public:
 	DelegateType* delegate;
 
 	PipeTransport();
+	PipeTransport(PipeTransport const&) = delete;
 	~PipeTransport();
 
 	void connect(std::string path);
