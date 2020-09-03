@@ -55,7 +55,7 @@ public:
 		hex_block.reserve(2 + block.size()*2);
 
 		for(size_t i = 0; i < block.size(); i++) {
-			hex_block += fmt::format("{:x}", block.data()[i]);
+			hex_block += fmt::format("{:02x}", block.data()[i]);
 		}
 
 		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_analyzeBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
