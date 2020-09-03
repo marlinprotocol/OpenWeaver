@@ -5,8 +5,6 @@
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 #include <cryptopp/blake2.h>
 
-#define PUBSUB_PROTOCOL_NUMBER 0x10000000
-
 using namespace marlin;
 using namespace marlin::core;
 using namespace marlin::asyncio;
