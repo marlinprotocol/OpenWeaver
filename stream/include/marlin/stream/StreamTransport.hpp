@@ -27,7 +27,7 @@ namespace stream {
 /// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
 /// Bytes that can be sent in a given batch, used by the packet pacing mechanism
-#define DEFAULT_PACING_LIMIT 20000
+#define DEFAULT_PACING_LIMIT 400000
 /// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
 #define DEFAULT_FRAGMENT_SIZE 1350
 
