@@ -25,6 +25,9 @@ private:
 	void connect_timer_cb() {
 		pipe.connect(path);
 	}
+
+	uint64_t id = 0;
+	std::unordered_map<uint64_t, core::Buffer> block_store;
 public:
 	DelegateType* delegate;
 	std::string path;
@@ -50,7 +53,7 @@ public:
 		pipe.close();
 	}
 
-	void analyze_block(uint64_t id, core::WeakBuffer block) {
+	uint64_t analyze_block(core::Buffer&& block) {
 		std::string hex_block("0x");
 		hex_block.reserve(2 + block.size()*2);
 
@@ -61,6 +64,9 @@ public:
 		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_analyzeBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
 
 		pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
+
+		block_store[id] = std::move(block);
+		return id++;
 	}
 };
 
