@@ -6,6 +6,7 @@
 #include <sodium.h>
 #include <unistd.h>
 
+#include <spdlog/spdlog.h>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/core/BN.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
@@ -354,13 +355,18 @@ public:
 		return bytes;
 	}
 
-	bool check_reward_worthy(core::WeakBuffer bytes) {
+	bool check_reward_worthy(core::WeakBuffer) {
 		// TODO: return true if the sender who sent 'bytes' should be rewarded .
-		SPDLOG_DEBUG(
-			"In check_reward_worthy",
-			bytes.size()
-		);
+		// SPDLOG_DEBUG(
+		// 	"In check_reward_worthy",
+		// 	bytes.size()
+		// );
 		return true;
+	}
+
+	int submit_receipt_onchain(core::Buffer &&) {
+		// TODO: The sender submits the receipt on chain
+		return 1;
 	}
 
 };

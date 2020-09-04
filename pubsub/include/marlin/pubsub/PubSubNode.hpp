@@ -692,7 +692,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			uint8_t* key = abci.get_key();
 			if(key == nullptr) {
 				SPDLOG_INFO(
-					"In did_recv_MESSAGE, key creation failed",
+					"In did_recv_MESSAGE, key creation failed"
 				);
 				return -1;
 			}
@@ -713,7 +713,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			if(res == 0) {
 				// Sign failed
 				SPDLOG_INFO(
-					"In did_recv_MESSAGE, sign failed",
+					"In did_recv_MESSAGE, sign failed"
 				);
 				return -1;
 			}
@@ -749,7 +749,8 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 
 template<PUBSUBNODE_TEMPLATE>
-int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&&) {
+int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&& bytes) {
+	abci.submit_receipt_onchain(std::move(bytes));
 	// TODO: function handles when the node receives a receipt.
 	return 1;
 }
