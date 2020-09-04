@@ -750,8 +750,8 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&& bytes) {
+	// TODO: function handles when the node receives a receipt. Should also check if some block is missed.
 	abci.submit_receipt_onchain(std::move(bytes));
-	// TODO: function handles when the node receives a receipt.
 	return 1;
 }
 
