@@ -103,6 +103,30 @@ void ABCI::did_close(BaseTransport&) {
 	delegate->did_close(*this);
 }
 
+template<ABCI_TEMPLATE>
+void ABCI::get_block_number() {
+	std::string rpc = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":0}";
+
+	pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
+}
+
+template<ABCI_TEMPLATE>
+uint64_t ABCI::analyze_block(core::Buffer&& block) {
+	std::string hex_block("0x");
+	hex_block.reserve(2 + block.size()*2);
+
+	for(size_t i = 0; i < block.size(); i++) {
+		hex_block += fmt::format("{:02x}", block.data()[i]);
+	}
+
+	std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_analyzeBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
+
+	pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
+
+	block_store.emplace(id, std::move(block));
+	return id++;
+}
+
 //---------------- Helper macros undef begin ----------------//
 
 #undef ABCI_TEMPLATE

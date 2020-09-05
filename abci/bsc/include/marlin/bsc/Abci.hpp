@@ -43,31 +43,12 @@ public:
 	void did_disconnect(BaseTransport& transport, uint reason);
 	void did_close(BaseTransport& transport);
 
-	void get_block_number() {
-		std::string rpc = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":0}";
-
-		pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
-	}
-
 	void close() {
 		pipe.close();
 	}
 
-	uint64_t analyze_block(core::Buffer&& block) {
-		std::string hex_block("0x");
-		hex_block.reserve(2 + block.size()*2);
-
-		for(size_t i = 0; i < block.size(); i++) {
-			hex_block += fmt::format("{:02x}", block.data()[i]);
-		}
-
-		std::string rpc = fmt::format("{{\"jsonrpc\":\"2.0\",\"method\":\"lin_analyzeBlock\",\"id\":{},\"params\":[\"{}\"]}}", id, hex_block);
-
-		pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
-
-		block_store.emplace(id, std::move(block));
-		return id++;
-	}
+	void get_block_number();
+	uint64_t analyze_block(core::Buffer&& block);
 };
 
 }  // namespace bsc
