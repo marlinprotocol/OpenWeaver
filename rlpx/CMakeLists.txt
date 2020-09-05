@@ -38,6 +38,9 @@ set_target_properties(rlpx PROPERTIES
 # cryptopp
 target_link_libraries(rlpx PUBLIC cryptopp::CryptoPP)
 
+# secp256k1
+target_link_libraries(rlpx PUBLIC secp256k1::secp256k1)
+
 # marlin::asyncio
 target_link_libraries(rlpx PUBLIC marlin::asyncio)
 
