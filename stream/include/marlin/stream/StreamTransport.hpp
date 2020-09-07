@@ -27,7 +27,7 @@ namespace stream {
 /// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
 /// Bytes that can be sent in a given batch, used by the packet pacing mechanism
-#define DEFAULT_PACING_LIMIT 20000
+#define DEFAULT_PACING_LIMIT 400000
 /// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
 #define DEFAULT_FRAGMENT_SIZE 1350
 
@@ -374,7 +374,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::dial_timer_cb() {
 	if(this->state_timer_interval >= 64000) { // Abort on too many retries
 		this->state_timer_interval = 0;
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Dial timeout",
 			this->src_addr.to_string(),
 			this->dst_addr.to_string()
@@ -579,7 +579,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 		return;
 	}
 
-	SPDLOG_INFO("TLP timer: {}, {}, {}", this->sent_packets.size(), this->lost_packets.size(), this->send_queue.size() == 0);
+	SPDLOG_DEBUG("TLP timer: {}, {}, {}", this->sent_packets.size(), this->lost_packets.size(), this->send_queue.size() == 0);
 
 	auto sent_iter = this->sent_packets.cbegin();
 
@@ -601,7 +601,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 		auto &sent_packet = last_iter->second;
 		if(sent_packet.sent_time > this->congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: Timer congestion event: {}",
 				this->src_addr.to_string(),
 				this->dst_addr.to_string(),
@@ -640,7 +640,7 @@ void StreamTransport<DelegateType, DatagramTransport>::tlp_timer_cb() {
 		this->tlp_timer.template start<Self, &Self::tlp_timer_cb>(this->tlp_interval, 0);
 	} else {
 		// Abort on too many retries
-		SPDLOG_ERROR("Lost peer: {}", this->dst_addr.to_string());
+		SPDLOG_DEBUG("Lost peer: {}", this->dst_addr.to_string());
 		reset();
 		transport.close();
 	}
@@ -702,7 +702,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	switch(conn_state) {
 	case ConnectionState::Listen: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -721,7 +721,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		uint8_t pt[pt_len];
 		auto res = crypto_box_seal_open(pt, packet.payload(), ct_len, static_pk, static_sk);
 		if (res < 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -736,7 +736,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
 
 		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
 				src_addr.to_string(),
 				dst_addr.to_string()
@@ -760,7 +760,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 	case ConnectionState::DialSent: {
 		if(packet.src_conn_id() != 0) { // Should have empty source
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Should have empty src: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -772,7 +772,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		uint8_t pt[pt_len];
 		auto res = crypto_box_seal_open(pt, packet.payload() + 10, ct_len, static_pk, static_sk);
 		if (res < 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -786,7 +786,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
 
 		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Key derivation failure",
 				src_addr.to_string(),
 				dst_addr.to_string()
@@ -861,7 +861,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Src id mismatch: {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -873,7 +873,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 
 		if (crypto_box_seal_open(remote_ephemeral_pk, packet.payload(), ct_len, static_pk, static_sk) != 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unseal failure",
 				src_addr.to_string(),
 				dst_addr.to_string()
@@ -884,7 +884,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto *kdf = (std::memcmp(ephemeral_pk, remote_ephemeral_pk, crypto_box_PUBLICKEYBYTES) > 0) ? &crypto_kx_server_session_keys : &crypto_kx_client_session_keys;
 
 		if ((*kdf)(rx, tx, ephemeral_pk, ephemeral_sk, remote_ephemeral_pk) != 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Key derivation failure",
 				src_addr.to_string(),
 				dst_addr.to_string()
@@ -920,7 +920,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 			// On conn id mismatch, send RST for that id
 			// Connection should ideally be reestablished by
 			// dial retry sending another DIAL
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -951,7 +951,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -971,7 +971,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 	case ConnectionState::Listen: {
 		// Shouldn't receive DIALCONF in these states, unrecoverable
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: DIALCONF: Unexpected",
 			src_addr.to_string(),
 			dst_addr.to_string()
@@ -1010,7 +1010,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -1037,7 +1037,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 		auto src_conn_id = packet.src_conn_id();
 		auto dst_conn_id = packet.dst_conn_id();
 		if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: CONF: Connection id mismatch: {}, {}, {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -1057,7 +1057,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 	case ConnectionState::Listen:
 	case ConnectionState::DialSent: {
 		// Shouldn't receive CONF in these states, unrecoverable
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: CONF: Unexpected",
 			src_addr.to_string(),
 			dst_addr.to_string()
@@ -1097,7 +1097,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: RST",
 			src_addr.to_string(),
 			dst_addr.to_string()
@@ -1209,7 +1209,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		);
 
 		if(res < 0) {
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DATA: Decryption failure: {}, {}",
 				src_addr.to_string(),
 				dst_addr.to_string(),
@@ -1373,7 +1373,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: ACK: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1572,7 +1572,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 		if(sent_packet.sent_time > congestion_start) {
 			// New congestion event
-			SPDLOG_ERROR(
+			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: Congestion event: {}, {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
@@ -1635,7 +1635,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_SKIPSTREAM(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: SKIPSTREAM: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1694,7 +1694,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHSTREAM: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1719,7 +1719,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHSTREAM(
 
 	// Check for duplicate
 	if(old_offset >= offset) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Duplicate flush: {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1763,7 +1763,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id, send RST
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: FLUSHCONF: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1811,7 +1811,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: CLOSE: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -1873,7 +1873,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
 	if(src_conn_id != this->src_conn_id || dst_conn_id != this->dst_conn_id) { // Wrong connection id
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: CLOSECONF: Connection id mismatch: {}, {}, {}, {}",
 			src_addr.to_string(),
 			dst_addr.to_string(),
@@ -2090,7 +2090,7 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 	// Abort if data queue is too big
 	if(stream.queue_offset - stream.acked_offset > 20000000) {
-		SPDLOG_ERROR("Data queue overflow");
+		SPDLOG_DEBUG("Data queue overflow");
 		return -1;
 	}
 
@@ -2144,7 +2144,7 @@ void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
 	if(state_timer_interval >= 8000) { // Abort on too many retries
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Close timeout",
 			this->src_addr.to_string(),
 			this->dst_addr.to_string()
@@ -2178,7 +2178,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream& stream) {
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Skip timeout: {}",
 			this->src_addr.to_string(),
 			this->dst_addr.to_string(),
@@ -2230,7 +2230,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream& stream) {
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
-		SPDLOG_ERROR(
+		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Flush timeout: {}",
 			this->src_addr.to_string(),
 			this->dst_addr.to_string(),

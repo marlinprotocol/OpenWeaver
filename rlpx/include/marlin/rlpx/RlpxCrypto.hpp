@@ -7,35 +7,22 @@
 #include <cryptopp/sha.h>
 #include <cryptopp/modes.h>
 
+#include <secp256k1.h>
+
 namespace marlin {
 namespace rlpx {
 
 class RlpxCrypto {
 private:
-	CryptoPP::AutoSeededRandomPool prng;
+	secp256k1_context* ctx = nullptr;
 
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PrivateKey static_private_key;
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PublicKey static_public_key;
+	uint8_t static_seckey[32];
+	secp256k1_pubkey static_pubkey;
 
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PrivateKey ephemeral_private_key;
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PublicKey ephemeral_public_key;
+	uint8_t ephemeral_seckey[32];
+	secp256k1_pubkey ephemeral_pubkey;
 
-	CryptoPP::ECDSA<
-		CryptoPP::ECP,
-		CryptoPP::SHA256
-	>::PublicKey remote_static_public_key;
+	secp256k1_pubkey remote_static_pubkey;
 
 	uint8_t nonce[32];
 	uint8_t aess[32];
@@ -54,6 +41,7 @@ private:
 	void log_pub_key();
 public:
 	RlpxCrypto();
+	~RlpxCrypto();
 
 	bool ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out);
 	bool ecies_decrypt_old(uint8_t *in, size_t in_size, uint8_t *out);

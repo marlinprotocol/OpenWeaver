@@ -160,6 +160,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		return;
 	}
 
+	// Allow only internal nodes to add themselves to the registry
+	if(!transport.is_internal()) {
+		return;
+	}
+
 	peers[&transport].first = asyncio::EventLoop::now();
 	peers[&transport].second = bytes.key_array();
 }

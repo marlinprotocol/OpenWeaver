@@ -11,7 +11,8 @@ endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
-if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+option(COVERAGE "Code coverage" OFF)
+if(COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(--coverage)
 	add_link_options(--coverage)
 
@@ -36,6 +37,7 @@ add_subdirectory(asyncio)
 add_subdirectory(beacon)
 add_subdirectory(stream)
 add_subdirectory(lpf)
+add_subdirectory(abci/bsc)
 add_subdirectory(pubsub)
 add_subdirectory(compression)
 add_subdirectory(multicastsdk)
