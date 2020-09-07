@@ -228,7 +228,8 @@ public:
 public:
 	template<
 		typename ...AttesterArgs,
-		typename ...WitnesserArgs
+		typename ...WitnesserArgs,
+		typename ...AbciArgs
 	>
 	PubSubNode(
 		const core::SocketAddress &_addr,
@@ -236,7 +237,8 @@ public:
 		size_t max_unsol,
 		uint8_t const *keys,
 		std::tuple<AttesterArgs...> attester_args = {},
-		std::tuple<WitnesserArgs...> witnesser_args = {}
+		std::tuple<WitnesserArgs...> witnesser_args = {},
+		std::tuple<AbciArgs...> abci_args = {}
 	);
 	PubSubDelegate *delegate;
 
@@ -269,8 +271,10 @@ private:
 	template<
 		typename ...AttesterArgs,
 		typename ...WitnesserArgs,
+		typename ...AbciArgs,
 		size_t ...AI,
-		size_t ...WI
+		size_t ...WI,
+		size_t ...ABI
 	>
 	PubSubNode(
 		const core::SocketAddress &_addr,
@@ -279,9 +283,11 @@ private:
 		uint8_t const *keys,
 		std::tuple<AttesterArgs...> attester_args,
 		std::tuple<WitnesserArgs...> witnesser_args,
+		std::tuple<AbciArgs...> abci_args,
 		// Need the below args for tuple destructuring
 		std::index_sequence<AI...>,
-		std::index_sequence<WI...>
+		std::index_sequence<WI...>,
+		std::index_sequence<ABI...>
 	);
 
 //---------------- Message deduplication ----------------//
@@ -1002,7 +1008,8 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 template<PUBSUBNODE_TEMPLATE>
 template<
 	typename ...AttesterArgs,
-	typename ...WitnesserArgs
+	typename ...WitnesserArgs,
+	typename ...AbciArgs
 >
 PUBSUBNODETYPE::PubSubNode(
 	const core::SocketAddress &addr,
@@ -1010,7 +1017,8 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_unsol,
 	uint8_t const* keys,
 	std::tuple<AttesterArgs...> attester_args,
-	std::tuple<WitnesserArgs...> witnesser_args
+	std::tuple<WitnesserArgs...> witnesser_args,
+	std::tuple<AbciArgs...> abci_args
 ) : PubSubNode(
 	addr,
 	max_sol,
@@ -1018,30 +1026,37 @@ PUBSUBNODETYPE::PubSubNode(
 	keys,
 	std::move(attester_args),
 	std::move(witnesser_args),
+	std::move(abci_args),
 	std::index_sequence_for<AttesterArgs...>{},
-	std::index_sequence_for<WitnesserArgs...>{}
+	std::index_sequence_for<WitnesserArgs...>{},
+	std::index_sequence_for<AbciArgs...>{}
 ) {}
 
 template<PUBSUBNODE_TEMPLATE>
 template<
 	typename ...AttesterArgs,
 	typename ...WitnesserArgs,
+	typename ...AbciArgs,
 	size_t ...AI,
-	size_t ...WI
+	size_t ...WI,
+	size_t ...ABI
 >
 PUBSUBNODETYPE::PubSubNode(
 	const core::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	std::tuple<AttesterArgs...> attester_args  [[maybe_unused]],
-	std::tuple<WitnesserArgs...> witnesser_args  [[maybe_unused]],
+	std::tuple<AttesterArgs...> attester_args,
+	std::tuple<WitnesserArgs...> witnesser_args,
+	std::tuple<AbciArgs...> abci_args,
 	std::index_sequence<AI...>,
-	std::index_sequence<WI...>
+	std::index_sequence<WI...>,
+	std::index_sequence<ABI...>
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
 	attester(std::get<AI>(attester_args)...),
 	witnesser(std::get<WI>(witnesser_args)...),
+	abci(std::get<ABI>(abci_args)...),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
