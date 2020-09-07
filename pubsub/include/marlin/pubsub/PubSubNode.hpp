@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <tuple>
 #include "marlin/pubsub/ABCInterface.hpp"
+#include "marlin/pubsub/DefaultAbci.hpp"
 
 #include <secp256k1_recovery.h>
 #include <marlin/pubsub/PubSubTransportSet.hpp>
@@ -65,7 +66,8 @@ template<
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
-	typename WitnesserType = EmptyWitnesser
+	typename WitnesserType = EmptyWitnesser,
+	template <typename> class Abci = DefaultAbci
 >
 class PubSubNode {
 private:
@@ -83,7 +85,8 @@ public:
 		accept_unsol_conn,
 		enable_relay,
 		AttesterType,
-		WitnesserType
+		WitnesserType,
+		Abci
 	>;
 
 	using MessageHeaderType = MessageHeader;
@@ -116,7 +119,7 @@ public:
 private:
 	AttesterType attester;
 	WitnesserType witnesser;
-	ABCInterface abci;
+	Abci<Self> abci;
 // ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -371,7 +374,8 @@ private:
 	bool accept_unsol_conn, \
 	bool enable_relay, \
 	typename AttesterType, \
-	typename WitnesserType \
+	typename WitnesserType, \
+	template <typename> class Abci
 
 #define PUBSUBNODETYPE PubSubNode< \
 	PubSubDelegate, \
@@ -379,7 +383,8 @@ private:
 	accept_unsol_conn, \
 	enable_relay, \
 	AttesterType, \
-	WitnesserType \
+	WitnesserType, \
+	Abci \
 >
 
 //---------------- Helper macros end ----------------//
