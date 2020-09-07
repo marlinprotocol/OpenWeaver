@@ -17,14 +17,11 @@ public:
 	using SelfType = DefaultAbci<DelegateType>;
 private:
 	using BaseTransport = asyncio::PipeTransport<SelfType>;
-	void connect_timer_cb() {}
 public:
 	DelegateType* delegate;
 	std::string path;
 
 	DefaultAbci() {}
-	DefaultAbci(std::string) {
-	}
 
 	// Delegate
 	void did_connect(BaseTransport&) {}
@@ -32,9 +29,9 @@ public:
 	void did_disconnect(BaseTransport&, uint) {}
 	void did_close(BaseTransport&) {}
 
-	void close() {}
-	void get_block_number() {}
-	uint64_t analyze_block(core::Buffer&&) {return 0;}
+	uint64_t analyze_block(core::Buffer&&) {
+		return 0;
+	}
 
 	// TODO: Remove the following functions before merge.
 	core::WeakBuffer get_header(core::WeakBuffer bytes) {
