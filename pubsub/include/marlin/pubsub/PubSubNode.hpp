@@ -1046,9 +1046,9 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	std::tuple<AttesterArgs...> attester_args,
-	std::tuple<WitnesserArgs...> witnesser_args,
-	std::tuple<AbciArgs...> abci_args,
+	std::tuple<AttesterArgs...> attester_args [[maybe_unused]],
+	std::tuple<WitnesserArgs...> witnesser_args [[maybe_unused]],
+	std::tuple<AbciArgs...> abci_args [[maybe_unused]],
 	std::index_sequence<AI...>,
 	std::index_sequence<WI...>,
 	std::index_sequence<ABI...>
