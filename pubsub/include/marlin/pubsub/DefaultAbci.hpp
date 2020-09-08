@@ -1,5 +1,5 @@
-#ifndef MARLIN_BSC_ABCI
-#define MARLIN_BSC_ABCI
+#ifndef MARLIN_DEFAULT_ABCI
+#define MARLIN_DEFAULT_ABCI
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
@@ -14,20 +14,7 @@ namespace pubsub {
 template<typename DelegateType>
 class DefaultAbci {
 public:
-	using SelfType = DefaultAbci<DelegateType>;
-private:
-	using BaseTransport = asyncio::PipeTransport<SelfType>;
-public:
 	DelegateType* delegate;
-	std::string path;
-
-	DefaultAbci() {}
-
-	// Delegate
-	void did_connect(BaseTransport&) {}
-	void did_recv(BaseTransport&, core::Buffer&&) {}
-	void did_disconnect(BaseTransport&, uint) {}
-	void did_close(BaseTransport&) {}
 
 	uint64_t analyze_block(core::Buffer&&) {
 		return 0;
@@ -57,4 +44,4 @@ public:
 }  // namespace bsc
 }  // namespace marlin
 
-#endif  // MARLIN_BSC_ABCI
+#endif  // MARLIN_DEFAULT_ABCI
