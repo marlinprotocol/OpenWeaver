@@ -9,6 +9,7 @@
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
+#include <marlin/bsc/Abci.hpp>
 
 #include <algorithm>
 #include <map>
@@ -67,7 +68,7 @@ template<
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
 	typename WitnesserType = EmptyWitnesser,
-	template <typename> class Abci = DefaultAbci
+	template <typename> class Abci = marlin::bsc::Abci
 >
 class PubSubNode {
 private:
@@ -187,7 +188,6 @@ private:
 	);
 
 	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
 	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
@@ -215,12 +215,21 @@ public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
-
+	void did_connect(Abci<Self> &);
+	void did_disconnect(Abci<Self> &);
+	void did_close(Abci<Self> &);
+	void did_analyze_block(
+		Abci<Self> &,
+		core::Buffer&&,
+		std::string hash,
+		std::string coinbase,
+		core::WeakBuffer header
+	);
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
 	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
 	void did_send_message(BaseTransport &transport, core::Buffer &&message);
-	void did_close(BaseTransport &transport, uint16_t reason);
+	void did_close(BaseTransport &transport, uint16_t reason = 1);
 
 	int dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
@@ -506,7 +515,6 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	remove_conn(unsol_conns, transport);
 }
 
-
 /*!
 	\verbatim
 
@@ -694,13 +702,13 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 			);
 		}
 
-		if(!transport.is_internal() && abci.check_reward_worthy(bytes)) {
-			core::WeakBuffer blockHeader = abci.get_header(bytes);
+		if(!transport.is_internal()) {
+			core::WeakBuffer blockHeader = bytes;
 			uint8_t hash[32];
 			CryptoPP::Keccak_256 hasher;
 			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.data(), blockHeader.size());
 
-			uint8_t* key = abci.get_key();
+			uint8_t* key = nullptr;
 			if(key == nullptr) {
 				SPDLOG_INFO(
 					"In did_recv_MESSAGE, key creation failed"
@@ -760,9 +768,8 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 
 template<PUBSUBNODE_TEMPLATE>
-int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&& bytes) {
+int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&&) {
 	// TODO: function handles when the node receives a receipt. Should also check if some block is missed.
-	abci.submit_receipt_onchain(std::move(bytes));
 	return 1;
 }
 

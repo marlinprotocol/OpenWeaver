@@ -35,6 +35,9 @@ target_link_libraries(pubsub INTERFACE marlin::stream)
 # marlin::asyncio
 target_link_libraries(pubsub INTERFACE marlin::asyncio)
 
+# marlin::abci_bsc
+target_link_libraries(pubsub INTERFACE marlin::abci_bsc)
+
 # spdlog
 target_link_libraries(pubsub INTERFACE spdlog::spdlog_header_only)
 
