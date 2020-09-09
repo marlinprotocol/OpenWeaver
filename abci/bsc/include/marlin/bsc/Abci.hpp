@@ -11,10 +11,10 @@
 namespace marlin {
 namespace bsc {
 
-template<typename DelegateType>
+template<typename DelegateType, typename... MetadataTypes>
 class Abci {
 public:
-	using SelfType = Abci<DelegateType>;
+	using SelfType = Abci<DelegateType, MetadataTypes...>;
 private:
 	using BaseTransport = asyncio::PipeTransport<SelfType>;
 	BaseTransport pipe;
@@ -27,7 +27,7 @@ private:
 	}
 
 	uint64_t id = 0;
-	std::unordered_map<uint64_t, core::Buffer> block_store;
+	std::unordered_map<uint64_t, std::tuple<core::Buffer, MetadataTypes...>> block_store;
 public:
 	DelegateType* delegate;
 	std::string path;
@@ -48,7 +48,7 @@ public:
 	}
 
 	void get_block_number();
-	uint64_t analyze_block(core::Buffer&& block);
+	uint64_t analyze_block(core::Buffer&& block, MetadataTypes&&... metadata);
 };
 
 }  // namespace bsc

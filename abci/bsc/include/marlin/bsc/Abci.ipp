@@ -5,10 +5,11 @@ namespace bsc {
 
 //---------------- Helper macros begin ----------------//
 
-#define ABCI_TEMPLATE typename DelegateType
+#define ABCI_TEMPLATE typename DelegateType, typename... MetadataTypes
 
 #define ABCI Abci< \
-	DelegateType \
+	DelegateType, \
+	MetadataTypes... \
 >
 
 //---------------- Helper macros end ----------------//
@@ -62,21 +63,24 @@ void ABCI::did_recv(BaseTransport&, core::Buffer&& bytes) {
 		return;
 	}
 
-	core::Buffer block = std::move(iter->second);
+	auto block_request = std::move(iter->second);
 	block_store.erase(iter);
 
-	core::WeakBuffer header(
-		block.data() + d["result"]["headerOffset"].GetUint64(),
-		d["result"]["headerLength"].GetUint64()
-	);
+	std::apply([&](core::Buffer&& block, auto&& ...metadata) {
+		core::WeakBuffer header(
+			block.data() + d["result"]["headerOffset"].GetUint64(),
+			d["result"]["headerLength"].GetUint64()
+		);
 
-	delegate->did_analyze_block(
-		*this,
-		std::move(block),
-		std::string(d["result"]["hash"].GetString(), d["result"]["hash"].GetStringLength()),
-		std::string(d["result"]["coinbase"].GetString(), d["result"]["coinbase"].GetStringLength()),
-		header
-	);
+		delegate->did_analyze_block(
+			*this,
+			std::move(block),
+			std::string(d["result"]["hash"].GetString(), d["result"]["hash"].GetStringLength()),
+			std::string(d["result"]["coinbase"].GetString(), d["result"]["coinbase"].GetStringLength()),
+			header,
+			metadata...
+		);
+	}, std::move(block_request));
 }
 
 template<ABCI_TEMPLATE>
@@ -111,7 +115,7 @@ void ABCI::get_block_number() {
 }
 
 template<ABCI_TEMPLATE>
-uint64_t ABCI::analyze_block(core::Buffer&& block) {
+uint64_t ABCI::analyze_block(core::Buffer&& block, MetadataTypes&&... metadata) {
 	std::string hex_block("0x");
 	hex_block.reserve(2 + block.size()*2);
 
@@ -123,7 +127,7 @@ uint64_t ABCI::analyze_block(core::Buffer&& block) {
 
 	pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
 
-	block_store.emplace(id, std::move(block));
+	block_store.emplace(id, std::move(block), std::forward<MetadataTypes>(metadata)...);
 	return id++;
 }
 

@@ -25,7 +25,8 @@ struct Delegate {
 		Buffer&&,
 		std::string hash,
 		std::string coinbase,
-		WeakBuffer header
+		WeakBuffer header,
+		uint64_t
 	) {
 		SPDLOG_INFO(
 			"Analyzed block: Hash: {}, Coinbase: {}, Header: {}",
@@ -50,7 +51,7 @@ int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("abci").parse<Options>(argc, argv);
 
-		Abci<Delegate> abci(options.datadir);
+		Abci<Delegate, uint64_t> abci(options.datadir);
 
 		return EventLoop::run();
 	} catch (structopt::exception& e) {
