@@ -115,7 +115,8 @@ void ABCI::get_block_number() {
 }
 
 template<ABCI_TEMPLATE>
-uint64_t ABCI::analyze_block(core::Buffer&& block, MetadataTypes&&... metadata) {
+template<typename... MT>
+uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 	std::string hex_block("0x");
 	hex_block.reserve(2 + block.size()*2);
 
@@ -127,7 +128,7 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MetadataTypes&&... metadata) 
 
 	pipe.send(core::WeakBuffer((uint8_t*)rpc.data(), rpc.size()));
 
-	block_store.emplace(id, std::move(block), std::forward<MetadataTypes>(metadata)...);
+	block_store.try_emplace(id, std::move(block), std::forward<MT>(metadata)...);
 	return id++;
 }
 

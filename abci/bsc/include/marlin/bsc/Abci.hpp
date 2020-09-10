@@ -48,7 +48,8 @@ public:
 	}
 
 	void get_block_number();
-	uint64_t analyze_block(core::Buffer&& block, MetadataTypes&&... metadata);
+	template<typename... MT>
+	uint64_t analyze_block(core::Buffer&& block, MT&&... metadata);
 };
 
 }  // namespace bsc
