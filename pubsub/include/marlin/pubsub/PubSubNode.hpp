@@ -117,10 +117,17 @@ public:
 		BaseStreamTransport,
 		enable_cut_through
 	>;
+	using AbcInterface = Abci <
+		Self,
+		uint64_t,
+		uint16_t,
+		MessageHeaderType,
+		BaseTransport*
+	>;
 private:
 	AttesterType attester;
 	WitnesserType witnesser;
-	Abci<Self> abci;
+	AbcInterface abci;
 // ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -215,15 +222,20 @@ public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
-	void did_connect(Abci<Self> &);
-	void did_disconnect(Abci<Self> &);
-	void did_close(Abci<Self> &);
-	void did_analyze_block(
-		Abci<Self> &,
+	void did_connect(AbcInterface &);
+	void did_disconnect(AbcInterface &);
+	void did_close(AbcInterface &);
+	int did_analyze_block(
+		AbcInterface &,
 		core::Buffer&&,
 		std::string hash,
 		std::string coinbase,
-		core::WeakBuffer header
+		core::WeakBuffer header,
+		uint64_t message_id,
+		uint16_t channel,
+		MessageHeaderType message_header,
+		BaseTransport *transport
+		// std::tuple <uint64_t, uint16_t> meta_data
 	);
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
@@ -691,78 +703,115 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
 
-		if constexpr (enable_relay) {
-			send_message_on_channel(
+		if (enable_relay && !transport.is_internal()) {
+			abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+		} else {
+			delegate->did_recv_message(
+				*this,
+				std::move(bytes),
+				header,
 				channel,
-				message_id,
-				bytes.data(),
-				bytes.size(),
-				&transport.dst_addr,
-				header
+				message_id
 			);
 		}
 
-		if(!transport.is_internal()) {
-			core::WeakBuffer blockHeader = bytes;
-			uint8_t hash[32];
-			CryptoPP::Keccak_256 hasher;
-			hasher.CalculateTruncatedDigest(hash, 32, blockHeader.data(), blockHeader.size());
-
-			uint8_t* key = nullptr;
-			if(key == nullptr) {
-				SPDLOG_INFO(
-					"In did_recv_MESSAGE, key creation failed"
-				);
-				return -1;
-			}
-
-			secp256k1_context* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-
-			// Sign
-			secp256k1_ecdsa_recoverable_signature sig;
-			auto res = secp256k1_ecdsa_sign_recoverable(
-				ctx_signer,
-				&sig,
-				hash,
-				key,
-				nullptr,
-				nullptr
-			);
-
-			if(res == 0) {
-				// Sign failed
-				SPDLOG_INFO(
-					"In did_recv_MESSAGE, sign failed"
-				);
-				return -1;
-			}
-
-			// Output
-			int recid;
-			core::Buffer out(66);
-			int offset = 1;
-			out.data()[0] = 5;
-			secp256k1_ecdsa_recoverable_signature_serialize_compact(
-				ctx_signer,
-				out.data() + offset,
-				&recid,
-				&sig
-			);
-			out.data()[65] = (uint8_t)recid;
-			secp256k1_context_destroy(ctx_signer);
-			transport.send(std::move(out));
-		}
-
-		// Call delegate with old witness
-		delegate->did_recv_message(
-			*this,
-			std::move(bytes),
-			header,
-			channel,
-			message_id
-		);
 	}
 
+	return 0;
+}
+
+template<PUBSUBNODE_TEMPLATE>
+int PUBSUBNODETYPE::did_analyze_block(
+	AbcInterface &,
+	core::Buffer &&bytes,
+	std::string,
+	std::string,
+	core::WeakBuffer,
+	uint64_t message_id,
+	uint16_t channel,
+	MessageHeaderType message_header,
+	BaseTransport *transport
+) {
+	// Relay to other peers.
+	if(
+		!sol_conns.check_tranport_in_set(*transport) &&
+		!sol_standby_conns.check_tranport_in_set(*transport) &&
+		!unsol_conns.check_tranport_in_set(*transport)
+	) {
+		SPDLOG_INFO(
+			"Transport closed"
+		);
+		return -1;
+	}
+
+	send_message_on_channel(
+		channel,
+		message_id,
+		bytes.data(),
+		bytes.size(),
+		&transport->dst_addr,
+		message_header
+	);
+
+	// Send receipt.
+	core::WeakBuffer blockHeader = bytes;
+	uint8_t receiptHash[32];
+	CryptoPP::Keccak_256 hasher;
+	hasher.CalculateTruncatedDigest(receiptHash, 32, blockHeader.data(), blockHeader.size());
+
+	uint8_t* key = nullptr;
+	if(key == nullptr) {
+		SPDLOG_INFO(
+			"In did_recv_MESSAGE, key creation failed"
+		);
+		return -1;
+	}
+
+	secp256k1_context* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+
+	// Sign
+	secp256k1_ecdsa_recoverable_signature sig;
+	auto res = secp256k1_ecdsa_sign_recoverable(
+		ctx_signer,
+		&sig,
+		receiptHash,
+		key,
+		nullptr,
+		nullptr
+	);
+
+	if(res == 0) {
+		// Sign failed
+		SPDLOG_INFO(
+			"In did_recv_MESSAGE, sign failed"
+		);
+		return -1;
+	}
+
+	// Output
+	int recid;
+	core::Buffer out(66);
+	int offset = 1;
+	out.data()[0] = 5;
+	secp256k1_ecdsa_recoverable_signature_serialize_compact(
+		ctx_signer,
+		out.data() + offset,
+		&recid,
+		&sig
+	);
+	out.data()[65] = (uint8_t)recid;
+	secp256k1_context_destroy(ctx_signer);
+	transport->send(std::move(out));
+
+
+	// Call delegate.
+	delegate->did_recv_message(
+		*this,
+		std::move(bytes),
+		message_header,
+		channel,
+		message_id
+	);
 	return 0;
 }
 
@@ -882,6 +931,16 @@ void PUBSUBNODETYPE::did_create_transport(
 
 	transport.setup(this, keys);
 }
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_connect(AbcInterface &) {}
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_disconnect(AbcInterface &) {}
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_close(AbcInterface &) {}
+
 
 //---------------- Listen delegate functions end ----------------//
 
@@ -1123,7 +1182,7 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
 	const uint8_t *data,
-	uint64_t size,
+	size_t size,
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
