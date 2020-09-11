@@ -1,12 +1,8 @@
 #ifndef MARLIN_DEFAULT_ABCI
 #define MARLIN_DEFAULT_ABCI
 
-#include <spdlog/fmt/fmt.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/fmt/bin_to_hex.h>
 #include <marlin/core/Buffer.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
-#include <marlin/asyncio/pipe/PipeTransport.hpp>
 
 namespace marlin {
 namespace pubsub {

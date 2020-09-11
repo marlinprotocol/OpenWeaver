@@ -21,7 +21,6 @@
 #include <random>
 #include <unordered_set>
 #include <tuple>
-#include "marlin/pubsub/ABCInterface.hpp"
 #include "marlin/pubsub/DefaultAbci.hpp"
 
 #include <secp256k1_recovery.h>
