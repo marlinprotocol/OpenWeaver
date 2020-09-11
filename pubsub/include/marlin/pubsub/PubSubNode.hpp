@@ -67,7 +67,7 @@ template<
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
 	typename WitnesserType = EmptyWitnesser,
-	template <typename, typename...> class Abci = marlin::bsc::Abci
+	template <typename, typename...> class Abci = DefaultAbci
 >
 class PubSubNode {
 private:
