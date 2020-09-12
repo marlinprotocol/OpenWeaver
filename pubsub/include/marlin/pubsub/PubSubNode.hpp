@@ -126,6 +126,7 @@ private:
 	AttesterType attester;
 	WitnesserType witnesser;
 	AbciType abci;
+	bool is_abci_active = false;
 // ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -702,7 +703,9 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		message_id_events[message_id_idx].push_back(message_id);
 
 		if (enable_relay && !transport.is_internal()) {
-			abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+			if(is_abci_active) {
+				abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+			}
 		} else {
 			delegate->did_recv_message(
 				*this,
@@ -712,7 +715,6 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 				message_id
 			);
 		}
-
 	}
 
 	return 0;
@@ -931,13 +933,20 @@ void PUBSUBNODETYPE::did_create_transport(
 }
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_connect(AbciType &) {}
+void PUBSUBNODETYPE::did_connect(AbciType &) {
+	is_abci_active = true;
+}
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_disconnect(AbciType &) {}
+void PUBSUBNODETYPE::did_disconnect(AbciType &) {
+	is_abci_active = false;
+}
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_close(AbciType &) {}
+void PUBSUBNODETYPE::did_close(AbciType &) {
+	// Should never happen
+	throw;
+}
 
 
 //---------------- Listen delegate functions end ----------------//
