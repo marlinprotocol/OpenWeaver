@@ -37,7 +37,8 @@ int main(int argc, char** argv) {
 			pubsub_port,
 			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(pubsub_port))),
 			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(discovery_port))),
-			SocketAddress::from_string(beacon_addr)
+			SocketAddress::from_string(beacon_addr),
+			datadir
 		);
 
 		return EventLoop::run();
