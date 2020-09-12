@@ -9,7 +9,6 @@
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
-#include <marlin/bsc/Abci.hpp>
 
 #include <algorithm>
 #include <map>
