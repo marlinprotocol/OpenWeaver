@@ -56,12 +56,14 @@ private:
 
 public:
 
+	template<typename... Args>
 	Relay(
 		uint32_t protocol,
 		const uint32_t pubsub_port,
 		const core::SocketAddress &pubsub_addr,
 		const core::SocketAddress &beacon_addr,
-		const core::SocketAddress &beacon_server_addr
+		const core::SocketAddress &beacon_server_addr,
+		Args&&... args
 	) {
 		// setting protocol
 		my_protocol = protocol;
@@ -123,7 +125,7 @@ public:
 				max_unsol_conns = 16;
 			}
 
-			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk));
+			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
 			ps->delegate = this;
 			b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 			b->is_discoverable = this->is_discoverable;
