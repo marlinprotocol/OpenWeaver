@@ -67,7 +67,7 @@ template<
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
 	typename WitnesserType = EmptyWitnesser,
-	template <typename, typename...> class Abci = DefaultAbci
+	template <typename, typename...> class AbciTemplate = DefaultAbci
 >
 class PubSubNode {
 private:
@@ -86,7 +86,7 @@ public:
 		enable_relay,
 		AttesterType,
 		WitnesserType,
-		Abci
+		AbciTemplate
 	>;
 
 	using MessageHeaderType = MessageHeader;
@@ -116,7 +116,7 @@ public:
 		BaseStreamTransport,
 		enable_cut_through
 	>;
-	using AbcInterface = Abci <
+	using AbciType = AbciTemplate<
 		Self,
 		uint64_t,
 		uint16_t,
@@ -126,7 +126,7 @@ public:
 private:
 	AttesterType attester;
 	WitnesserType witnesser;
-	AbcInterface abci;
+	AbciType abci;
 // ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -221,11 +221,11 @@ public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
-	void did_connect(AbcInterface &);
-	void did_disconnect(AbcInterface &);
-	void did_close(AbcInterface &);
+	void did_connect(AbciType &);
+	void did_disconnect(AbciType &);
+	void did_close(AbciType &);
 	int did_analyze_block(
-		AbcInterface &,
+		AbciType &,
 		core::Buffer&&,
 		std::string hash,
 		std::string coinbase,
@@ -721,7 +721,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 template<PUBSUBNODE_TEMPLATE>
 int PUBSUBNODETYPE::did_analyze_block(
-	AbcInterface &,
+	AbciType &,
 	core::Buffer &&bytes,
 	std::string,
 	std::string,
@@ -932,13 +932,13 @@ void PUBSUBNODETYPE::did_create_transport(
 }
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_connect(AbcInterface &) {}
+void PUBSUBNODETYPE::did_connect(AbciType &) {}
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_disconnect(AbcInterface &) {}
+void PUBSUBNODETYPE::did_disconnect(AbciType &) {}
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_close(AbcInterface &) {}
+void PUBSUBNODETYPE::did_close(AbciType &) {}
 
 
 //---------------- Listen delegate functions end ----------------//
