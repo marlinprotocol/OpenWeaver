@@ -221,6 +221,8 @@ public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
+
+	// Abci delegate
 	void did_connect(AbciType &);
 	void did_disconnect(AbciType &);
 	void did_close(AbciType &);
@@ -234,13 +236,13 @@ public:
 		uint16_t channel,
 		MessageHeaderType message_header,
 		BaseTransport *transport
-		// std::tuple <uint64_t, uint16_t> meta_data
 	);
+
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
 	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
 	void did_send_message(BaseTransport &transport, core::Buffer &&message);
-	void did_close(BaseTransport &transport, uint16_t reason = 1);
+	void did_close(BaseTransport &transport, uint16_t reason);
 
 	int dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 
@@ -726,7 +728,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	core::Buffer &&bytes,
 	std::string,
 	std::string,
-	core::WeakBuffer,
+	core::WeakBuffer block_header,
 	uint64_t message_id,
 	uint16_t channel,
 	MessageHeaderType message_header,
@@ -738,12 +740,13 @@ int PUBSUBNODETYPE::did_analyze_block(
 		!sol_standby_conns.check_tranport_in_set(*transport) &&
 		!unsol_conns.check_tranport_in_set(*transport)
 	) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Transport closed"
 		);
 		return -1;
 	}
 
+	// Relay
 	send_message_on_channel(
 		channel,
 		message_id,
@@ -753,15 +756,24 @@ int PUBSUBNODETYPE::did_analyze_block(
 		message_header
 	);
 
-	// Send receipt.
-	core::WeakBuffer blockHeader = bytes;
-	uint8_t receiptHash[32];
-	CryptoPP::Keccak_256 hasher;
-	hasher.CalculateTruncatedDigest(receiptHash, 32, blockHeader.data(), blockHeader.size());
+	// Call delegate.
+	delegate->did_recv_message(
+		*this,
+		std::move(bytes),
+		message_header,
+		channel,
+		message_id
+	);
 
+	// Send receipt.
+	uint8_t receipt_hash[32];
+	CryptoPP::Keccak_256 hasher;
+	hasher.CalculateTruncatedDigest(receipt_hash, 32, block_header.data(), block_header.size());
+
+	// uint8_t* key = abci.get_key();
 	uint8_t* key = nullptr;
 	if(key == nullptr) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"In did_recv_MESSAGE, key creation failed"
 		);
 		return -1;
@@ -774,7 +786,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	auto res = secp256k1_ecdsa_sign_recoverable(
 		ctx_signer,
 		&sig,
-		receiptHash,
+		receipt_hash,
 		key,
 		nullptr,
 		nullptr
@@ -782,7 +794,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 
 	if(res == 0) {
 		// Sign failed
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"In did_recv_MESSAGE, sign failed"
 		);
 		return -1;
@@ -791,11 +803,10 @@ int PUBSUBNODETYPE::did_analyze_block(
 	// Output
 	int recid;
 	core::Buffer out(66);
-	int offset = 1;
 	out.data()[0] = 5;
 	secp256k1_ecdsa_recoverable_signature_serialize_compact(
 		ctx_signer,
-		out.data() + offset,
+		out.data() + 1,
 		&recid,
 		&sig
 	);
@@ -803,15 +814,6 @@ int PUBSUBNODETYPE::did_analyze_block(
 	secp256k1_context_destroy(ctx_signer);
 	transport->send(std::move(out));
 
-
-	// Call delegate.
-	delegate->did_recv_message(
-		*this,
-		std::move(bytes),
-		message_header,
-		channel,
-		message_id
-	);
 	return 0;
 }
 
