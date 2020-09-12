@@ -25,10 +25,6 @@ template<
 >
 class Relay {
 private:
-	size_t max_sol_conns;
-	size_t max_unsol_conns;
-	uint32_t pubsub_port;
-
 	using Self = Relay<
 		enable_cut_through,
 		accept_unsol_conn,
@@ -46,8 +42,8 @@ private:
 		AbciTemplate
 	>;
 
-	uint32_t my_protocol;
-	bool is_discoverable = true; // false for client
+	uint32_t protocol;
+	uint32_t pubsub_port;
 	PubSubNodeType *ps;
 	marlin::beacon::DiscoveryClient<Self> *b;
 
@@ -65,46 +61,23 @@ public:
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
 	) {
-		// setting protocol
-		my_protocol = protocol;
-
-		//PROTOCOL HACK
+		this->protocol = protocol;
 		this->pubsub_port = pubsub_port;
 
-		if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
-				//setting up keys
-			if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
-				std::ifstream sk("./.marlin/keys/static", std::ios::binary);
-				if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
-					throw;
-				}
-				crypto_scalarmult_base(static_pk, static_sk);
-			} else {
-				crypto_box_keypair(static_pk, static_sk);
-
-				std::experimental::filesystem::create_directories("./.marlin/keys/");
-				std::ofstream sk("./.marlin/keys/static", std::ios::binary);
-
-				sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
+		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
+				throw;
 			}
-		} else if(protocol == RELAY_PUBSUB_PROTOCOL_NUMBER) {
-				//setting up keys
-			if(std::experimental::filesystem::exists("./.marlin/keys/static2")) {
-				std::ifstream sk("./.marlin/keys/static2", std::ios::binary);
-				if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
-					throw;
-				}
-				crypto_scalarmult_base(static_pk, static_sk);
-			} else {
-				crypto_box_keypair(static_pk, static_sk);
+			crypto_scalarmult_base(static_pk, static_sk);
+		} else {
+			crypto_box_keypair(static_pk, static_sk);
 
-				std::experimental::filesystem::create_directories("./.marlin/keys/");
-				std::ofstream sk("./.marlin/keys/static2", std::ios::binary);
+			std::experimental::filesystem::create_directories("./.marlin/keys/");
+			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
 
-				sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
-			}
+			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 		}
-
 
 		SPDLOG_DEBUG(
 			"PK: {:spn}, SK: {:spn}",
@@ -112,32 +85,20 @@ public:
 			spdlog::to_hex(static_sk, static_sk+32)
 		);
 
-		// setting up pusbub and beacon
-		if (
-			protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ||
-			protocol == RELAY_PUBSUB_PROTOCOL_NUMBER
-		) {
-			if (protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
-				max_sol_conns = 50;
-				max_unsol_conns = 6;
-			} else {
-				max_sol_conns = 2;
-				max_unsol_conns = 16;
-			}
+		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 6) : std::tuple(2, 16);
 
-			ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
-			ps->delegate = this;
-			b = new DiscoveryClient<Self>(beacon_addr, static_sk);
-			b->is_discoverable = this->is_discoverable;
-			b->delegate = this;
+		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
+		ps->delegate = this;
+		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
+		b->is_discoverable = true;
+		b->delegate = this;
 
-			b->start_discovery(beacon_server_addr);
-		}
+		b->start_discovery(beacon_server_addr);
 	}
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {
-			std::make_tuple(my_protocol, 0, pubsub_port)
+			std::make_tuple(this->protocol, 0, pubsub_port)
 		};
 	}
 
@@ -156,17 +117,12 @@ public:
 			version
 		);
 
-		if (
-			my_protocol==MASTER_PUBSUB_PROTOCOL_NUMBER ||
-			my_protocol==RELAY_PUBSUB_PROTOCOL_NUMBER
-		) {
-			if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
-				ps->subscribe(addr, static_pk);
-			}
+		if(protocol == MASTER_PUBSUB_PROTOCOL_NUMBER) {
+			ps->subscribe(addr, static_pk);
 		}
 	}
 
-	std::vector<uint16_t> channels = {0};
+	std::vector<uint16_t> channels = {0, 1};
 
 	void did_unsubscribe(
 		PubSubNodeType &,
@@ -180,7 +136,6 @@ public:
 		uint16_t channel [[maybe_unused]]
 	) {
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
-		// ps.send_message_on_channel(channel, "Relay did subs", 21);
 	}
 
 	void did_recv_message(
@@ -210,7 +165,6 @@ public:
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
 	) {
-		// TODO: remove comment
 		SPDLOG_DEBUG(
 			"manage_subscriptions port: {} sol_conns size: {}",
 				pubsub_port,
