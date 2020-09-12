@@ -20,7 +20,8 @@ using namespace marlin::pubsub;
 template<
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
-	bool enable_relay = false
+	bool enable_relay = false,
+	template<typename, typename...> class AbciTemplate = DefaultAbci
 >
 class Relay {
 private:
@@ -31,7 +32,8 @@ private:
 	using Self = Relay<
 		enable_cut_through,
 		accept_unsol_conn,
-		enable_relay
+		enable_relay,
+		AbciTemplate
 	>;
 
 	using PubSubNodeType = PubSubNode<
@@ -40,7 +42,8 @@ private:
 		accept_unsol_conn,
 		enable_relay,
 		EmptyAttester,
-		BloomWitnesser
+		BloomWitnesser,
+		AbciTemplate
 	>;
 
 	uint32_t my_protocol;
