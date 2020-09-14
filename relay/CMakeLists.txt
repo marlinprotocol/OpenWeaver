@@ -22,12 +22,6 @@ target_include_directories(relay
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-IF(APPLE)
-target_link_libraries(relay INTERFACE c++)
-ELSE()
-target_link_libraries(relay INTERFACE stdc++fs)
-ENDIF()
-
 target_compile_options(relay INTERFACE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(relay INTERFACE cxx_std_17)
 
@@ -36,6 +30,9 @@ target_link_libraries(relay INTERFACE marlin::pubsub)
 
 # marlin::beacon
 target_link_libraries(relay INTERFACE marlin::beacon)
+
+# boost::filesystem
+target_link_libraries(relay INTERFACE Boost::filesystem)
 
 add_executable(relayexec
 	src/relay_exec.cpp

@@ -4,8 +4,8 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <fstream>
-#include <experimental/filesystem>
+
+#include <boost/filesystem.hpp>
 
 using namespace marlin;
 using namespace marlin::core;
@@ -64,7 +64,7 @@ public:
 		this->protocol = protocol;
 		this->pubsub_port = pubsub_port;
 
-		if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+		if(boost::filesystem::exists("./.marlin/keys/static")) {
 			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
 			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 				throw;
@@ -73,7 +73,7 @@ public:
 		} else {
 			crypto_box_keypair(static_pk, static_sk);
 
-			std::experimental::filesystem::create_directories("./.marlin/keys/");
+			boost::filesystem::create_directories("./.marlin/keys/");
 			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
 
 			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
