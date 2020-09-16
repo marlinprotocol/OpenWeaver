@@ -76,6 +76,8 @@ public:
 		pipe.close();
 	}
 
+	uint8_t* get_key() { return key; }
+
 	void get_block_number();
 	template<typename... MT>
 	uint64_t analyze_block(core::Buffer&& block, MT&&... metadata);

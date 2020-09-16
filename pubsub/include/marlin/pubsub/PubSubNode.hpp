@@ -770,8 +770,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	CryptoPP::Keccak_256 hasher;
 	hasher.CalculateTruncatedDigest(receipt_hash, 32, block_header.data(), block_header.size());
 
-	// uint8_t* key = abci.get_key();
-	uint8_t* key = nullptr;
+	uint8_t* key = abci.get_key();
 	if(key == nullptr) {
 		SPDLOG_DEBUG(
 			"In did_recv_MESSAGE, key creation failed"
