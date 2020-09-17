@@ -24,6 +24,8 @@ $ git submodule update --init --recursive
 
 ## Building
 
+Prerequisites: cmake >= 3.13, autoconf, automake, libtool, g++/clang++ (must support C++17, newer versions preferable)
+
 The codebase is a standard C++/CMake project.
 ```sh
 $ mkdir build && cd build  # to create a build directory
