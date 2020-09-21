@@ -63,7 +63,7 @@ public:
 	template<typename MetadataType>
 	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata);
 	template<typename MetadataType>
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& metadata);
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata);
 
 	UdpTransport<TransportDelegate> *get_transport(
 		core::SocketAddress const &addr
@@ -303,7 +303,7 @@ dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* me
 		delegate.did_create_transport(*transport, metadata);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, metadata);
 
 	return status;
 }
@@ -312,7 +312,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 template<typename MetadataType>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& metadata) {
+dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata) {
 	auto [transport, status] = dial_impl(addr, delegate);
 
 	if(status < 0) {
@@ -321,7 +321,7 @@ dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType&& m
 		delegate.did_create_transport(*transport, std::move(metadata));
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, std::move(metadata));
 
 	return status;
 }

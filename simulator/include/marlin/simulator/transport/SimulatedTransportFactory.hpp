@@ -213,7 +213,7 @@ int SimulatedTransportFactory<
 		delegate.did_create_transport(*transport, metadata);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, metadata);
 
 	return status;
 }
