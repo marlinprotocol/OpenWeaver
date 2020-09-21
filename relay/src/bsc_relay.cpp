@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 		);
 
 		Relay<true, true, true, marlin::bsc::Abci> relay(
-			RELAY_PUBSUB_PROTOCOL_NUMBER,
+			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			pubsub_port,
 			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(pubsub_port))),
 			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(discovery_port))),

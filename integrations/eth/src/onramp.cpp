@@ -10,7 +10,7 @@ using namespace marlin::rlpx;
 
 int main(int argc, char **argv) {
 
-	std::string beacon_addr = "0.0.0.0:90002";
+	std::string beacon_addr = "0.0.0.0:9002";
 	std::string discovery_addr = "0.0.0.0:15002";
 	std::string pubsub_addr = "0.0.0.0:15000";
 
