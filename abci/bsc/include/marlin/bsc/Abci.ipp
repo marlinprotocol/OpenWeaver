@@ -120,7 +120,7 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 	std::string hex_block("0x");
 	hex_block.reserve(2 + block.size()*2);
 
-	for(size_t i = 0; i < block.size(); i++) {
+	for(size_t i = 1; i < block.size(); i++) {
 		hex_block += fmt::format("{:02x}", block.data()[i]);
 	}
 
