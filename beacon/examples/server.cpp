@@ -8,16 +8,20 @@ using namespace marlin;
 class BeaconDelegate {};
 
 struct CliOptions {
-	std::string discovery_addr;
-	std::string heartbeat_addr;
+	std::optional<std::string> discovery_addr;
+	std::optional<std::string> heartbeat_addr;
 };
 STRUCTOPT(CliOptions, discovery_addr, heartbeat_addr);
 
 int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("beacon").parse<CliOptions>(argc, argv);
-		auto discovery_addr = core::SocketAddress::from_string(options.discovery_addr);
-		auto heartbeat_addr = core::SocketAddress::from_string(options.heartbeat_addr);
+		auto discovery_addr = core::SocketAddress::from_string(
+			options.discovery_addr.value_or("127.0.0.1:8002")
+		);
+		auto heartbeat_addr = core::SocketAddress::from_string(
+			options.heartbeat_addr.value_or("127.0.0.1:8003")
+		);
 
 		SPDLOG_INFO(
 			"Starting beacon with discovery: {}, heartbeat: {}",
@@ -26,8 +30,8 @@ int main(int argc, char** argv) {
 		);
 
 		BeaconDelegate del;
-		auto b = new beacon::DiscoveryServer<BeaconDelegate>(discovery_addr, heartbeat_addr);
-		b->delegate = &del;
+		beacon::DiscoveryServer<BeaconDelegate> b(discovery_addr, heartbeat_addr);
+		b.delegate = &del;
 
 		return asyncio::EventLoop::run();
 	} catch (structopt::exception& e) {
