@@ -14,7 +14,7 @@ using namespace marlin::stream;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000001
+#define MASTER_PUBSUB_PROTOCOL_NUMBER 0x10000000
 #define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 template<
