@@ -126,7 +126,7 @@ target_include_directories(server
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-target_link_libraries(server PUBLIC beacon)
+target_link_libraries(server PUBLIC beacon structopt::structopt)
 target_compile_options(server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 ##########################################################
