@@ -60,6 +60,17 @@ public:
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, std::forward<Args>(args)...) {}
+
+	template<typename... Args>
+	Relay(
+		uint32_t protocol,
+		const uint32_t pubsub_port,
+		const core::SocketAddress &pubsub_addr,
+		const core::SocketAddress &beacon_addr,
+		std::vector<core::SocketAddress>&& discovery_addrs,
+		std::vector<core::SocketAddress>&& heartbeat_addrs,
+		Args&&... args
 	) {
 		this->protocol = protocol;
 		this->pubsub_port = pubsub_port;
@@ -93,7 +104,7 @@ public:
 		b->is_discoverable = true;
 		b->delegate = this;
 
-		b->start_discovery(beacon_server_addr);
+		b->start_discovery(std::move(discovery_addrs), std::move(heartbeat_addrs));
 	}
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
