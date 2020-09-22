@@ -49,6 +49,7 @@ private:
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
+	BaseTransportFactory hf;
 
 	// Discovery protocol
 	void did_recv_DISCPROTO(BaseTransport &transport);
@@ -73,7 +74,7 @@ public:
 	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
-	DiscoveryServer(core::SocketAddress const &addr);
+	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr);
 
 	DiscoveryServerDelegate *delegate;
 };
@@ -160,8 +161,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		return;
 	}
 
-	// Allow only internal nodes to add themselves to the registry
-	if(!transport.is_internal()) {
+	// Allow only heartbeat addr transports to add themselves to the registry
+	if(!(transport.src_addr == hf.addr)) {
 		return;
 	}
 
@@ -297,10 +298,14 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
-	core::SocketAddress const &addr
+	core::SocketAddress const& baddr,
+	core::SocketAddress const& haddr
 ) : heartbeat_timer(this) {
-	f.bind(addr);
+	f.bind(baddr);
 	f.listen(*this);
+
+	hf.bind(haddr);
+	hf.listen(*this);
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 }

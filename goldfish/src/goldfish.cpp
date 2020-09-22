@@ -87,6 +87,7 @@ public:
 
 int main(int argc, char **argv) {
 	std::string beacon_addr("127.0.0.1:9002"),
+				heartbeat_addr("127.0.0.1:9003"),
 				discovery_addr("127.0.0.1:10002"),
 				pubsub_addr("127.0.0.1:10000");
 
@@ -117,7 +118,7 @@ int main(int argc, char **argv) {
 	Goldfish g;
 
 	// Beacon
-	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr));
+	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr));
 	b.delegate = &g;
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
