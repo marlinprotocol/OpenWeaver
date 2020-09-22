@@ -119,6 +119,9 @@ add_executable(server
 	examples/server.cpp
 )
 add_dependencies(beacon_examples server)
+set_target_properties(server PROPERTIES
+	OUTPUT_NAME "beacon"
+)
 
 target_include_directories(server
 	PUBLIC
