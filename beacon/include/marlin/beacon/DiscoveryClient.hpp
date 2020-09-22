@@ -60,10 +60,8 @@ private:
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
-	/*!
-		stores the UDP Transport connection instance to the beacon server
-	*/
-	BaseTransport *beacon = nullptr;
+	std::vector<core::SocketAddress> discovery_addrs;
+	std::vector<core::SocketAddress> heartbeat_addrs;
 
 	void beacon_timer_cb();
 	asyncio::Timer beacon_timer;
@@ -74,10 +72,10 @@ private:
 public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
-	void did_create_transport(BaseTransport &transport);
+	void did_create_transport(BaseTransport &transport, size_t = 0);
 
 	// Transport delegate
-	void did_dial(BaseTransport &transport);
+	void did_dial(BaseTransport &transport, size_t type = 0);
 	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
@@ -93,6 +91,10 @@ public:
 	bool is_discoverable = false;
 
 	void start_discovery(core::SocketAddress const &beacon_addr);
+	void start_discovery(
+		std::vector<core::SocketAddress>&& discovery_addrs,
+		std::vector<core::SocketAddress>&& heartbeat_addrs
+	);
 
 	void close();
 
@@ -214,7 +216,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 
-		f.dial(peer_addr, *this);
+		f.dial(peer_addr, *this, 0);
 	}
 }
 
@@ -233,8 +235,9 @@ void DISCOVERYCLIENT::send_HEARTBEAT(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::beacon_timer_cb() {
-	// Discover new peers
-	send_DISCPEER(*beacon);
+	for(auto& addr : discovery_addrs) {
+		f.dial(addr, *this, 1);
+	}
 }
 
 /*!
@@ -242,8 +245,8 @@ void DISCOVERYCLIENT::beacon_timer_cb() {
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::heartbeat_timer_cb() {
-	if(is_discoverable) {
-		send_HEARTBEAT(*beacon);
+	for(auto& addr : heartbeat_addrs) {
+		f.dial(addr, *this, 2);
 	}
 }
 
@@ -261,7 +264,8 @@ bool DISCOVERYCLIENT::should_accept(
 
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_create_transport(
-	BaseTransport &transport
+	BaseTransport &transport,
+	size_t
 ) {
 	transport.setup(this);
 }
@@ -273,16 +277,18 @@ void DISCOVERYCLIENT::did_create_transport(
 
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_dial(
-	BaseTransport &transport
+	BaseTransport &transport,
+	size_t type
 ) {
-	if(beacon == nullptr) {
-		beacon = &transport;
-		beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
-		if(is_discoverable) {
-			heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
-		}
-	} else {
+	if(type == 0) {
+		// Normal peer
 		send_DISCPROTO(transport);
+	} else if(type == 1) {
+		// Discovery peer
+		send_DISCPEER(transport);
+	} else if(type == 2) {
+		// Heartbeat peer
+		send_HEARTBEAT(transport);
 	}
 }
 
@@ -393,7 +399,24 @@ template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::start_discovery(
 	const core::SocketAddress &beacon_addr
 ) {
-	f.dial(beacon_addr, *this);
+	discovery_addrs.push_back(beacon_addr);
+	beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
+
+	if(is_discoverable) {
+		heartbeat_addrs.push_back(beacon_addr);
+		heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
+	}
+}
+
+template<DISCOVERYCLIENT_TEMPLATE>
+void DISCOVERYCLIENT::start_discovery(
+	std::vector<core::SocketAddress>&& discovery_addrs,
+	std::vector<core::SocketAddress>&& heartbeat_addrs
+) {
+	this->discovery_addrs = std::move(discovery_addrs);
+	this->heartbeat_addrs = std::move(heartbeat_addrs);
+	beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
+	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
