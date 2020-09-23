@@ -48,3 +48,8 @@ add_executable(bsc_relay
 	src/bsc_relay.cpp
 )
 target_link_libraries(bsc_relay PUBLIC relay marlin::abci_bsc)
+
+add_executable(eth_relay
+	src/bsc_relay.cpp
+)
+target_link_libraries(eth_relay PUBLIC relay marlin::abci_bsc)
