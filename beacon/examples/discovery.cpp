@@ -40,6 +40,7 @@ public:
 
 int main() {
 	auto baddr = core::SocketAddress::from_string("127.0.0.1:8002");
+	auto haddr = core::SocketAddress::from_string("127.0.0.1:8003");
 	auto caddr1 = core::SocketAddress::from_string("127.0.0.1:8000");
 	auto caddr2 = core::SocketAddress::from_string("127.0.0.1:8001");
 
@@ -63,7 +64,7 @@ int main() {
 
 	BeaconDelegate del;
 
-	auto b = new beacon::DiscoveryServer<BeaconDelegate>(baddr);
+	auto b = new beacon::DiscoveryServer<BeaconDelegate>(baddr, haddr);
 	b->delegate = &del;
 
 	auto c1 = new beacon::DiscoveryClient<BeaconDelegate>(caddr1, static_sk);

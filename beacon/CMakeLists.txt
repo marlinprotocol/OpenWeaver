@@ -119,6 +119,9 @@ add_executable(server
 	examples/server.cpp
 )
 add_dependencies(beacon_examples server)
+set_target_properties(server PROPERTIES
+	OUTPUT_NAME "beacon"
+)
 
 target_include_directories(server
 	PUBLIC
@@ -126,7 +129,7 @@ target_include_directories(server
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/examples
 )
-target_link_libraries(server PUBLIC beacon)
+target_link_libraries(server PUBLIC beacon structopt::structopt)
 target_compile_options(server PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 ##########################################################

@@ -20,8 +20,11 @@
 #include <random>
 #include <unordered_set>
 #include <tuple>
+#include "marlin/pubsub/DefaultAbci.hpp"
 
+#include <secp256k1_recovery.h>
 #include <marlin/pubsub/PubSubTransportSet.hpp>
+#include <cryptopp/keccak.h>
 
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
@@ -62,7 +65,8 @@ template<
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
 	typename AttesterType = EmptyAttester,
-	typename WitnesserType = EmptyWitnesser
+	typename WitnesserType = EmptyWitnesser,
+	template <typename, typename...> class AbciTemplate = DefaultAbci
 >
 class PubSubNode {
 private:
@@ -80,7 +84,8 @@ public:
 		accept_unsol_conn,
 		enable_relay,
 		AttesterType,
-		WitnesserType
+		WitnesserType,
+		AbciTemplate
 	>;
 
 	using MessageHeaderType = MessageHeader;
@@ -110,10 +115,19 @@ public:
 		BaseStreamTransport,
 		enable_cut_through
 	>;
+	using AbciType = AbciTemplate<
+		Self,
+		uint64_t,
+		uint16_t,
+		MessageHeaderType,
+		BaseTransport*
+	>;
 private:
 	AttesterType attester;
 	WitnesserType witnesser;
-//---------------- Subscription management ----------------//
+	AbciType abci;
+	bool is_abci_active = false;
+// ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
 	typedef std::unordered_map<uint16_t, TransportSet> TransportSetMap;
@@ -180,9 +194,7 @@ private:
 	);
 
 	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-
 	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-
 	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
@@ -190,6 +202,7 @@ private:
 		std::string msg_string
 	);
 
+	int did_recv_RECEIPT(BaseTransport&, core::Buffer&&);
 	int did_recv_MESSAGE(BaseTransport &transport, core::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
@@ -209,6 +222,22 @@ public:
 	bool should_accept(core::SocketAddress const &addr);
 	void did_create_transport(BaseTransport &transport);
 
+	// Abci delegate
+	void did_connect(AbciType &);
+	void did_disconnect(AbciType &);
+	void did_close(AbciType &);
+	int did_analyze_block(
+		AbciType &,
+		core::Buffer&&,
+		std::string hash,
+		std::string coinbase,
+		core::WeakBuffer header,
+		uint64_t message_id,
+		uint16_t channel,
+		MessageHeaderType message_header,
+		BaseTransport *transport
+	);
+
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
 	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
@@ -221,7 +250,8 @@ public:
 public:
 	template<
 		typename ...AttesterArgs,
-		typename ...WitnesserArgs
+		typename ...WitnesserArgs,
+		typename ...AbciArgs
 	>
 	PubSubNode(
 		const core::SocketAddress &_addr,
@@ -229,7 +259,8 @@ public:
 		size_t max_unsol,
 		uint8_t const *keys,
 		std::tuple<AttesterArgs...> attester_args = {},
-		std::tuple<WitnesserArgs...> witnesser_args = {}
+		std::tuple<WitnesserArgs...> witnesser_args = {},
+		std::tuple<AbciArgs...> abci_args = {}
 	);
 	PubSubDelegate *delegate;
 
@@ -262,8 +293,10 @@ private:
 	template<
 		typename ...AttesterArgs,
 		typename ...WitnesserArgs,
+		typename ...AbciArgs,
 		size_t ...AI,
-		size_t ...WI
+		size_t ...WI,
+		size_t ...ABI
 	>
 	PubSubNode(
 		const core::SocketAddress &_addr,
@@ -272,9 +305,11 @@ private:
 		uint8_t const *keys,
 		std::tuple<AttesterArgs...> attester_args,
 		std::tuple<WitnesserArgs...> witnesser_args,
+		std::tuple<AbciArgs...> abci_args,
 		// Need the below args for tuple destructuring
 		std::index_sequence<AI...>,
-		std::index_sequence<WI...>
+		std::index_sequence<WI...>,
+		std::index_sequence<ABI...>
 	);
 
 //---------------- Message deduplication ----------------//
@@ -367,7 +402,8 @@ private:
 	bool accept_unsol_conn, \
 	bool enable_relay, \
 	typename AttesterType, \
-	typename WitnesserType \
+	typename WitnesserType, \
+	template <typename, typename...> class Abci
 
 #define PUBSUBNODETYPE PubSubNode< \
 	PubSubDelegate, \
@@ -375,7 +411,8 @@ private:
 	accept_unsol_conn, \
 	enable_relay, \
 	AttesterType, \
-	WitnesserType \
+	WitnesserType, \
+	Abci \
 >
 
 //---------------- Helper macros end ----------------//
@@ -490,7 +527,6 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	// TODO
 	remove_conn(unsol_conns, transport);
 }
-
 
 /*!
 	\verbatim
@@ -668,28 +704,123 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
 
-		if constexpr (enable_relay) {
-			send_message_on_channel(
+		if (enable_relay && !transport.is_internal()) {
+			if(is_abci_active) {
+				abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+			}
+		} else {
+			delegate->did_recv_message(
+				*this,
+				std::move(bytes),
+				header,
 				channel,
-				message_id,
-				bytes.data(),
-				bytes.size(),
-				&transport.dst_addr,
-				header
+				message_id
 			);
 		}
-
-		// Call delegate with old witness
-		delegate->did_recv_message(
-			*this,
-			std::move(bytes),
-			header,
-			channel,
-			message_id
-		);
 	}
 
 	return 0;
+}
+
+template<PUBSUBNODE_TEMPLATE>
+int PUBSUBNODETYPE::did_analyze_block(
+	AbciType &,
+	core::Buffer &&bytes,
+	std::string,
+	std::string,
+	core::WeakBuffer block_header,
+	uint64_t message_id,
+	uint16_t channel,
+	MessageHeaderType message_header,
+	BaseTransport *transport
+) {
+	// Relay to other peers.
+	if(
+		!sol_conns.check_tranport_in_set(*transport) &&
+		!sol_standby_conns.check_tranport_in_set(*transport) &&
+		!unsol_conns.check_tranport_in_set(*transport)
+	) {
+		SPDLOG_DEBUG(
+			"Transport closed"
+		);
+		return -1;
+	}
+
+	// Relay
+	send_message_on_channel(
+		channel,
+		message_id,
+		bytes.data(),
+		bytes.size(),
+		&transport->dst_addr,
+		message_header
+	);
+
+	// Call delegate.
+	delegate->did_recv_message(
+		*this,
+		std::move(bytes),
+		message_header,
+		channel,
+		message_id
+	);
+
+	// Send receipt.
+	uint8_t receipt_hash[32];
+	CryptoPP::Keccak_256 hasher;
+	hasher.CalculateTruncatedDigest(receipt_hash, 32, block_header.data(), block_header.size());
+
+	uint8_t* key = abci.get_key();
+	if(key == nullptr) {
+		SPDLOG_DEBUG(
+			"In did_recv_MESSAGE, key creation failed"
+		);
+		return -1;
+	}
+
+	secp256k1_context* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+
+	// Sign
+	secp256k1_ecdsa_recoverable_signature sig;
+	auto res = secp256k1_ecdsa_sign_recoverable(
+		ctx_signer,
+		&sig,
+		receipt_hash,
+		key,
+		nullptr,
+		nullptr
+	);
+
+	if(res == 0) {
+		// Sign failed
+		SPDLOG_DEBUG(
+			"In did_recv_MESSAGE, sign failed"
+		);
+		return -1;
+	}
+
+	// Output
+	int recid;
+	core::Buffer out(66);
+	out.data()[0] = 5;
+	secp256k1_ecdsa_recoverable_signature_serialize_compact(
+		ctx_signer,
+		out.data() + 1,
+		&recid,
+		&sig
+	);
+	out.data()[65] = (uint8_t)recid;
+	secp256k1_context_destroy(ctx_signer);
+	transport->send(std::move(out));
+
+	return 0;
+}
+
+
+template<PUBSUBNODE_TEMPLATE>
+int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&&) {
+	// TODO: function handles when the node receives a receipt. Should also check if some block is missed.
+	return 1;
 }
 
 
@@ -802,6 +933,23 @@ void PUBSUBNODETYPE::did_create_transport(
 	transport.setup(this, keys);
 }
 
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_connect(AbciType &) {
+	is_abci_active = true;
+}
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_disconnect(AbciType &) {
+	is_abci_active = false;
+}
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::did_close(AbciType &) {
+	// Should never happen
+	throw;
+}
+
+
 //---------------- Listen delegate functions end ----------------//
 
 
@@ -868,6 +1016,9 @@ int PUBSUBNODETYPE::did_recv_message(
 		// HEARTBEAT, ignore
 		case 4:
 		break;
+		// RECEIPT
+		case 5: return this->did_recv_RECEIPT(transport, std::move(bytes));
+		break;
 	}
 
 	return 0;
@@ -931,7 +1082,8 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 template<PUBSUBNODE_TEMPLATE>
 template<
 	typename ...AttesterArgs,
-	typename ...WitnesserArgs
+	typename ...WitnesserArgs,
+	typename ...AbciArgs
 >
 PUBSUBNODETYPE::PubSubNode(
 	const core::SocketAddress &addr,
@@ -939,7 +1091,8 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_unsol,
 	uint8_t const* keys,
 	std::tuple<AttesterArgs...> attester_args,
-	std::tuple<WitnesserArgs...> witnesser_args
+	std::tuple<WitnesserArgs...> witnesser_args,
+	std::tuple<AbciArgs...> abci_args
 ) : PubSubNode(
 	addr,
 	max_sol,
@@ -947,30 +1100,37 @@ PUBSUBNODETYPE::PubSubNode(
 	keys,
 	std::move(attester_args),
 	std::move(witnesser_args),
+	std::move(abci_args),
 	std::index_sequence_for<AttesterArgs...>{},
-	std::index_sequence_for<WitnesserArgs...>{}
+	std::index_sequence_for<WitnesserArgs...>{},
+	std::index_sequence_for<AbciArgs...>{}
 ) {}
 
 template<PUBSUBNODE_TEMPLATE>
 template<
 	typename ...AttesterArgs,
 	typename ...WitnesserArgs,
+	typename ...AbciArgs,
 	size_t ...AI,
-	size_t ...WI
+	size_t ...WI,
+	size_t ...ABI
 >
 PUBSUBNODETYPE::PubSubNode(
 	const core::SocketAddress &addr,
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	std::tuple<AttesterArgs...> attester_args  [[maybe_unused]],
-	std::tuple<WitnesserArgs...> witnesser_args  [[maybe_unused]],
+	std::tuple<AttesterArgs...> attester_args [[maybe_unused]],
+	std::tuple<WitnesserArgs...> witnesser_args [[maybe_unused]],
+	std::tuple<AbciArgs...> abci_args [[maybe_unused]],
 	std::index_sequence<AI...>,
-	std::index_sequence<WI...>
+	std::index_sequence<WI...>,
+	std::index_sequence<ABI...>
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
 	attester(std::get<AI>(attester_args)...),
 	witnesser(std::get<WI>(witnesser_args)...),
+	abci(std::get<ABI>(abci_args)...),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
@@ -980,7 +1140,7 @@ PUBSUBNODETYPE::PubSubNode(
 {
 	f.bind(addr);
 	f.listen(*this);
-
+	abci.delegate = this;
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
@@ -1030,7 +1190,7 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
 	const uint8_t *data,
-	uint64_t size,
+	size_t size,
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {

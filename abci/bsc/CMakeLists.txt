@@ -36,6 +36,15 @@ target_link_libraries(abci_bsc INTERFACE structopt::structopt)
 # rapidjson
 target_link_libraries(abci_bsc INTERFACE rapidjson)
 
+# cryptopp
+target_link_libraries(abci_bsc INTERFACE cryptopp::CryptoPP)
+
+# secp256k1
+target_link_libraries(abci_bsc INTERFACE secp256k1::secp256k1)
+
+# boost::filesystem
+target_link_libraries(abci_bsc INTERFACE Boost::filesystem)
+
 install(TARGETS abci_bsc
 	EXPORT marlin-abci-bsc-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

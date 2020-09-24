@@ -261,12 +261,12 @@ public:
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			multicastClient.ps.send_message_on_channel(
-				1,
-				message_id,
-				message.data(),
-				message.size()
-			);
+			// multicastClient.ps.send_message_on_channel(
+			// 	1,
+			// 	message_id,
+			// 	message.data(),
+			// 	message.size()
+			// );
 		} else if(message.data()[0] == 0x17) { // eth63 NewBlock
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: NewBlock message: {} bytes",

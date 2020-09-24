@@ -5,7 +5,6 @@ using namespace marlin::asyncio;
 using namespace marlin::beacon;
 using namespace marlin::pubsub;
 
-#define RELAY_PUBSUB_PROTOCOL_NUMBER 0x10000000
 
 int main(int , char **argv) {
 	std::string beacon_addr(argv[1]);

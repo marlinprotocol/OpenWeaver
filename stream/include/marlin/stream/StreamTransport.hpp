@@ -233,7 +233,7 @@ private:
 
 public:
 	/// Delegate calls from base transport
-	void did_dial(BaseTransport &transport);
+	void did_dial(BaseTransport &transport, uint8_t const*);
 	/// Delegate calls from base transport
 	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	/// Delegate calls from base transport
@@ -1898,7 +1898,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 //! Callback function when trying to establish a connection with a peer. Sends a DIAL packet to initiate the handshake
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
-	BaseTransport &
+	BaseTransport &,
+	uint8_t const*
 ) {
 	if(conn_state != ConnectionState::Listen) {
 		return;
