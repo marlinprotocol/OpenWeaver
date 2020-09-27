@@ -704,9 +704,30 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
 
-		if (enable_relay && !transport.is_internal()) {
-			if(is_abci_active) {
-				abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+		if constexpr (enable_relay) {
+			if(!transport.is_internal()) {
+				if(is_abci_active) {
+					abci.analyze_block(std::move(bytes), message_id, channel, header, &transport);
+				} else {
+					SPDLOG_ERROR("Abci not active, dropping block");
+				}
+			} else {
+				send_message_on_channel(
+					channel,
+					message_id,
+					bytes.data(),
+					bytes.size(),
+					&transport.dst_addr,
+					header
+				);
+
+				delegate->did_recv_message(
+					*this,
+					std::move(bytes),
+					header,
+					channel,
+					message_id
+				);
 			}
 		} else {
 			delegate->did_recv_message(
