@@ -16,12 +16,12 @@ using namespace marlin::asyncio;
 
 // Delegate
 struct MarlinMulticastClientDelegate {
-	did_recv_message_func m_did_recv_message = 0;
+	did_recv_func m_did_recv = 0;
 	did_subscribe_func m_did_subscribe = 0;
 	did_unsubscribe_func m_did_unsubscribe = 0;
 
 	template<typename T> // TODO: Code smell, remove later
-	void did_recv_message(
+	void did_recv(
 		DefaultMulticastClient<MarlinMulticastClientDelegate> &client,
 		Buffer &&message,
 		T,
@@ -40,8 +40,8 @@ struct MarlinMulticastClientDelegate {
 		);
 
 		// TODO: Should check or assert?
-		if (this->m_did_recv_message != 0) {
-			this->m_did_recv_message(
+		if (this->m_did_recv != 0) {
+			this->m_did_recv(
 				reinterpret_cast<MarlinMulticastClient_t *> (&client),
 				message.data(),
 				message.size(),
@@ -79,11 +79,11 @@ void marlin_multicast_clientdelegate_destroy(MarlinMulticastClientDelegate_t* de
 	delete delegate;
 }
 
-void marlin_multicast_clientdelegate_set_did_recv_message(
+void marlin_multicast_clientdelegate_set_did_recv(
 	MarlinMulticastClientDelegate_t *delegate,
-	did_recv_message_func f
+	did_recv_func f
 ) {
-	delegate->m_did_recv_message = f;
+	delegate->m_did_recv = f;
 }
 
 void marlin_multicast_clientdelegate_set_did_subscribe(
