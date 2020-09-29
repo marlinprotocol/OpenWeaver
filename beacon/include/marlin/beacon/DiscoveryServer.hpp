@@ -71,8 +71,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
 	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr);
 
@@ -231,7 +231,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 	\li 4			:	HEARTBEAT
 */
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
@@ -263,7 +263,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 }
 
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
