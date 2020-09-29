@@ -23,7 +23,7 @@ uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
 struct Delegate {
-	int did_recv_bytes(
+	int did_recv(
 		TransportType &transport [[maybe_unused]],
 		Buffer &&packet [[maybe_unused]],
 		uint8_t stream_id [[maybe_unused]]
@@ -37,7 +37,7 @@ struct Delegate {
 		return 0;
 	}
 
-	void did_send_bytes(TransportType &transport, Buffer &&packet) {
+	void did_send(TransportType &transport, Buffer &&packet) {
 		SPDLOG_INFO(
 			"Transport {{ Src: {}, Dst: {} }}: Did send packet: {} bytes",
 			transport.src_addr.to_string(),
