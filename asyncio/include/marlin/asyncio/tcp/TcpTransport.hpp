@@ -63,7 +63,7 @@ public:
 	TcpTransport(TcpTransport const&) = delete;
 
 	void setup(DelegateType *delegate);
-	void did_recv_bytes(core::Buffer &&bytes);
+	void did_recv(core::Buffer &&bytes);
 	int send(core::Buffer &&bytes);
 	uint16_t close_reason = 0;
 	void close(uint16_t reason = 0);
@@ -140,7 +140,7 @@ void TcpTransport<DelegateType>::recv_cb(
 		return;
 	}
 
-	transport->did_recv_bytes(
+	transport->did_recv(
 		core::Buffer((uint8_t*)buf->base, nread)
 	);
 }
@@ -167,8 +167,8 @@ void TcpTransport<DelegateType>::setup(DelegateType *delegate) {
 
 //! sends the incoming bytes to the application/HOT delegate
 template<typename DelegateType>
-void TcpTransport<DelegateType>::did_recv_bytes(core::Buffer &&bytes) {
-	delegate->did_recv_bytes(*this, std::move(bytes));
+void TcpTransport<DelegateType>::did_recv(core::Buffer &&bytes) {
+	delegate->did_recv(*this, std::move(bytes));
 }
 
 template<typename DelegateType>
@@ -185,7 +185,7 @@ void TcpTransport<DelegateType>::send_cb(
 			status
 		);
 	} else {
-		data->transport.delegate->did_send_bytes(
+		data->transport.delegate->did_send(
 			data->transport,
 			std::move(data->bytes)
 		);

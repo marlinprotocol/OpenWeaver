@@ -60,7 +60,7 @@ public:
 	UdpTransport(UdpTransport const&) = delete;
 
 	void setup(DelegateType *delegate);
-	void did_recv_packet(core::Buffer &&packet);
+	void did_recv(core::Buffer &&packet);
 	int send(core::Buffer &&packet);
 	int send(MessageType &&packet);
 	void close(uint16_t reason = 0);
@@ -101,8 +101,8 @@ void UdpTransport<DelegateType>::setup(DelegateType *delegate) {
 
 //! sends the incoming bytes to the application/HOT delegate
 template<typename DelegateType>
-void UdpTransport<DelegateType>::did_recv_packet(core::Buffer &&packet) {
-	delegate->did_recv_packet(*this, std::move(packet));
+void UdpTransport<DelegateType>::did_recv(core::Buffer &&packet) {
+	delegate->did_recv(*this, std::move(packet));
 }
 
 template<typename DelegateType>
@@ -126,7 +126,7 @@ void UdpTransport<DelegateType>::send_cb(
 			status
 		);
 	} else {
-		data->transport->delegate->did_send_packet(
+		data->transport->delegate->did_send(
 			*data->transport,
 			std::move(data->packet)
 		);
