@@ -164,7 +164,7 @@ void SimulatedTransport<
 	core::SocketAddress const&,
 	core::Buffer&& message
 ) {
-	delegate->did_recv_packet(*this, std::move(message));
+	delegate->did_recv(*this, std::move(message));
 }
 
 template<
