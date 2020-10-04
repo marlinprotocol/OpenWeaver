@@ -49,7 +49,6 @@ private:
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-
 public:
 
 	template<typename... Args>
@@ -60,7 +59,7 @@ public:
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
-	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, std::forward<Args>(args)...) {}
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -70,6 +69,7 @@ public:
 		const core::SocketAddress &beacon_addr,
 		std::vector<core::SocketAddress>&& discovery_addrs,
 		std::vector<core::SocketAddress>&& heartbeat_addrs,
+		std::string address,
 		Args&&... args
 	) {
 		this->protocol = protocol;
@@ -96,11 +96,12 @@ public:
 			spdlog::to_hex(static_sk, static_sk+32)
 		);
 
-		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 6) : std::tuple(2, 16);
+		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 30) : std::tuple(2, 16);
 
 		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
 		ps->delegate = this;
 		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
+		b->address = address;
 		b->is_discoverable = true;
 		b->delegate = this;
 
