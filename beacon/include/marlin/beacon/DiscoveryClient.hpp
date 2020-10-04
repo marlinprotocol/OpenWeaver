@@ -60,6 +60,8 @@ private:
 
 	void send_HEARTBEAT(BaseTransport &transport);
 
+	void did_recv_DISCADDR(BaseTransport &transport);
+
 	std::vector<core::SocketAddress> discovery_addrs;
 	std::vector<core::SocketAddress> heartbeat_addrs;
 
@@ -98,6 +100,7 @@ public:
 
 	void close();
 
+	std::string address;
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -230,6 +233,20 @@ void DISCOVERYCLIENT::send_HEARTBEAT(
 	transport.send(HEARTBEAT().set_key(static_pk));
 }
 
+template<DISCOVERYCLIENT_TEMPLATE>
+void DISCOVERYCLIENT::did_recv_DISCADDR(
+	BaseTransport &transport [[maybe_unused]]
+) {
+	SPDLOG_DEBUG("DISCADDR <<< {}", transport.dst_addr.to_string());
+
+	core::Buffer p(44);
+	p.data()[0] = 0;
+	p.data()[1] = 6;
+	std::memcpy(p.data()+2, address.c_str(), 42);
+
+	transport.send(std::move(p));
+}
+
 /*!
 	callback to periodically send DISCPEER sending in search of new peers
 */
@@ -328,6 +345,9 @@ void DISCOVERYCLIENT::did_recv_packet(
 		break;
 		// HEARTBEAT
 		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", transport.dst_addr.to_string());
+		break;
+		// DISCADDR
+		case 5: did_recv_DISCADDR(transport);
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
