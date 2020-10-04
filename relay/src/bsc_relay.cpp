@@ -15,8 +15,9 @@ struct CliOptions {
 	std::string datadir;
 	std::optional<uint16_t> pubsub_port;
 	std::optional<uint16_t> discovery_port;
+	std::optional<std::string> address;
 };
-STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port);
+STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address);
 
 int main(int argc, char** argv) {
 	try {
@@ -24,6 +25,15 @@ int main(int argc, char** argv) {
 		auto datadir = options.datadir;
 		auto pubsub_port = options.pubsub_port.value_or(5000);
 		auto discovery_port = options.discovery_port.value_or(5002);
+		auto address = options.address.value_or("0x0000000000000000000000000000000000000000");
+		if(address.size() != 42) {
+			structopt::details::visitor visitor("bsc_relay", "");
+			CliOptions opt = CliOptions();
+			visit_struct::for_each(opt, visitor);
+			visitor.optional_field_names.push_back("help");
+			visitor.optional_field_names.push_back("version");
+			throw structopt::exception(std::string("Invalid address"), visitor);
+		}
 
 		size_t pos;
 		std::vector<SocketAddress> discovery_addrs;
@@ -53,6 +63,7 @@ int main(int argc, char** argv) {
 			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(discovery_port))),
 			std::move(discovery_addrs),
 			std::move(heartbeat_addrs),
+			address,
 			datadir
 		);
 
