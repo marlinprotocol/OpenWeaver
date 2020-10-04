@@ -64,6 +64,8 @@ private:
 	asyncio::Timer heartbeat_timer;
 
 	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
+
+	BaseTransport* rt = nullptr;
 public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
@@ -74,7 +76,7 @@ public:
 	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
 	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
-	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr);
+	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr, std::optional<core::SocketAddress> raddr = std::nullopt);
 
 	DiscoveryServerDelegate *delegate;
 };
@@ -187,6 +189,14 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 			iter++;
 		}
 	}
+
+	if(rt != nullptr) {
+		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
+		core::Buffer reg(2);
+		reg.data()[0] = 0;
+		reg.data()[1] = 7;
+		rt->send(std::move(reg));
+	}
 }
 
 //---------------- Discovery protocol functions begin ----------------//
@@ -215,8 +225,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_create_transport(
 
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
-	BaseTransport &
-) {}
+	BaseTransport &bt
+) {
+	rt = &bt;
+}
 
 
 //! receives the packet and processes them
@@ -299,7 +311,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	core::SocketAddress const& baddr,
-	core::SocketAddress const& haddr
+	core::SocketAddress const& haddr,
+	std::optional<core::SocketAddress> raddr
 ) : heartbeat_timer(this) {
 	f.bind(baddr);
 	f.listen(*this);
@@ -308,6 +321,10 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	hf.listen(*this);
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
+
+	if(raddr.has_value()) {
+		f.dial(*raddr, *this);
+	}
 }
 
 } // namespace beacon

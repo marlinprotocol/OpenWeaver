@@ -10,8 +10,9 @@ class BeaconDelegate {};
 struct CliOptions {
 	std::optional<std::string> discovery_addr;
 	std::optional<std::string> heartbeat_addr;
+	std::optional<std::string> beacon_addr;
 };
-STRUCTOPT(CliOptions, discovery_addr, heartbeat_addr);
+STRUCTOPT(CliOptions, discovery_addr, heartbeat_addr, beacon_addr);
 
 int main(int argc, char** argv) {
 	try {
@@ -22,6 +23,7 @@ int main(int argc, char** argv) {
 		auto heartbeat_addr = core::SocketAddress::from_string(
 			options.heartbeat_addr.value_or("127.0.0.1:8003")
 		);
+		auto beacon_addr = options.beacon_addr.has_value() ? std::make_optional(core::SocketAddress::from_string(*options.beacon_addr)) : std::nullopt;
 
 		SPDLOG_INFO(
 			"Starting beacon with discovery: {}, heartbeat: {}",
@@ -30,7 +32,7 @@ int main(int argc, char** argv) {
 		);
 
 		BeaconDelegate del;
-		beacon::DiscoveryServer<BeaconDelegate> b(discovery_addr, heartbeat_addr);
+		beacon::DiscoveryServer<BeaconDelegate> b(discovery_addr, heartbeat_addr, beacon_addr);
 		b.delegate = &del;
 
 		return asyncio::EventLoop::run();
