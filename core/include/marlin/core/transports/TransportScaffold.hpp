@@ -11,22 +11,22 @@
 namespace marlin {
 namespace core {
 
-template<typename T, typename = void>
-struct MessageTypeSelector {
-	using MessageType = core::BaseMessage;
-};
-
-template<typename T>
-struct MessageTypeSelector<T, std::enable_if_t<std::is_object_v<typename std::decay_t<T>::MessageType>>> {
-	using MessageType = typename std::decay_t<T>::MessageType;
-};
-
 template<
 	typename TransportType,
 	typename DelegateType,
 	typename BaseTransportType
 >
 class TransportScaffold {
+	template<typename T, typename = void>
+	struct MessageTypeSelector {
+		using MessageType = core::BaseMessage;
+	};
+
+	template<typename T>
+	struct MessageTypeSelector<T, std::enable_if_t<std::is_object_v<typename std::decay_t<T>::MessageType>>> {
+		using MessageType = typename std::decay_t<T>::MessageType;
+	};
+
 public:
 	using MessageType = typename MessageTypeSelector<BaseTransportType>::MessageType;
 
