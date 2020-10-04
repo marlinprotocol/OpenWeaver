@@ -209,6 +209,7 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 	}
 
 	transport->did_recv(
+		handle,
 		core::Buffer((uint8_t*)buf->base, nread)
 	);
 }
