@@ -59,7 +59,7 @@ public:
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
-	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", std::forward<Args>(args)...) {}
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -70,6 +70,7 @@ public:
 		std::vector<core::SocketAddress>&& discovery_addrs,
 		std::vector<core::SocketAddress>&& heartbeat_addrs,
 		std::string address,
+		std::string name,
 		Args&&... args
 	) {
 		this->protocol = protocol;
@@ -102,6 +103,7 @@ public:
 		ps->delegate = this;
 		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 		b->address = address;
+		b->name = name;
 		b->is_discoverable = true;
 		b->delegate = this;
 

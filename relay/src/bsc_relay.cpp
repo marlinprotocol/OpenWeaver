@@ -16,8 +16,9 @@ struct CliOptions {
 	std::optional<uint16_t> pubsub_port;
 	std::optional<uint16_t> discovery_port;
 	std::optional<std::string> address;
+	std::optional<std::string> name;
 };
-STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address);
+STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address, name);
 
 int main(int argc, char** argv) {
 	try {
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
 			visitor.optional_field_names.push_back("version");
 			throw structopt::exception(std::string("Invalid address"), visitor);
 		}
+		auto name = options.name.value_or("");
 
 		size_t pos;
 		std::vector<SocketAddress> discovery_addrs;
@@ -64,6 +66,7 @@ int main(int argc, char** argv) {
 			std::move(discovery_addrs),
 			std::move(heartbeat_addrs),
 			address,
+			name,
 			datadir
 		);
 

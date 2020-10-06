@@ -101,6 +101,7 @@ public:
 	void close();
 
 	std::string address;
+	std::string name;
 private:
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -239,10 +240,14 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 ) {
 	SPDLOG_DEBUG("DISCADDR <<< {}", transport.dst_addr.to_string());
 
-	core::Buffer p(44);
+	uint8_t name_size = name.size() > 255 ? 255 : name.size();
+
+	core::Buffer p(44 + 1 + name_size);
 	p.data()[0] = 0;
 	p.data()[1] = 6;
 	std::memcpy(p.data()+2, address.c_str(), 42);
+	p.data()[44] = name_size;
+	std::memcpy(p.data()+45, name.c_str(), name_size);
 
 	transport.send(std::move(p));
 }
