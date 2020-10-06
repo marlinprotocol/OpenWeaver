@@ -1,4 +1,5 @@
 #include "Relay.hpp"
+#include "NameGenerator.hpp"
 #include <marlin/bsc/Abci.hpp>
 
 #include <structopt/app.hpp>
@@ -35,7 +36,7 @@ int main(int argc, char** argv) {
 			visitor.optional_field_names.push_back("version");
 			throw structopt::exception(std::string("Invalid address"), visitor);
 		}
-		auto name = options.name.value_or("");
+		auto name = options.name.value_or(NameGenerator::generate());
 
 		size_t pos;
 		std::vector<SocketAddress> discovery_addrs;
@@ -53,7 +54,8 @@ int main(int argc, char** argv) {
 		heartbeat_addrs.push_back(SocketAddress::from_string(options.heartbeat_addrs));
 
 		SPDLOG_INFO(
-			"Starting relay on pubsub port: {}, discovery_port: {}",
+			"Starting relay named: {} on pubsub port: {}, discovery_port: {}",
+			name,
 			pubsub_port,
 			discovery_port
 		);
