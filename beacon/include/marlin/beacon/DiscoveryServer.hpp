@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
@@ -34,13 +35,8 @@ class DiscoveryServer {
 private:
 	using Self = DiscoveryServer<DiscoveryServerDelegate>;
 
-	using BaseTransportFactory = asyncio::UdpTransportFactory<
-		DiscoveryServer<DiscoveryServerDelegate>,
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
-	using BaseTransport = asyncio::UdpTransport<
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, asyncio::UdpTransportFactory, asyncio::UdpTransport>;
+	using BaseTransport = core::VersionedTransport<Self, asyncio::UdpTransport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
