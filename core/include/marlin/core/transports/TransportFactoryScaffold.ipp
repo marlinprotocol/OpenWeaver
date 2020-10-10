@@ -25,7 +25,7 @@ namespace core {
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
 template<typename... Args>
 TRANSPORTFACTORYSCAFFOLD::TransportFactoryScaffold(Args&&... args) :
-	f(std::forward<Args>(args)...) {}
+	base_factory(std::forward<Args>(args)...) {}
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
 bool TRANSPORTFACTORYSCAFFOLD::should_accept(SocketAddress const& addr) {
@@ -47,19 +47,19 @@ void TRANSPORTFACTORYSCAFFOLD::did_create_transport(BaseTransportType base_trans
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
 int TRANSPORTFACTORYSCAFFOLD::bind(SocketAddress const& addr) {
 	this->addr = addr;
-	return f.bind(addr);
+	return base_factory.bind(addr);
 }
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
 int TRANSPORTFACTORYSCAFFOLD::listen(ListenDelegate& delegate) {
 	this->delegate = delegate;
-	return f.listen(*this);
+	return base_factory.listen(*this);
 }
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
 int TRANSPORTFACTORYSCAFFOLD::dial(SocketAddress const& addr, ListenDelegate& delegate) {
 	this->delegate = delegate;
-	return f.dial(addr, *this);
+	return base_factory.dial(addr, *this);
 }
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>

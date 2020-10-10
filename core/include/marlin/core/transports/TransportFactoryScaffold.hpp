@@ -17,7 +17,7 @@ template<
 >
 class TransportFactoryScaffold {
 protected:
-	BaseTransportFactoryType f;
+	BaseTransportFactoryType base_factory;
 
 	ListenDelegate* delegate = nullptr;
 	TransportManager<TransportType> transport_manager;
