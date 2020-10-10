@@ -73,11 +73,8 @@ public:
 	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata);
+	template<typename... Args>
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, Args&&... args);
 
 	using TransportFactoryScaffoldType::get_transport;
 };
@@ -287,56 +284,32 @@ dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate) {
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
+template<typename... Args>
 int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport);
+dial(core::SocketAddress const &addr, ListenDelegate &delegate, Args&&... args) {
+	if(!is_listening) {
+		auto status = listen(delegate);
+		if(status < 0) {
+			return status;
+		}
 	}
 
-	transport->delegate->did_dial(*transport);
+	auto [transport, res] = this->transport_manager.get_or_create(
+		addr,
+		this->addr,
+		addr,
+		this->base_factory,
+		this->transport_manager
+	);
 
-	return status;
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-template<typename MetadataType>
-int
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport, metadata);
+	if(res) {
+		delegate.did_create_transport(*transport, std::forward<Args>(args)...);
 	}
 
-	transport->delegate->did_dial(*transport, metadata);
+	transport->delegate->did_dial(*transport, std::forward<Args>(args)...);
 
-	return status;
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-template<typename MetadataType>
-int
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport, std::move(metadata));
-	}
-
-	transport->delegate->did_dial(*transport, std::move(metadata));
-
-	return status;
+	return res ? 1 : 0;
 }
 
 } // namespace asyncio
