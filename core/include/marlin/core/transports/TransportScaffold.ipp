@@ -31,7 +31,7 @@ TRANSPORTSCAFFOLD::TransportScaffold(
 template<TRANSPORTSCAFFOLD_TEMPLATE>
 void TRANSPORTSCAFFOLD::setup(DelegateType* delegate) {
 	this->delegate = delegate;
-	base_transport.setup(static_cast<TransportType&>(*this));
+	base_transport.setup(static_cast<TransportType*>(this));
 }
 
 template<TRANSPORTSCAFFOLD_TEMPLATE>
