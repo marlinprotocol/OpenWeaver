@@ -275,7 +275,7 @@ dial(core::SocketAddress const &addr, ListenDelegate &delegate, Args&&... args) 
 	);
 
 	if(res) {
-		delegate.did_create_transport(*transport, std::forward<Args>(args)...);
+		delegate.did_create_transport(*transport);
 	}
 
 	transport->delegate->did_dial(*transport, std::forward<Args>(args)...);
