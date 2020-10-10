@@ -83,6 +83,16 @@
 	/** @brief Get a uint8_t* corresponding to the payload area */ \
 	uint8_t* payload() { \
 		return base.payload_buffer().data() + offset; \
+	} \
+ \
+	/** @brief Truncates the underlying buffer to the given size */ \
+	SelfType& truncate_unsafe(size_t size) & { \
+		base.truncate_unsafe(size); \
+		return *this; \
+	} \
+	/** Truncates the underlying buffer to the given size */ \
+	SelfType&& truncate_unsafe(size_t size) && { \
+		return std::move(truncate_unsafe(size)); \
 	}
 
 #define MARLIN_MESSAGES_ARRAY_FIELD(type, begin_offset, end_offset) \
