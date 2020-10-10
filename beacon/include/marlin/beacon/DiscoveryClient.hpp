@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
@@ -38,8 +39,8 @@ private:
 		Transport
 	>;
 
-	using BaseTransportFactory = TransportFactory<Self, Self>;
-	using BaseTransport = Transport<Self>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
+	using BaseTransport = core::VersionedTransport<Self, Transport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
