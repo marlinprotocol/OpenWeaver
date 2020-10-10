@@ -61,7 +61,6 @@ private:
 		ListenDelegate *delegate;
 	};
 
-	std::pair<UdpTransport<TransportDelegate> *, int> dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate);
 public:
 	using TransportFactoryScaffoldType::addr;
 
@@ -253,34 +252,6 @@ listen(ListenDelegate &delegate) {
 	is_listening = true;
 
 	return 0;
-}
-
-//! creates a UDP transport instance to the given address which can be used to send across messages by the delegate application or Higher order transport
-/*
-	/param addr address to dial to
-	/delegate the listen delegate object
-	/return 0 always, error handling done in dial_cb
-*/
-template<typename ListenDelegate, typename TransportDelegate>
-std::pair<UdpTransport<TransportDelegate> *, int>
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate) {
-	if(!is_listening) {
-		auto status = listen(delegate);
-		if(status < 0) {
-			return {nullptr, status};
-		}
-	}
-
-	auto [transport, res] = this->transport_manager.get_or_create(
-		addr,
-		this->addr,
-		addr,
-		this->base_factory,
-		this->transport_manager
-	);
-
-	return {transport, res ? 1 : 0};
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
