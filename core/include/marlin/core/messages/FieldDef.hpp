@@ -69,6 +69,12 @@
 		return base.payload_buffer().cover_unsafe(offset); \
 	} \
  \
+	/** @brief Get a WeakBuffer corresponding to the payload area */ \
+	core::WeakBuffer const payload_buffer() const& { \
+		core::WeakBuffer buf = base.payload_buffer(); \
+		return buf.cover_unsafe(offset); \
+	} \
+ \
 	/** @brief Get a Buffer corresponding to the payload area, consumes the object */ \
 	core::Buffer payload_buffer() && { \
 		return std::move(base).payload_buffer().cover_unsafe(offset); \
