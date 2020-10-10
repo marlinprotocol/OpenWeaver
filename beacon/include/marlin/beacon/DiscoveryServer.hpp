@@ -63,7 +63,7 @@ private:
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
 
-	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
+	std::unordered_map<core::SocketAddress, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
 
 	BaseTransport* rt = nullptr;
 public:
@@ -130,12 +130,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
 	// Filter out the dst transport
-	auto filter = [&](auto x) { return x.first != &transport; };
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
 	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
 	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
 	// Extract data into pair<addr, key> format
-	auto transformation = [](auto x) { return std::make_pair(x.first->dst_addr, x.second.second); };
+	auto transformation = [](auto x) { return std::make_pair(x.first, x.second.second); };
 	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
@@ -168,8 +168,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		return;
 	}
 
-	peers[&transport].first = asyncio::EventLoop::now();
-	peers[&transport].second = bytes.key_array();
+	peers[transport.dst_addr].first = asyncio::EventLoop::now();
+	peers[transport.dst_addr].second = bytes.key_array();
 }
 
 
