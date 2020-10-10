@@ -13,10 +13,10 @@
 	/** @brief Construct from base message */ \
 	Derived(BaseMessageType&& base) : base(std::move(base)) {}
 
-#define MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, name, read_offset, write_offset) \
+#define MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, endian, name, read_offset, write_offset) \
 	/** @brief Set name */ \
 	SelfType& set_##name(uint##size##_t name) & { \
-		base.payload_buffer().write_uint##size##_le_unsafe(write_offset, name); \
+		base.payload_buffer().write_uint##size##endian##_unsafe(write_offset, name); \
  \
 		return *this; \
 	} \
@@ -28,16 +28,16 @@
  \
 	/** @brief Get name */ \
 	uint##size##_t name() const { \
-		return base.payload_buffer().read_uint##size##_le_unsafe(read_offset); \
+		return base.payload_buffer().read_uint##size##endian##_unsafe(read_offset); \
 	}
 
-#define MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET(size, name, offset) MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, name, offset, offset)
+#define MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET(size, endian, name, offset) MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(size, endian, name, offset, offset)
 
-#define MARLIN_MESSAGES_GET_4(_0, _1, _2, _3, MACRO, ...) MACRO
-#define MARLIN_MESSAGES_UINT_FIELD(...) MARLIN_MESSAGES_GET_4(__VA_ARGS__, MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(__VA_ARGS__), MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET(__VA_ARGS__), throw)
-#define MARLIN_MESSAGES_UINT16_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(16, __VA_ARGS__)
-#define MARLIN_MESSAGES_UINT32_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(32, __VA_ARGS__)
-#define MARLIN_MESSAGES_UINT64_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(64, __VA_ARGS__)
+#define MARLIN_MESSAGES_GET_5(_0, _1, _2, _3, _4, MACRO, ...) MACRO
+#define MARLIN_MESSAGES_UINT_FIELD(...) MARLIN_MESSAGES_GET_5(__VA_ARGS__, MARLIN_MESSAGES_UINT_FIELD_MULTIPLE_OFFSET(__VA_ARGS__), MARLIN_MESSAGES_UINT_FIELD_SINGLE_OFFSET(__VA_ARGS__), throw)
+#define MARLIN_MESSAGES_UINT16_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(16, _le, __VA_ARGS__)
+#define MARLIN_MESSAGES_UINT32_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(32, _le, __VA_ARGS__)
+#define MARLIN_MESSAGES_UINT64_FIELD(...) MARLIN_MESSAGES_UINT_FIELD(64, _le, __VA_ARGS__)
 
 #define MARLIN_MESSAGES_PAYLOAD_FIELD(offset) \
 	/** @brief Set payload given pointer to bytes and size */ \
