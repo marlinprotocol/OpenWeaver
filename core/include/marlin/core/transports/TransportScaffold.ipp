@@ -35,8 +35,9 @@ void TRANSPORTSCAFFOLD::setup(DelegateType* delegate) {
 }
 
 template<TRANSPORTSCAFFOLD_TEMPLATE>
-void TRANSPORTSCAFFOLD::did_dial(BaseTransportType) {
-	delegate->did_dial(static_cast<TransportType&>(*this));
+template<typename... Args>
+void TRANSPORTSCAFFOLD::did_dial(BaseTransportType, Args&&... args) {
+	delegate->did_dial(static_cast<TransportType&>(*this), std::forward<Args>(args)...);
 }
 
 template<TRANSPORTSCAFFOLD_TEMPLATE>

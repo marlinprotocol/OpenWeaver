@@ -51,6 +51,8 @@ public:
 	void setup(DelegateType* delegate);
 
 	// BaseTransportType delegate
+	template<typename... Args>
+	void did_dial(BaseTransportType base_transport, Args&&... args);
 	void did_recv(BaseTransportType base_transport, BaseMessageType&& bytes);
 	void did_send(BaseTransportType base_transport, BaseMessageType&& bytes);
 	void did_close(BaseTransportType base_transport, uint16_t reason = 0);
