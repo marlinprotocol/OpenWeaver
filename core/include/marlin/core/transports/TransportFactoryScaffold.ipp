@@ -57,9 +57,10 @@ int TRANSPORTFACTORYSCAFFOLD::listen(ListenDelegate& delegate) {
 }
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>
-int TRANSPORTFACTORYSCAFFOLD::dial(SocketAddress const& addr, ListenDelegate& delegate) {
+template<typename... Args>
+int TRANSPORTFACTORYSCAFFOLD::dial(SocketAddress const& addr, ListenDelegate& delegate, Args&&... args) {
 	this->delegate = delegate;
-	return base_factory.dial(addr, *this);
+	return base_factory.dial(addr, *this, std::forward<Args>(args)...);
 }
 
 template<TRANSPORTFACTORYSCAFFOLD_TEMPLATE>

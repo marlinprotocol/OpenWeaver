@@ -34,7 +34,8 @@ public:
 
 	int bind(SocketAddress const& addr);
 	int listen(ListenDelegate& delegate);
-	int dial(SocketAddress const& addr, ListenDelegate& delegate);
+	template<typename... Args>
+	int dial(SocketAddress const& addr, ListenDelegate& delegate, Args&&... args);
 
 	TransportType* get_transport(SocketAddress const& addr);
 };
