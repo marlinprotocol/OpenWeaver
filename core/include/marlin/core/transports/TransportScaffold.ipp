@@ -40,12 +40,12 @@ void TRANSPORTSCAFFOLD::did_dial(BaseTransportType) {
 }
 
 template<TRANSPORTSCAFFOLD_TEMPLATE>
-void TRANSPORTSCAFFOLD::did_recv(BaseTransportType, core::Buffer&& bytes) {
+void TRANSPORTSCAFFOLD::did_recv(BaseTransportType, BaseMessageType&& bytes) {
 	delegate->did_recv(static_cast<TransportType&>(*this), std::move(bytes));
 }
 
 template<TRANSPORTSCAFFOLD_TEMPLATE>
-void TRANSPORTSCAFFOLD::did_send(BaseTransportType, core::Buffer&& bytes) {
+void TRANSPORTSCAFFOLD::did_send(BaseTransportType, BaseMessageType&& bytes) {
 	delegate->did_send(static_cast<TransportType&>(*this), std::move(bytes));
 }
 

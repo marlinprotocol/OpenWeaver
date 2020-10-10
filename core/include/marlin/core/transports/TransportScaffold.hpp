@@ -11,24 +11,25 @@
 namespace marlin {
 namespace core {
 
+template<typename T>
+struct MessageTypeSelector {
+	using MessageType = core::BaseMessage;
+	static constexpr bool value = false;
+};
+
 template<
 	typename TransportType,
 	typename DelegateType,
 	typename BaseTransportType
 >
 class TransportScaffold {
-	template<typename T, typename = void>
-	struct MessageTypeSelector {
-		using MessageType = core::BaseMessage;
-	};
-
-	template<typename T>
-	struct MessageTypeSelector<T, std::enable_if_t<std::is_object_v<typename std::decay_t<T>::MessageType>>> {
-		using MessageType = typename std::decay_t<T>::MessageType;
-	};
-
+	using BaseMessageType = typename MessageTypeSelector<BaseTransportType>::MessageType;
 public:
-	using MessageType = typename MessageTypeSelector<BaseTransportType>::MessageType;
+	using MessageType = std::conditional_t<
+		MessageTypeSelector<TransportType>::value,
+		typename MessageTypeSelector<TransportType>::MessageType,
+		BaseMessageType
+	>;
 
 	core::SocketAddress src_addr;
 	core::SocketAddress dst_addr;
@@ -50,9 +51,8 @@ public:
 	void setup(DelegateType* delegate);
 
 	// BaseTransportType delegate
-	void did_dial(BaseTransportType base_transport);
-	void did_recv(BaseTransportType base_transport, core::Buffer&& bytes);
-	void did_send(BaseTransportType base_transport, core::Buffer&& bytes);
+	void did_recv(BaseTransportType base_transport, BaseMessageType&& bytes);
+	void did_send(BaseTransportType base_transport, BaseMessageType&& bytes);
 	void did_close(BaseTransportType base_transport, uint16_t reason = 0);
 
 	// Actions
