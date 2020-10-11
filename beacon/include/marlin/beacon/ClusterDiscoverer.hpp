@@ -42,24 +42,22 @@ private:
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
 	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
+	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
+	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
 	// Discovery protocol
 	void send_DISCPROTO(BaseTransport &transport);
-	void did_recv_DISCPROTO(BaseTransport &transport);
-	void send_LISTPROTO(BaseTransport &transport);
 	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
 	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
 
-	void send_HEARTBEAT(BaseTransport &transport);
-
-	void did_recv_DISCADDR(BaseTransport &transport);
+	void send_DISCCLUSTER(BaseTransport &transport);
+	void did_recv_LISTCLUSTER(BaseTransport &transport, LISTCLUSTER &&packet);
 
 	std::vector<core::SocketAddress> discovery_addrs;
-	std::vector<core::SocketAddress> heartbeat_addrs;
 
 	void beacon_timer_cb();
 	asyncio::Timer beacon_timer;
@@ -86,7 +84,6 @@ public:
 	~ClusterDiscoverer();
 
 	ClusterDiscovererDelegate *delegate;
-	bool is_discoverable = false;
 
 	void start_discovery(core::SocketAddress const &beacon_addr);
 	void start_discovery(
@@ -103,6 +100,7 @@ private:
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
 	std::unordered_map<core::SocketAddress, std::array<uint8_t, 32>> node_key_map;
+	std::unordered_map<core::SocketAddress, uint64_t> cluster_map;
 };
 
 
@@ -134,37 +132,6 @@ void CLUSTERDISCOVERER::send_DISCPROTO(
 	BaseTransport &transport
 ) {
 	transport.send(DISCPROTO());
-}
-
-
-/*!
-	\li Callback on receipt of disc proto
-	\li Sends back the protocols supported on this node
-*/
-template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_recv_DISCPROTO(
-	BaseTransport &transport
-) {
-	SPDLOG_DEBUG("DISCPROTO <<< {}", transport.dst_addr.to_string());
-
-	send_LISTPROTO(transport);
-}
-
-
-/*!
-	sends the list of supported protocols on this node
-*/
-template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::send_LISTPROTO(
-	BaseTransport &transport
-) {
-	auto protocols = delegate->get_protocols();
-	assert(protocols.size() < 100);
-
-	transport.send(
-		LISTPROTO(protocols.size())
-		.set_protocols(protocols.begin(), protocols.end())
-	);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -221,50 +188,48 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 }
 
 /*!
-	sends heartbeat message to refresh/create entry at the discovery server to keep the node discoverable
-*/
-template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::send_HEARTBEAT(
-	BaseTransport &transport
-) {
-	transport.send(HEARTBEAT().set_key(static_pk));
-}
-
-template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_recv_DISCADDR(
-	BaseTransport &transport [[maybe_unused]]
-) {
-	SPDLOG_DEBUG("DISCADDR <<< {}", transport.dst_addr.to_string());
-
-	uint8_t name_size = name.size() > 255 ? 255 : name.size();
-
-	core::Buffer p(44 + 1 + name_size);
-	p.data()[0] = 0;
-	p.data()[1] = 6;
-	std::memcpy(p.data()+2, address.c_str(), 42);
-	p.data()[44] = name_size;
-	std::memcpy(p.data()+45, name.c_str(), name_size);
-
-	transport.send(std::move(p));
-}
-
-/*!
 	callback to periodically send DISCPEER sending in search of new peers
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::beacon_timer_cb() {
+    // Discover clusters
 	for(auto& addr : discovery_addrs) {
-		f.dial(addr, *this, 1);
+		f.dial(addr, *this, 3);
 	}
+
+    // Discover relays
+    for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
+        if(iter->second + 60000 < asyncio::EventLoop::now()) {
+            // Stale cluster
+            iter = cluster_map.erase(iter);
+        } else {
+            f.dial(iter->first, *this, 1);
+            iter++;
+        }
+    }
 }
 
-/*!
-	callback to periodically send HEARTBEAT to refresh the entry at beacon server
-*/
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::heartbeat_timer_cb() {
-	for(auto& addr : heartbeat_addrs) {
-		f.dial(addr, *this, 2);
+void CLUSTERDISCOVERER::send_DISCCLUSTER(
+	BaseTransport &transport
+) {
+	transport.send(DISCCLUSTER());
+}
+
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
+	BaseTransport &transport [[maybe_unused]],
+	LISTCLUSTER &&packet
+) {
+	SPDLOG_DEBUG("LISTCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	if(!packet.validate()) {
+		return;
+	}
+
+	for(auto iter = packet.clusters_begin(); iter != packet.clusters_end(); ++iter) {
+		auto cluster_addr = *iter;
+        cluster_map[cluster_addr] = asyncio::EventLoop::now();
 	}
 }
 
@@ -277,7 +242,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 bool CLUSTERDISCOVERER::should_accept(
 	core::SocketAddress const &
 ) {
-	return is_discoverable;
+	return false;
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -306,8 +271,10 @@ void CLUSTERDISCOVERER::did_dial(
 		send_DISCPEER(transport);
 	} else if(type == 2) {
 		// Heartbeat peer
-		send_HEARTBEAT(transport);
-	}
+	} else if(type == 3) {
+        // Cluster discovery peer
+        send_DISCCLUSTER(transport);
+    }
 }
 
 //! receives the packet and processes them
@@ -333,7 +300,7 @@ void CLUSTERDISCOVERER::did_recv_packet(
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: did_recv_DISCPROTO(transport);
+		case 0: SPDLOG_ERROR("Unexpected DISCPROTO from {}", transport.dst_addr.to_string());
 		break;
 		// LISTPROTO
 		case 1: did_recv_LISTPROTO(transport, std::move(packet));
@@ -348,7 +315,7 @@ void CLUSTERDISCOVERER::did_recv_packet(
 		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", transport.dst_addr.to_string());
 		break;
 		// DISCADDR
-		case 5: did_recv_DISCADDR(transport);
+		case 5: SPDLOG_ERROR("Unexpected DISCADDR from {}", transport.dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
@@ -422,11 +389,6 @@ void CLUSTERDISCOVERER::start_discovery(
 ) {
 	discovery_addrs.push_back(beacon_addr);
 	beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
-
-	if(is_discoverable) {
-		heartbeat_addrs.push_back(beacon_addr);
-		heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
-	}
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
