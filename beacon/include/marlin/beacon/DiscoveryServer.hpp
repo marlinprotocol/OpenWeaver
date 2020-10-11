@@ -47,6 +47,8 @@ private:
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
 	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
+	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
+	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 	BaseTransportFactory hf;
@@ -62,6 +64,9 @@ private:
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
+
+	void did_recv_DISCCLUSTER(BaseTransport &transport);
+	void send_LISTCLUSTER(BaseTransport &transport);
 
 	std::unordered_map<core::SocketAddress, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
 
