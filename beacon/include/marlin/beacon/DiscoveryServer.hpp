@@ -199,6 +199,35 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 	}
 }
 
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER(
+	BaseTransport &transport
+) {
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	send_LISTCLUSTER(transport);
+}
+
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
+	BaseTransport &transport
+) {
+	// Filter out the dst transport
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
+
+	// Extract data into addr format
+	auto transformation = [](auto x) { return x.first; };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
+
+	while(t_begin != t_end) {
+		transport.send(LISTCLUSTER(150).set_clusters(t_begin, t_end));
+	}
+}
+
 //---------------- Discovery protocol functions begin ----------------//
 
 
