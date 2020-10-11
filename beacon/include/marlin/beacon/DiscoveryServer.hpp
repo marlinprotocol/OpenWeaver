@@ -302,6 +302,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 		// HEARTBEAT
 		case 4: did_recv_HEARTBEAT(transport, std::move(packet));
 		break;
+		// DISCCLUSTER
+		case 7: did_recv_DISCCLUSTER(transport);
+		break;
+		// LISTCLUSTER
+		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
 		break;
@@ -333,6 +339,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 		break;
 		// HEARTBEAT
 		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
+		break;
+		// DISCCLUSTER
+		case 7: SPDLOG_TRACE("DISCCLUSTER >>> {}", transport.dst_addr.to_string());
+		break;
+		// LISTCLUSTER
+		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
