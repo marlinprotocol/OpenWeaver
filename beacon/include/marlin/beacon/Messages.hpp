@@ -383,7 +383,7 @@ struct LISTCLUSTERWrapper {
 	LISTCLUSTERWrapper& set_clusters(It& begin, It end) & {
 		size_t idx = 2;
 		while(begin != end && idx + 8 <= base.payload_buffer().size()) {
-			begin->first.serialize(base.payload()+idx, 8);
+			begin->serialize(base.payload()+idx, 8);
 			idx += 8;
 
 			++begin;
@@ -412,7 +412,7 @@ struct LISTCLUSTERWrapper {
 	public:
 		// For iterator_traits
 		using difference_type = int32_t;
-		using value_type = std::tuple<core::SocketAddress, std::array<uint8_t, 32>>;
+		using value_type = core::SocketAddress;
 		using pointer = value_type const*;
 		using reference = value_type const&;
 		using iterator_category = std::input_iterator_tag;
@@ -421,9 +421,8 @@ struct LISTCLUSTERWrapper {
 
 		value_type operator*() const {
 			auto peer_addr = core::SocketAddress::deserialize(buf.data()+offset, 8);
-			std::array<uint8_t, 32> key;
 
-			return std::make_tuple(peer_addr, key);
+			return peer_addr;
 		}
 
 		iterator& operator++() {
