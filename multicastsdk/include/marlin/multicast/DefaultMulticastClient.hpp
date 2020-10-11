@@ -3,7 +3,7 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/BloomWitnesser.hpp>
-#include <marlin/beacon/DiscoveryClient.hpp>
+#include <marlin/beacon/ClusterDiscoverer.hpp>
 
 
 namespace marlin {
@@ -34,7 +34,7 @@ public:
 		pubsub::BloomWitnesser
 	>;
 
-	beacon::DiscoveryClient<Self> b;
+	beacon::ClusterDiscoverer<Self> b;
 	PubSubNodeType ps;
 
 	void new_peer(
