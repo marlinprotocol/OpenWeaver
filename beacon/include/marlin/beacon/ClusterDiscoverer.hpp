@@ -101,6 +101,7 @@ private:
 
 	std::unordered_map<core::SocketAddress, std::array<uint8_t, 32>> node_key_map;
 	std::unordered_map<core::SocketAddress, uint64_t> cluster_map;
+	std::unordered_map<core::SocketAddress, std::pair<core::SocketAddress, uint64_t>> beacon_map;
 };
 
 
@@ -150,7 +151,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 		core::SocketAddress peer_addr(transport.dst_addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer(beacon_map[transport.dst_addr].first, peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
 }
 
@@ -182,8 +183,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 	for(auto iter = packet.peers_begin(); iter != packet.peers_end(); ++iter) {
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
-
-		f.dial(peer_addr, *this, 0);
+        beacon_map[peer_addr] = std::make_pair(transport.dst_addr, asyncio::EventLoop::now());
 	}
 }
 
@@ -207,6 +207,17 @@ void CLUSTERDISCOVERER::beacon_timer_cb() {
             iter++;
         }
     }
+
+    // Discover protocols
+    for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
+        if(iter->second.second + 60000 < asyncio::EventLoop::now()) {
+            // Stale cluster
+            iter = beacon_map.erase(iter);
+        } else {
+            f.dial(iter->first, *this, 0);
+            iter++;
+        }
+    }
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -224,11 +235,13 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 	SPDLOG_DEBUG("LISTCLUSTER <<< {}", transport.dst_addr.to_string());
 
 	if(!packet.validate()) {
+        SPDLOG_WARN("Validation failure");
 		return;
 	}
 
 	for(auto iter = packet.clusters_begin(); iter != packet.clusters_end(); ++iter) {
 		auto cluster_addr = *iter;
+        SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
         cluster_map[cluster_addr] = asyncio::EventLoop::now();
 	}
 }
