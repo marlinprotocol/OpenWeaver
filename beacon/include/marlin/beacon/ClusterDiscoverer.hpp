@@ -317,6 +317,9 @@ void CLUSTERDISCOVERER::did_recv_packet(
 		// DISCADDR
 		case 5: SPDLOG_ERROR("Unexpected DISCADDR from {}", transport.dst_addr.to_string());
 		break;
+		// LISTCLUSTER
+		case 8: did_recv_LISTCLUSTER(transport, std::move(packet));
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
 		break;
