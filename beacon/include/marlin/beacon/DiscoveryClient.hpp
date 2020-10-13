@@ -243,14 +243,15 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 
 	uint8_t name_size = name.size() > 255 ? 255 : name.size();
 
-	core::Buffer p(44 + 1 + name_size);
+	BaseMessageType m(44 + 1 + name_size);
+	auto p = m.payload_buffer();
 	p.data()[0] = 0;
 	p.data()[1] = 6;
 	std::memcpy(p.data()+2, address.c_str(), 42);
 	p.data()[44] = name_size;
 	std::memcpy(p.data()+45, name.c_str(), name_size);
 
-	transport.send(std::move(p));
+	transport.send(std::move(m));
 }
 
 /*!

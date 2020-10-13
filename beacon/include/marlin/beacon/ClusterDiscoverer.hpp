@@ -72,8 +72,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
 	ClusterDiscoverer(
@@ -302,7 +302,7 @@ void CLUSTERDISCOVERER::did_dial(
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_recv_packet(
+void CLUSTERDISCOVERER::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
@@ -340,7 +340,7 @@ void CLUSTERDISCOVERER::did_recv_packet(
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_send_packet(
+void CLUSTERDISCOVERER::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {

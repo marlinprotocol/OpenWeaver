@@ -216,10 +216,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 
 	if(rt != nullptr) {
 		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
-		core::Buffer reg(2);
+		BaseMessageType m(2);
+		auto reg = m.payload_buffer();
 		reg.data()[0] = 0;
 		reg.data()[1] = 7;
-		rt->send(std::move(reg));
+		rt->send(std::move(m));
 	}
 }
 
