@@ -141,6 +141,7 @@ public:
 	};
 	std::unordered_map<core::SocketAddress, Connections> conn_map;
 	TransportSet unsol_conns;
+	std::unordered_map<core::SocketAddress, core::SocketAddress> beacon_map;
 
 	std::unordered_set<core::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
