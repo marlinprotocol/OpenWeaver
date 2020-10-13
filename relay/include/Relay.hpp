@@ -175,6 +175,7 @@ public:
 	}
 
 	void manage_subscriptions(
+		core::SocketAddress baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
@@ -206,7 +207,7 @@ public:
 				);
 
 				ps->remove_conn(sol_conns, *toReplaceTransport);
-				ps->add_sol_standby_conn(*toReplaceTransport);
+				ps->add_sol_standby_conn(baddr, *toReplaceTransport);
 			}
 		}
 
@@ -221,7 +222,7 @@ public:
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
-				ps->add_sol_conn(*toReplaceWithTransport);
+				ps->add_sol_conn(baddr, *toReplaceWithTransport);
 			}
 		}
 
