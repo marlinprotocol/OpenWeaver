@@ -1428,20 +1428,6 @@ bool PUBSUBNODETYPE::remove_conn(TransportSet &t_set, BaseTransport &transport) 
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::check_tranport_present(BaseTransport &transport) {
-
-	if (
-		sol_conns.check_tranport_in_set(transport) ||
-		sol_standby_conns.check_tranport_in_set(transport) ||
-		unsol_conns.check_tranport_in_set(transport)
-	) {
-		return true;
-	}
-
-	return false;
-}
-
-template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::cut_through_recv_start(
 	BaseTransport &transport,
 	uint16_t id,
