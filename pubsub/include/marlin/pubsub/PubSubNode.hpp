@@ -165,7 +165,9 @@ private:
 	asyncio::Timer peer_selection_timer;
 
 	void peer_selection_timer_cb() {
-		this->delegate->manage_subscriptions(this->max_sol_conns, this->sol_conns, this->sol_standby_conns);
+		for(auto& [baddr, conns] : conn_map) {
+			delegate->manage_subscriptions(baddr, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
+		}
 
 		// std::for_each(
 		// 	this->delegate->channels.begin(),
@@ -339,12 +341,14 @@ private:
 			this->message_id_set.erase(*iter);
 		}
 
-		for (auto* transport : this->sol_conns) {
-			this->send_HEARTBEAT(*transport);
-		}
+		for(auto& [_, conns] : conn_map) {
+			for (auto* transport : conns.sol_conns) {
+				this->send_HEARTBEAT(*transport);
+			}
 
-		for (auto* transport : this->sol_standby_conns) {
-			this->send_HEARTBEAT(*transport);
+			for (auto* transport : conns.sol_standby_conns) {
+				this->send_HEARTBEAT(*transport);
+			}
 		}
 		// std::for_each(
 		// 	this->delegate->channels.begin(),
@@ -758,14 +762,18 @@ int PUBSUBNODETYPE::did_analyze_block(
 	BaseTransport *transport
 ) {
 	// Relay to other peers.
-	if(
-		!sol_conns.check_tranport_in_set(*transport) &&
-		!sol_standby_conns.check_tranport_in_set(*transport) &&
-		!unsol_conns.check_tranport_in_set(*transport)
-	) {
-		SPDLOG_DEBUG(
-			"Transport closed"
-		);
+	bool found = false;
+	for(auto& [_, conns] : conn_map) {
+		if(
+			conns.sol_conns.check_tranport_in_set(*transport) ||
+			conns.sol_standby_conns.check_tranport_in_set(*transport) ||
+			unsol_conns.check_tranport_in_set(*transport)
+		) {
+			found = true;
+			break;
+		}
+	}
+	if(!found) {
 		return -1;
 	}
 
@@ -1065,21 +1073,28 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// 	}
 	// );
 
-	bool is_sol = remove_conn(sol_conns, transport) || remove_conn(sol_standby_conns, transport);
-	if (is_sol && reason == 1) {
-		// add to blacklist
-		blacklist_addr.insert(transport.dst_addr);
-	}
-
-	remove_conn(unsol_conns, transport);
-
-	// Flush subscribers
-	for(auto id : transport.cut_through_used_ids) {
-		for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
-			subscriber->cut_through_send_flush(subscriber_id);
+	beacon_map.erase(transport.dst_addr);
+	for(auto& [baddr, conns] : conn_map) {
+		bool is_sol = remove_conn(conns.sol_conns, transport) || remove_conn(conns.sol_standby_conns, transport);
+		if (is_sol && reason == 1) {
+			// add to blacklist
+			blacklist_addr.insert(transport.dst_addr);
 		}
 
-		cut_through_map.erase(std::make_pair(&transport, id));
+		remove_conn(unsol_conns, transport);
+
+		// Flush subscribers
+		for(auto id : transport.cut_through_used_ids) {
+			for(auto& [subscriber, subscriber_id] : cut_through_map[std::make_pair(&transport, id)]) {
+				subscriber->cut_through_send_flush(subscriber_id);
+			}
+
+			cut_through_map.erase(std::make_pair(&transport, id));
+		}
+
+		// Call Manage_subscribers to rebalance lists
+		if(is_sol)
+			delegate->manage_subscriptions(baddr, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
 	}
 
 	// Remove subscriptions
@@ -1094,10 +1109,6 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 			}
 		}
 	}
-
-	// Call Manage_subscribers to rebalance lists
-	if(is_sol)
-		delegate->manage_subscriptions(max_sol_conns, sol_conns, sol_standby_conns);
 }
 
 //---------------- Transport delegate functions end ----------------//
@@ -1536,22 +1547,24 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			return -1;
 		}
 
-		for(auto *subscriber : sol_conns) {
-			if(&transport == subscriber) continue;
-			bool found = witnesser.contains(header, subscriber->get_remote_static_pk());
-			if (found) continue;
+		for(auto& [_, conns] : conn_map) {
+			for(auto *subscriber : conns.sol_conns) {
+				if(&transport == subscriber) continue;
+				bool found = witnesser.contains(header, subscriber->get_remote_static_pk());
+				if (found) continue;
 
-			auto sub_id = subscriber->cut_through_send_start(
-				cut_through_length[std::make_pair(&transport, id)]
-			);
-			if(sub_id == 0) {
-				SPDLOG_ERROR("Cannot send to subscriber");
-				continue;
+				auto sub_id = subscriber->cut_through_send_start(
+					cut_through_length[std::make_pair(&transport, id)]
+				);
+				if(sub_id == 0) {
+					SPDLOG_ERROR("Cannot send to subscriber");
+					continue;
+				}
+
+				cut_through_map[std::make_pair(&transport, id)].push_back(
+					std::make_pair(subscriber, sub_id)
+				);
 			}
-
-			cut_through_map[std::make_pair(&transport, id)].push_back(
-				std::make_pair(subscriber, sub_id)
-			);
 		}
 
 		for(auto *subscriber : unsol_conns) {
