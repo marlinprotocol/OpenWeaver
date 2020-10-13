@@ -3,7 +3,7 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/BloomWitnesser.hpp>
-#include <marlin/beacon/DiscoveryClient.hpp>
+#include <marlin/beacon/ClusterDiscoverer.hpp>
 
 
 namespace marlin {
@@ -34,17 +34,18 @@ public:
 		pubsub::BloomWitnesser
 	>;
 
-	beacon::DiscoveryClient<Self> b;
+	beacon::ClusterDiscoverer<Self> b;
 	PubSubNodeType ps;
 
 	void new_peer(
+		core::SocketAddress const &baddr,
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps.subscribe(addr, static_pk);
+			ps.subscribe(baddr, addr, static_pk);
 		}
 	}
 
@@ -90,6 +91,7 @@ public:
 	}
 
 	void manage_subscriptions(
+		core::SocketAddress baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
@@ -115,7 +117,7 @@ public:
 				);
 
 				ps.remove_conn(sol_conns, *toReplaceTransport);
-				ps.add_sol_standby_conn(*toReplaceTransport);
+				ps.add_sol_standby_conn(baddr, *toReplaceTransport);
 			}
 		}
 
@@ -123,13 +125,13 @@ public:
 			auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
 
 			if ( toReplaceWithTransport != nullptr) {
-				auto* toReplaceWithTransport = sol_standby_conns.find_min_rtt_transport();
 
 				SPDLOG_DEBUG("Moving address: {} from sol_standby_conns to sol_conns",
 					toReplaceWithTransport->dst_addr.to_string()
 				);
 
-				ps.add_sol_conn(*toReplaceWithTransport);
+				ps.remove_conn(sol_standby_conns, *toReplaceWithTransport);
+				ps.add_sol_conn(baddr, *toReplaceWithTransport);
 			}
 		}
 

@@ -1,11 +1,6 @@
-/*! \file DiscoveryClient.hpp
-	\brief Client side implementation of beacon functionality to discover peer nodes to connect to
-*/
+#ifndef MARLIN_BEACON_CLUSTERDISCOVERER_HPP
+#define MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 
-#ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
-#define MARLIN_BEACON_DISCOVERYCLIENT_HPP
-
-#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
@@ -27,44 +22,42 @@ namespace beacon {
 	\li DISCPROTO - function to find supported protocols on a node
 */
 template<
-	typename DiscoveryClientDelegate,
+	typename ClusterDiscovererDelegate,
 	template<typename, typename> class TransportFactory = asyncio::UdpTransportFactory,
 	template<typename> class Transport = asyncio::UdpTransport
 >
-class DiscoveryClient {
+class ClusterDiscoverer {
 private:
-	using Self = DiscoveryClient<
-		DiscoveryClientDelegate,
+	using Self = ClusterDiscoverer<
+		ClusterDiscovererDelegate,
 		TransportFactory,
 		Transport
 	>;
 
-	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
-	using BaseTransport = core::VersionedTransport<Self, Transport>;
+	using BaseTransportFactory = TransportFactory<Self, Self>;
+	using BaseTransport = Transport<Self>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
 	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
+	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
+	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 
 	// Discovery protocol
 	void send_DISCPROTO(BaseTransport &transport);
-	void did_recv_DISCPROTO(BaseTransport &transport);
-	void send_LISTPROTO(BaseTransport &transport);
 	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
 
 	void send_DISCPEER(BaseTransport &transport);
 	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
 
-	void send_HEARTBEAT(BaseTransport &transport);
-
-	void did_recv_DISCADDR(BaseTransport &transport);
+	void send_DISCCLUSTER(BaseTransport &transport);
+	void did_recv_LISTCLUSTER(BaseTransport &transport, LISTCLUSTER &&packet);
 
 	std::vector<core::SocketAddress> discovery_addrs;
-	std::vector<core::SocketAddress> heartbeat_addrs;
 
 	void beacon_timer_cb();
 	asyncio::Timer beacon_timer;
@@ -79,19 +72,18 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
-	DiscoveryClient(
+	ClusterDiscoverer(
 		core::SocketAddress const &addr,
 		uint8_t const* static_sk,
 		Args&&... args
 	);
-	~DiscoveryClient();
+	~ClusterDiscoverer();
 
-	DiscoveryClientDelegate *delegate;
-	bool is_discoverable = false;
+	ClusterDiscovererDelegate *delegate;
 
 	void start_discovery(core::SocketAddress const &beacon_addr);
 	void start_discovery(
@@ -108,6 +100,8 @@ private:
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
 	std::unordered_map<core::SocketAddress, std::array<uint8_t, 32>> node_key_map;
+	std::unordered_map<core::SocketAddress, uint64_t> cluster_map;
+	std::unordered_map<core::SocketAddress, std::pair<core::SocketAddress, uint64_t>> beacon_map;
 };
 
 
@@ -115,12 +109,12 @@ private:
 
 //---------------- Helper macros begin ----------------//
 
-#define DISCOVERYCLIENT_TEMPLATE typename DiscoveryClientDelegate, \
+#define CLUSTERDISCOVERER_TEMPLATE typename ClusterDiscovererDelegate, \
 	template<typename, typename> class TransportFactory, \
 	template<typename> class Transport
 
-#define DISCOVERYCLIENT DiscoveryClient< \
-	DiscoveryClientDelegate, \
+#define CLUSTERDISCOVERER ClusterDiscoverer< \
+	ClusterDiscovererDelegate, \
 	TransportFactory, \
 	Transport \
 >
@@ -134,46 +128,15 @@ private:
 /*!
 	function to get list of supported protocols on a client node
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::send_DISCPROTO(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::send_DISCPROTO(
 	BaseTransport &transport
 ) {
 	transport.send(DISCPROTO());
 }
 
-
-/*!
-	\li Callback on receipt of disc proto
-	\li Sends back the protocols supported on this node
-*/
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv_DISCPROTO(
-	BaseTransport &transport
-) {
-	SPDLOG_DEBUG("DISCPROTO <<< {}", transport.dst_addr.to_string());
-
-	send_LISTPROTO(transport);
-}
-
-
-/*!
-	sends the list of supported protocols on this node
-*/
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::send_LISTPROTO(
-	BaseTransport &transport
-) {
-	auto protocols = delegate->get_protocols();
-	assert(protocols.size() < 100);
-
-	transport.send(
-		LISTPROTO(protocols.size())
-		.set_protocols(protocols.begin(), protocols.end())
-	);
-}
-
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv_LISTPROTO(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 	BaseTransport &transport,
 	LISTPROTO &&packet
 ) {
@@ -188,15 +151,15 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 		core::SocketAddress peer_addr(transport.dst_addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer(beacon_map[transport.dst_addr].first, peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
 }
 
 /*!
 	sends peer discovery message
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::send_DISCPEER(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::send_DISCPEER(
 	BaseTransport &transport
 ) {
 	transport.send(DISCPEER());
@@ -206,8 +169,8 @@ void DISCOVERYCLIENT::send_DISCPEER(
 	\li Callback on receipt of list peers
 	\li Tries to connect to each of the peers via dial
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv_LISTPEER(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_recv_LISTPEER(
 	BaseTransport &transport [[maybe_unused]],
 	LISTPEER &&packet
 ) {
@@ -220,56 +183,66 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 	for(auto iter = packet.peers_begin(); iter != packet.peers_end(); ++iter) {
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
-
-		f.dial(peer_addr, *this, 0);
+        beacon_map[peer_addr] = std::make_pair(transport.dst_addr, asyncio::EventLoop::now());
 	}
-}
-
-/*!
-	sends heartbeat message to refresh/create entry at the discovery server to keep the node discoverable
-*/
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::send_HEARTBEAT(
-	BaseTransport &transport
-) {
-	transport.send(HEARTBEAT().set_key(static_pk));
-}
-
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv_DISCADDR(
-	BaseTransport &transport [[maybe_unused]]
-) {
-	SPDLOG_DEBUG("DISCADDR <<< {}", transport.dst_addr.to_string());
-
-	uint8_t name_size = name.size() > 255 ? 255 : name.size();
-
-	core::Buffer p(44 + 1 + name_size);
-	p.data()[0] = 0;
-	p.data()[1] = 6;
-	std::memcpy(p.data()+2, address.c_str(), 42);
-	p.data()[44] = name_size;
-	std::memcpy(p.data()+45, name.c_str(), name_size);
-
-	transport.send(std::move(p));
 }
 
 /*!
 	callback to periodically send DISCPEER sending in search of new peers
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::beacon_timer_cb() {
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::beacon_timer_cb() {
+    // Discover clusters
 	for(auto& addr : discovery_addrs) {
-		f.dial(addr, *this, 1);
+		f.dial(addr, *this, 3);
 	}
+
+    // Discover relays
+    for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
+        if(iter->second + 60000 < asyncio::EventLoop::now()) {
+            // Stale cluster
+            iter = cluster_map.erase(iter);
+        } else {
+            f.dial(iter->first, *this, 1);
+            iter++;
+        }
+    }
+
+    // Discover protocols
+    for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
+        if(iter->second.second + 60000 < asyncio::EventLoop::now()) {
+            // Stale cluster
+            iter = beacon_map.erase(iter);
+        } else {
+            f.dial(iter->first, *this, 0);
+            iter++;
+        }
+    }
 }
 
-/*!
-	callback to periodically send HEARTBEAT to refresh the entry at beacon server
-*/
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::heartbeat_timer_cb() {
-	for(auto& addr : heartbeat_addrs) {
-		f.dial(addr, *this, 2);
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::send_DISCCLUSTER(
+	BaseTransport &transport
+) {
+	transport.send(DISCCLUSTER());
+}
+
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
+	BaseTransport &transport [[maybe_unused]],
+	LISTCLUSTER &&packet
+) {
+	SPDLOG_DEBUG("LISTCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	if(!packet.validate()) {
+        SPDLOG_WARN("Validation failure");
+		return;
+	}
+
+	for(auto iter = packet.clusters_begin(); iter != packet.clusters_end(); ++iter) {
+		auto cluster_addr = *iter;
+        SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
+        cluster_map[cluster_addr] = asyncio::EventLoop::now();
 	}
 }
 
@@ -278,15 +251,15 @@ void DISCOVERYCLIENT::heartbeat_timer_cb() {
 
 //---------------- Listen delegate functions begin ----------------//
 
-template<DISCOVERYCLIENT_TEMPLATE>
-bool DISCOVERYCLIENT::should_accept(
+template<CLUSTERDISCOVERER_TEMPLATE>
+bool CLUSTERDISCOVERER::should_accept(
 	core::SocketAddress const &
 ) {
-	return is_discoverable;
+	return false;
 }
 
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_create_transport(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_create_transport(
 	BaseTransport &transport,
 	size_t
 ) {
@@ -298,8 +271,8 @@ void DISCOVERYCLIENT::did_create_transport(
 
 //---------------- Transport delegate functions begin ----------------//
 
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_dial(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_dial(
 	BaseTransport &transport,
 	size_t type
 ) {
@@ -311,8 +284,10 @@ void DISCOVERYCLIENT::did_dial(
 		send_DISCPEER(transport);
 	} else if(type == 2) {
 		// Heartbeat peer
-		send_HEARTBEAT(transport);
-	}
+	} else if(type == 3) {
+        // Cluster discovery peer
+        send_DISCCLUSTER(transport);
+    }
 }
 
 //! receives the packet and processes them
@@ -326,8 +301,8 @@ void DISCOVERYCLIENT::did_dial(
 	\li 3			:	LISTPEER
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_recv_packet(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
@@ -338,7 +313,7 @@ void DISCOVERYCLIENT::did_recv(
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: did_recv_DISCPROTO(transport);
+		case 0: SPDLOG_ERROR("Unexpected DISCPROTO from {}", transport.dst_addr.to_string());
 		break;
 		// LISTPROTO
 		case 1: did_recv_LISTPROTO(transport, std::move(packet));
@@ -353,7 +328,10 @@ void DISCOVERYCLIENT::did_recv(
 		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", transport.dst_addr.to_string());
 		break;
 		// DISCADDR
-		case 5: did_recv_DISCADDR(transport);
+		case 5: SPDLOG_ERROR("Unexpected DISCADDR from {}", transport.dst_addr.to_string());
+		break;
+		// LISTCLUSTER
+		case 8: did_recv_LISTCLUSTER(transport, std::move(packet));
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
@@ -361,8 +339,8 @@ void DISCOVERYCLIENT::did_recv(
 	}
 }
 
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_send(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::did_send_packet(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
@@ -395,9 +373,9 @@ void DISCOVERYCLIENT::did_send(
 
 //---------------- Transport delegate functions end ----------------//
 
-template<DISCOVERYCLIENT_TEMPLATE>
+template<CLUSTERDISCOVERER_TEMPLATE>
 template<typename ...Args>
-DISCOVERYCLIENT::DiscoveryClient(
+CLUSTERDISCOVERER::ClusterDiscoverer(
 	core::SocketAddress const &addr,
 	uint8_t const* static_sk,
 	Args&&... args
@@ -413,29 +391,24 @@ DISCOVERYCLIENT::DiscoveryClient(
 	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
 
-template<DISCOVERYCLIENT_TEMPLATE>
-DISCOVERYCLIENT::~DiscoveryClient() {
+template<CLUSTERDISCOVERER_TEMPLATE>
+CLUSTERDISCOVERER::~ClusterDiscoverer() {
 	// Explicitly zero to protect memory
 	sodium_memzero(static_sk, crypto_box_SECRETKEYBYTES);
 }
 /*!
 	connects to the beacon server to start the peer discovery
 */
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::start_discovery(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::start_discovery(
 	const core::SocketAddress &beacon_addr
 ) {
 	discovery_addrs.push_back(beacon_addr);
 	beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
-
-	if(is_discoverable) {
-		heartbeat_addrs.push_back(beacon_addr);
-		heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
-	}
 }
 
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::start_discovery(
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::start_discovery(
 	std::vector<core::SocketAddress>&& discovery_addrs,
 	std::vector<core::SocketAddress>&& heartbeat_addrs
 ) {
@@ -445,8 +418,8 @@ void DISCOVERYCLIENT::start_discovery(
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 }
 
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::close() {
+template<CLUSTERDISCOVERER_TEMPLATE>
+void CLUSTERDISCOVERER::close() {
 	beacon_timer.stop();
 	heartbeat_timer.stop();
 }
@@ -454,12 +427,12 @@ void DISCOVERYCLIENT::close() {
 
 //---------------- Helper macros undef begin ----------------//
 
-#undef DISCOVERYCLIENT_TEMPLATE
-#undef DISCOVERYCLIENT
+#undef CLUSTERDISCOVERER_TEMPLATE
+#undef CLUSTERDISCOVERER
 
 //---------------- Helper macros undef end ----------------//
 
 } // namespace beacon
 } // namespace marlin
 
-#endif // MARLIN_BEACON_DISCOVERYCLIENT_HPP
+#endif // MARLIN_BEACON_CLUSTERDISCOVERER_HPP

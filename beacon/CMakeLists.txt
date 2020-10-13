@@ -94,6 +94,12 @@ endforeach(TEST_SOURCE)
 
 add_custom_target(beacon_examples)
 
+add_executable(crawler
+	examples/crawler.cpp
+)
+target_link_libraries(crawler PUBLIC beacon)
+add_dependencies(beacon_examples crawler)
+
 add_executable(discovery_example
 	examples/discovery.cpp
 )
