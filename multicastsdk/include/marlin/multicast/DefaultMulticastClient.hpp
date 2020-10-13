@@ -38,13 +38,14 @@ public:
 	PubSubNodeType ps;
 
 	void new_peer(
+		core::SocketAddress const &baddr,
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps.subscribe(addr, static_pk);
+			ps.subscribe(baddr, addr, static_pk);
 		}
 	}
 
