@@ -288,6 +288,7 @@ public:
 		MessageHeaderType prev_header = {}
 	);
 
+	void subscribe(core::SocketAddress const &baddr, core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void unsubscribe(core::SocketAddress const &addr);
 private:
@@ -1277,12 +1278,12 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 	}
 }
 
-//! subscribes to given publisher
-/*!
-	\param addr publisher address to subscribe to
-*/
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
+void PUBSUBNODETYPE::subscribe(
+	core::SocketAddress const &baddr,
+	core::SocketAddress const &addr,
+	uint8_t const *remote_static_pk
+) {
 	// TODO: written so that relays with full unsol list dont occupy sol/standby lists in clients, and similarly masters with full unsol list dont occupy sol/standby lists in relays
 	if (blacklist_addr.find(addr) != blacklist_addr.end())
 		return;
@@ -1290,13 +1291,23 @@ void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *r
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
+		beacon_map[addr] = baddr;
 		dial(addr, remote_static_pk);
 		return;
 	} else if(!transport->is_active()) {
 		return;
 	}
 
-	add_sol_conn(*transport);
+	add_sol_conn(baddr, *transport);
+}
+
+//! subscribes to given publisher
+/*!
+	\param addr publisher address to subscribe to
+*/
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
+	subscribe(core::SocketAddress(), addr, remote_static_pk);
 }
 
 //! unsubscribes from given publisher
