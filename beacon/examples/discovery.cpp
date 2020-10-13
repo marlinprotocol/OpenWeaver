@@ -75,8 +75,8 @@ int main() {
 	c2->delegate = &del;
 	c2->is_discoverable = true;
 
-	c1->start_discovery(baddr);
-	c2->start_discovery(baddr);
+	c1->start_discovery({baddr}, {haddr});
+	c2->start_discovery({baddr}, {haddr});
 
 	return asyncio::EventLoop::run();
 }

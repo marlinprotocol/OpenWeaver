@@ -352,6 +352,105 @@ struct HEARTBEATWrapper {
 	}
 };
 
+template<typename BaseMessageType>
+struct DISCCLUSTERWrapper {
+	BaseMessageType base;
+
+	operator BaseMessageType() && {
+		return std::move(base);
+	}
+
+	DISCCLUSTERWrapper() : base(2) {
+		base.set_payload({0, 9});
+	}
+};
+
+template<typename BaseMessageType>
+struct LISTCLUSTERWrapper {
+	BaseMessageType base;
+
+	operator BaseMessageType() && {
+		return std::move(base);
+	}
+
+	LISTCLUSTERWrapper(size_t num_peer = 0) : base(2+8*num_peer) {
+		base.set_payload({0, 8});
+	}
+
+	LISTCLUSTERWrapper(BaseMessageType&& base) : base(std::move(base)) {}
+
+	template<typename It>
+	LISTCLUSTERWrapper& set_clusters(It& begin, It end) & {
+		size_t idx = 2;
+		while(begin != end && idx + 8 <= base.payload_buffer().size()) {
+			begin->serialize(base.payload()+idx, 8);
+			idx += 8;
+
+			++begin;
+		}
+		base.truncate_unsafe(base.payload_buffer().size() - idx);
+
+		return *this;
+	}
+
+	template<typename It>
+	LISTCLUSTERWrapper&& set_clusters(It& begin, It end) && {
+		return std::move(set_clusters(begin, end));
+	}
+
+	[[nodiscard]] bool validate() const {
+		if(base.payload_buffer().size() < 2 || base.payload_buffer().size() % 8 != 2) {
+			return false;
+		}
+		return true;
+	}
+
+	struct iterator {
+	private:
+		core::WeakBuffer buf;
+		size_t offset = 0;
+	public:
+		// For iterator_traits
+		using difference_type = int32_t;
+		using value_type = core::SocketAddress;
+		using pointer = value_type const*;
+		using reference = value_type const&;
+		using iterator_category = std::input_iterator_tag;
+
+		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
+
+		value_type operator*() const {
+			auto peer_addr = core::SocketAddress::deserialize(buf.data()+offset, 8);
+
+			return peer_addr;
+		}
+
+		iterator& operator++() {
+			offset += 8;
+
+			return *this;
+		}
+
+		bool operator==(iterator const& other) const {
+			return offset == other.offset;
+		}
+
+		bool operator!=(iterator const& other) const {
+			return !(*this == other);
+		}
+	};
+
+	iterator clusters_begin() const {
+		return iterator(base.payload_buffer(), 2);
+	}
+
+	iterator clusters_end() const {
+		// Relies on validation ensuring correct size i.e. size % 8 = 2
+		// Otherwise, need to modify size below
+		return iterator(base.payload_buffer(), base.payload_buffer().size());
+	}
+};
+
 } // namespace beacon
 } // namespace marlin
 
