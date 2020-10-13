@@ -149,15 +149,12 @@ public:
 	void send_SUBSCRIBE(BaseTransport &transport, uint16_t channel);
 	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t channel);
 
-	bool add_sol_conn(core::SocketAddress const &addr);
-	bool add_sol_conn(BaseTransport &transport);
-	bool add_sol_standby_conn(BaseTransport &transport);
+	bool add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport);
+	bool add_sol_standby_conn(core::SocketAddress const &baddr, BaseTransport &transport);
 	bool add_unsol_conn(BaseTransport &transport);
 	// bool add_unsol_standby_conn(BaseTransport &transport); TODO: to be introduced later
 
 	bool remove_conn(TransportSet &t_set, BaseTransport &Transport);
-
-	bool check_tranport_present(BaseTransport &transport);
 
 	// int get_num_active_subscribers(uint16_t channel);
 	// void add_subscriber_to_channel(uint16_t channel, BaseTransport &transport);
@@ -453,12 +450,12 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 
 		if (blacklist_addr.find(transport.dst_addr) != blacklist_addr.end()) {
 			blacklist_addr.erase(transport.dst_addr);
-			add_sol_conn(transport);
+			add_sol_conn(core::SocketAddress(), transport);
 			return 0;
 		}
 
 		add_unsol_conn(transport);
-		if (!check_tranport_present(transport)) {
+		if (!unsol_conns.check_tranport_in_set(transport)) {
 			transport.close(1); // Add reason to indicate blacklist
 			SPDLOG_DEBUG("CLOSING TRANSPORT, RETURNING -1");
 			return -1;
@@ -988,7 +985,7 @@ void PUBSUBNODETYPE::did_dial(BaseTransport &transport) {
 		transport.dst_addr.to_string()
 	);
 
-	add_sol_conn(transport);
+	add_sol_conn(beacon_map[transport.dst_addr], transport);
 }
 
 //! Receives the bytes/packet fragments from StreamTransport and processes them
@@ -1324,30 +1321,20 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &addr) {
-
-	auto *transport = f.get_transport(addr);
-
-	if(transport == nullptr) {
-		return false;
-	}
-
-	add_sol_conn(*transport);
-}
-
-template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_conn(BaseTransport &transport) {
+bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
+	SPDLOG_INFO("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
+	auto& conns = conn_map[baddr];
 
 	//TODO: size check.
-	if (sol_conns.size() >= max_sol_conns) {
-		add_sol_standby_conn(transport);
+	if (conns.sol_conns.size() >= max_sol_conns) {
+		add_sol_standby_conn(baddr, transport);
 		return false;
 	}
 
-	remove_conn(sol_standby_conns, transport);
+	remove_conn(conns.sol_standby_conns, transport);
 	remove_conn(unsol_conns, transport);
 
-	if (!check_tranport_present(transport)) {
+	if (!conns.sol_conns.check_tranport_in_set(transport)) {
 
 		std::for_each(
 			delegate->channels.begin(),
@@ -1361,7 +1348,7 @@ bool PUBSUBNODETYPE::add_sol_conn(BaseTransport &transport) {
 			transport.dst_addr.to_string()
 		);
 
-		sol_conns.insert(&transport);
+		conns.sol_conns.insert(&transport);
 		//TODO: send response
 		send_RESPONSE(transport, true, "SUBSCRIBED");
 
@@ -1372,15 +1359,19 @@ bool PUBSUBNODETYPE::add_sol_conn(BaseTransport &transport) {
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_standby_conn(BaseTransport &transport) {
+bool PUBSUBNODETYPE::add_sol_standby_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
+	auto& conns = conn_map[baddr];
 
-	if(!check_tranport_present(transport)) {
+	remove_conn(unsol_conns, transport);
+
+	if(!conns.sol_conns.check_tranport_in_set(transport) &&
+		!conns.sol_standby_conns.check_tranport_in_set(transport)) {
 
 		SPDLOG_DEBUG("Adding address: {} to sol standby conn list",
 			transport.dst_addr.to_string()
 		);
 
-		sol_standby_conns.insert(&transport);
+		conns.sol_standby_conns.insert(&transport);
 		return true;
 	}
 
@@ -1389,12 +1380,11 @@ bool PUBSUBNODETYPE::add_sol_standby_conn(BaseTransport &transport) {
 
 template<PUBSUBNODE_TEMPLATE>
 bool PUBSUBNODETYPE::add_unsol_conn(BaseTransport &transport) {
-
 	if (unsol_conns.size() >= max_unsol_conns) {
 		return false;
 	}
 
-	if(!check_tranport_present(transport)) {
+	if(!unsol_conns.check_tranport_in_set(transport)) {
 
 		SPDLOG_DEBUG("Adding address: {} to unsol conn list",
 			transport.dst_addr.to_string()
