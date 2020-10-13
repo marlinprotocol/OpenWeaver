@@ -243,13 +243,12 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 
 	uint8_t name_size = name.size() > 255 ? 255 : name.size();
 
-	BaseMessageType m(44 + 1 + name_size);
+	BaseMessageType m(43 + 1 + name_size);
 	auto p = m.payload_buffer();
-	p.data()[0] = 0;
-	p.data()[1] = 6;
-	std::memcpy(p.data()+2, address.c_str(), 42);
-	p.data()[44] = name_size;
-	std::memcpy(p.data()+45, name.c_str(), name_size);
+	p.data()[0] = 6;
+	std::memcpy(p.data()+1, address.c_str(), 42);
+	p.data()[43] = name_size;
+	std::memcpy(p.data()+44, name.c_str(), name_size);
 
 	transport.send(std::move(m));
 }
@@ -332,8 +331,12 @@ void DISCOVERYCLIENT::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 

@@ -307,8 +307,12 @@ void CLUSTERDISCOVERER::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 

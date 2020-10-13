@@ -216,10 +216,9 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 
 	if(rt != nullptr) {
 		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
-		BaseMessageType m(2);
+		BaseMessageType m(1);
 		auto reg = m.payload_buffer();
-		reg.data()[0] = 0;
-		reg.data()[1] = 7;
+		reg.data()[0] = 7;
 		rt->send(std::move(m));
 	}
 }
@@ -301,8 +300,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 
