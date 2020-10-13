@@ -26,7 +26,7 @@ struct VersionedMessage {
 
 	/// Validate the versioned message
 	[[nodiscard]] bool validate() const {
-		return this->version() >= MIN_VERSION && this->version() <= MAX_VERSION;
+		return base.payload_buffer().size() > 0 && this->version() >= MIN_VERSION && this->version() <= MAX_VERSION;
 	}
 };
 
