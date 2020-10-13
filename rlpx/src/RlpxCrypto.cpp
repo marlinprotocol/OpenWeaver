@@ -112,7 +112,6 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	SPDLOG_DEBUG("S: {}", spdlog::to_hex(S, S+65));
 
 	using namespace CryptoPP;
-
 	// kE, kM
 	SHA256 sha256;
 	uint8_t c[4] = {0,0,0,1};
@@ -123,7 +122,7 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	sha256.TruncatedFinal(kEM, 32);
 	SPDLOG_DEBUG("kEM: {}", spdlog::to_hex(kEM, kEM+32));
 
-	// Verify hmac
+	// Verify hmacSHA256SHA256
 	sha256.Update(kEM + 16, 16);
 	uint8_t kMhash[32];
 	sha256.TruncatedFinal(kMhash, 32);
