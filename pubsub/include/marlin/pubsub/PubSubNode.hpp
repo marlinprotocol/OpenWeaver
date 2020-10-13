@@ -1228,15 +1228,25 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
-	for (
-		auto it = sol_conns.begin();
-		it != sol_conns.end();
-		it++
-	) {
-		// Exclude given address, usually sender tp prevent loops
-		if(excluded != nullptr && (*it)->dst_addr == *excluded)
-			continue;
-		send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+	if(conn_map.size() == 0) {
+		return;
+	}
+
+	auto rnd = message_id % conn_map.size();
+	auto idx = 0u;
+	for(auto& [_, conns] : conn_map) {
+		while(idx != rnd) idx++;
+
+		for (
+			auto it = conns.sol_conns.begin();
+			it != conns.sol_conns.end();
+			it++
+		) {
+			// Exclude given address, usually sender tp prevent loops
+			if(excluded != nullptr && (*it)->dst_addr == *excluded)
+				continue;
+			send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+		}
 	}
 
 	for (
