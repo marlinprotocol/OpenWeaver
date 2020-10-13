@@ -61,6 +61,7 @@ private:
 	void send_LISTPEER(BaseTransport &transport);
 
 	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
+	void did_recv_REG(BaseTransport &transport);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
@@ -175,6 +176,28 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 
 	peers[transport.dst_addr].first = asyncio::EventLoop::now();
 	peers[transport.dst_addr].second = bytes.key_array();
+}
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
+	BaseTransport &transport
+) {
+	SPDLOG_INFO(
+		"REG <<< {}",
+		transport.dst_addr.to_string()
+	);
+
+	// Allow only heartbeat addr transports to add themselves to the registry
+	if(!(transport.src_addr == hf.addr)) {
+		return;
+	}
+
+	SPDLOG_INFO(
+		"REG <<< {}",
+		transport.dst_addr.to_string()
+	);
+
+	peers[transport.dst_addr].first = asyncio::EventLoop::now();
 }
 
 
@@ -302,8 +325,11 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 		// HEARTBEAT
 		case 4: did_recv_HEARTBEAT(transport, std::move(packet));
 		break;
+		// HEARTBEAT
+		case 7: did_recv_REG(transport);
+		break;
 		// DISCCLUSTER
-		case 7: did_recv_DISCCLUSTER(transport);
+		case 9: did_recv_DISCCLUSTER(transport);
 		break;
 		// LISTCLUSTER
 		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
@@ -341,7 +367,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
 		break;
 		// DISCCLUSTER
-		case 7: SPDLOG_TRACE("DISCCLUSTER >>> {}", transport.dst_addr.to_string());
+		case 9: SPDLOG_TRACE("DISCCLUSTER >>> {}", transport.dst_addr.to_string());
 		break;
 		// LISTCLUSTER
 		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());

@@ -361,7 +361,7 @@ struct DISCCLUSTERWrapper {
 	}
 
 	DISCCLUSTERWrapper() : base(2) {
-		base.set_payload({0, 7});
+		base.set_payload({0, 9});
 	}
 };
 
