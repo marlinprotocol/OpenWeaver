@@ -135,8 +135,11 @@ public:
 	// TransportSetMap channel_subscriptions;
 	// TransportSetMap potential_channel_subscriptions;
 
-	TransportSet sol_conns;
-	TransportSet sol_standby_conns;
+	struct Connections {
+		TransportSet sol_conns;
+		TransportSet sol_standby_conns;
+	};
+	std::unordered_map<core::SocketAddress, Connections> conn_map;
 	TransportSet unsol_conns;
 
 	std::unordered_set<core::SocketAddress> blacklist_addr;
