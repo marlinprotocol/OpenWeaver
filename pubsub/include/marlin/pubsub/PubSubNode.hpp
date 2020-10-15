@@ -342,6 +342,7 @@ private:
 		}
 
 		for(auto& [_, conns] : conn_map) {
+			(void)_;
 			for (auto* transport : conns.sol_conns) {
 				this->send_HEARTBEAT(*transport);
 			}
@@ -764,6 +765,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	// Relay to other peers.
 	bool found = false;
 	for(auto& [_, conns] : conn_map) {
+		(void)_;
 		if(
 			conns.sol_conns.check_tranport_in_set(*transport) ||
 			conns.sol_standby_conns.check_tranport_in_set(*transport) ||
@@ -1235,6 +1237,7 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	auto rnd = message_id % conn_map.size();
 	auto idx = 0u;
 	for(auto& [_, conns] : conn_map) {
+		(void)_;
 		while(idx != rnd) idx++;
 
 		for (
@@ -1558,6 +1561,7 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 		}
 
 		for(auto& [_, conns] : conn_map) {
+			(void)_;
 			for(auto *subscriber : conns.sol_conns) {
 				if(&transport == subscriber) continue;
 				bool found = witnesser.contains(header, subscriber->get_remote_static_pk());
