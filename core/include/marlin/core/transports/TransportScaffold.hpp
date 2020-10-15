@@ -64,6 +64,19 @@ public:
 	bool is_internal();
 };
 
+
+template<
+	typename DelegateType,
+	template<typename> typename BaseTransportTemplate,
+	template<typename, template<typename> typename, typename...> typename TransportTemplate,
+	typename... TArgs
+>
+using SugaredTransportScaffold = TransportScaffold<
+	TransportTemplate<DelegateType, BaseTransportTemplate, TArgs...>,
+	DelegateType,
+	BaseTransportTemplate<TransportTemplate<DelegateType, BaseTransportTemplate, TArgs...>>&
+>;
+
 }  // namespace core
 }  // namespace marlin
 

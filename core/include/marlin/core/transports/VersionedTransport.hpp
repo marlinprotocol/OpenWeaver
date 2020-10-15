@@ -37,10 +37,13 @@ template<
 	typename MIN_VERSION = std::integral_constant<uint8_t, 0>,
 	typename MAX_VERSION = std::integral_constant<uint8_t, 0>
 >
-class VersionedTransport : public TransportScaffold<
-	VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>,
+class VersionedTransport : public SugaredTransportScaffold<
 	DelegateType,
-	BaseTransportTemplate<VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>>&
+	BaseTransportTemplate,
+	VersionedTransport,
+	VERSION,
+	MIN_VERSION,
+	MAX_VERSION
 > {
 public:
 	using SelfType = VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>;
