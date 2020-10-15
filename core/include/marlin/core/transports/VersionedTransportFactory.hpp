@@ -17,21 +17,22 @@ template<
 	template<typename, typename> class BaseTransportFactoryTemplate,
 	template<typename> class BaseTransportTemplate
 >
-class VersionedTransportFactory : public TransportFactoryScaffold<
-	VersionedTransportFactory<ListenDelegate, TransportDelegate, BaseTransportFactoryTemplate, BaseTransportTemplate>,
-	VersionedTransport<TransportDelegate, BaseTransportTemplate>,
+class VersionedTransportFactory : public SugaredTransportFactoryScaffold<
 	ListenDelegate,
 	TransportDelegate,
-	BaseTransportFactoryTemplate<VersionedTransportFactory<ListenDelegate, TransportDelegate, BaseTransportFactoryTemplate, BaseTransportTemplate>, VersionedTransport<TransportDelegate, BaseTransportTemplate>>,
-	BaseTransportTemplate<VersionedTransport<TransportDelegate, BaseTransportTemplate>>&
+	BaseTransportFactoryTemplate,
+	BaseTransportTemplate,
+	VersionedTransportFactory,
+	VersionedTransport
 > {
 public:
-	using SelfType = VersionedTransportFactory<ListenDelegate, TransportDelegate, BaseTransportFactoryTemplate, BaseTransportTemplate>;
-	using SelfTransportType = VersionedTransport<TransportDelegate, BaseTransportTemplate>;
-	using BaseTransportFactoryType = BaseTransportFactoryTemplate<SelfType, SelfTransportType>;
-	using BaseTransportType = BaseTransportTemplate<SelfTransportType>;
-	using TransportFactoryScaffoldType = TransportFactoryScaffold<
-		SelfType, SelfTransportType, ListenDelegate, TransportDelegate, BaseTransportFactoryType, BaseTransportType&
+	using TransportFactoryScaffoldType = SugaredTransportFactoryScaffold<
+		ListenDelegate,
+		TransportDelegate,
+		BaseTransportFactoryTemplate,
+		BaseTransportTemplate,
+		VersionedTransportFactory,
+		VersionedTransport
 	>;
 private:
 	using TransportFactoryScaffoldType::base_factory;

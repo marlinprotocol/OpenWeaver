@@ -40,6 +40,29 @@ public:
 	TransportType* get_transport(SocketAddress const& addr);
 };
 
+
+template<
+	typename ListenDelegate,
+	typename TransportDelegate,
+	template<typename, typename> typename BaseTransportFactoryTemplate,
+	template<typename> typename BaseTransportTemplate,
+	template<typename, typename, template<typename, typename> typename, template<typename> typename, typename...> typename TransportFactoryTemplate,
+	template<typename, template<typename> typename, typename...> typename TransportTemplate,
+	typename... TArgs
+>
+using SugaredTransportFactoryScaffold = TransportFactoryScaffold<
+	TransportFactoryTemplate<ListenDelegate, TransportDelegate, BaseTransportFactoryTemplate, BaseTransportTemplate, TArgs...>,
+	TransportTemplate<TransportDelegate, BaseTransportTemplate, TArgs...>,
+	ListenDelegate,
+	TransportDelegate,
+	BaseTransportFactoryTemplate<
+		TransportFactoryTemplate<ListenDelegate, TransportDelegate, BaseTransportFactoryTemplate, BaseTransportTemplate, TArgs...>,
+		TransportTemplate<TransportDelegate, BaseTransportTemplate, TArgs...>
+	>,
+	BaseTransportTemplate<TransportTemplate<TransportDelegate, BaseTransportTemplate, TArgs...>>&
+>;
+
+
 }  // namespace core
 }  // namespace marlin
 
