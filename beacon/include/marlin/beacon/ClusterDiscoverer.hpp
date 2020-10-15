@@ -185,6 +185,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
         beacon_map[peer_addr] = std::make_pair(transport.dst_addr, asyncio::EventLoop::now());
+		f.dial(peer_addr, *this, 0);
 	}
 }
 
@@ -198,26 +199,24 @@ void CLUSTERDISCOVERER::beacon_timer_cb() {
 		f.dial(addr, *this, 3);
 	}
 
-    // Discover relays
+    // Prune clusters
     for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
-        if(iter->second + 60000 < asyncio::EventLoop::now()) {
+        if(iter->second + 120000 < asyncio::EventLoop::now()) {
             // Stale cluster
             iter = cluster_map.erase(iter);
         } else {
-            f.dial(iter->first, *this, 1);
-            iter++;
-        }
+			iter++;
+		}
     }
 
-    // Discover protocols
+    // Prune relay
     for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
-        if(iter->second.second + 60000 < asyncio::EventLoop::now()) {
+        if(iter->second.second + 120000 < asyncio::EventLoop::now()) {
             // Stale cluster
             iter = beacon_map.erase(iter);
         } else {
-            f.dial(iter->first, *this, 0);
-            iter++;
-        }
+			iter++;
+		}
     }
 }
 
@@ -244,6 +243,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		auto cluster_addr = *iter;
         SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
         cluster_map[cluster_addr] = asyncio::EventLoop::now();
+		f.dial(cluster_addr, *this, 1);
 	}
 }
 
