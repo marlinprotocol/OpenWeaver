@@ -1357,7 +1357,7 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 
 template<PUBSUBNODE_TEMPLATE>
 bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
-	SPDLOG_INFO("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
+	SPDLOG_DEBUG("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
 	auto& conns = conn_map[baddr];
 
 	//TODO: size check.
