@@ -10,9 +10,9 @@ namespace core {
 
 template<
 	typename BaseMessageType,
-	uint8_t VERSION = 0,
-	uint8_t MIN_VERSION = 0,
-	uint8_t MAX_VERSION = 0
+	typename VERSION = std::integral_constant<uint8_t, 0>,
+	typename MIN_VERSION = std::integral_constant<uint8_t, 0>,
+	typename MAX_VERSION = std::integral_constant<uint8_t, 0>
 >
 struct VersionedMessage {
 	MARLIN_MESSAGES_BASE(VersionedMessage);
@@ -21,21 +21,21 @@ struct VersionedMessage {
 
 	/// Construct a versioned message with a given payload size
 	VersionedMessage(size_t payload_size = 0) : base(1 + payload_size) {
-		this->set_version(VERSION);
+		this->set_version(VERSION());
 	}
 
 	/// Validate the versioned message
 	[[nodiscard]] bool validate() const {
-		return base.payload_buffer().size() > 0 && this->version() >= MIN_VERSION && this->version() <= MAX_VERSION;
+		return base.payload_buffer().size() > 0 && this->version() >= MIN_VERSION() && this->version() <= MAX_VERSION();
 	}
 };
 
 template<
 	typename DelegateType,
 	template<typename> typename BaseTransportTemplate,
-	uint8_t VERSION = 0,
-	uint8_t MIN_VERSION = 0,
-	uint8_t MAX_VERSION = 0
+	typename VERSION = std::integral_constant<uint8_t, 0>,
+	typename MIN_VERSION = std::integral_constant<uint8_t, 0>,
+	typename MAX_VERSION = std::integral_constant<uint8_t, 0>
 >
 class VersionedTransport : public TransportScaffold<
 	VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>,
@@ -72,9 +72,9 @@ public:
 template<
 	typename DelegateType,
 	template<typename> typename BaseTransportTemplate,
-	uint8_t VERSION,
-	uint8_t MIN_VERSION,
-	uint8_t MAX_VERSION
+	typename VERSION,
+	typename MIN_VERSION,
+	typename MAX_VERSION
 >
 struct MessageTypeSelector<VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>> {
 	using MessageType = VersionedMessage<typename BaseTransportTemplate<VersionedTransport<DelegateType, BaseTransportTemplate, VERSION, MIN_VERSION, MAX_VERSION>>::MessageType>;
