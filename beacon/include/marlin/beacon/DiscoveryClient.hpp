@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
@@ -38,8 +39,8 @@ private:
 		Transport
 	>;
 
-	using BaseTransportFactory = TransportFactory<Self, Self>;
-	using BaseTransport = Transport<Self>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
+	using BaseTransport = core::VersionedTransport<Self, Transport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
@@ -78,8 +79,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
 	DiscoveryClient(
@@ -242,14 +243,14 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 
 	uint8_t name_size = name.size() > 255 ? 255 : name.size();
 
-	core::Buffer p(44 + 1 + name_size);
-	p.data()[0] = 0;
-	p.data()[1] = 6;
-	std::memcpy(p.data()+2, address.c_str(), 42);
-	p.data()[44] = name_size;
-	std::memcpy(p.data()+45, name.c_str(), name_size);
+	BaseMessageType m(43 + 1 + name_size);
+	auto p = m.payload_buffer();
+	p.data()[0] = 6;
+	std::memcpy(p.data()+1, address.c_str(), 42);
+	p.data()[43] = name_size;
+	std::memcpy(p.data()+44, name.c_str(), name_size);
 
-	transport.send(std::move(p));
+	transport.send(std::move(m));
 }
 
 /*!
@@ -326,12 +327,16 @@ void DISCOVERYCLIENT::did_dial(
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv_packet(
+void DISCOVERYCLIENT::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 
@@ -361,7 +366,7 @@ void DISCOVERYCLIENT::did_recv_packet(
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_send_packet(
+void DISCOVERYCLIENT::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {

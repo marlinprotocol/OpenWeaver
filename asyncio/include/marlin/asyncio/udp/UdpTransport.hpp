@@ -9,11 +9,8 @@
 #ifndef MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 #define MARLIN_ASYNCIO_UDPTRANSPORT_HPP
 
-#include <marlin/core/Buffer.hpp>
-#include <marlin/core/messages/BaseMessage.hpp>
-#include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/CidrBlock.hpp>
-#include <marlin/core/TransportManager.hpp>
+#include <marlin/core/transports/TransportScaffold.hpp>
 #include <uv.h>
 #include <spdlog/spdlog.h>
 
@@ -24,10 +21,15 @@ namespace asyncio {
 
 //! Wrapper transport class around libuv udp functionality
 template<typename DelegateType>
-class UdpTransport {
+class UdpTransport : public core::TransportScaffold<UdpTransport<DelegateType>, DelegateType, uv_udp_t*> {
+public:
+	using TransportScaffoldType = core::TransportScaffold<UdpTransport<DelegateType>, DelegateType, uv_udp_t*>;
+
+	using TransportScaffoldType::src_addr;
+	using TransportScaffoldType::dst_addr;
 private:
-	uv_udp_t *socket = nullptr;
-	core::TransportManager<UdpTransport<DelegateType>> &transport_manager;
+	using TransportScaffoldType::base_transport;
+	using TransportScaffoldType::transport_manager;
 
 	static void send_cb(
 		uv_udp_send_t *req,
@@ -40,16 +42,12 @@ private:
 	};
 
 	std::list<uv_udp_send_t *> pending_req;
-
 public:
-	using MessageType = core::BaseMessage;
+	using MessageType = typename TransportScaffoldType::MessageType;
+	static_assert(std::is_same_v<MessageType, core::BaseMessage>);
 
-	core::SocketAddress src_addr;
-	core::SocketAddress dst_addr;
-
+	using TransportScaffoldType::delegate;
 	bool internal = false;
-
-	DelegateType *delegate = nullptr;
 
 	UdpTransport(
 		core::SocketAddress const &src_addr,
@@ -59,13 +57,13 @@ public:
 	);
 	UdpTransport(UdpTransport const&) = delete;
 
+	// Overrides
 	void setup(DelegateType *delegate);
-	void did_recv_packet(core::Buffer &&packet);
-	int send(core::Buffer &&packet);
 	int send(MessageType &&packet);
 	void close(uint16_t reason = 0);
-
 	bool is_internal();
+
+	int send(core::Buffer &&packet);
 };
 
 
@@ -77,8 +75,7 @@ UdpTransport<DelegateType>::UdpTransport(
 	core::SocketAddress const &dst_addr,
 	uv_udp_t *socket,
 	core::TransportManager<UdpTransport<DelegateType>> &transport_manager
-) : socket(socket), transport_manager(transport_manager),
-	src_addr(src_addr), dst_addr(dst_addr), delegate(nullptr) {
+) : TransportScaffoldType(src_addr, dst_addr, socket, transport_manager) {
 	if(
 		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
 		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||
@@ -97,12 +94,6 @@ UdpTransport<DelegateType>::UdpTransport(
 template<typename DelegateType>
 void UdpTransport<DelegateType>::setup(DelegateType *delegate) {
 	this->delegate = delegate;
-}
-
-//! sends the incoming bytes to the application/HOT delegate
-template<typename DelegateType>
-void UdpTransport<DelegateType>::did_recv_packet(core::Buffer &&packet) {
-	delegate->did_recv_packet(*this, std::move(packet));
 }
 
 template<typename DelegateType>
@@ -126,7 +117,7 @@ void UdpTransport<DelegateType>::send_cb(
 			status
 		);
 	} else {
-		data->transport->delegate->did_send_packet(
+		data->transport->delegate->did_send(
 			*data->transport,
 			std::move(data->packet)
 		);
@@ -152,7 +143,7 @@ int UdpTransport<DelegateType>::send(core::Buffer &&packet) {
 	auto buf = uv_buf_init((char*)req_data->packet.data(), req_data->packet.size());
 	int res = uv_udp_send(
 		req,
-		socket,
+		base_transport,
 		&buf,
 		1,
 		reinterpret_cast<const sockaddr *>(&dst_addr),

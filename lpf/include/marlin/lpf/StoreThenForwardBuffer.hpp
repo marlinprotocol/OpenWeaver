@@ -19,7 +19,7 @@ public:
 	uint16_t id = 0;
 
 	template<typename Delegate>
-	int did_recv_bytes(
+	int did_recv(
 		Delegate &delegate,
 		core::Buffer &&bytes
 	) {
@@ -47,7 +47,7 @@ public:
 				size = 0;
 
 				// Process remaining bytes
-				return did_recv_bytes(delegate, std::move(bytes));
+				return did_recv(delegate, std::move(bytes));
 			}
 		} else { // Read message
 			if(bytes.size() + size < length) { // Partial message
@@ -70,7 +70,7 @@ public:
 				length = 0;
 
 				// Process remaining bytes
-				return did_recv_bytes(delegate, std::move(bytes));
+				return did_recv(delegate, std::move(bytes));
 			}
 		}
 

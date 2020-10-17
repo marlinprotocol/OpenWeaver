@@ -243,8 +243,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	int did_recv_message(BaseTransport &transport, core::Buffer &&message);
-	void did_send_message(BaseTransport &transport, core::Buffer &&message);
+	int did_recv(BaseTransport &transport, core::Buffer &&message);
+	void did_send(BaseTransport &transport, core::Buffer &&message);
 	void did_close(BaseTransport &transport, uint16_t reason);
 
 	int dial(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
@@ -728,7 +728,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 					header
 				);
 
-				delegate->did_recv_message(
+				delegate->did_recv(
 					*this,
 					std::move(bytes),
 					header,
@@ -737,7 +737,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 				);
 			}
 		} else {
-			delegate->did_recv_message(
+			delegate->did_recv(
 				*this,
 				std::move(bytes),
 				header,
@@ -790,7 +790,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	);
 
 	// Call delegate.
-	delegate->did_recv_message(
+	delegate->did_recv(
 		*this,
 		std::move(bytes),
 		message_header,
@@ -1014,7 +1014,7 @@ void PUBSUBNODETYPE::did_dial(BaseTransport &transport) {
 	\endverbatim
 */
 template<PUBSUBNODE_TEMPLATE>
-int PUBSUBNODETYPE::did_recv_message(
+int PUBSUBNODETYPE::did_recv(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
@@ -1058,7 +1058,7 @@ int PUBSUBNODETYPE::did_recv_message(
 }
 
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_send_message(
+void PUBSUBNODETYPE::did_send(
 	BaseTransport &,
 	core::Buffer &&
 ) {}
@@ -1357,7 +1357,7 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 
 template<PUBSUBNODE_TEMPLATE>
 bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
-	SPDLOG_INFO("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
+	SPDLOG_DEBUG("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
 	auto& conns = conn_map[baddr];
 
 	//TODO: size check.

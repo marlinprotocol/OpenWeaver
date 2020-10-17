@@ -40,8 +40,8 @@ private:
 public:
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
-	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_recv(BaseTransport &transport, core::Buffer &&bytes);
+	void did_send(BaseTransport &transport, core::Buffer &&bytes);
 	void did_close(BaseTransport &transport, uint16_t reason);
 
 	core::SocketAddress src_addr;
@@ -72,7 +72,7 @@ void RlpxTransport<DelegateType>::did_dial(
 }
 
 template<typename DelegateType>
-void RlpxTransport<DelegateType>::did_recv_bytes(
+void RlpxTransport<DelegateType>::did_recv(
 	BaseTransport &,
 	core::Buffer &&bytes
 ) {
@@ -229,7 +229,7 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 
 					this->send(std::move(res));
 				} else {
-					delegate->did_recv_message(*this, std::move(message));
+					delegate->did_recv(*this, std::move(message));
 				}
 
 				bytes_remaining = 32;
@@ -242,13 +242,13 @@ void RlpxTransport<DelegateType>::did_recv_bytes(
 		}
 
 		if(bytes.size() > 0) {
-			did_recv_bytes(transport, std::move(bytes));
+			did_recv(transport, std::move(bytes));
 		}
 	}
 }
 
 template<typename DelegateType>
-void RlpxTransport<DelegateType>::did_send_bytes(
+void RlpxTransport<DelegateType>::did_send(
 	BaseTransport &,
 	core::Buffer &&
 ) {

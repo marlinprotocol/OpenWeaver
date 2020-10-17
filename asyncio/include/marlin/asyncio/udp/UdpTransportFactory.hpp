@@ -8,6 +8,7 @@
 #define MARLIN_ASYNCIO_UDPTRANSPORTFACTORY_HPP
 
 #include <uv.h>
+#include <marlin/core/transports/TransportFactoryScaffold.hpp>
 #include "marlin/core/Buffer.hpp"
 #include "marlin/core/SocketAddress.hpp"
 #include "UdpTransport.hpp"
@@ -19,10 +20,23 @@ namespace asyncio {
 
 //! factory class to create instances of UDPTransport connection by either explicitly dialling or listening to incoming requests and messages
 template<typename ListenDelegate, typename TransportDelegate>
-class UdpTransportFactory {
+class UdpTransportFactory : public core::TransportFactoryScaffold<
+	UdpTransportFactory<ListenDelegate, TransportDelegate>,
+	UdpTransport<TransportDelegate>,
+	ListenDelegate,
+	TransportDelegate,
+	uv_udp_t*,
+	uv_udp_t*
+> {
+public:
+	using SelfType = UdpTransportFactory<ListenDelegate, TransportDelegate>;
+	using SelfTransportType = UdpTransport<TransportDelegate>;
+	using TransportFactoryScaffoldType = core::TransportFactoryScaffold<
+		SelfType, SelfTransportType, ListenDelegate, TransportDelegate, uv_udp_t*, uv_udp_t*
+	>;
 private:
-	uv_udp_t *socket = nullptr;
-	core::TransportManager<UdpTransport<TransportDelegate>> transport_manager;
+	using TransportFactoryScaffoldType::base_factory;
+	using TransportFactoryScaffoldType::transport_manager;
 
 	static void naive_alloc_cb(
 		uv_handle_t *,
@@ -47,9 +61,8 @@ private:
 		ListenDelegate *delegate;
 	};
 
-	std::pair<UdpTransport<TransportDelegate> *, int> dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate);
 public:
-	core::SocketAddress addr;
+	using TransportFactoryScaffoldType::addr;
 
 	UdpTransportFactory();
 	~UdpTransportFactory();
@@ -59,15 +72,10 @@ public:
 	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
 
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata);
+	template<typename... Args>
+	int dial(core::SocketAddress const &addr, ListenDelegate &delegate, Args&&... args);
 
-	UdpTransport<TransportDelegate> *get_transport(
-		core::SocketAddress const &addr
-	);
+	using TransportFactoryScaffoldType::get_transport;
 };
 
 
@@ -76,7 +84,7 @@ public:
 template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 UdpTransportFactory() {
-	socket = new uv_udp_t();
+	base_factory = new uv_udp_t();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
@@ -94,7 +102,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 ~UdpTransportFactory() {
 	uv_close(
-		(uv_handle_t *)socket,
+		(uv_handle_t *)base_factory,
 		close_cb
 	);
 }
@@ -112,7 +120,7 @@ bind(core::SocketAddress const &addr) {
 
 	uv_loop_t *loop = uv_default_loop();
 
-	int res = uv_udp_init(loop, socket);
+	int res = uv_udp_init(loop, base_factory);
 	if (res < 0) {
 		SPDLOG_ERROR(
 			"Asyncio: Socket {}: Init error: {}",
@@ -123,7 +131,7 @@ bind(core::SocketAddress const &addr) {
 	}
 
 	res = uv_udp_bind(
-		socket,
+		base_factory,
 		reinterpret_cast<sockaddr const *>(&this->addr),
 		0
 	);
@@ -198,7 +206,7 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 				addr,
 				factory.addr,
 				addr,
-				factory.socket,
+				factory.base_factory,
 				factory.transport_manager
 			).first;
 			delegate.did_create_transport(*transport);
@@ -208,7 +216,8 @@ void UdpTransportFactory<ListenDelegate, TransportDelegate>::recv_cb(
 		}
 	}
 
-	transport->did_recv_packet(
+	transport->did_recv(
+		handle,
 		core::Buffer((uint8_t*)buf->base, nread)
 	);
 }
@@ -221,13 +230,13 @@ UdpTransportFactory<ListenDelegate, TransportDelegate>::
 listen(ListenDelegate &delegate) {
 	delete static_cast<
 		RecvPayload *
-	>(socket->data);
-	socket->data = new RecvPayload {
+	>(base_factory->data);
+	base_factory->data = new RecvPayload {
 		this,
 		&delegate
 	};
 	int res = uv_udp_recv_start(
-		socket,
+		base_factory,
 		naive_alloc_cb,
 		recv_cb
 	);
@@ -245,20 +254,15 @@ listen(ListenDelegate &delegate) {
 	return 0;
 }
 
-//! creates a UDP transport instance to the given address which can be used to send across messages by the delegate application or Higher order transport
-/*
-	/param addr address to dial to
-	/delegate the listen delegate object
-	/return 0 always, error handling done in dial_cb
-*/
 template<typename ListenDelegate, typename TransportDelegate>
-std::pair<UdpTransport<TransportDelegate> *, int>
+template<typename... Args>
+int
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate) {
+dial(core::SocketAddress const &addr, ListenDelegate &delegate, Args&&... args) {
 	if(!is_listening) {
 		auto status = listen(delegate);
 		if(status < 0) {
-			return {nullptr, status};
+			return status;
 		}
 	}
 
@@ -266,73 +270,17 @@ dial_impl(core::SocketAddress const &addr, ListenDelegate &delegate) {
 		addr,
 		this->addr,
 		addr,
-		this->socket,
+		this->base_factory,
 		this->transport_manager
 	);
 
-	return {transport, res ? 1 : 0};
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-int
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
+	if(res) {
 		delegate.did_create_transport(*transport);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, std::forward<Args>(args)...);
 
-	return status;
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-template<typename MetadataType>
-int
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType* metadata) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport, metadata);
-	}
-
-	transport->delegate->did_dial(*transport, metadata);
-
-	return status;
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-template<typename MetadataType>
-int
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-dial(core::SocketAddress const &addr, ListenDelegate &delegate, MetadataType metadata) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport, std::move(metadata));
-	}
-
-	transport->delegate->did_dial(*transport, std::move(metadata));
-
-	return status;
-}
-
-template<typename ListenDelegate, typename TransportDelegate>
-UdpTransport<TransportDelegate> *
-UdpTransportFactory<ListenDelegate, TransportDelegate>::
-get_transport(
-	core::SocketAddress const &addr
-) {
-	return transport_manager.get(addr);
+	return res ? 1 : 0;
 }
 
 } // namespace asyncio

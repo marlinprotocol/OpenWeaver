@@ -1,6 +1,7 @@
 #ifndef MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 #define MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <map>
@@ -34,8 +35,8 @@ private:
 		Transport
 	>;
 
-	using BaseTransportFactory = TransportFactory<Self, Self>;
-	using BaseTransport = Transport<Self>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
+	using BaseTransport = core::VersionedTransport<Self, Transport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
@@ -72,8 +73,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
 	template<typename ...Args>
 	ClusterDiscoverer(
@@ -184,6 +185,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
         beacon_map[peer_addr] = std::make_pair(transport.dst_addr, asyncio::EventLoop::now());
+		f.dial(peer_addr, *this, 0);
 	}
 }
 
@@ -197,26 +199,24 @@ void CLUSTERDISCOVERER::beacon_timer_cb() {
 		f.dial(addr, *this, 3);
 	}
 
-    // Discover relays
+    // Prune clusters
     for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
-        if(iter->second + 60000 < asyncio::EventLoop::now()) {
+        if(iter->second + 120000 < asyncio::EventLoop::now()) {
             // Stale cluster
             iter = cluster_map.erase(iter);
         } else {
-            f.dial(iter->first, *this, 1);
-            iter++;
-        }
+			iter++;
+		}
     }
 
-    // Discover protocols
+    // Prune relay
     for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
-        if(iter->second.second + 60000 < asyncio::EventLoop::now()) {
+        if(iter->second.second + 120000 < asyncio::EventLoop::now()) {
             // Stale cluster
             iter = beacon_map.erase(iter);
         } else {
-            f.dial(iter->first, *this, 0);
-            iter++;
-        }
+			iter++;
+		}
     }
 }
 
@@ -243,6 +243,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		auto cluster_addr = *iter;
         SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
         cluster_map[cluster_addr] = asyncio::EventLoop::now();
+		f.dial(cluster_addr, *this, 1);
 	}
 }
 
@@ -302,12 +303,16 @@ void CLUSTERDISCOVERER::did_dial(
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_recv_packet(
+void CLUSTERDISCOVERER::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 
@@ -340,7 +345,7 @@ void CLUSTERDISCOVERER::did_recv_packet(
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_send_packet(
+void CLUSTERDISCOVERER::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {

@@ -235,9 +235,9 @@ public:
 	/// Delegate calls from base transport
 	void did_dial(BaseTransport &transport, uint8_t const*);
 	/// Delegate calls from base transport
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
 	/// Delegate calls from base transport
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 	/// Delegate calls from base transport
 	void did_close(BaseTransport &transport, uint16_t reason);
 
@@ -1285,7 +1285,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 		p.cover_unsafe(stream.read_offset - offset);
 
 		// Read bytes and update offset
-		auto res = delegate->did_recv_bytes(*this, std::move(p), stream.stream_id);
+		auto res = delegate->did_recv(*this, std::move(p), stream.stream_id);
 		if(res < 0) {
 			return;
 		}
@@ -1309,7 +1309,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 				// Read bytes and update offset
 				SPDLOG_DEBUG("Out of order: {}, {}, {:spn}", offset, length, spdlog::to_hex(iter->second.packet.data(), iter->second.packet.data() + iter->second.packet.size()));
-				auto res = delegate->did_recv_bytes(*this, std::move(iter->second).packet, stream.stream_id);
+				auto res = delegate->did_recv(*this, std::move(iter->second).packet, stream.stream_id);
 				if(res < 0) {
 					return;
 				}
@@ -1477,7 +1477,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						break;
 					}
 
-					delegate->did_send_bytes(
+					delegate->did_send(
 						*this,
 						std::move(iter->data)
 					);
@@ -1939,7 +1939,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 	\li 6		:	RST
 */
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
+void StreamTransport<DelegateType, DatagramTransport>::did_recv(
 	BaseTransport &,
 	BaseMessageType &&packet
 ) {
@@ -1985,7 +1985,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_packet(
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
-void StreamTransport<DelegateType, DatagramTransport>::did_send_packet(
+void StreamTransport<DelegateType, DatagramTransport>::did_send(
 	BaseTransport &,
 	core::Buffer &&packet
 ) {

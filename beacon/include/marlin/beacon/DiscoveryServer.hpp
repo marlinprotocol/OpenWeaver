@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
@@ -34,13 +35,8 @@ class DiscoveryServer {
 private:
 	using Self = DiscoveryServer<DiscoveryServerDelegate>;
 
-	using BaseTransportFactory = asyncio::UdpTransportFactory<
-		DiscoveryServer<DiscoveryServerDelegate>,
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
-	using BaseTransport = asyncio::UdpTransport<
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, asyncio::UdpTransportFactory, asyncio::UdpTransport>;
+	using BaseTransport = core::VersionedTransport<Self, asyncio::UdpTransport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
@@ -79,8 +75,8 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
 	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr, std::optional<core::SocketAddress> raddr = std::nullopt);
 
@@ -220,10 +216,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 
 	if(rt != nullptr) {
 		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
-		core::Buffer reg(2);
-		reg.data()[0] = 0;
-		reg.data()[1] = 7;
-		rt->send(std::move(reg));
+		BaseMessageType m(1);
+		auto reg = m.payload_buffer();
+		reg.data()[0] = 7;
+		rt->send(std::move(m));
 	}
 }
 
@@ -300,12 +296,16 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 	\li 4			:	HEARTBEAT
 */
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 
@@ -341,7 +341,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 }
 
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {

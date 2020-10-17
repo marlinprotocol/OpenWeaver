@@ -15,7 +15,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 using TransportFactoryType = LpfTransportFactory<ListenDelegate, TransportDelegate, TcpTransportFactory, TcpTransport, false, 8>;
 
 struct Delegate {
-	int did_recv_message(TransportType<Delegate> &transport, Buffer &&message) {
+	int did_recv(TransportType<Delegate> &transport, Buffer &&message) {
 		SPDLOG_INFO(
 			"Transport {{ Src: {}, Dst: {} }}: Did recv message: {} bytes",
 			transport.src_addr.to_string(),
@@ -25,7 +25,7 @@ struct Delegate {
 		return 0;
 	}
 
-	void did_send_message(TransportType<Delegate> &transport, Buffer &&message) {
+	void did_send(TransportType<Delegate> &transport, Buffer &&message) {
 		SPDLOG_INFO(
 			"Transport {{ Src: {}, Dst: {} }}: Did send message: {} bytes",
 			transport.src_addr.to_string(),

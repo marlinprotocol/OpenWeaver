@@ -16,6 +16,10 @@ struct BaseMessage {
 	BaseMessage(size_t size);
 	/// Construct from a buffer
 	BaseMessage(Buffer&& buf);
+	/// Implicit conversion to a buffer
+	operator Buffer() && {
+		return std::move(buf);
+	}
 
 	/// Get a WeakBuffer corresponding to the payload area
 	WeakBuffer payload_buffer() &;

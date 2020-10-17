@@ -60,7 +60,7 @@ public:
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
 
-	void did_recv_message(
+	void did_recv(
 		PubSubNodeType &,
 		Buffer &&,
 		typename PubSubNodeType::MessageHeaderType,

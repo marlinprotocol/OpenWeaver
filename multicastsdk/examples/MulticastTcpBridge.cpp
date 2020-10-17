@@ -80,7 +80,7 @@ public:
 	}
 
 	// forward on marlin multicast
-	int did_recv_message(LpfTcpTransport &transport, Buffer &&message) {
+	int did_recv(LpfTcpTransport &transport, Buffer &&message) {
 		SPDLOG_DEBUG(
 			"Did recv from blockchain client, message with length {}",
 			message.size()
@@ -100,7 +100,7 @@ public:
 		return 0;
 	}
 
-	void did_send_message(LpfTcpTransport &transport, Buffer &&message) {}
+	void did_send(LpfTcpTransport &transport, Buffer &&message) {}
 
 	// TODO:
 	void did_close(LpfTcpTransport &transport, uint16_t) {
@@ -119,7 +119,7 @@ public:
 	//-----------------------delegates for DefaultMultiCastClient-------------------------------
 
 	template<typename T> // TODO: Code smell, remove later
-	void did_recv_message(
+	void did_recv(
 		DefaultMulticastClient<MulticastDelegate> &client,
 		Buffer &&message,
 		T header,

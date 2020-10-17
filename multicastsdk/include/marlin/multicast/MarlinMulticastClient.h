@@ -17,16 +17,16 @@ void marlin_multicast_clientdelegate_destroy(
 	MarlinMulticastClientDelegate_t* delegate
 );
 
-typedef void (*did_recv_message_func) (
+typedef void (*did_recv_func) (
 	MarlinMulticastClient_t* client,
 	const uint8_t* message,
 	uint64_t message_length,
 	uint16_t channel,
 	uint64_t message_id
 );
-void marlin_multicast_clientdelegate_set_did_recv_message(
+void marlin_multicast_clientdelegate_set_did_recv(
 	MarlinMulticastClientDelegate_t *delegate,
-	did_recv_message_func f
+	did_recv_func f
 );
 
 typedef void (*did_subscribe_func) (

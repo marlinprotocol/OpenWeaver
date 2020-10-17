@@ -69,7 +69,7 @@ public:
 		delegate->did_subscribe(*this, channel);
 	}
 
-	void did_recv_message(
+	void did_recv(
 		PubSubNodeType &,
 		core::Buffer &&message,
 		typename PubSubNodeType::MessageHeaderType header,
@@ -81,7 +81,7 @@ public:
 			message_id,
 			channel
 		);
-		delegate->did_recv_message(
+		delegate->did_recv(
 			*this,
 			std::move(message),
 			header,
