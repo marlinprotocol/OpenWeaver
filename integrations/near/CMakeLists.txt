@@ -35,6 +35,9 @@ target_link_libraries(near INTERFACE spdlog::spdlog_header_only)
 # cryptopp
 target_link_libraries(near INTERFACE cryptopp::CryptoPP)
 
+# marlin::multicastsdk
+target_link_libraries(near INTERFACE marlin::multicastsdk)
+
 # libsodium
 target_link_libraries(near INTERFACE sodium::sodium)
 
