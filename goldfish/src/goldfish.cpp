@@ -118,8 +118,12 @@ int main(int argc, char **argv) {
 
 	Goldfish g;
 
+	std::string cbaddr("127.0.0.1:7002"), chaddr("127.0.0.1:7003");
+	DiscoveryServer<Goldfish> cb(SocketAddress::from_string(cbaddr), SocketAddress::from_string(chaddr));
+	cb.delegate = &g;
+
 	// Beacon
-	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr));
+	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr), SocketAddress::from_string(chaddr));
 	b.delegate = &g;
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
@@ -142,7 +146,7 @@ int main(int argc, char **argv) {
 	dc.is_discoverable = true;
 	g.b = &dc;
 
-	dc.start_discovery(SocketAddress::from_string(beacon_addr));
+	dc.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
 
 	return EventLoop::run();
 }
