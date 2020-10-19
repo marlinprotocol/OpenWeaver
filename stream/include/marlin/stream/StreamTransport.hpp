@@ -1899,10 +1899,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 	BaseTransport &,
-	uint8_t const*
+	uint8_t const* remote_static_pk
 ) {
 	if(conn_state != ConnectionState::Listen) {
 		return;
+	}
+
+	if (remote_static_pk != nullptr) {
+		std::memcpy(this->remote_static_pk, remote_static_pk, crypto_box_PUBLICKEYBYTES);
 	}
 
 	// Begin handshake
