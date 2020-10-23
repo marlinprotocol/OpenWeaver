@@ -94,7 +94,8 @@ int NearTransportFactory<ListenDelegate, TransportDelegate>::dial(
 	return f.dial(addr, *this);
 }
 
-} // namespace Near
+} // namespace near
 } // namespace marlin
 
-#endif // MARLIN_Near_NearTRANSPORTFACTORY_HPP
+#endif // MARLIN_NEAR_NEARTRANSPORTFACTORY_HPP
+
