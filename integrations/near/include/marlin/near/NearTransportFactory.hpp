@@ -21,7 +21,7 @@ private:
 		NearTransport<TransportDelegate>
 	> f;
 	ListenDelegate *delegate;
-	std::list<NearTransport<TransportDelegate>> transport_list;
+	std::list<NearTransport<TransportDelegate>> transportManager;
 
 public:
 	// Listen delegate
@@ -55,7 +55,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 void NearTransportFactory<ListenDelegate, TransportDelegate>::did_create_transport(
 	asyncio::TcpTransport<NearTransport<TransportDelegate>> &transport
 ) {
-	auto &near_transport = transport_list.emplace_back(
+	auto &near_transport = transportManager.emplace_back(
 		transport.src_addr,
 		transport.dst_addr,
 		transport

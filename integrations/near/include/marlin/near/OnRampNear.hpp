@@ -86,12 +86,21 @@ public:
 			message.size(),
 			spdlog::to_hex(message.data(), message.data() + message.size())
 		);
-		if(message.data()[4] == 0x10) {
+		if(message.data()[0] == 0x10) {
 			handle_handshake(std::move(message));
-		} else if(message.data()[4] == 0xc) {
+		} else if(message.data()[0] == 0xc) {
 			handle_transaction(std::move(message));
-		} else if(message.data()[4] == 0xb) {
+		} else if(message.data()[0] == 0xb) {
 			handle_block(std::move(message));
+		} else if(message.data()[0] == 0xd) {
+			SPDLOG_INFO(
+				"This is a RoutedMessage"
+			);
+		} else {
+			SPDLOG_INFO(
+				"Something else: {}",
+				message.data()[0]
+			);
 		}
 	}
 
@@ -176,22 +185,20 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 	SPDLOG_INFO("Replying");
 	uint8_t *buf = message.data();
 	uint32_t buf_size = message.size();
-	uint8_t near_node_key[33], gateway_key[33];
-	std::memcpy(near_node_key, buf + 13, 33);
-	std::memcpy(gateway_key, buf + 46, 33);
-	std::memcpy(buf + 13, gateway_key, 33);
-	std::memcpy(buf + 46, near_node_key, 33);
+	std::swap_ranges(buf + 9, buf + 42, buf + 42);
 
-	uint8_t near_node_signature[crypto_sign_BYTES];
-	memcpy(near_node_signature, buf + buf_size - crypto_sign_BYTES, crypto_sign_BYTES); // copy last crypto_sign_BYTES
+	uint8_t near_key_offset = 42, gateway_key_offset = 9;
+
+	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
+	// memcpy(near_node_signature, buf + buf_size - crypto_sign_BYTES, crypto_sign_BYTES); // copy last crypto_sign_BYTES
 
 	uint8_t msg_sig[74];
 	bool flag = true; // true if nearkey < gatewayKey
 	for(int i = 0; i < 33; i++) {
-		if(near_node_key[i] == gateway_key[i]) {
+		if(buf[i + near_key_offset] == buf[i + gateway_key_offset]) {
 			// nothing
 		} else {
-			if(near_node_key[i] > gateway_key[i]) {
+			if(buf[i + near_key_offset] > buf[i + gateway_key_offset]) {
 				flag = false;
 			} else {
 				flag = true;
@@ -200,11 +207,11 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 		}
 	}
 	if(flag) {
-		memcpy(msg_sig, near_node_key, 33);
-		memcpy(msg_sig + 33, gateway_key, 33);
+		memcpy(msg_sig, buf + near_key_offset, 33);
+		memcpy(msg_sig + 33, buf + gateway_key_offset, 33);
 	} else {
-		memcpy(msg_sig, gateway_key, 33);
-		memcpy(msg_sig + 33, near_node_key, 33);
+		memcpy(msg_sig, buf + gateway_key_offset, 33);
+		memcpy(msg_sig + 33, buf + near_key_offset, 33);
 	}
 	memcpy(msg_sig + 66, buf + buf_size - 73, 8);
 	SPDLOG_INFO(
@@ -218,7 +225,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 	sha256.Update(msg_sig, 74);
 	sha256.TruncatedFinal(hashed_message, 32);
 
-	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, near_node_key + 1) != 0) {
+	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, buf + near_key_offset + 1) != 0) {
 		SPDLOG_INFO("Signature verification failed");
 	} else {
 		SPDLOG_INFO("Signature verified successfully");
@@ -226,7 +233,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 		// SPDLOG_INFO("{}", spdlog::to_hex(myPrivateKey, myPrivateKey + 64));
 		// SPDLOG_INFO("{}", spdlog::to_hex(hashed_message, hashed_message + 32));
-	uint8_t mySignature[64];
+	uint8_t *mySignature = buf + buf_size - 64;
 	crypto_sign_detached(mySignature, NULL, hashed_message, 32, static_sk);
 		if(crypto_sign_verify_detached(mySignature, hashed_message, 32, static_pk) != 0) {
 			SPDLOG_INFO("BAD");
@@ -234,7 +241,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 			SPDLOG_INFO("GOOD");
 		}
 	memcpy(buf + buf_size - 64, mySignature, 64);
-
+	message.uncover_unsafe(4);
 	nearTransport->send(std::move(message));
 }
 

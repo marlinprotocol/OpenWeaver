@@ -23,6 +23,5 @@ int main() {
 	};
 
 	OnRampNear onrampNear(clop);
-	std::cout << "LOL\n";
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

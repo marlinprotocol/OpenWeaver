@@ -6,7 +6,6 @@
 #ifndef MARLIN_ASYNCIO_TCPTRANSPORT_HPP
 #define MARLIN_ASYNCIO_TCPTRANSPORT_HPP
 
-#include <iostream>
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/CidrBlock.hpp>
 #include <marlin/core/TransportManager.hpp>
@@ -214,9 +213,7 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 	auto *req = new uv_write_t();
 	auto req_data = new SendPayload { std::move(bytes), *this };
 	req->data = req_data;
-	std::cout << "smthsmth" << std::endl;
 	auto buf = uv_buf_init((char*)req_data->bytes.data(), req_data->bytes.size());
-	std::cout << "smthsmth5" << std::endl;
 	int res = uv_write(
 		req,
 		(uv_stream_t *)socket,
@@ -224,10 +221,8 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 		1,
 		send_cb
 	);
-	std::cout << "smthsmth1" << std::endl;
 
 	if (res < 0) {
-	std::cout << "smthsmth2" << std::endl;
 
 		SPDLOG_ERROR(
 			"Asyncio: Socket {}: Send error: {}, To: {}",
@@ -237,7 +232,6 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 		);
 		return res;
 	}
-	std::cout << "smthsmth3" << std::endl;
 	return 0;
 }
 
