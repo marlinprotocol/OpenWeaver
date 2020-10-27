@@ -54,30 +54,6 @@ public:
 		f.listen(*this);
 	}
 
-
-	bool b58enc_mine(char *b58, size_t b58_size, const uint8_t *data, size_t data_size) {
-		memset(b58, 0, b58_size);
-		for(size_t i = 0; i < b58_size; i++) {
-			b58[i] = 0;
-		}
-		b58[b58_size] = '\0';
-		int high = b58_size - 1;
-		for(int i = 0; i < int(data_size); i++) {
-			int j = b58_size - 1, carry = data[i];
-			while((j > high || carry > 0) && j >= 0) {
-				carry += 256 * b58[j];
-				b58[j] = carry % 58;
-				carry /= 58;
-				j--;
-			}
-			high = j;
-		}
-		for(int i = 0; i < int(b58_size); i++) {
-			b58[i] = b58digits_ordered[int(b58[i])];
-		}
-		return true;
-	}
-
 	void did_recv_message(NearTransport <OnRampNear> &, Buffer &&message) {
 		SPDLOG_INFO(
 			"msgSize: {}; Message received from NearTransport: {}",
