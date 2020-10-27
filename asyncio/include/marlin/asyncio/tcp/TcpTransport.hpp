@@ -213,6 +213,7 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 	auto *req = new uv_write_t();
 	auto req_data = new SendPayload { std::move(bytes), *this };
 	req->data = req_data;
+
 	auto buf = uv_buf_init((char*)req_data->bytes.data(), req_data->bytes.size());
 	int res = uv_write(
 		req,
@@ -223,7 +224,6 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 	);
 
 	if (res < 0) {
-
 		SPDLOG_ERROR(
 			"Asyncio: Socket {}: Send error: {}, To: {}",
 			src_addr.to_string(),
