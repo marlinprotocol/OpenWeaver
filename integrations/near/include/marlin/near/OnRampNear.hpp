@@ -5,6 +5,7 @@
 #include <marlin/near/NearTransportFactory.hpp>
 #include <marlin/near/NearTransport.hpp>
 #include <cryptopp/blake2.h>
+#include <libbase58.h>
 
 using namespace marlin::near;
 using namespace marlin::core;
@@ -40,17 +41,14 @@ public:
 			spdlog::to_hex(clop.static_sk, clop.static_sk + crypto_sign_SECRETKEYBYTES),
 			spdlog::to_hex(clop.static_pk, clop.static_pk + 32)
 		);
-		if(b58enc_mine(b58, 44, clop.static_pk, 32)) {
+		size_t *sz;
+		sz = (size_t*)malloc(10);
+		*sz = 100;
+		if(b58enc(b58, sz, clop.static_pk, 32)) {
 			printf("%s\n", b58);
 		} else {
 			printf("Failed\n");
 		}
-
-		SPDLOG_INFO(
-			"PrivateKey: {} \n PublicKey: {}",
-			spdlog::to_hex(static_sk, static_sk + 32),
-			spdlog::to_hex(static_pk, static_pk + 32)
-		);
 
 		f.bind(SocketAddress::loopback_ipv4(8000));
 		f.listen(*this);
@@ -189,9 +187,6 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 	uint8_t near_key_offset = 42, gateway_key_offset = 9;
 
-	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
-	// memcpy(near_node_signature, buf + buf_size - crypto_sign_BYTES, crypto_sign_BYTES); // copy last crypto_sign_BYTES
-
 	uint8_t msg_sig[74];
 	bool flag = true; // true if nearkey < gatewayKey
 	for(int i = 0; i < 33; i++) {
@@ -214,16 +209,14 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 		memcpy(msg_sig + 33, buf + near_key_offset, 33);
 	}
 	memcpy(msg_sig + 66, buf + buf_size - 73, 8);
-	SPDLOG_INFO(
-		"Signature buf: {}",
-		spdlog::to_hex(msg_sig, msg_sig + 74)
-	);
+
 // Hash the buf
 	using namespace CryptoPP;
 	SHA256 sha256;
 	uint8_t hashed_message[32];
 	sha256.Update(msg_sig, 74);
 	sha256.TruncatedFinal(hashed_message, 32);
+	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
 
 	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, buf + near_key_offset + 1) != 0) {
 		SPDLOG_INFO("Signature verification failed");
@@ -231,21 +224,15 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 		SPDLOG_INFO("Signature verified successfully");
 	}
 
-		// SPDLOG_INFO("{}", spdlog::to_hex(myPrivateKey, myPrivateKey + 64));
-		// SPDLOG_INFO("{}", spdlog::to_hex(hashed_message, hashed_message + 32));
 	uint8_t *mySignature = buf + buf_size - 64;
 	crypto_sign_detached(mySignature, NULL, hashed_message, 32, static_sk);
-		if(crypto_sign_verify_detached(mySignature, hashed_message, 32, static_pk) != 0) {
-			SPDLOG_INFO("BAD");
-		} else {
-			SPDLOG_INFO("GOOD");
-		}
 	memcpy(buf + buf_size - 64, mySignature, 64);
 	message.uncover_unsafe(4);
 	nearTransport->send(std::move(message));
 }
 
 
-}
-}
-#endif
+} // near
+} // marlin
+
+#endif // MARLIN_ONRAMP_NEAR_HPP

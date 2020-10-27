@@ -119,7 +119,6 @@ void NearTransport<DelegateType>::did_recv_bytes(
 			bytes_remaining = 0;
 			for(int i = 3; i >= 0; i--) {
 				bytes_remaining = buf[i] + (bytes_remaining << 8);
-				SPDLOG_INFO("{}: {}", i, buf[i]);
 			}
 			uint8_t *size[4];
 			memcpy(size, buf, 4);
@@ -146,7 +145,7 @@ void NearTransport<DelegateType>::did_recv_bytes(
 	}
 }
 
-}
-}
+} // near
+} // marlin
 
-#endif
+#endif // MARLIN_NEAR_NEARTRANSPORT_HPP

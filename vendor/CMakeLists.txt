@@ -34,6 +34,24 @@ install(EXPORT libuv-export
 		${CMAKE_INSTALL_LIBDIR}/cmake/libuv
 )
 
+#-------- libbase58 --------#
+include(ExternalProject)
+ExternalProject_Add(libbase58
+	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libbase58
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libbase58 CFLAGS=-fPIC
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && make -j8
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && make install
+)
+add_library(base58 STATIC IMPORTED GLOBAL)
+add_library(base58::base58 ALIAS base58)
+add_dependencies(base58 libbase58)
+
+set_target_properties(base58 PROPERTIES
+	IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/libbase58/lib/libbase58.a
+	INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/libbase58/include
+)
+
+
 
 #-------- spdlog --------#
 set(SPDLOG_MASTER_PROJECT ON)

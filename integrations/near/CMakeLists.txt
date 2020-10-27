@@ -35,6 +35,9 @@ target_link_libraries(near INTERFACE spdlog::spdlog_header_only)
 # cryptopp
 target_link_libraries(near INTERFACE cryptopp::CryptoPP)
 
+# libbase58
+target_link_libraries(near INTERFACE base58::base58)
+
 # marlin::multicastsdk
 target_link_libraries(near INTERFACE marlin::multicastsdk)
 
