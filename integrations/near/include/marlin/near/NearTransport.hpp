@@ -63,8 +63,8 @@ void NearTransport<DelegateType>::did_send_bytes(BaseTransport &, core::Buffer &
 }
 
 template<typename DelegateType>
-void NearTransport<DelegateType>::did_close(BaseTransport &, uint16_t) {
-
+void NearTransport<DelegateType>::did_close(BaseTransport &, uint16_t reason) {
+	delegate->did_close(*this, reason);
 }
 
 template<typename DelegateType>
@@ -97,15 +97,15 @@ void NearTransport<DelegateType>::did_recv_bytes(
 	BaseTransport&,
 	core::Buffer &&bytes
 ) {
-	// SPDLOG_INFO("{}", spdlog::to_hex(bytes.data(), bytes.data() + bytes.size()));
+	// SPDLOG_DEBUG("{}", spdlog::to_hex(bytes.data(), bytes.data() + bytes.size()));
 	if(bytes_remaining > bytes.size()) { // Partial message
-		SPDLOG_INFO("Partial: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
+		SPDLOG_DEBUG("Partial: {}, {}, {}", buf_size, bytes.size(), bytes_remaining);
 		std::memcpy(buf + buf_size, bytes.data(), bytes.size());
 		buf_size += bytes.size();
 		bytes_remaining -= bytes.size();
 		bytes.cover_unsafe(bytes.size());
 	} else { // Full message
-		SPDLOG_INFO("Full: {}, {}, {}, {}", buf_size, bytes.size(), bytes_remaining, state);
+		SPDLOG_DEBUG("Full: {}, {}, {}, {}", buf_size, bytes.size(), bytes_remaining, state);
 		std::memcpy(buf + buf_size, bytes.data(), bytes_remaining);
 		buf_size += bytes_remaining;
 		bytes.cover_unsafe(bytes_remaining);
@@ -120,7 +120,7 @@ void NearTransport<DelegateType>::did_recv_bytes(
 			for(int i = 3; i >= 0; i--) {
 				bytes_remaining = buf[i] + (bytes_remaining << 8);
 			}
-			uint8_t *size[4];
+			uint8_t size[4];
 			memcpy(size, buf, 4);
 			buf = new uint8_t[bytes_remaining + 4];
 			memcpy(buf, size, 4);
@@ -128,17 +128,15 @@ void NearTransport<DelegateType>::did_recv_bytes(
 		} else if(state == State::MessageReading) {
 			if(bytes_remaining == 0) {
 				state = State::Done;
+				core::Buffer message(buf, buf_size);
+				message.cover_unsafe(4);
+				delegate->did_recv_message(*this, std::move(message));
+				state = State::Idle;
+				bytes_remaining = 0;
+				buf_size = 0;
 			}
 		}
 
-		if(bytes_remaining == 0) {
-			core::Buffer message(buf, buf_size);
-			message.cover_unsafe(4);
-			delegate->did_recv_message(*this, std::move(message));
-			state = State::Idle;
-			bytes_remaining = 0;
-			buf_size = 0;
-		}
 		if(bytes.size() > 0) {
 			did_recv_bytes(transport, std::move(bytes));
 		}

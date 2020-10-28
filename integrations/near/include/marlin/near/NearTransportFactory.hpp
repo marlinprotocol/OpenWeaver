@@ -1,7 +1,6 @@
 #ifndef MARLIN_NEAR_NEARTRANSPORTFACTORY_HPP
 #define MARLIN_NEAR_NEARTRANSPORTFACTORY_HPP
 
-#include <fstream>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
@@ -9,6 +8,7 @@
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <list>
 #include "NearTransport.hpp"
+#include <marlin/core/TransportManager.hpp>
 
 namespace marlin {
 namespace near {
@@ -20,8 +20,9 @@ private:
 		NearTransportFactory<ListenDelegate, TransportDelegate>,
 		NearTransport<TransportDelegate>
 	> f;
+	using Self = NearTransport <TransportDelegate>;
 	ListenDelegate *delegate;
-	std::list<NearTransport<TransportDelegate>> transportManager;
+	core::TransportManager <Self> transportManager;
 
 public:
 	// Listen delegate
@@ -55,19 +56,24 @@ template<typename ListenDelegate, typename TransportDelegate>
 void NearTransportFactory<ListenDelegate, TransportDelegate>::did_create_transport(
 	asyncio::TcpTransport<NearTransport<TransportDelegate>> &transport
 ) {
-	auto &near_transport = transportManager.emplace_back(
+	auto near_transport = transportManager.get_or_create(
+		addr,
 		transport.src_addr,
 		transport.dst_addr,
 		transport
 	);
-	return delegate->did_create_transport(near_transport);
+	// auto &near_transport = transportManager.emplace_back(
+	// 	transport.src_addr,
+	// 	transport.dst_addr,
+	// 	transport
+	// );
+	return delegate->did_create_transport(*near_transport.first);
 }
 
 //---------------- Listen delegate functions end ----------------//
 
 template<typename ListenDelegate, typename TransportDelegate>
 NearTransportFactory<ListenDelegate, TransportDelegate>::NearTransportFactory() {
-	// NearCrypto c __attribute__((unused));
 }
 
 template<typename ListenDelegate, typename TransportDelegate>

@@ -14,7 +14,6 @@ using namespace marlin::multicast;
 namespace marlin {
 namespace near {
 
-static const char b58digits_ordered[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 class OnRampNear {
 public:
@@ -35,17 +34,20 @@ public:
 			throw;
 		}
 
-		char *b58 = (char*)std::malloc(100);
-		SPDLOG_INFO(
+		char *b58 = (char*)malloc(100);
+		size_t *sz;
+		sz = (size_t*)malloc(10);
+		*sz = 100;
+		SPDLOG_DEBUG(
 			"PrivateKey: {} \n PublicKey: {}",
 			spdlog::to_hex(clop.static_sk, clop.static_sk + crypto_sign_SECRETKEYBYTES),
 			spdlog::to_hex(clop.static_pk, clop.static_pk + 32)
 		);
-		size_t *sz;
-		sz = (size_t*)malloc(10);
-		*sz = 100;
 		if(b58enc(b58, sz, clop.static_pk, 32)) {
-			printf("%s\n", b58);
+			SPDLOG_INFO(
+				"{}",
+				b58
+			);
 		} else {
 			printf("Failed\n");
 		}
@@ -89,7 +91,7 @@ public:
 
 	void did_send_message(NearTransport<OnRampNear> &, Buffer &&message) {
 		SPDLOG_INFO(
-			"Transport {{ Src: {}, Dst: {} }}: Did send message: {} bytes",
+			"Transport: Did send message: {} bytes",
 			// transport.src_addr.to_string(),
 			// transport.dst_addr.to_string(),
 			message.size()
@@ -164,20 +166,21 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 	uint8_t near_key_offset = 42, gateway_key_offset = 9;
 
 	uint8_t msg_sig[74];
-	bool flag = true; // true if nearkey < gatewayKey
-	for(int i = 0; i < 33; i++) {
-		if(buf[i + near_key_offset] == buf[i + gateway_key_offset]) {
-			// nothing
-		} else {
-			if(buf[i + near_key_offset] > buf[i + gateway_key_offset]) {
-				flag = false;
-			} else {
-				flag = true;
-			}
-			break;
-		}
-	}
-	if(flag) {
+	int flag = std::memcmp(buf + near_key_offset, buf + gateway_key_offset, 33);
+	// bool flag = true; // true if nearkey < gatewayKey
+	// for(int i = 0; i < 33; i++) {
+	// 	if(buf[i + near_key_offset] == buf[i + gateway_key_offset]) {
+	// 		// nothing
+	// 	} else {
+	// 		if(buf[i + near_key_offset] > buf[i + gateway_key_offset]) {
+	// 			flag = false;
+	// 		} else {
+	// 			flag = true;
+	// 		}
+	// 		break;
+	// 	}
+	// }
+	if(flag < 0) {
 		memcpy(msg_sig, buf + near_key_offset, 33);
 		memcpy(msg_sig + 33, buf + gateway_key_offset, 33);
 	} else {
