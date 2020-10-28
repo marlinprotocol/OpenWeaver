@@ -62,11 +62,6 @@ void NearTransportFactory<ListenDelegate, TransportDelegate>::did_create_transpo
 		transport.dst_addr,
 		transport
 	);
-	// auto &near_transport = transportManager.emplace_back(
-	// 	transport.src_addr,
-	// 	transport.dst_addr,
-	// 	transport
-	// );
 	return delegate->did_create_transport(*near_transport.first);
 }
 

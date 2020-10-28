@@ -34,16 +34,14 @@ public:
 			throw;
 		}
 
-		char *b58 = (char*)malloc(100);
-		size_t *sz;
-		sz = (size_t*)malloc(10);
-		*sz = 100;
+		char b58[65];
+		size_t sz;
 		SPDLOG_DEBUG(
 			"PrivateKey: {} \n PublicKey: {}",
 			spdlog::to_hex(clop.static_sk, clop.static_sk + crypto_sign_SECRETKEYBYTES),
 			spdlog::to_hex(clop.static_pk, clop.static_pk + 32)
 		);
-		if(b58enc(b58, sz, clop.static_pk, 32)) {
+		if(b58enc(b58, &sz, clop.static_pk, 32)) {
 			SPDLOG_INFO(
 				"{}",
 				b58
@@ -99,8 +97,6 @@ public:
 	}
 
 	void did_dial(NearTransport<OnRampNear> &) {
-		// (void)transport;
-		// transport.send(Buffer(new char[10], 10));
 	}
 
 	bool should_accept(SocketAddress const &) {
@@ -128,7 +124,10 @@ public:
 
 
 void OnRampNear::handle_transaction(core::Buffer &&message) {
-	SPDLOG_INFO("Handling transaction: {}", spdlog::to_hex(message.data(), message.data() + message.size()));
+	SPDLOG_DEBUG(
+		"Handling transaction: {}",
+		spdlog::to_hex(message.data(), message.data() + message.size())
+	);
 
 	CryptoPP::BLAKE2b blake2b((uint)8);
 	blake2b.Update((uint8_t *)message.data(), message.size());
@@ -167,19 +166,6 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 	uint8_t msg_sig[74];
 	int flag = std::memcmp(buf + near_key_offset, buf + gateway_key_offset, 33);
-	// bool flag = true; // true if nearkey < gatewayKey
-	// for(int i = 0; i < 33; i++) {
-	// 	if(buf[i + near_key_offset] == buf[i + gateway_key_offset]) {
-	// 		// nothing
-	// 	} else {
-	// 		if(buf[i + near_key_offset] > buf[i + gateway_key_offset]) {
-	// 			flag = false;
-	// 		} else {
-	// 			flag = true;
-	// 		}
-	// 		break;
-	// 	}
-	// }
 	if(flag < 0) {
 		memcpy(msg_sig, buf + near_key_offset, 33);
 		memcpy(msg_sig + 33, buf + gateway_key_offset, 33);
