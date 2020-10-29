@@ -12,23 +12,23 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: on
-#     - name: install doxygen
-#       run: sudo apt-get install doxygen
-#     - name: install graphviz dot
-#       run: sudo apt install graphviz
-#     - name: Build folder
-#       run: mkdir build
-#     - name: CMake
-#       run: cd build && cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-#     - name: Make
-#       run: cd build && make -j4
-#     - name: Tests
-#       run: cd build && ctest
+    - name: install doxygen
+      run: sudo apt-get install doxygen
+    - name: install graphviz dot
+      run: sudo apt install graphviz
+    - name: Build folder
+      run: mkdir build
+    - name: CMake
+      run: cd build && cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+    - name: Make
+      run: cd build && make -j4
+    - name: Tests
+      run: cd build && ctest
     - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
       with: 
         service_account_key: ${{ secrets.GCS_SA_KEY }}
         export_default_credentials: true
     - uses: GoogleCloudPlatform/github-actions/upload-cloud-storage@master
       with:
-       path: README.md
+       path: build/beacon/beacon
        destination: test-nitin-1/test/beacon
