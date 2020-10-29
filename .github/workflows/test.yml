@@ -24,7 +24,11 @@ jobs:
       run: cd build && make -j4
     - name: Tests
       run: cd build && ctest
-    - uses: actions/upload-artifact@v2
+    - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      with: 
+        service_account_key: ${{ secrets.GCS_SA_KEY }}
+        export_default_credentials: true
+    - uses: GoogleCloudPlatform/github-actions/upload-cloud-storage@master
       with:
-        name: build-output
-        path: build/beacon/beacon
+       path: build/beacon/beacon
+       destination: test-nitin-1/test/beacon
