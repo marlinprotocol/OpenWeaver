@@ -64,6 +64,7 @@ void NearTransport<DelegateType>::did_send_bytes(BaseTransport &, core::Buffer &
 
 template<typename DelegateType>
 void NearTransport<DelegateType>::did_close(BaseTransport &, uint16_t reason) {
+	free(buf);
 	delegate->did_close(*this, reason);
 }
 
