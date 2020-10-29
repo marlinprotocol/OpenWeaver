@@ -24,3 +24,7 @@ jobs:
       run: cd build && make -j4
     - name: Tests
       run: cd build && ctest
+    - uses: actions/upload-artifact@v2
+      with:
+        name: build-output
+        path: build/beacon/beacon
