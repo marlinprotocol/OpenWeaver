@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
-        submodules: recursive
+        submodules: on
 #     - name: install doxygen
 #       run: sudo apt-get install doxygen
 #     - name: install graphviz dot
