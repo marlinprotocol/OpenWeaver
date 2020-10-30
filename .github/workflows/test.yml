@@ -30,6 +30,6 @@ jobs:
         export_default_credentials: true
     - name: Deploy
       run: |
-       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/beacon/beacon gs://marlin-artifacts/bin/beacon_${{ matrix.os }}_${{ matrix.build_type }}
-       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/relay/eth_relay gs://marlin-artifacts/bin/eth_relay_${{ matrix.os }}_${{ matrix.build_type }}
-       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/integrations/eth/onramp_eth gs://marlin-artifacts/bin/onramp_eth_${{ matrix.os }}_${{ matrix.build_type }}
+       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/beacon/beacon gs://marlin-artifacts/bin/beacon-linux-amd64
+       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/relay/eth_relay gs://marlin-artifacts/bin/eth_relay-linux-amd64
+       gsutil -h "Cache-Control:no-cache, max-age=0" cp build/integrations/eth/onramp_eth gs://marlin-artifacts/bin/gateway_eth-linux-amd64
