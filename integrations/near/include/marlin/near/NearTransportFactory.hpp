@@ -56,13 +56,14 @@ template<typename ListenDelegate, typename TransportDelegate>
 void NearTransportFactory<ListenDelegate, TransportDelegate>::did_create_transport(
 	asyncio::TcpTransport<NearTransport<TransportDelegate>> &transport
 ) {
-	auto near_transport = transportManager.get_or_create(
-		addr,
+	auto *near_transport = transportManager.get_or_create(
+		transport.dst_addr,
 		transport.src_addr,
 		transport.dst_addr,
-		transport
-	);
-	return delegate->did_create_transport(*near_transport.first);
+		transport,
+		transportManager
+	).first;
+	return delegate->did_create_transport(*near_transport);
 }
 
 //---------------- Listen delegate functions end ----------------//

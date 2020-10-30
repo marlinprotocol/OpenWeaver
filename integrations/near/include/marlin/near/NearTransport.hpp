@@ -20,9 +20,9 @@ namespace near {
 template <typename DelegateType>
 class NearTransport {
 private:
-	using BaseTransport = asyncio::TcpTransport<NearTransport<DelegateType>>;
+	using Self = NearTransport <DelegateType>;
+	using BaseTransport = asyncio::TcpTransport<Self>;
 	BaseTransport &transport;
-
 	enum struct State {
 		Idle,
 		LengthWait,
@@ -30,11 +30,13 @@ private:
 		Done
 	};
 	State state = State::Idle;
+	core::TransportManager <Self> &transportManager;
 
 	uint8_t *buf; // The limit is yet to be set.
 	uint32_t buf_size = 0;
 	uint32_t bytes_remaining = 0;
 public:
+
 	DelegateType *delegate;
 	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
 	void did_dial(BaseTransport &transport);
@@ -45,11 +47,16 @@ public:
 	NearTransport(
 		core::SocketAddress const &src_addr,
 		core::SocketAddress const &dst_addr,
-		BaseTransport &transport
+		BaseTransport &transport,
+		core::TransportManager<Self> &transportManager
 	);
 
 	void setup(DelegateType *delegate);
 	void reply_handshake();
+
+
+	core::SocketAddress src_addr;
+	core::SocketAddress dst_addr;
 };
 
 template<typename DelegateType>
@@ -64,16 +71,18 @@ void NearTransport<DelegateType>::did_send_bytes(BaseTransport &, core::Buffer &
 
 template<typename DelegateType>
 void NearTransport<DelegateType>::did_close(BaseTransport &, uint16_t reason) {
-	free(buf);
+	delete[] buf;
 	delegate->did_close(*this, reason);
+	transportManager.erase(dst_addr);
 }
 
 template<typename DelegateType>
 NearTransport<DelegateType>::NearTransport(
-	core::SocketAddress const &,
-	core::SocketAddress const &,
-	BaseTransport &transport
-): transport(transport) {
+	core::SocketAddress const &src_addr,
+	core::SocketAddress const &dst_addr,
+	BaseTransport &transport,
+	core::TransportManager<Self> &transportManager
+): transport(transport), transportManager(transportManager), src_addr(src_addr), dst_addr(dst_addr) {
 }
 
 template<typename DelegateType>
@@ -121,22 +130,20 @@ void NearTransport<DelegateType>::did_recv_bytes(
 			for(int i = 3; i >= 0; i--) {
 				bytes_remaining = buf[i] + (bytes_remaining << 8);
 			}
-			uint8_t size[4];
-			memcpy(size, buf, 4);
+			uint8_t *size = buf;
 			buf = new uint8_t[bytes_remaining + 4];
 			memcpy(buf, size, 4);
+			delete[] size;
 			state = State::MessageReading;
 		} else if(state == State::MessageReading) {
-			if(bytes_remaining == 0) {
-				state = State::Done;
-				core::Buffer message(buf, buf_size);
-				buf = nullptr;
-				message.cover_unsafe(4);
-				delegate->did_recv_message(*this, std::move(message));
-				state = State::Idle;
-				bytes_remaining = 0;
-				buf_size = 0;
-			}
+			state = State::Done;
+			core::Buffer message(buf, buf_size);
+			buf = nullptr;
+			message.cover_unsafe(4);
+			delegate->did_recv_message(*this, std::move(message));
+			state = State::Idle;
+			bytes_remaining = 0;
+			buf_size = 0;
 		}
 
 		if(bytes.size() > 0) {

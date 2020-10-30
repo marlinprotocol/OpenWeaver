@@ -47,7 +47,7 @@ public:
 				b58
 			);
 		} else {
-			printf("Failed\n");
+			SPDLOG_ERROR("Failed to create base 58 of public key.");
 		}
 
 		f.bind(SocketAddress::loopback_ipv4(8000));
@@ -85,7 +85,9 @@ public:
 		T,
 		uint16_t,
 		uint64_t
-	) {}
+	) {
+
+	}
 
 	void did_send_message(NearTransport<OnRampNear> &, Buffer &&message) {
 		SPDLOG_INFO(
@@ -114,7 +116,9 @@ public:
 		uint16_t
 	) {}
 
-	void did_close(NearTransport<OnRampNear> &, uint16_t) {}
+	void did_close(NearTransport<OnRampNear> &, uint16_t) {
+		nearTransport = nullptr;
+	}
 
 	void did_create_transport(NearTransport <OnRampNear> &transport) {
 		nearTransport = &transport;
@@ -128,7 +132,7 @@ void OnRampNear::handle_transaction(core::Buffer &&message) {
 		"Handling transaction: {}",
 		spdlog::to_hex(message.data(), message.data() + message.size())
 	);
-
+	message.uncover_unsafe(4);
 	CryptoPP::BLAKE2b blake2b((uint)8);
 	blake2b.Update((uint8_t *)message.data(), message.size());
 	uint64_t message_id;
@@ -164,22 +168,19 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 	uint8_t near_key_offset = 42, gateway_key_offset = 9;
 
-	uint8_t msg_sig[74];
-	int flag = std::memcmp(buf + near_key_offset, buf + gateway_key_offset, 33);
-	if(flag < 0) {
-		memcpy(msg_sig, buf + near_key_offset, 33);
-		memcpy(msg_sig + 33, buf + gateway_key_offset, 33);
-	} else {
-		memcpy(msg_sig, buf + gateway_key_offset, 33);
-		memcpy(msg_sig + 33, buf + near_key_offset, 33);
-	}
-	memcpy(msg_sig + 66, buf + buf_size - 73, 8);
-
-// Hash the buf
 	using namespace CryptoPP;
 	SHA256 sha256;
 	uint8_t hashed_message[32];
-	sha256.Update(msg_sig, 74);
+
+	int flag = std::memcmp(buf + near_key_offset, buf + gateway_key_offset, 33);
+	if(flag < 0) {
+		sha256.Update(buf + near_key_offset, 33);
+		sha256.Update(buf + gateway_key_offset, 33);
+	} else {
+		sha256.Update(buf + gateway_key_offset, 33);
+		sha256.Update(buf + near_key_offset, 33);
+	}
+	sha256.Update(buf + buf_size - 73, 8);
 	sha256.TruncatedFinal(hashed_message, 32);
 	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
 
@@ -191,7 +192,6 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 	uint8_t *mySignature = buf + buf_size - 64;
 	crypto_sign_detached(mySignature, NULL, hashed_message, 32, static_sk);
-	memcpy(buf + buf_size - 64, mySignature, 64);
 	message.uncover_unsafe(4);
 	nearTransport->send(std::move(message));
 }
