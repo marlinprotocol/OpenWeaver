@@ -45,7 +45,7 @@ include(ExternalProject)
 ExternalProject_Add(libsodium
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libsodium
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libsodium CFLAGS=-fPIC
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && make -j8
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && make install
 )
 
@@ -65,7 +65,7 @@ include(ExternalProject)
 ExternalProject_Add(libcryptopp
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make -j8
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make install PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cryptopp
 )
 
@@ -85,7 +85,7 @@ include(ExternalProject)
 ExternalProject_Add(libsecp256k1
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/secp256k1
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && ./configure --with-bignum=no --enable-module-recovery --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make -j8
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make install
 )
 
