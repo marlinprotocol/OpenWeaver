@@ -81,12 +81,18 @@ public:
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv_message(
 		DefaultMulticastClient<OnRampNear> &,
-		Buffer &&,
+		Buffer &&bytes,
 		T,
 		uint16_t,
 		uint64_t
 	) {
-
+		SPDLOG_DBEUG(
+			"OnRampNear:: did_recv_message, forwarding message: {}",
+			spdlog::to_hex(bytes.data(), bytes.size());
+		)
+		if(nearTransport != nullptr) {
+			nearTransport->send(std::move(bytes));
+		}
 	}
 
 	void did_send_message(NearTransport<OnRampNear> &, Buffer &&message) {
@@ -147,7 +153,7 @@ void OnRampNear::handle_transaction(core::Buffer &&message) {
 
 void OnRampNear::handle_block(core::Buffer &&message) {
 	SPDLOG_INFO("Handling block");
-
+	message.uncover_unsafe(4);
 	CryptoPP::BLAKE2b blake2b((uint)8);
 	blake2b.Update((uint8_t *)message.data(), message.size());
 	uint64_t message_id;
@@ -186,6 +192,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 
 	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, buf + near_key_offset + 1) != 0) {
 		SPDLOG_INFO("Signature verification failed");
+		return;
 	} else {
 		SPDLOG_INFO("Signature verified successfully");
 	}
