@@ -35,7 +35,7 @@ set_target_properties(goldfish PROPERTIES
 
 # marlin::pubsub
 target_link_libraries(goldfish PUBLIC marlin::pubsub)
-
+ 
 # marlin::beacon
 target_link_libraries(goldfish PUBLIC marlin::beacon)
 
@@ -44,3 +44,6 @@ target_link_libraries(goldfish PUBLIC marlin::asyncio)
 
 # spdlog
 target_link_libraries(goldfish PUBLIC spdlog::spdlog_header_only)
+
+# marlin::abci_tm
+target_link_libraries(goldfish PUBLIC marlin::abci_tm)

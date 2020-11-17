@@ -1,6 +1,10 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
+
+#include <marlin/tm/Abci.hpp>
+#include "marlin/pubsub/attestation/EmptyAttester.hpp"
+#include "marlin/pubsub/witness/EmptyWitnesser.hpp"
 #include <unistd.h>
 
 
@@ -19,7 +23,10 @@ public:
 		Self,
 		true,
 		true,
-		true
+		true,
+		pubsub::EmptyAttester,
+		pubsub::EmptyWitnesser,
+		marlin::tm::Abci
 	>;
 
 	DiscoveryClient<Goldfish> *b;
@@ -135,8 +142,11 @@ int main(int argc, char **argv) {
 		Goldfish,
 		true,
 		true,
-		true
-	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
+		true,
+		pubsub::EmptyAttester,
+		pubsub::EmptyWitnesser,
+		marlin::tm::Abci
+	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, {}, {}, std::tie("/tmp"));
 	ps.delegate = &g;
 	g.ps = &ps;
 
