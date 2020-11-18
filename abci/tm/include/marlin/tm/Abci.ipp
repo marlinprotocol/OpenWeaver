@@ -27,7 +27,7 @@ void ABCI::did_recv(BaseTransport&, core::Buffer&& bytes) {
 		auto iter = block_store.find(id);
 		if(iter == block_store.end()) {
 			// Unknown request
-			SPDLOG_ERROR("Abci: Unknown request");
+			SPDLOG_ERROR("Abci: Unknown request id {}", id);
 			return;
 		}
 
