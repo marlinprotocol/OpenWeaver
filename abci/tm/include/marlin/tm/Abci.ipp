@@ -88,7 +88,7 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 	request_message.write_uint64_be_unsafe(8, b_size);
 	request_message.write_unsafe(16, block.data(), b_size);
 
-	pipe.send(core::WeakBuffer((uint8_t*)request_message.data(), 16+block.size()));
+	pipe.send(request_message);
 
 	block_store.try_emplace(id, std::move(block), std::forward<MT>(metadata)...);
 	return id++;
