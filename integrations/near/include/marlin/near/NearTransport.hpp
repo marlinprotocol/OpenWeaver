@@ -38,9 +38,10 @@ private:
 public:
 
 	DelegateType *delegate;
-	void did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_recv(BaseTransport &transport, core::Buffer &&bytes);
 	void did_dial(BaseTransport &transport);
 	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	void did_send(BaseTransport &transport, core::Buffer &&bytes);
 	void did_close(BaseTransport &transport, uint16_t reason);
 	void send(core::Buffer &&message);
 
@@ -68,6 +69,12 @@ template<typename DelegateType>
 void NearTransport<DelegateType>::did_send_bytes(BaseTransport &, core::Buffer &&) {
 
 }
+
+template<typename DelegateType>
+void NearTransport<DelegateType>::did_send(BaseTransport &, core::Buffer &&) {
+
+}
+
 
 template<typename DelegateType>
 void NearTransport<DelegateType>::did_close(BaseTransport &, uint16_t reason) {
@@ -103,7 +110,7 @@ void NearTransport<DelegateType>::send(
 
 
 template <typename DelegateType>
-void NearTransport<DelegateType>::did_recv_bytes(
+void NearTransport<DelegateType>::did_recv(
 	BaseTransport&,
 	core::Buffer &&bytes
 ) {
@@ -147,7 +154,7 @@ void NearTransport<DelegateType>::did_recv_bytes(
 		}
 
 		if(bytes.size() > 0) {
-			did_recv_bytes(transport, std::move(bytes));
+			did_recv(transport, std::move(bytes));
 		}
 	}
 }

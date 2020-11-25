@@ -6,6 +6,7 @@
 #include <marlin/near/NearTransport.hpp>
 #include <cryptopp/blake2.h>
 #include <libbase58.h>
+#include <libwebsockets.h>
 
 using namespace marlin::near;
 using namespace marlin::core;
@@ -79,17 +80,17 @@ public:
 	}
 
 	template<typename T> // TODO: Code smell, remove later
-	void did_recv_message(
+	void did_recv(
 		DefaultMulticastClient<OnRampNear> &,
 		Buffer &&bytes,
 		T,
 		uint16_t,
 		uint64_t
 	) {
-		SPDLOG_DBEUG(
+		SPDLOG_DEBUG(
 			"OnRampNear:: did_recv_message, forwarding message: {}",
-			spdlog::to_hex(bytes.data(), bytes.size());
-		)
+			spdlog::to_hex(bytes.data(), bytes.size())
+		);
 		if(nearTransport != nullptr) {
 			nearTransport->send(std::move(bytes));
 		}
@@ -175,7 +176,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 	uint8_t near_key_offset = 42, gateway_key_offset = 9;
 
 	using namespace CryptoPP;
-	SHA256 sha256;
+	CryptoPP::SHA256 sha256;
 	uint8_t hashed_message[32];
 
 	int flag = std::memcmp(buf + near_key_offset, buf + gateway_key_offset, 33);
