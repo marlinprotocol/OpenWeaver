@@ -4,7 +4,7 @@
 
 #include <marlin/tm/Abci.hpp>
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
-#include "marlin/pubsub/witness/EmptyWitnesser.hpp"
+#include "marlin/pubsub/witness/BloomWitnesser.hpp"
 #include <unistd.h>
 
 
@@ -25,7 +25,7 @@ public:
 		true,
 		true,
 		pubsub::EmptyAttester,
-		pubsub::EmptyWitnesser,
+		pubsub::BloomWitnesser,
 		marlin::tm::Abci
 	>;
 
@@ -144,9 +144,9 @@ int main(int argc, char **argv) {
 		true,
 		true,
 		pubsub::EmptyAttester,
-		pubsub::EmptyWitnesser,
+		pubsub::BloomWitnesser,
 		marlin::tm::Abci
-	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, {}, {}, std::tie("/tmp"));
+	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, {}, std::tie(static_pk), std::tie("/tmp"));
 	ps.delegate = &g;
 	g.ps = &ps;
 

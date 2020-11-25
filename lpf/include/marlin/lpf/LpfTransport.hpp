@@ -298,7 +298,8 @@ bool LpfTransport<
 	should_cut_through,
 	prefix_length
 >::is_internal() {
-	return transport.is_internal();
+	return false;
+	// return transport.is_internal();
 }
 
 template<
