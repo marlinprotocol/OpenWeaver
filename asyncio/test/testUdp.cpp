@@ -7,8 +7,8 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 
 struct TransportDelegate {
-	std::function<void(UdpTransport<TransportDelegate> &, Buffer &&)> did_recv_packet;
-	std::function<void(UdpTransport<TransportDelegate> &, Buffer &&)> did_send_packet;
+	std::function<void(UdpTransport<TransportDelegate> &, Buffer &&)> did_recv;
+	std::function<void(UdpTransport<TransportDelegate> &, Buffer &&)> did_send;
 	std::function<void(UdpTransport<TransportDelegate> &)> did_dial;
 };
 
@@ -42,7 +42,7 @@ TEST(UdpTransport, CanRecv) {
 	bool did_call_delegate = false;
 
 	TransportDelegate td;
-	td.did_recv_packet = [&] (
+	td.did_recv = [&] (
 		UdpTransport<TransportDelegate> &transport,
 		Buffer &&packet
 	) {
@@ -53,7 +53,8 @@ TEST(UdpTransport, CanRecv) {
 	};
 
 	t.setup(&td);
-	t.did_recv_packet(
+	t.did_recv(
+		nullptr,
 		Buffer({'1','2','3','4','5','6','7','8','9',0}, 10)
 	);
 
@@ -79,7 +80,7 @@ TEST(UdpTransport, CanSend) {
 	bool did_call_delegate = false;
 
 	TransportDelegate td;
-	td.did_send_packet = [&] (
+	td.did_send = [&] (
 		UdpTransport<TransportDelegate> &transport,
 		Buffer &&packet
 	) {

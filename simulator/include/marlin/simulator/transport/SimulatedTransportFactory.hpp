@@ -213,7 +213,7 @@ int SimulatedTransportFactory<
 		delegate.did_create_transport(*transport, metadata);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, metadata);
 
 	return status;
 }
@@ -240,10 +240,10 @@ int SimulatedTransportFactory<
 	if(status < 0) {
 		return status;
 	} else if(status == 1) {
-		delegate.did_create_transport(*transport, std::move(metadata));
+		delegate.did_create_transport(*transport);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, std::move(metadata));
 
 	return status;
 }

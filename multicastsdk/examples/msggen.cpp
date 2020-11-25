@@ -8,7 +8,7 @@ using namespace marlin::asyncio;
 class MulticastDelegate {
 public:
 	template<typename T> // TODO: Code smell, remove later
-	void did_recv_message(
+	void did_recv(
 		DefaultMulticastClient<MulticastDelegate> &client,
 		Buffer &&message,
 		T header,

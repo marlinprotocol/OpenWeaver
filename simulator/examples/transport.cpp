@@ -15,7 +15,7 @@ struct Delegate;
 using TransportType = SimulatedTransport<Simulator, NetworkInterface<Network<NetworkConditioner>>, Delegate>;
 
 struct Delegate {
-	void did_recv_packet(TransportType& transport, Buffer&& packet) {
+	void did_recv(TransportType& transport, Buffer&& packet) {
 		SPDLOG_INFO(
 			"Transport: {{Src: {}, Dst: {}}}, Did recv packet: {} bytes",
 			transport.src_addr.to_string(),
@@ -29,7 +29,7 @@ struct Delegate {
 		}
 	}
 
-	void did_send_packet(TransportType& transport, Buffer&& packet) {
+	void did_send(TransportType& transport, Buffer&& packet) {
 		SPDLOG_INFO(
 			"Transport: {{Src: {}, Dst: {}}}, Did send packet: {} bytes",
 			transport.src_addr.to_string(),

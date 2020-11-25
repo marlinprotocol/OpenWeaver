@@ -5,7 +5,7 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 
 struct Delegate {
-	void did_recv_message(RlpxTransport<Delegate> &transport, Buffer &&message) {
+	void did_recv(RlpxTransport<Delegate> &transport, Buffer &&message) {
 		SPDLOG_INFO(
 			"Transport {{ Src: {}, Dst: {} }}: Did recv message: {} bytes",
 			transport.src_addr.to_string(),
@@ -61,7 +61,7 @@ struct Delegate {
 		}
 	}
 
-	void did_send_message(RlpxTransport<Delegate> &transport, Buffer &&message) {
+	void did_send(RlpxTransport<Delegate> &transport, Buffer &&message) {
 		SPDLOG_INFO(
 			"Transport {{ Src: {}, Dst: {} }}: Did send message: {} bytes",
 			transport.src_addr.to_string(),

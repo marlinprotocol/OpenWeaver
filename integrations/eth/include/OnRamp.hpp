@@ -30,7 +30,7 @@ public:
 	}
 
 	template<typename T> // TODO: Code smell, remove later
-	void did_recv_message(
+	void did_recv(
 		DefaultMulticastClient<OnRamp> &,
 		Buffer &&message,
 		T,
@@ -71,7 +71,7 @@ public:
 
 	Buffer header;
 
-	void did_recv_message(RlpxTransport<OnRamp> &transport, Buffer &&message) {
+	void did_recv(RlpxTransport<OnRamp> &transport, Buffer &&message) {
 		CryptoPP::BLAKE2b blake2b((uint)8);
 		blake2b.Update((uint8_t *)message.data(), message.size());
 		uint64_t message_id;
@@ -261,12 +261,12 @@ public:
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			multicastClient.ps.send_message_on_channel(
-				1,
-				message_id,
-				message.data(),
-				message.size()
-			);
+			// multicastClient.ps.send_message_on_channel(
+			// 	1,
+			// 	message_id,
+			// 	message.data(),
+			// 	message.size()
+			// );
 		} else if(message.data()[0] == 0x17) { // eth63 NewBlock
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: NewBlock message: {} bytes",
@@ -291,7 +291,7 @@ public:
 		}
 	}
 
-	void did_send_message(
+	void did_send(
 		RlpxTransport<OnRamp> &transport __attribute__((unused)),
 		Buffer &&message __attribute__((unused))
 	) {

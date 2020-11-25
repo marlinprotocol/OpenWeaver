@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <marlin/multicast/MarlinMulticastClient.h>
 
-void  did_recv_message (
+void  did_recv (
 	MarlinMulticastClient_t* client,
 	const uint8_t* message,
 	uint64_t message_length,
@@ -37,9 +37,9 @@ void did_subscribe (
 
 int main() {
 	MarlinMulticastClientDelegate_t *delegate = marlin_multicast_clientdelegate_create();
-	marlin_multicast_clientdelegate_set_did_recv_message(
+	marlin_multicast_clientdelegate_set_did_recv(
 		delegate,
-		did_recv_message
+		did_recv
 	);
 	marlin_multicast_clientdelegate_set_did_subscribe(
 		delegate,

@@ -47,8 +47,8 @@ public:
 
 	// Delegate
 	void did_dial(BaseTransport &transport);
-	int did_recv_bytes(BaseTransport &transport, core::Buffer &&bytes, uint16_t stream_id = 0);
-	void did_send_bytes(BaseTransport &transport, core::Buffer &&bytes);
+	int did_recv(BaseTransport &transport, core::Buffer &&bytes, uint16_t stream_id = 0);
+	void did_send(BaseTransport &transport, core::Buffer &&bytes);
 	void did_close(BaseTransport& transport, uint16_t reason);
 	void did_recv_flush_stream(BaseTransport &transport, uint16_t id, uint64_t offset, uint64_t old_offset);
 	void did_recv_skip_stream(BaseTransport &transport, uint16_t id);
@@ -116,7 +116,7 @@ int LpfTransport<
 	uint16_t,
 	core::Buffer &&message
 ) {
-	return delegate->did_recv_message(*this, std::move(message));
+	return delegate->did_recv(*this, std::move(message));
 }
 
 template<
@@ -147,7 +147,7 @@ int LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::did_recv_bytes(
+>::did_recv(
 	BaseTransport &,
 	core::Buffer &&bytes,
 	uint16_t stream_id
@@ -160,7 +160,7 @@ int LpfTransport<
 				rbuf.id = stream_id;
 			}
 
-			int res = rbuf.did_recv_bytes(*this, std::move(bytes));
+			int res = rbuf.did_recv(*this, std::move(bytes));
 
 			if(res < 0) {
 				if(res == -1) close();
@@ -176,7 +176,7 @@ int LpfTransport<
 		stfbuf.id = stream_id;
 	}
 
-	int res = stfbuf.did_recv_bytes(*this, std::move(bytes));
+	int res = stfbuf.did_recv(*this, std::move(bytes));
 
 	if(res < 0) {
 		if(res == -1) close();
@@ -197,11 +197,11 @@ void LpfTransport<
 	StreamTransportType,
 	should_cut_through,
 	prefix_length
->::did_send_bytes(
+>::did_send(
 	BaseTransport &,
 	core::Buffer &&bytes
 ) {
-	delegate->did_send_message(*this, std::move(bytes).cover_unsafe(8));
+	delegate->did_send(*this, std::move(bytes).cover_unsafe(8));
 }
 
 template<

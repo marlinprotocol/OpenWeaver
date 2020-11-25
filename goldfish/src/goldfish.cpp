@@ -60,7 +60,7 @@ public:
 		SPDLOG_DEBUG("Did subscribe: {}", channel);
 	}
 
-	void did_recv_message(
+	void did_recv(
 		PubSubNodeType &,
 		Buffer &&,
 		typename PubSubNodeType::MessageHeaderType,
@@ -79,6 +79,7 @@ public:
 	}
 
 	void manage_subscriptions(
+		SocketAddress,
 		size_t,
 		typename PubSubNodeType::TransportSet&,
 		typename PubSubNodeType::TransportSet&) {
@@ -87,6 +88,7 @@ public:
 
 int main(int argc, char **argv) {
 	std::string beacon_addr("127.0.0.1:9002"),
+				heartbeat_addr("127.0.0.1:9003"),
 				discovery_addr("127.0.0.1:10002"),
 				pubsub_addr("127.0.0.1:10000");
 
@@ -116,8 +118,12 @@ int main(int argc, char **argv) {
 
 	Goldfish g;
 
+	std::string cbaddr("127.0.0.1:7002"), chaddr("127.0.0.1:7003");
+	DiscoveryServer<Goldfish> cb(SocketAddress::from_string(cbaddr), SocketAddress::from_string(chaddr));
+	cb.delegate = &g;
+
 	// Beacon
-	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr));
+	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr), SocketAddress::from_string(chaddr));
 	b.delegate = &g;
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
@@ -140,7 +146,7 @@ int main(int argc, char **argv) {
 	dc.is_discoverable = true;
 	g.b = &dc;
 
-	dc.start_discovery(SocketAddress::from_string(beacon_addr));
+	dc.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
 
 	return EventLoop::run();
 }

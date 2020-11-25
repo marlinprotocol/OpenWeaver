@@ -16,46 +16,40 @@ ENDIF()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
+add_library(relay INTERFACE)
+target_include_directories(relay
+	INTERFACE
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_compile_options(relay INTERFACE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(relay INTERFACE cxx_std_17)
+
+# marlin::pubsub
+target_link_libraries(relay INTERFACE marlin::pubsub)
+
+# marlin::beacon
+target_link_libraries(relay INTERFACE marlin::beacon)
+
+# boost::filesystem
+target_link_libraries(relay INTERFACE Boost::filesystem)
+
 add_executable(relayexec
 	src/relay_exec.cpp
 )
-
 add_executable(masterexec
 	src/master_exec.cpp
 )
 
-target_include_directories(relayexec
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
+target_link_libraries(relayexec PUBLIC relay)
+target_link_libraries(masterexec PUBLIC relay)
+
+add_executable(bsc_relay
+	src/bsc_relay.cpp
 )
+target_link_libraries(bsc_relay PUBLIC relay marlin::abci_bsc)
 
-target_include_directories(masterexec
-	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/src
+add_executable(eth_relay
+	src/bsc_relay.cpp
 )
-
-IF(APPLE)
-target_link_libraries(relayexec PUBLIC c++)
-target_link_libraries(masterexec PUBLIC c++)
-
-ELSE()
-target_link_libraries(relayexec PUBLIC stdc++fs)
-target_link_libraries(masterexec PUBLIC stdc++fs)
-ENDIF()
-
-target_compile_options(relayexec PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(relayexec PUBLIC cxx_std_17)
-target_compile_options(masterexec PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(masterexec PUBLIC cxx_std_17)
-
-# marlin::pubsub
-target_link_libraries(relayexec PUBLIC marlin::pubsub)
-target_link_libraries(masterexec PUBLIC marlin::pubsub)
-
-# marlin::beacon
-target_link_libraries(relayexec PUBLIC marlin::beacon)
-target_link_libraries(masterexec PUBLIC marlin::beacon)
+target_link_libraries(eth_relay PUBLIC relay marlin::abci_bsc)

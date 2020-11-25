@@ -5,6 +5,7 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
+#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
@@ -34,21 +35,19 @@ class DiscoveryServer {
 private:
 	using Self = DiscoveryServer<DiscoveryServerDelegate>;
 
-	using BaseTransportFactory = asyncio::UdpTransportFactory<
-		DiscoveryServer<DiscoveryServerDelegate>,
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
-	using BaseTransport = asyncio::UdpTransport<
-		DiscoveryServer<DiscoveryServerDelegate>
-	>;
+	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, asyncio::UdpTransportFactory, asyncio::UdpTransport>;
+	using BaseTransport = core::VersionedTransport<Self, asyncio::UdpTransport>;
 	using BaseMessageType = typename BaseTransport::MessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
 	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
+	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
+	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
+	BaseTransportFactory hf;
 
 	// Discovery protocol
 	void did_recv_DISCPROTO(BaseTransport &transport);
@@ -58,11 +57,17 @@ private:
 	void send_LISTPEER(BaseTransport &transport);
 
 	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
+	void did_recv_REG(BaseTransport &transport);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
 
-	std::unordered_map<BaseTransport *, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
+	void did_recv_DISCCLUSTER(BaseTransport &transport);
+	void send_LISTCLUSTER(BaseTransport &transport);
+
+	std::unordered_map<core::SocketAddress, std::pair<uint64_t, std::array<uint8_t, 32>>> peers;
+
+	BaseTransport* rt = nullptr;
 public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
@@ -70,10 +75,10 @@ public:
 
 	// Transport delegate
 	void did_dial(BaseTransport &transport);
-	void did_recv_packet(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send_packet(BaseTransport &transport, core::Buffer &&packet);
+	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
+	void did_send(BaseTransport &transport, core::Buffer &&packet);
 
-	DiscoveryServer(core::SocketAddress const &addr);
+	DiscoveryServer(core::SocketAddress const& baddr, core::SocketAddress const& haddr, std::optional<core::SocketAddress> raddr = std::nullopt);
 
 	DiscoveryServerDelegate *delegate;
 };
@@ -127,12 +132,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	BaseTransport &transport
 ) {
 	// Filter out the dst transport
-	auto filter = [&](auto x) { return x.first != &transport; };
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
 	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
 	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
 	// Extract data into pair<addr, key> format
-	auto transformation = [](auto x) { return std::make_pair(x.first->dst_addr, x.second.second); };
+	auto transformation = [](auto x) { return std::make_pair(x.first, x.second.second); };
 	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
@@ -160,13 +165,35 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 		return;
 	}
 
-	// Allow only internal nodes to add themselves to the registry
-	if(!transport.is_internal()) {
+	// Allow only heartbeat addr transports to add themselves to the registry
+	if(!(transport.src_addr == hf.addr)) {
 		return;
 	}
 
-	peers[&transport].first = asyncio::EventLoop::now();
-	peers[&transport].second = bytes.key_array();
+	peers[transport.dst_addr].first = asyncio::EventLoop::now();
+	peers[transport.dst_addr].second = bytes.key_array();
+}
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
+	BaseTransport &transport
+) {
+	SPDLOG_INFO(
+		"REG <<< {}",
+		transport.dst_addr.to_string()
+	);
+
+	// Allow only heartbeat addr transports to add themselves to the registry
+	if(!(transport.src_addr == hf.addr)) {
+		return;
+	}
+
+	SPDLOG_INFO(
+		"REG <<< {}",
+		transport.dst_addr.to_string()
+	);
+
+	peers[transport.dst_addr].first = asyncio::EventLoop::now();
 }
 
 
@@ -185,6 +212,43 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 		} else {
 			iter++;
 		}
+	}
+
+	if(rt != nullptr) {
+		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
+		BaseMessageType m(1);
+		auto reg = m.payload_buffer();
+		reg.data()[0] = 7;
+		rt->send(std::move(m));
+	}
+}
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER(
+	BaseTransport &transport
+) {
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	send_LISTCLUSTER(transport);
+}
+
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
+	BaseTransport &transport
+) {
+	// Filter out the dst transport
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
+
+	// Extract data into addr format
+	auto transformation = [](auto x) { return x.first; };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
+
+	while(t_begin != t_end) {
+		transport.send(LISTCLUSTER(150).set_clusters(t_begin, t_end));
 	}
 }
 
@@ -214,8 +278,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_create_transport(
 
 template<typename DiscoveryServerDelegate>
 void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
-	BaseTransport &
-) {}
+	BaseTransport &bt
+) {
+	rt = &bt;
+}
 
 
 //! receives the packet and processes them
@@ -230,12 +296,16 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 	\li 4			:	HEARTBEAT
 */
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 	BaseTransport &transport,
 	BaseMessageType &&packet
 ) {
-	auto type = packet.payload_buffer().read_uint8(1);
-	if(type == std::nullopt || packet.payload_buffer().read_uint8_unsafe(0) != 0) {
+	if(!packet.validate()) {
+		return;
+	}
+
+	auto type = packet.payload_buffer().read_uint8(0);
+	if(type == std::nullopt) {
 		return;
 	}
 
@@ -255,6 +325,15 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 		// HEARTBEAT
 		case 4: did_recv_HEARTBEAT(transport, std::move(packet));
 		break;
+		// HEARTBEAT
+		case 7: did_recv_REG(transport);
+		break;
+		// DISCCLUSTER
+		case 9: did_recv_DISCCLUSTER(transport);
+		break;
+		// LISTCLUSTER
+		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
 		break;
@@ -262,7 +341,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_packet(
 }
 
 template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
+void DiscoveryServer<DiscoveryServerDelegate>::did_send(
 	BaseTransport &transport [[maybe_unused]],
 	core::Buffer &&packet
 ) {
@@ -287,6 +366,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 		// HEARTBEAT
 		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
 		break;
+		// DISCCLUSTER
+		case 9: SPDLOG_TRACE("DISCCLUSTER >>> {}", transport.dst_addr.to_string());
+		break;
+		// LISTCLUSTER
+		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
 		break;
@@ -297,12 +382,21 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send_packet(
 
 template<typename DiscoveryServerDelegate>
 DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
-	core::SocketAddress const &addr
+	core::SocketAddress const& baddr,
+	core::SocketAddress const& haddr,
+	std::optional<core::SocketAddress> raddr
 ) : heartbeat_timer(this) {
-	f.bind(addr);
+	f.bind(baddr);
 	f.listen(*this);
 
+	hf.bind(haddr);
+	hf.listen(*this);
+
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
+
+	if(raddr.has_value()) {
+		f.dial(*raddr, *this);
+	}
 }
 
 } // namespace beacon

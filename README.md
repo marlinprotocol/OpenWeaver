@@ -24,6 +24,8 @@ $ git submodule update --init --recursive
 
 ## Building
 
+Prerequisites: cmake >= 3.13, autoconf, automake, libtool, g++/clang++ (must support C++17, newer versions preferable)
+
 The codebase is a standard C++/CMake project.
 ```sh
 $ mkdir build && cd build  # to create a build directory
@@ -34,9 +36,8 @@ $ cmake .. -DCMAKE_BUILD_TYPE=Release && make -j8  # to build
 ## Notable binaries
 
 After building, you can find the following binaries in the build directory:
-- `./beacon/server` - Beacon server
-- `./relay/masterexec` - Master node
-- `./relay/relayexec` - Relay node
+- `./beacon/beacon` - Beacon
+- `./relay/eth_relay` - Relay
 - `./goldfish/goldfish` - Toy network for local testing
 - `./multicastsdk/msggen` - Message flooding tool for testing/benchmarking
 
@@ -47,9 +48,8 @@ After building, you can find the following binaries in the build directory:
 ## Running locally
 
 After building,
-1. Set up a beacon - `./beacon/server`
-2. Set up a master - `./relay/masterexec "127.0.0.1:8002"`
-3. Set up a relay - `./relay/relayexec "127.0.0.1:8002"`
+1. Set up a beacon - `./beacon/beacon`
+2. Set up a relay - `./relay/eth_relay "127.0.0.1:8002" "127.0.0.1:8003"`
 
 You now have a local network running. In a production setting, you would want to run these in different instances as a globally distributed network.
 

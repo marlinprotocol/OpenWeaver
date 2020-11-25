@@ -30,7 +30,7 @@ public:
 		SPDLOG_INFO("Did subscribe: {}", channel);
 	}
 
-	void did_recv_message(
+	void did_recv(
 		PubSubNodeType &,
 		Buffer &&,
 		typename PubSubNodeType::MessageHeaderType header,
@@ -46,6 +46,7 @@ public:
 	}
 
 	void manage_subscriptions(
+		SocketAddress,
 		size_t,
 		typename PubSubNodeType::TransportSet&,
 		typename PubSubNodeType::TransportSet&

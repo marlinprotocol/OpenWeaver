@@ -1,19 +1,17 @@
-#ifndef MARLIN_DEFAULT_ABCI
-#define MARLIN_DEFAULT_ABCI
+#ifndef MARLIN_PUBSUB_DEFAULT_ABCI
+#define MARLIN_PUBSUB_DEFAULT_ABCI
 
 #include <marlin/core/Buffer.hpp>
-#include <marlin/asyncio/core/Timer.hpp>
 
 namespace marlin {
 namespace pubsub {
 
-template<typename DelegateType, typename... MetadataTypes>
+template<typename, typename...>
 class DefaultAbci {
 public:
-	DelegateType* delegate;
+	void* delegate;
 
 	int submit_receipt_onchain(core::Buffer &&) {
-		// TODO: The sender submits the receipt on chain
 		return 1;
 	}
 
@@ -27,7 +25,7 @@ public:
 	}
 };
 
-}  // namespace bsc
+}  // namespace pubsub
 }  // namespace marlin
 
-#endif  // MARLIN_DEFAULT_ABCI
+#endif  // MARLIN_PUBSUB_DEFAULT_ABCI
