@@ -36,7 +36,7 @@ public:
 		}
 
 		char b58[65];
-		size_t sz;
+		size_t sz = 65;
 		SPDLOG_DEBUG(
 			"PrivateKey: {} \n PublicKey: {}",
 			spdlog::to_hex(clop.static_sk, clop.static_sk + crypto_sign_SECRETKEYBYTES),

@@ -5,10 +5,34 @@
 using namespace marlin::core;
 using namespace marlin::asyncio;
 
-int main() {
+int main(int argc, char **argv) {
 	std::string beacon_addr = "0.0.0.0:90002";
 	std::string discovery_addr = "0.0.0.0:15002";
 	std::string pubsub_addr = "0.0.0.0:15000";
+
+	char c;
+	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
+		switch (c) {
+			case 'b':
+				beacon_addr = std::string(optarg);
+				break;
+			case 'd':
+				discovery_addr = std::string(optarg);
+				break;
+			case 'p':
+				pubsub_addr = std::string(optarg);
+				break;
+			default:
+			return 1;
+		}
+	}
+
+	SPDLOG_INFO(
+		"Beacon: {}, Discovery: {}, PubSub: {}",
+		beacon_addr,
+		discovery_addr,
+		pubsub_addr
+	);
 
 	uint8_t static_sk[crypto_sign_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_sign_PUBLICKEYBYTES];
