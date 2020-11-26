@@ -42,6 +42,7 @@ public:
 			spdlog::to_hex(clop.static_sk, clop.static_sk + crypto_sign_SECRETKEYBYTES),
 			spdlog::to_hex(clop.static_pk, clop.static_pk + 32)
 		);
+
 		if(b58enc(b58, &sz, clop.static_pk, 32)) {
 			SPDLOG_INFO(
 				"{}",
