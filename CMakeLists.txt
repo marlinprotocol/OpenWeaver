@@ -11,7 +11,7 @@ endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
-option(COVERAGE "Code coverage" OFF)
+option(COVERAGE "Code coverage" ON)
 if(COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(--coverage)
 	add_link_options(--coverage)
@@ -19,6 +19,10 @@ if(COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/coverage)
 	add_custom_target(coverage
 		COMMAND gcovr -r ${CMAKE_CURRENT_SOURCE_DIR} --gcov-executable 'llvm-cov gcov' --html-details ${CMAKE_CURRENT_BINARY_DIR}/coverage/index.html -e '.*/?vendor/.*' -e '.*/?build/.*' -e '.*/examples/.*'
+	)
+	add_custom_target(
+			coverageclean
+			COMMAND gcovr --delete ${CMAKE_CURRENT_SOURCE_DIR}
 	)
 endif()
 

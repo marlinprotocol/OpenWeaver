@@ -78,18 +78,21 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+		test/testPubSub.cpp
 )
 
-add_custom_target(pubsub_tests)
+add_custom_target(pubsub_test)
 foreach(TEST_SOURCE ${TEST_SOURCES})
 	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
 	add_executable(${TEST_NAME} ${TEST_SOURCE})
 	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main pubsub)
-	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	target_link_libraries(${TEST_NAME} PUBLIC pubsub marlin::mtest)
+	target_compile_definitions(${TEST_NAME} PRIVATE MARLIN_ASYNCIO_SIMULATOR)
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 	target_compile_features(${TEST_NAME} PRIVATE cxx_std_17)
 	add_test(${TEST_NAME} ${TEST_NAME})
 
-	add_dependencies(pubsub_tests ${TEST_NAME})
+	add_dependencies(pubsub_test ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
 
@@ -113,4 +116,4 @@ target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors
 ##########################################################
 
 add_custom_target(pubsub_all)
-add_dependencies(pubsub_all pubsub pubsub_tests pubsub_examples)
+add_dependencies(pubsub_all pubsub pubsub_test pubsub_examples)
