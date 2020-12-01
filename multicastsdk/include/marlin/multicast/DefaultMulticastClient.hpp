@@ -21,16 +21,16 @@ struct DefaultMulticastClientOptions {
 	size_t max_conn = 2;
 };
 
-template<typename Delegate>
+template<typename Delegate, typename AttesterType = pubsub::EmptyAttester>
 class DefaultMulticastClient {
 public:
-	using Self = DefaultMulticastClient<Delegate>;
+	using Self = DefaultMulticastClient<Delegate, AttesterType>;
 	using PubSubNodeType = pubsub::PubSubNode<
 		Self,
 		false,
 		false,
 		false,
-		pubsub::EmptyAttester,
+		AttesterType,
 		pubsub::BloomWitnesser
 	>;
 
