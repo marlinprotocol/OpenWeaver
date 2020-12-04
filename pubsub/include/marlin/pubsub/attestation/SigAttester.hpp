@@ -61,7 +61,7 @@ struct SigAttester {
 			return 1;
 		}
 
-		out.write_uint16_be_unsafe(offset, 67);
+		out.write_uint16_le_unsafe(offset, 67);
 
 		uint8_t hash[32];
 		CryptoPP::Keccak_256 hasher;
@@ -114,8 +114,11 @@ struct SigAttester {
 		return true;
 	}
 
-	std::optional<uint64_t> parse_size(core::Buffer&, uint64_t = 0) {
-		return 67;
+	std::optional<uint64_t> parse_size(core::Buffer& buf, uint64_t offset = 0) {
+		if(buf.read_uint16_le(offset) == 67) {
+			return 67;
+		}
+		return std::nullopt;
 	}
 };
 
