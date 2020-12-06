@@ -10,9 +10,11 @@
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
 #include <marlin/lpf/LpfTransportFactory.hpp>
+#include <marlin/pubsub/attestation/SigAttester.hpp>
 
 
 using namespace marlin::multicast;
+using namespace marlin::pubsub;
 using namespace marlin::core;
 using namespace marlin::asyncio;
 using namespace marlin::stream;
@@ -38,12 +40,12 @@ using LpfTcpTransport = LpfTransport<
 
 class MulticastDelegate {
 public:
-	DefaultMulticastClient<MulticastDelegate>* multicastClient;
+	DefaultMulticastClient<MulticastDelegate, SigAttester>* multicastClient;
 	LpfTcpTransport* tcpClient = nullptr;
 	LpfTcpTransportFactory f;
 
 	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr) {
-		multicastClient = new DefaultMulticastClient<MulticastDelegate> (clop);
+		multicastClient = new DefaultMulticastClient<MulticastDelegate, SigAttester> (clop);
 		multicastClient->delegate = this;
 
 		// bind to address and start listening on tcpserver
@@ -121,7 +123,7 @@ public:
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
 		Buffer &&message,
 		T header,
 		uint16_t channel,
@@ -142,12 +144,12 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
 		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
 		uint16_t channel
 	) {}
 };
@@ -202,5 +204,5 @@ int main(int argc, char **argv) {
 
 	MulticastDelegate del(clop, lpftcp_bridge_addr);
 
-	return DefaultMulticastClient<MulticastDelegate>::run_event_loop();
+	return DefaultMulticastClient<MulticastDelegate, SigAttester>::run_event_loop();
 }

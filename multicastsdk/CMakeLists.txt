@@ -75,12 +75,24 @@ add_executable(multicastTcpBridge
 
 target_link_libraries(multicastTcpBridge PUBLIC multicastsdk)
 
-
 # MarlinLpf
 target_link_libraries(multicastTcpBridge PUBLIC marlin::lpf)
 
 # MarlinStream
 target_link_libraries(multicastTcpBridge PUBLIC marlin::stream)
+
+
+add_executable(dot_bridge
+	examples/dot_bridge.cpp
+)
+
+target_link_libraries(dot_bridge PUBLIC multicastsdk)
+
+# MarlinLpf
+target_link_libraries(dot_bridge PUBLIC marlin::lpf)
+
+# MarlinStream
+target_link_libraries(dot_bridge PUBLIC marlin::stream)
 
 
 ##########################################################
