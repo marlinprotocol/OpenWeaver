@@ -232,7 +232,6 @@ int TcpTransport<DelegateType>::send(core::Buffer &&bytes) {
 		);
 		return res;
 	}
-
 	return 0;
 }
 

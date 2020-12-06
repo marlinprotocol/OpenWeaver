@@ -8,6 +8,7 @@
 
 #include <secp256k1_recovery.h>
 #include <cryptopp/keccak.h>
+#include <cryptopp/osrng.h>
 
 
 namespace marlin {
@@ -69,9 +70,9 @@ struct SigAttester {
 		hasher.CalculateTruncatedDigest(hash, 32, message_data, message_size);
 
 		// Get key
-		if(key == nullptr) {
-			return -2;
-		}
+		// if(key == nullptr) {
+		// 	return -2;
+		// }
 
 		// Sign
 		secp256k1_ecdsa_recoverable_signature sig;

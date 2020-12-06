@@ -29,3 +29,9 @@
 [submodule "vendor/rapidjson"]
 	path = vendor/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "vendor/libbase58"]
+	path = vendor/libbase58
+	url = https://github.com/bitcoin/libbase58
+[submodule "vendor/libwebsockets"]
+	path = vendor/libwebsockets
+	url = https://github.com/warmcat/libwebsockets

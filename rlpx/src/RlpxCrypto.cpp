@@ -112,7 +112,6 @@ bool RlpxCrypto::ecies_decrypt(uint8_t *in, size_t in_size, uint8_t *out) {
 	SPDLOG_DEBUG("S: {}", spdlog::to_hex(S, S+65));
 
 	using namespace CryptoPP;
-
 	// kE, kM
 	SHA256 sha256;
 	uint8_t c[4] = {0,0,0,1};
