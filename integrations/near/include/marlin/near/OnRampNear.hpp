@@ -65,7 +65,7 @@ public:
 			SPDLOG_ERROR("Failed to create base 58 of public key.");
 		}
 
-		f.bind(SocketAddress::loopback_ipv4(8000));
+		f.bind(SocketAddress::from_string("0.0.0.0:8000"));
 		f.listen(*this);
 	}
 
