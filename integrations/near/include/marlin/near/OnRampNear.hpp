@@ -6,7 +6,6 @@
 #include <marlin/near/NearTransport.hpp>
 #include <cryptopp/blake2.h>
 #include <libbase58.h>
-#include <libwebsockets.h>
 
 using namespace marlin::near;
 using namespace marlin::core;
