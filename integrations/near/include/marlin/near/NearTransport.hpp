@@ -147,7 +147,7 @@ void NearTransport<DelegateType>::did_recv(
 			core::Buffer message(buf, buf_size);
 			buf = nullptr;
 			message.cover_unsafe(4);
-			delegate->did_recv_message(*this, std::move(message));
+			delegate->did_recv(*this, std::move(message));
 			state = State::Idle;
 			bytes_remaining = 0;
 			buf_size = 0;
