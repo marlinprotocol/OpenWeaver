@@ -47,6 +47,9 @@ target_link_libraries(near INTERFACE sodium::sodium)
 # snappy
 target_link_libraries(near INTERFACE snappy)
 
+# boost::filesystem
+target_link_libraries(near INTERFACE Boost::filesystem)
+
 install(TARGETS near
 	EXPORT marlin-near-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -74,17 +77,17 @@ install(FILES
 )
 
 ##########################################################
-# Build examples
+# Build gateway
 ##########################################################
 
 add_custom_target(near_examples)
 
-add_executable(near_example
-	examples/near.cpp
+add_executable(near_gateway
+	src/near.cpp
 )
-add_dependencies(near_examples near_example)
-target_link_libraries(near_example PUBLIC near)
-target_compile_options(near_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+add_dependencies(near_examples near_gateway)
+target_link_libraries(near_gateway PUBLIC near)
+target_compile_options(near_gateway PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 
 
 ##########################################################

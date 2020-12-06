@@ -34,9 +34,9 @@ int main(int argc, char **argv) {
 		pubsub_addr
 	);
 
-	uint8_t static_sk[crypto_sign_SECRETKEYBYTES];
-	uint8_t static_pk[crypto_sign_PUBLICKEYBYTES];
-	crypto_sign_keypair(static_pk, static_sk);
+	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+	crypto_box_keypair(static_pk, static_sk);
 	DefaultMulticastClientOptions clop {
 		static_sk,
 		static_pk,
