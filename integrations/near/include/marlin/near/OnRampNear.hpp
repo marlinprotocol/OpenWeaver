@@ -7,10 +7,13 @@
 #include <cryptopp/blake2.h>
 #include <libbase58.h>
 #include <boost/filesystem.hpp>
+#include <marlin/pubsub/attestation/SigAttester.hpp>
+
 
 using namespace marlin::near;
 using namespace marlin::core;
 using namespace marlin::multicast;
+using namespace marlin::pubsub;
 
 namespace marlin {
 namespace near {
@@ -18,7 +21,7 @@ namespace near {
 
 class OnRampNear {
 public:
-	DefaultMulticastClient<OnRampNear> multicastClient;
+	DefaultMulticastClient<OnRampNear, SigAttester> multicastClient;
 	uint8_t static_sk[crypto_sign_SECRETKEYBYTES], static_pk[crypto_sign_PUBLICKEYBYTES]; // should be moved to DefaultMulticastClient and add a function there to sign a message.
 	NearTransport<OnRampNear> *nearTransport = nullptr;
 	NearTransportFactory<OnRampNear, OnRampNear> f;
@@ -99,7 +102,7 @@ public:
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<OnRampNear> &,
+		DefaultMulticastClient<OnRampNear, SigAttester> &,
 		Buffer &&bytes,
 		T,
 		uint16_t,
@@ -132,12 +135,12 @@ public:
 
 
 	void did_subscribe(
-		DefaultMulticastClient<OnRampNear> &,
+		DefaultMulticastClient<OnRampNear, SigAttester> &,
 		uint16_t
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<OnRampNear> &,
+		DefaultMulticastClient<OnRampNear, SigAttester> &,
 		uint16_t
 	) {}
 

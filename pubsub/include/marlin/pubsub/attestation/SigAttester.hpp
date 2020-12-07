@@ -48,8 +48,8 @@ struct SigAttester {
 
 	template<typename HeaderType>
 	int attest(
-		uint64_t message_id,
-		uint16_t channel,
+		uint64_t,
+		uint16_t,
 		uint8_t const* message_data,
 		uint64_t message_size,
 		HeaderType prev_header,

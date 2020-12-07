@@ -49,8 +49,10 @@ struct LpfAttester {
 		uint16_t,
 		uint8_t const*,
 		uint64_t,
-		HeaderType
+		HeaderType prev_header [[maybe_unused]]
 	) {
+		SPDLOG_DEBUG("Attestation: {} bytes: {}", prev_header.attestation_size, spdlog::to_hex(prev_header.attestation_data, prev_header.attestation_data+prev_header.attestation_size));
+
 		return true;
 	}
 

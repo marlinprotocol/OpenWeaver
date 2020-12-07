@@ -2,6 +2,7 @@
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <unistd.h>
+#include <marlin/pubsub/attestation/LpfAttester.hpp>
 
 
 using namespace marlin;
@@ -19,7 +20,8 @@ public:
 		Self,
 		true,
 		true,
-		true
+		true,
+		LpfAttester
 	>;
 
 	DiscoveryClient<Goldfish> *b;
@@ -131,12 +133,7 @@ int main(int argc, char **argv) {
 	crypto_box_keypair(static_pk, static_sk);
 
 	// Pubsub
-	PubSubNode<
-		Goldfish,
-		true,
-		true,
-		true
-	> ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
+	Goldfish::PubSubNodeType ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
 	ps.delegate = &g;
 	g.ps = &ps;
 
