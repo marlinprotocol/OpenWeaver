@@ -6,9 +6,9 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 
 int main(int argc, char **argv) {
-	std::string beacon_addr = "0.0.0.0:90002";
-	std::string discovery_addr = "0.0.0.0:15002";
-	std::string pubsub_addr = "0.0.0.0:15000";
+	std::string beacon_addr = "127.0.0.1:8002";
+	std::string discovery_addr = "0.0.0.0:21202";
+	std::string pubsub_addr = "0.0.0.0:21200";
 
 	char c;
 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
