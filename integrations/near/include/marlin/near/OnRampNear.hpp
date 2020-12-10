@@ -23,10 +23,10 @@ class OnRampNear {
 public:
 	DefaultMulticastClient<OnRampNear, SigAttester> multicastClient;
 	uint8_t static_sk[crypto_sign_SECRETKEYBYTES], static_pk[crypto_sign_PUBLICKEYBYTES]; // should be moved to DefaultMulticastClient and add a function there to sign a message.
-	NearTransport<OnRampNear> *nearTransport = nullptr;
 	NearTransportFactory<OnRampNear, OnRampNear> f;
+	std::unordered_set<NearTransport<OnRampNear>*> transport_set;
 
-	void handle_handshake(core::Buffer &&message);
+	void handle_handshake(NearTransport<OnRampNear> &, core::Buffer &&message);
 	void handle_transaction(core::Buffer &&message);
 	void handle_block(core::Buffer &&message);
 
@@ -72,7 +72,7 @@ public:
 		f.listen(*this);
 	}
 
-	void did_recv(NearTransport <OnRampNear> &, Buffer &&message) {
+	void did_recv(NearTransport <OnRampNear> &transport, Buffer &&message) {
 		SPDLOG_DEBUG(
 			"Message received from Near: {} bytes: {}",
 			message.size(),
@@ -83,7 +83,7 @@ public:
 			message.size()
 		);
 		if(message.data()[0] == 0x10) {
-			handle_handshake(std::move(message));
+			handle_handshake(transport, std::move(message));
 		} else if(message.data()[0] == 0xc) {
 			handle_transaction(std::move(message));
 		} else if(message.data()[0] == 0xb) {
@@ -112,8 +112,10 @@ public:
 			"OnRampNear:: did_recv, forwarding message: {}",
 			spdlog::to_hex(bytes.data(), bytes.size())
 		);
-		if(nearTransport != nullptr) {
-			nearTransport->send(std::move(bytes));
+		for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
+			Buffer buf(bytes.size());
+			buf.write_unsafe(0, bytes.data(), bytes.size());
+			(*iter)->send(std::move(buf));
 		}
 	}
 
@@ -144,12 +146,12 @@ public:
 		uint16_t
 	) {}
 
-	void did_close(NearTransport<OnRampNear> &, uint16_t) {
-		nearTransport = nullptr;
+	void did_close(NearTransport<OnRampNear> &transport, uint16_t) {
+		transport_set.erase(&transport);
 	}
 
 	void did_create_transport(NearTransport <OnRampNear> &transport) {
-		nearTransport = &transport;
+		transport_set.insert(&transport);
 		transport.setup(this);
 	}
 };
@@ -188,7 +190,7 @@ void OnRampNear::handle_block(core::Buffer &&message) {
 	);
 }
 
-void OnRampNear::handle_handshake(core::Buffer &&message) {
+void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::Buffer &&message) {
 	SPDLOG_DEBUG("Replying");
 	uint8_t *buf = message.data();
 	uint32_t buf_size = message.size();
@@ -222,7 +224,7 @@ void OnRampNear::handle_handshake(core::Buffer &&message) {
 	uint8_t *mySignature = buf + buf_size - 64;
 	crypto_sign_detached(mySignature, NULL, hashed_message, 32, static_sk);
 	message.uncover_unsafe(4);
-	nearTransport->send(std::move(message));
+	transport.send(std::move(message));
 }
 
 
