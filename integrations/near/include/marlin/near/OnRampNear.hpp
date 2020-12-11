@@ -82,7 +82,7 @@ public:
 			"Message received from Near: {} bytes",
 			message.size()
 		);
-		if(message.data()[0] == 0x10) {
+		if(message.data()[0] == 0x10 || message.data()[0] == 0x0) {
 			handle_handshake(transport, std::move(message));
 		} else if(message.data()[0] == 0xc) {
 			handle_transaction(std::move(message));
@@ -110,7 +110,7 @@ public:
 	) {
 		SPDLOG_DEBUG(
 			"OnRampNear:: did_recv, forwarding message: {}",
-			spdlog::to_hex(bytes.data(), bytes.size())
+			spdlog::to_hex(bytes.data(), bytes.data() + bytes.size())
 		);
 		for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
 			Buffer buf(bytes.size());
@@ -191,7 +191,7 @@ void OnRampNear::handle_block(core::Buffer &&message) {
 }
 
 void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::Buffer &&message) {
-	SPDLOG_DEBUG("Replying");
+	SPDLOG_DEBUG("Handshake replying");
 	uint8_t *buf = message.data();
 	uint32_t buf_size = message.size();
 	std::swap_ranges(buf + 9, buf + 42, buf + 42);
@@ -213,7 +213,6 @@ void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::B
 	sha256.Update(buf + buf_size - 73, 8);
 	sha256.TruncatedFinal(hashed_message, 32);
 	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
-
 	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, buf + near_key_offset + 1) != 0) {
 		SPDLOG_ERROR("Signature verification failed");
 		return;
