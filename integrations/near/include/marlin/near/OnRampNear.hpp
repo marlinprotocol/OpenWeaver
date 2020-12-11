@@ -213,11 +213,6 @@ void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::B
 	sha256.Update(buf + buf_size - 73, 8);
 	sha256.TruncatedFinal(hashed_message, 32);
 	uint8_t *near_node_signature = buf + buf_size - crypto_sign_BYTES;
-	SPDLOG_INFO(
-		"{}\n{}",
-		spdlog::to_hex(near_node_signature, near_node_signature + 64),
-		spdlog::to_hex(buf + near_key_offset + 1, buf + near_key_offset + 33)
-	);
 	if(crypto_sign_verify_detached(near_node_signature, hashed_message, 32, buf + near_key_offset + 1) != 0) {
 		SPDLOG_ERROR("Signature verification failed");
 		return;
