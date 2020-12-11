@@ -191,7 +191,7 @@ void OnRampNear::handle_block(core::Buffer &&message) {
 }
 
 void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::Buffer &&message) {
-	SPDLOG_DEBUG("Replying bc");
+	SPDLOG_DEBUG("Handshake replying");
 	uint8_t *buf = message.data();
 	uint32_t buf_size = message.size();
 	std::swap_ranges(buf + 9, buf + 42, buf + 42);
