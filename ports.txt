@@ -1,14 +1,65 @@
-beacon - 8002 8003 9002 9003
+beacon
+	8002	external discovery
+	8003	external heartbeat
+	9002	internal discovery
+	9003	internal heartbeat
 eth
-    relay - 5000 5002 30303
-    gateway - 15000 15002 12121
+	relay
+		5000	pubsub
+		5002	discovery
+		30303	eth
+		file	abci
+	gateway
+		15000	pubsub
+		15002	discovery
+		12121	gateway
 bsc
-    relay - 20000 20002 30303
-    gateway - 20200 20202 20400
+	relay
+		20000	pubsub
+		20002	discovery
+		30303	bsc
+	gateway
+		20200	pubsub
+		20202	discovery
+		20400	gateway
 dot
-    relay - 20500 20502 30333 9933
-    gateway - 20700 20702 20900
+	relay
+		20500	pubsub
+		20502	discovery
+		30333	dot
+		9933	dot
+	gateway
+		20700	pubsub
+		20702	discovery
+		20900	gateway
 near
-    relay - 21000 21002 30333 9933
-    gateway - 21200 21202 21400
-
+	relay
+		21000	pubsub
+		21002	discovery
+		24567	near
+	gateway
+		21200	pubsub
+		21202	discovery
+		21400	gateway
+iris
+	relay
+		21500	pubsub
+		21502	discovery
+		21504	iris
+		file	abci
+	gateway
+		21700	pubsub
+		21702	discovery
+		21900	gateway
+		21901	tcp
+cosmos
+	relay
+		22000	pubsub
+		22002	discovery
+		22004	cosmos
+		file	abci
+	gateway
+		22200	pubsub
+		22202	discovery
+		22400	gateway
+		22401	tcp
