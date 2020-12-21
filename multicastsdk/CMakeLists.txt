@@ -95,6 +95,19 @@ target_link_libraries(dot_bridge PUBLIC marlin::lpf)
 target_link_libraries(dot_bridge PUBLIC marlin::stream)
 
 
+add_executable(iris_bridge
+	examples/iris_bridge.cpp
+)
+
+target_link_libraries(iris_bridge PUBLIC multicastsdk)
+
+# MarlinLpf
+target_link_libraries(iris_bridge PUBLIC marlin::lpf)
+
+# MarlinStream
+target_link_libraries(iris_bridge PUBLIC marlin::stream)
+
+
 ##########################################################
 # C SDK
 ##########################################################
