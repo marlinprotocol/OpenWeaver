@@ -82,6 +82,7 @@ TcpTransport<DelegateType>::TcpTransport(
 	core::TransportManager<TcpTransport<DelegateType>> &transport_manager
 ) : socket(socket), transport_manager(transport_manager),
 	src_addr(src_addr), dst_addr(dst_addr) {
+		SPDLOG_INFO("{}", dst_addr.to_string());
 	if(
 		core::CidrBlock::from_string("10.0.0.0/8").does_contain_address(dst_addr) ||
 		core::CidrBlock::from_string("172.16.0.0/12").does_contain_address(dst_addr) ||

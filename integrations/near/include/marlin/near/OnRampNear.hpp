@@ -22,16 +22,30 @@ namespace near {
 class OnRampNear {
 public:
 	DefaultMulticastClient<OnRampNear, SigAttester> multicastClient;
-	uint8_t static_sk[crypto_sign_SECRETKEYBYTES], static_pk[crypto_sign_PUBLICKEYBYTES]; // should be moved to DefaultMulticastClient and add a function there to sign a message.
+	uint8_t static_sk[crypto_sign_SECRETKEYBYTES], static_pk[crypto_sign_PUBLICKEYBYTES];
+	uint8_t near_key[crypto_sign_PUBLICKEYBYTES]; // should be moved to DefaultMulticastClient and add a function there to sign a message.
 	NearTransportFactory<OnRampNear, OnRampNear> f;
 	std::unordered_set<NearTransport<OnRampNear>*> transport_set;
+	std::string near_addr, my_key;
 
 	void handle_handshake(NearTransport<OnRampNear> &, core::Buffer &&message);
 	void handle_transaction(core::Buffer &&message);
 	void handle_block(core::Buffer &&message);
 
-	OnRampNear(DefaultMulticastClientOptions clop): multicastClient(clop) {
+	OnRampNear(DefaultMulticastClientOptions clop, std::string b58_near_key, std::string near_addr):
+		multicastClient(clop), near_addr(near_addr) {
+
+		SPDLOG_INFO("{}", b58_near_key);
 		multicastClient.delegate = this;
+		size_t x = crypto_sign_PUBLICKEYBYTES;
+		b58tobin(
+			near_key,
+			&x,
+			b58_near_key.c_str(),
+			b58_near_key.size()
+		);
+
+		SPDLOG_INFO("{}", spdlog::to_hex(near_key, near_key + 32));
 
 		if(sodium_init() == -1) {
 			throw;
@@ -69,18 +83,18 @@ public:
 		}
 
 		f.bind(SocketAddress::from_string("0.0.0.0:21400"));
+		f.dial(
+			SocketAddress::from_string("0.0.0.0:24567"),
+			*this
+		);
 		f.listen(*this);
 	}
 
 	void did_recv(NearTransport <OnRampNear> &transport, Buffer &&message) {
-		SPDLOG_DEBUG(
+		SPDLOG_INFO(
 			"Message received from Near: {} bytes: {}",
 			message.size(),
 			spdlog::to_hex(message.data(), message.data() + message.size())
-		);
-		SPDLOG_INFO(
-			"Message received from Near: {} bytes",
-			message.size()
 		);
 		if(message.data()[0] == 0x10 || message.data()[0] == 0x0) {
 			handle_handshake(transport, std::move(message));
@@ -190,7 +204,7 @@ void OnRampNear::handle_block(core::Buffer &&message) {
 	);
 }
 
-void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::Buffer &&message) {
+void OnRampNear::handle_handshake(NearTransport <OnRampNear> &, core::Buffer &&message) {
 	SPDLOG_DEBUG("Handshake replying");
 	uint8_t *buf = message.data();
 	uint32_t buf_size = message.size();
@@ -217,13 +231,14 @@ void OnRampNear::handle_handshake(NearTransport <OnRampNear> &transport, core::B
 		SPDLOG_ERROR("Signature verification failed");
 		return;
 	} else {
-		SPDLOG_DEBUG("Signature verified successfully");
+		SPDLOG_INFO("Signature verified successfully: {}", spdlog::to_hex(near_node_signature, near_node_signature + 64));
 	}
 
 	uint8_t *mySignature = buf + buf_size - 64;
 	crypto_sign_detached(mySignature, NULL, hashed_message, 32, static_sk);
 	message.uncover_unsafe(4);
-	transport.send(std::move(message));
+	SPDLOG_INFO("{}", spdlog::to_hex(message.data(), message.data() + message.size()));
+	// transport.send(std::move(message));
 }
 
 
