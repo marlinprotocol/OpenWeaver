@@ -169,6 +169,17 @@ private:
 			delegate->manage_subscriptions(baddr, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
 		}
 
+		for(auto& conn : unsol_conns) {
+			auto* static_pk = conn->get_static_pk();
+			auto* remote_static_pk = conn->get_remote_static_pk();
+			SPDLOG_INFO(
+				"Node {:spn}: Unsol conn: {:spn}: rtt: {}",
+				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
+				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
+				conn->get_rtt()
+			);
+		}
+
 		// std::for_each(
 		// 	this->delegate->channels.begin(),
 		// 	this->delegate->channels.end(),
