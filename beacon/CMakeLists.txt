@@ -38,6 +38,9 @@ target_link_libraries(beacon INTERFACE spdlog::spdlog_header_only)
 # Boost::iterator
 target_link_libraries(beacon INTERFACE Boost::iterator)
 
+# Boost::filesystem
+target_link_libraries(beacon INTERFACE Boost::filesystem)
+
 install(TARGETS beacon
 	EXPORT marlin-beacon-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
