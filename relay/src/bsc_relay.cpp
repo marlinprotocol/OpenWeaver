@@ -18,8 +18,9 @@ struct CliOptions {
 	std::optional<uint16_t> discovery_port;
 	std::optional<std::string> address;
 	std::optional<std::string> name;
+	std::optional<std::string> interface;
 };
-STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address, name);
+STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address, name, interface);
 
 int main(int argc, char** argv) {
 	try {
@@ -63,8 +64,8 @@ int main(int argc, char** argv) {
 		Relay<true, true, true, marlin::bsc::Abci> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			pubsub_port,
-			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(pubsub_port))),
-			SocketAddress::from_string(std::string("0.0.0.0:").append(std::to_string(discovery_port))),
+			SocketAddress::from_string(options.interface.value_or(std::string("0.0.0.0")).append(":").append(std::to_string(pubsub_port))),
+			SocketAddress::from_string(options.interface.value_or(std::string("0.0.0.0")).append(":").append(std::to_string(discovery_port))),
 			std::move(discovery_addrs),
 			std::move(heartbeat_addrs),
 			address,

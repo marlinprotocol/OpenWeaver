@@ -764,15 +764,18 @@ int PUBSUBNODETYPE::did_analyze_block(
 ) {
 	// Relay to other peers.
 	bool found = false;
-	for(auto& [_, conns] : conn_map) {
-		(void)_;
-		if(
-			conns.sol_conns.check_tranport_in_set(*transport) ||
-			conns.sol_standby_conns.check_tranport_in_set(*transport) ||
-			unsol_conns.check_tranport_in_set(*transport)
-		) {
-			found = true;
-			break;
+	if(unsol_conns.check_tranport_in_set(*transport)) {
+		found = true;
+	} else {
+		for(auto& [_, conns] : conn_map) {
+			(void)_;
+			if(
+				conns.sol_conns.check_tranport_in_set(*transport) ||
+				conns.sol_standby_conns.check_tranport_in_set(*transport)
+			) {
+				found = true;
+				break;
+			}
 		}
 	}
 	if(!found) {
@@ -1230,25 +1233,32 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
-	if(conn_map.size() == 0) {
-		return;
-	}
-
-	auto rnd = message_id % conn_map.size();
-	auto idx = 0u;
-	for(auto& [_, conns] : conn_map) {
-		(void)_;
-		while(idx != rnd) idx++;
-
-		for (
-			auto it = conns.sol_conns.begin();
-			it != conns.sol_conns.end();
-			it++
-		) {
-			// Exclude given address, usually sender tp prevent loops
-			if(excluded != nullptr && (*it)->dst_addr == *excluded)
+	if(conn_map.size() != 0) {
+		auto rnd = message_id % ((conn_map.size()+4) / 5);
+		auto idx = 0u;
+		for(auto& [baddr, conns] : conn_map) {
+			// (void)_;
+			idx++;
+			if(idx < rnd*5) {
 				continue;
-			send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+			}
+
+			if(idx > rnd*5+4) {
+				break;
+			}
+
+			SPDLOG_INFO("Sending message {} to {}", message_id, baddr.to_string());
+
+			for (
+				auto it = conns.sol_conns.begin();
+				it != conns.sol_conns.end();
+				it++
+			) {
+				// Exclude given address, usually sender tp prevent loops
+				if(excluded != nullptr && (*it)->dst_addr == *excluded)
+					continue;
+				send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
+			}
 		}
 	}
 
