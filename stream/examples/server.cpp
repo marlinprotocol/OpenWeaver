@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <fstream>
-#include <experimental/filesystem>
+#include <boost/filesystem.hpp>
 
 using namespace marlin::core;
 using namespace marlin::asyncio;
@@ -85,7 +85,7 @@ struct Delegate {
 };
 
 int main() {
-	if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+	if(boost::filesystem::exists("./.marlin/keys/static")) {
 		std::ifstream sk("./.marlin/keys/static", std::ios::binary);
 		if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 			throw;
@@ -94,7 +94,7 @@ int main() {
 	} else {
 		crypto_box_keypair(static_pk, static_sk);
 
-		std::experimental::filesystem::create_directories("./.marlin/keys/");
+		boost::filesystem::create_directories("./.marlin/keys/");
 		std::ofstream sk("./.marlin/keys/static", std::ios::binary);
 
 		sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);

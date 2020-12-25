@@ -35,6 +35,9 @@ target_link_libraries(stream INTERFACE marlin::asyncio)
 # spdlog
 target_link_libraries(stream INTERFACE spdlog::spdlog_header_only)
 
+# Boost::filesystem
+target_link_libraries(stream INTERFACE Boost::filesystem)
+
 install(TARGETS stream
 	EXPORT marlin-stream-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

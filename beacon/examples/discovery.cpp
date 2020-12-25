@@ -5,7 +5,7 @@
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <cstring>
 #include <fstream>
-#include <experimental/filesystem>
+#include <boost/filesystem.hpp>
 
 #include "spdlog/fmt/bin_to_hex.h"
 
@@ -47,7 +47,7 @@ int main() {
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
 
-	if(std::experimental::filesystem::exists("./.marlin/keys/static")) {
+	if(boost::filesystem::exists("./.marlin/keys/static")) {
 		std::ifstream sk("./.marlin/keys/static", std::ios::binary);
 		if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 			throw;
@@ -56,7 +56,7 @@ int main() {
 	} else {
 		crypto_box_keypair(static_pk, static_sk);
 
-		std::experimental::filesystem::create_directories("./.marlin/keys/");
+		boost::filesystem::create_directories("./.marlin/keys/");
 		std::ofstream sk("./.marlin/keys/static", std::ios::binary);
 
 		sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
