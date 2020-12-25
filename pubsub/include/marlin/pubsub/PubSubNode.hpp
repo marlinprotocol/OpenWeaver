@@ -1226,7 +1226,7 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	uint16_t channel,
 	uint64_t message_id,
 	const uint8_t *data,
-	size_t size,
+	uint64_t size,
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
