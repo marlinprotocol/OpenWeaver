@@ -169,3 +169,13 @@ install(EXPORT rapidjson-export
 	DESTINATION
 		${CMAKE_INSTALL_LIBDIR}/cmake/rapidjson
 )
+
+
+#-------- libwebsockets --------#
+
+set(LWS_WITH_LIBUV ON CACHE BOOL "LWS LIBUV")
+set(LWS_WITH_SSL OFF CACHE BOOL "LWS SSL")
+set(LIBUV_INCLUDE_DIRS ${libuv_SOURCE_DIR}/include)
+set(LIBUV_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/libuv/libuv_a.a)
+add_subdirectory(libwebsockets)
+
