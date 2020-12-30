@@ -181,11 +181,9 @@ bool check_mac(const std::string &mac, CryptoPP::SecByteBlock &derived, std::str
 	
 	CryptoPP::SecByteBlock hash(mac.size());
 	return hasher.VerifyTruncatedDigest((const CryptoPP::byte*)mac.data(), mac.size(), hashinput, hashinput.size());
-	//hasher.CalculateTruncatedDigest(receipthash, hash.size(), hashinput, hash_input.size());
 }
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
-	using namespace CryptoPP;
 	std::string _pass;
 	rapidjson::Document _keystore;
 
