@@ -80,6 +80,7 @@ int main(int argc, char** argv) {
 			pubsub_port,
 			SocketAddress::from_string(options.interface.value_or(std::string("0.0.0.0")).append(":").append(std::to_string(pubsub_port))),
 			SocketAddress::from_string(options.interface.value_or(std::string("0.0.0.0")).append(":").append(std::to_string(discovery_port))),
+			key,
 			std::move(discovery_addrs),
 			std::move(heartbeat_addrs),
 			address,
