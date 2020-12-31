@@ -4,8 +4,6 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
-#include <marlin/pubsub/attestation/SigAttester.hpp>
-
 
 #include <boost/filesystem.hpp>
 
@@ -39,7 +37,7 @@ private:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		SigAttester,
+		EmptyAttester,
 		BloomWitnesser,
 		AbciTemplate
 	>;
@@ -60,9 +58,8 @@ public:
 		const core::SocketAddress &pubsub_addr,
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
-		const std::string &key,
 		Args&&... args
-	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, key, {beacon_server_addr}, {beacon_server_addr}, "", "", std::forward<Args>(args)...) {}
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -70,7 +67,6 @@ public:
 		const uint32_t pubsub_port,
 		const core::SocketAddress &pubsub_addr,
 		const core::SocketAddress &beacon_addr,
-		const std::string &key,
 		std::vector<core::SocketAddress>&& discovery_addrs,
 		std::vector<core::SocketAddress>&& heartbeat_addrs,
 		std::string address,
@@ -103,7 +99,7 @@ public:
 
 		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 30) : std::tuple(2, 16);
 
-		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, std::forward_as_tuple(key.c_str()), std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
+		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
 		ps->delegate = this;
 		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 		b->address = address;
