@@ -15,8 +15,8 @@ using namespace marlin;
 class BeaconDelegate {};
 
 struct CliOptions {
-	std::string keystore_path;
-	std::string keystore_pass_path;
+	std::optional<std::string> keystore_path;
+	std::optional<std::string> keystore_pass_path;
 	std::optional<std::string> discovery_addr;
 	std::optional<std::string> heartbeat_addr;
 	std::optional<std::string> beacon_addr;
@@ -28,6 +28,18 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("beacon").parse<CliOptions>(argc, argv);
+		if(options.beacon_addr.has_value()) {
+			if(options.keystore_path.has_value() && options.keystore_pass_path.has_value()) {
+				std::string key = get_key(options.keystore_path.value(), options.keystore_pass_path.value());
+				if (key.empty()) {
+					SPDLOG_ERROR("keystore file error");
+					return 1;
+				}
+			} else {
+				SPDLOG_ERROR("require keystore and password file");
+				return 1;
+			}
+		}
 		auto discovery_addr = core::SocketAddress::from_string(
 			options.discovery_addr.value_or("127.0.0.1:8002")
 		);
@@ -42,11 +54,6 @@ int main(int argc, char** argv) {
 			heartbeat_addr.to_string()
 		);
 
-		std::string key = get_key(options.keystore_path, options.keystore_pass_path);
-		if (key.empty()) {
-			SPDLOG_ERROR("keystore file error");
-			return 1;
-		}
 		BeaconDelegate del;
 		beacon::DiscoveryServer<BeaconDelegate> b(discovery_addr, heartbeat_addr, beacon_addr);
 		b.delegate = &del;
