@@ -41,6 +41,12 @@ target_link_libraries(beacon INTERFACE Boost::iterator)
 # Boost::filesystem
 target_link_libraries(beacon INTERFACE Boost::filesystem)
 
+# cryptopp
+target_link_libraries(beacon INTERFACE cryptopp::CryptoPP)
+
+# rapidjson
+target_link_libraries(beacon INTERFACE rapidjson)
+
 install(TARGETS beacon
 	EXPORT marlin-beacon-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
