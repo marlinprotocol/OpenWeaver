@@ -29,7 +29,6 @@ int main(int argc, char** argv) {
 		auto pubsub_port = options.pubsub_port.value_or(5000);
 		auto discovery_port = options.discovery_port.value_or(5002);
 		auto address = options.address.value_or("0x0000000000000000000000000000000000000000");
-
 		if(address.size() != 42) {
 			structopt::details::visitor visitor("bsc_relay", "");
 			CliOptions opt = CliOptions();
