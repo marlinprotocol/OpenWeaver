@@ -177,5 +177,16 @@ set(LWS_WITH_LIBUV ON CACHE BOOL "LWS LIBUV")
 set(LWS_WITH_SSL OFF CACHE BOOL "LWS SSL")
 set(LIBUV_INCLUDE_DIRS ${libuv_SOURCE_DIR}/include)
 set(LIBUV_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/libuv/libuv_a.a)
+set(LWS_WITH_STATIC ON CACHE BOOL "LWS STATIC")
+set(LWS_WITH_SHARED OFF CACHE BOOL "LWS DYNAMIC")
+set(LWS_STATIC_PIC ON CACHE BOOL "LWS STATIC PIC")
 add_subdirectory(libwebsockets)
+
+# Avert your eyes
+add_dependencies(websockets libuv::uv_a)
+set_property(TARGET websockets PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+	$<INSTALL_INTERFACE:include>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/libwebsockets/include>
+)
+# add_dependencies(websockets-evlib_uv libuv::uv_a)
 
