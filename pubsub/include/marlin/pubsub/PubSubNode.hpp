@@ -1244,6 +1244,13 @@ void PUBSUBNODETYPE::send_message_on_channel(
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
+	if(message_id_set.find(message_id) != message_id_set.end()) { // Deduplicate message
+		return;
+	} else {
+		message_id_set.insert(message_id);
+		message_id_events[message_id_idx].push_back(message_id);
+	}
+
 	if(conn_map.size() != 0) {
 		auto rnd = message_id % ((conn_map.size()+4) / 5);
 		auto idx = 0u;
