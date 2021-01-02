@@ -267,7 +267,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 		hasher.CalculateTruncatedDigest(hash, 32, pubkeyser+1, 64);
 		// address is in hash[12..31]
 
-		SPDLOG_INFO("Address: {:spn}", spdlog::to_hex(hash+12, hash+32));
+		SPDLOG_DEBUG("Address: {:spn}", spdlog::to_hex(hash+12, hash+32));
 		std::memcpy(peers[transport.dst_addr].address.data(), hash+12, 20);
 	}
 
@@ -516,7 +516,7 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 			SPDLOG_ERROR("Beacon: failed to verify key", key.size());
 		}
 		std::memcpy(this->key, key.c_str(), 32);
-		SPDLOG_INFO("Key: {}", spdlog::to_hex(this->key, this->key+32));
+		SPDLOG_DEBUG("Key: {}", spdlog::to_hex(this->key, this->key+32));
 	} else {
 		SPDLOG_ERROR("Beacon: failed to load key: {}", key.size());
 	}
