@@ -511,12 +511,39 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 
 	ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	ctx_verifier = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-	if(key.size() == 32) {
+	if(key.size() == 0) {
+		SPDLOG_INFO("Beacon: No identity key provided");
+	} else if(key.size() == 32) {
 		if(secp256k1_ec_seckey_verify(ctx_verifier, (uint8_t*)key.c_str()) != 1) {
 			SPDLOG_ERROR("Beacon: failed to verify key", key.size());
 		}
 		std::memcpy(this->key, key.c_str(), 32);
-		SPDLOG_DEBUG("Key: {}", spdlog::to_hex(this->key, this->key+32));
+
+		secp256k1_pubkey pubkey;
+		auto res = secp256k1_ec_pubkey_create(
+			ctx_signer,
+			&pubkey,
+			this->key
+		);
+		(void)res;
+
+		uint8_t pubkeyser[65];
+		size_t len = 65;
+		secp256k1_ec_pubkey_serialize(
+			ctx_signer,
+			pubkeyser,
+			&len,
+			&pubkey,
+			SECP256K1_EC_UNCOMPRESSED
+		);
+
+		// Get address
+		uint8_t hash[32];
+		CryptoPP::Keccak_256 hasher;
+		hasher.CalculateTruncatedDigest(hash, 32, pubkeyser+1, 64);
+		// address is in hash[12..31]
+
+		SPDLOG_INFO("Beacon: Identity is 0x{:spn}", spdlog::to_hex(hash+12, hash+32));
 	} else {
 		SPDLOG_ERROR("Beacon: failed to load key: {}", key.size());
 	}
