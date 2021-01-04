@@ -47,6 +47,9 @@ target_link_libraries(beacon INTERFACE cryptopp::CryptoPP)
 # rapidjson
 target_link_libraries(beacon INTERFACE rapidjson)
 
+# secp256k1
+target_link_libraries(beacon INTERFACE secp256k1::secp256k1)
+
 install(TARGETS beacon
 	EXPORT marlin-beacon-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
