@@ -161,7 +161,7 @@ std::string encrypt_aes128ctr(const std::string &iv, CryptoPP::SecByteBlock &der
 	CryptoPP::CTR_Mode<CryptoPP::AES>::Encryption e;
 	e.SetKeyWithIV(derived, 16, CryptoPP::ConstBytePtr(iv));
 
-	CryptoPP::SecByteBlock encrypted(key.size()); //nitin cipher text size = priv key size
+	CryptoPP::SecByteBlock encrypted(key.size());
 	e.ProcessData(encrypted, CryptoPP::ConstBytePtr(key), CryptoPP::BytePtrSize(key));
 	return std::string((const char*)encrypted.data(), encrypted.size());
 }
@@ -256,9 +256,7 @@ std::string create_key(uint8_t keybytes, uint8_t ivbytes, const std::string &pas
 			"kdfparams": { "dklen": 32,  "n": 262144,  "r": 8,  "p": 1,  "salt": "06870e5e6a24e183a5c807bd1c43afd86d573f7db303ff4853d135cd0fd3fe91" },
 			"mac": "8ccded24da2e99a11d48cda146f9cc8213eb423e2ea0d8427f41c3be414424dd",
 			"cipher": "aes-128-ctr"
-		},
-		"address": "ea38373371b5d60298aa0fa035c2b592b5af98eb",
-		"id": "0498f19a-59db-4d54-ac95-33901b4f1870"
+		}
 	})";
 
 	rapidjson::Document keystore;
