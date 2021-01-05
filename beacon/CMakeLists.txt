@@ -44,6 +44,9 @@ target_link_libraries(beacon INTERFACE Boost::filesystem)
 # cryptopp
 target_link_libraries(beacon INTERFACE cryptopp::CryptoPP)
 
+# secp256k1
+target_link_libraries(beacon INTERFACE secp256k1::secp256k1)
+
 # rapidjson
 target_link_libraries(beacon INTERFACE rapidjson)
 

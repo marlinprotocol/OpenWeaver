@@ -238,6 +238,10 @@ public:
 			uint64_t message_id;
 			blake2b.TruncatedFinal((uint8_t *)&message_id, 8);
 
+			SPDLOG_INFO(
+				"Received message {} on channel 0",
+				message_id
+			);
 			multicastClient.ps.send_message_on_channel(
 				0,
 				message_id,
@@ -273,6 +277,10 @@ public:
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
 				message.size()
+			);
+			SPDLOG_INFO(
+				"Received message {} on channel 0",
+				message_id
 			);
 			multicastClient.ps.send_message_on_channel(
 				0,
