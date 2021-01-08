@@ -730,7 +730,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 					SPDLOG_ERROR("Abci not active, dropping block");
 				}
 			} else {
-				send_message_on_channel(
+				send_message_on_channel_impl(
 					channel,
 					message_id,
 					bytes.data(),
@@ -794,7 +794,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	}
 
 	// Relay
-	send_message_on_channel(
+	send_message_on_channel_impl(
 		channel,
 		message_id,
 		bytes.data(),
@@ -1222,7 +1222,7 @@ uint64_t PUBSUBNODETYPE::send_message_on_channel(
 	core::SocketAddress const *excluded
 ) {
 	uint64_t message_id = this->message_id_dist(this->message_id_gen);
-	send_message_on_channel(channel, message_id, data, size, excluded);
+	send_message_on_channel_impl(channel, message_id, data, size, excluded);
 
 	return message_id;
 }
@@ -1251,6 +1251,18 @@ void PUBSUBNODETYPE::send_message_on_channel(
 		message_id_events[message_id_idx].push_back(message_id);
 	}
 
+	send_message_on_channel_impl(channel, message_id, data, size, excluded, prev_header);
+}
+
+template<PUBSUBNODE_TEMPLATE>
+void PUBSUBNODETYPE::send_message_on_channel_impl(
+	uint16_t channel,
+	uint64_t message_id,
+	const uint8_t *data,
+	uint64_t size,
+	core::SocketAddress const *excluded,
+	MessageHeaderType prev_header
+) {
 	if(conn_map.size() != 0) {
 		auto rnd = message_id % ((conn_map.size()+4) / 5);
 		auto idx = 0u;
