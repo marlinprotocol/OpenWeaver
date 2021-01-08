@@ -292,6 +292,14 @@ public:
 		core::SocketAddress const *excluded = nullptr,
 		MessageHeaderType prev_header = {}
 	);
+	void send_message_on_channel_impl(
+		uint16_t channel,
+		uint64_t message_id,
+		const uint8_t *data,
+		uint64_t size,
+		core::SocketAddress const *excluded = nullptr,
+		MessageHeaderType prev_header = {}
+	);
 	void send_message_with_cut_through_check(
 		BaseTransport *transport,
 		uint16_t channel,
