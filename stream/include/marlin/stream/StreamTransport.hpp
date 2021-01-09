@@ -141,7 +141,7 @@ private:
 	uint64_t bytes_in_flight = 0;
 	uint64_t k = 0;
 	uint64_t w_max = 0;
-	uint64_t congestion_window = 15000;
+	uint64_t congestion_window = 100000;
 	uint64_t ssthresh = -1;
 	uint64_t congestion_start = 0;
 	uint64_t largest_acked = 0;
@@ -348,7 +348,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	bytes_in_flight = 0;
 	k = 0;
 	w_max = 0;
-	congestion_window = 15000;
+	congestion_window = 100000;
 	ssthresh = -1;
 	congestion_start = 0;
 	largest_acked = 0;
