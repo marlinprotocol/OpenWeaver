@@ -190,3 +190,10 @@ set_property(TARGET websockets PROPERTY INTERFACE_INCLUDE_DIRECTORIES
 )
 # add_dependencies(websockets-evlib_uv libuv::uv_a)
 
+
+#-------- abseil --------#
+
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "absl shared libs")
+set(BUILD_TESTING OFF CACHE BOOL "absl testing")
+set(ABSL_ENABLE_INSTALL ON CACHE BOOL "absl install")
+add_subdirectory(abseil-cpp)
