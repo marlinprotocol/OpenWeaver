@@ -12,7 +12,15 @@
 
 using namespace marlin;
 
-class BeaconDelegate {};
+struct BeaconDelegate {
+	void new_reg(core::SocketAddress const& addr, beacon::PeerInfo const& peer_info) {
+		SPDLOG_INFO(
+			"New reg: {}: 0x{:spn}",
+			addr.to_string(),
+			spdlog::to_hex(peer_info.address.data(), peer_info.address.data()+20)
+		);
+	}
+};
 
 struct CliOptions {
 	std::optional<std::string> keystore_path;
