@@ -6,13 +6,15 @@
 #include <map>
 #include <memory>
 
+#include <absl/container/btree_map.h>
+
 namespace marlin {
 namespace simulator {
 
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MapIndex {
 private:
-	std::map<MemberType, std::shared_ptr<T>> index;
+	absl::btree_map<MemberType, std::shared_ptr<T>> index;
 public:
 	void add(std::shared_ptr<T> t_ptr) {
 		index[(*t_ptr.*member)()] = t_ptr;
@@ -42,7 +44,7 @@ public:
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MultimapIndex {
 private:
-	std::multimap<MemberType, std::shared_ptr<T>> index;
+	absl::btree_multimap<MemberType, std::shared_ptr<T>> index;
 public:
 	void add(std::shared_ptr<T> t_ptr) {
 		index.insert(std::make_pair((*t_ptr.*member)(), t_ptr));
@@ -54,6 +56,7 @@ public:
 		while(begin != end) {
 			if(begin->second == t_ptr) {
 				begin = index.erase(begin);
+				break;
 			} else {
 				begin++;
 			}

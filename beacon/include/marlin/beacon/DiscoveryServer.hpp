@@ -272,6 +272,16 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 	}
 
 	peers[transport.dst_addr].last_seen = asyncio::EventLoop::now();
+
+	constexpr bool has_new_reg = requires(
+		DiscoveryServerDelegate d
+	) {
+		d.new_reg(core::SocketAddress(), PeerInfo());
+	};
+
+	if constexpr (has_new_reg) {
+		delegate->new_reg(transport.dst_addr, peers[transport.dst_addr]);
+	}
 }
 
 

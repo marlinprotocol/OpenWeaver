@@ -25,6 +25,7 @@ target_include_directories(simulator
 )
 target_compile_options(simulator PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(simulator PUBLIC cxx_std_17)
+target_link_libraries(simulator absl::btree)
 
 set_target_properties(simulator PROPERTIES
 	OUTPUT_NAME "marlin-simulator"

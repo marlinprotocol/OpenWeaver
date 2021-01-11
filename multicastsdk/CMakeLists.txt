@@ -108,6 +108,19 @@ target_link_libraries(iris_bridge PUBLIC marlin::lpf)
 target_link_libraries(iris_bridge PUBLIC marlin::stream)
 
 
+add_executable(atom_bridge
+	examples/atom_bridge.cpp
+)
+
+target_link_libraries(atom_bridge PUBLIC multicastsdk)
+
+# MarlinLpf
+target_link_libraries(atom_bridge PUBLIC marlin::lpf)
+
+# MarlinStream
+target_link_libraries(atom_bridge PUBLIC marlin::stream)
+
+
 ##########################################################
 # C SDK
 ##########################################################

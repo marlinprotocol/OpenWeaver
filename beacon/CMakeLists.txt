@@ -24,7 +24,7 @@ target_include_directories(beacon
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_compile_features(beacon INTERFACE cxx_std_17)
+target_compile_features(beacon INTERFACE cxx_std_20)
 
 # libsodium
 target_link_libraries(beacon INTERFACE sodium::sodium)
