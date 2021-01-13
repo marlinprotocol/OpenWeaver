@@ -49,3 +49,5 @@ add_subdirectory(relay)
 add_subdirectory(goldfish)
 add_subdirectory(rlpx)
 add_subdirectory(integrations/eth)
+
+file(WRITE BuildStatus.txt <content>...)
