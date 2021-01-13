@@ -69,6 +69,7 @@ enable_testing()
 
 set(TEST_SOURCES
 	test/testAckRanges.cpp
+	test/testCongestion.cpp
 )
 
 add_custom_target(stream_tests)
