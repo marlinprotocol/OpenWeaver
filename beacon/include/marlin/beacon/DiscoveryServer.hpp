@@ -312,45 +312,54 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 	if(rt != nullptr) {
 		auto time = (uint64_t)std::time(nullptr);
 		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
-		BaseMessageType m(74);
-		auto reg = m.payload_buffer();
-		reg.data()[0] = 7;
-		reg.write_uint64_le_unsafe(1, time);
 
-		uint8_t hash[32];
-		CryptoPP::Keccak_256 hasher;
-		// Hash message
-		hasher.CalculateTruncatedDigest(hash, 32, reg.data()+1, 8);
+		if(is_key_empty()) {
+			BaseMessageType m(1);
+			auto reg = m.payload_buffer();
+			reg.data()[0] = 7;
 
-		// Sign
-		secp256k1_ecdsa_recoverable_signature sig;
-		auto res = secp256k1_ecdsa_sign_recoverable(
-			ctx_signer,
-			&sig,
-			hash,
-			key,
-			nullptr,
-			nullptr
-		);
+			rt->send(std::move(m));
+		} else {
+			BaseMessageType m(74);
+			auto reg = m.payload_buffer();
+			reg.data()[0] = 7;
+			reg.write_uint64_le_unsafe(1, time);
 
-		if(res == 0) {
-			// Sign failed
-			SPDLOG_ERROR("Beacon: Failed to send REG: signature failure");
-			return;
+			uint8_t hash[32];
+			CryptoPP::Keccak_256 hasher;
+			// Hash message
+			hasher.CalculateTruncatedDigest(hash, 32, reg.data()+1, 8);
+
+			// Sign
+			secp256k1_ecdsa_recoverable_signature sig;
+			auto res = secp256k1_ecdsa_sign_recoverable(
+				ctx_signer,
+				&sig,
+				hash,
+				key,
+				nullptr,
+				nullptr
+			);
+
+			if(res == 0) {
+				// Sign failed
+				SPDLOG_ERROR("Beacon: Failed to send REG: signature failure");
+				return;
+			}
+
+			// Output
+			int recid;
+			secp256k1_ecdsa_recoverable_signature_serialize_compact(
+				ctx_signer,
+				reg.data()+9,
+				&recid,
+				&sig
+			);
+
+			reg.data()[73] = (uint8_t)recid;
+
+			rt->send(std::move(m));
 		}
-
-		// Output
-		int recid;
-		secp256k1_ecdsa_recoverable_signature_serialize_compact(
-			ctx_signer,
-			reg.data()+9,
-			&recid,
-			&sig
-		);
-
-		reg.data()[73] = (uint8_t)recid;
-
-		rt->send(std::move(m));
 	}
 }
 
