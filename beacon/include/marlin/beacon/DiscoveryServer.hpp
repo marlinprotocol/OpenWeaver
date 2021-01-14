@@ -81,7 +81,14 @@ private:
 
 	secp256k1_context* ctx_signer = nullptr;
 	secp256k1_context* ctx_verifier = nullptr;
-	uint8_t key[32];
+
+	// Zero initialize explicitly
+	uint8_t key[32] = {};
+
+	bool is_key_empty() {
+		uint8_t zero[32] = {};
+		return std::memcmp(key, zero, 32) == 0;
+	}
 public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
