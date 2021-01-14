@@ -227,6 +227,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 
 		if(cur_time - p_time > 60 && p_time - cur_time > 60) {
 			// Too old or too in future
+			SPDLOG_ERROR("REG: Time error");
+
 			return;
 		}
 
@@ -256,6 +258,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 
 			if(res == 0) {
 				// Recovery failed
+				SPDLOG_ERROR("REG: Recovery failure: {}", spdlog::to_hex(payload.data(), payload.data() + payload.size()));
+
 				return;
 			}
 		}
@@ -542,6 +546,7 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	} else if(key.size() == 32) {
 		if(secp256k1_ec_seckey_verify(ctx_verifier, (uint8_t*)key.c_str()) != 1) {
 			SPDLOG_ERROR("Beacon: failed to verify key", key.size());
+			return;
 		}
 		std::memcpy(this->key, key.c_str(), 32);
 
