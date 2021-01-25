@@ -28,9 +28,9 @@ namespace marlin {
 namespace beacon {
 
 struct PeerInfo {
-	uint64_t last_seen;
-	std::array<uint8_t, 32> key;
-	std::array<uint8_t, 20> address;
+	uint64_t last_seen = 0;
+	std::array<uint8_t, 32> key = {};
+	std::array<uint8_t, 20> address = {};
 };
 
 //! Class implementing the server side node discovery functionality
