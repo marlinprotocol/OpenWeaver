@@ -18,19 +18,30 @@ public:
 	}
 
 	void new_peer(
-        core::SocketAddress const& baddr,
+		std::array<uint8_t, 20> address,
 		core::SocketAddress const& addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t version
 	) {
 		SPDLOG_INFO(
-			"New peer: {}, {}, {:spn}, {}, {}",
-            baddr.to_string(),
+			"New peer: 0x{:spn}, {}, {:spn}, {}, {}",
+			spdlog::to_hex(address.data(), address.data()+20),
 			addr.to_string(),
 			spdlog::to_hex(static_pk, static_pk+32),
 			protocol,
 			version
+		);
+	}
+
+	void new_cluster(
+		core::SocketAddress const& addr,
+		std::array<uint8_t, 20> const& client_key
+	) {
+		SPDLOG_INFO(
+			"New cluster: {}, 0x{:spn}",
+			addr.to_string(),
+			spdlog::to_hex(client_key.data(), client_key.data()+20)
 		);
 	}
 };
