@@ -55,6 +55,8 @@ private:
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
 	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
+	using DISCCLUSTER2 = DISCCLUSTER2Wrapper<BaseMessageType>;
+	using LISTCLUSTER2 = LISTCLUSTER2Wrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 	BaseTransportFactory hf;
@@ -74,6 +76,9 @@ private:
 
 	void did_recv_DISCCLUSTER(BaseTransport &transport);
 	void send_LISTCLUSTER(BaseTransport &transport);
+
+	void did_recv_DISCCLUSTER2(BaseTransport &transport);
+	void send_LISTCLUSTER2(BaseTransport &transport);
 
 	std::unordered_map<core::SocketAddress, PeerInfo> peers;
 
@@ -396,7 +401,36 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
 	}
 }
 
-//---------------- Discovery protocol functions begin ----------------//
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER2(
+	BaseTransport &transport
+) {
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	send_LISTCLUSTER2(transport);
+}
+
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER2(
+	BaseTransport &transport
+) {
+	// Filter out the dst transport
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
+
+	// Extract data into addr format
+	auto transformation = [](auto x) { return std::make_tuple(x.first, x.second.address); };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
+
+	while(t_begin != t_end) {
+		transport.send(LISTCLUSTER2(150).set_clusters(t_begin, t_end));
+	}
+}
+
+//---------------- Discovery protocol functions end ----------------//
 
 
 //---------------- Listen delegate functions begin ----------------//
@@ -478,6 +512,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 		// LISTCLUSTER
 		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
 		break;
+		// DISCCLUSTER2
+		case 10: did_recv_DISCCLUSTER2(transport);
+		break;
+		// LISTCLUSTER2
+		case 11: SPDLOG_ERROR("Unexpected LISTCLUSTER2 from {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
 		break;
@@ -515,6 +555,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send(
 		break;
 		// LISTCLUSTER
 		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());
+		break;
+		// DISCCLUSTER2
+		case 10: SPDLOG_TRACE("DISCCLUSTER2 >>> {}", transport.dst_addr.to_string());
+		break;
+		// LISTCLUSTER2
+		case 11: SPDLOG_TRACE("LISTCLUSTER2 >>> {}", transport.dst_addr.to_string());
 		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
