@@ -486,7 +486,7 @@ struct LISTCLUSTER2Wrapper {
 		while(begin != end && idx + entry_size <= base.payload_buffer().size()) {
 			std::apply([&](core::SocketAddress const& addr, std::array<uint8_t, 20> const& address) {
 				addr.serialize(base.payload()+idx, 8);
-				base.payload_buffer().write_unsafe(8, address.data(), 20);
+				base.payload_buffer().write_unsafe(idx+8, address.data(), 20);
 			}, *begin);
 
 			idx += entry_size;
