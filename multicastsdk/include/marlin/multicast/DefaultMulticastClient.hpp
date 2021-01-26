@@ -90,6 +90,18 @@ public:
 		);
 	}
 
+	void msg_log(
+		core::SocketAddress taddr,
+		core::SocketAddress baddr,
+		uint64_t message_id,
+		core::WeakBuffer
+	) {
+		SPDLOG_INFO(
+			"Msg log: {}, cluster: {}, relay: {}",
+			message_id, baddr.to_string(), taddr.to_string()
+		);
+	}
+
 	void manage_subscriptions(
 		core::SocketAddress baddr,
 		size_t max_sol_conns,
