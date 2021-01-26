@@ -22,16 +22,11 @@
 #include <spdlog/fmt/bin_to_hex.h>
 
 #include "Messages.hpp"
+#include "PeerInfo.hpp"
 
 
 namespace marlin {
 namespace beacon {
-
-struct PeerInfo {
-	uint64_t last_seen = 0;
-	std::array<uint8_t, 32> key = {};
-	std::array<uint8_t, 20> address = {};
-};
 
 //! Class implementing the server side node discovery functionality
 /*!

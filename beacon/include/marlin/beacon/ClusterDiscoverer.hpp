@@ -9,6 +9,7 @@
 #include <sodium.h>
 
 #include "Messages.hpp"
+#include "PeerInfo.hpp"
 
 
 namespace marlin {
