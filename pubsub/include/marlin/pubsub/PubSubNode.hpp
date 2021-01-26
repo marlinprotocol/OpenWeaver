@@ -29,6 +29,21 @@
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
 
+
+namespace std {
+	/// Hash function for SocketAddress so it can be used as a key
+	template <>
+	struct hash<std::array<uint8_t, 20>>
+	{
+		/// Hash function for SocketAddress so it can be used as a key
+		size_t operator()(std::array<uint8_t, 20> const& addr) const
+		{
+			return std::hash<uint64_t>()(*(uint64_t*)addr.data()) ^ std::hash<uint64_t>()(*(uint64_t*)(addr.data()+8)) ^ std::hash<uint32_t>()(*(uint32_t*)(addr.data()+16));
+		}
+	};
+}
+
+
 namespace marlin {
 
 namespace lpf {
@@ -78,6 +93,7 @@ private:
 
 //---------------- Transport types ----------------//
 public:
+	using ClientKey = std::array<uint8_t, 20>;
 	using Self = PubSubNode<
 		PubSubDelegate,
 		enable_cut_through,
@@ -139,9 +155,9 @@ public:
 		TransportSet sol_conns;
 		TransportSet sol_standby_conns;
 	};
-	std::unordered_map<core::SocketAddress, Connections> conn_map;
+	std::unordered_map<ClientKey, Connections> conn_map;
 	TransportSet unsol_conns;
-	std::unordered_map<core::SocketAddress, core::SocketAddress> beacon_map;
+	std::unordered_map<core::SocketAddress, ClientKey> beacon_map;
 
 	std::unordered_set<core::SocketAddress> blacklist_addr;
 	// TransportSet unsol_standby_conns;
@@ -149,8 +165,8 @@ public:
 	void send_SUBSCRIBE(BaseTransport &transport, uint16_t channel);
 	void send_UNSUBSCRIBE(BaseTransport &transport, uint16_t channel);
 
-	bool add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport);
-	bool add_sol_standby_conn(core::SocketAddress const &baddr, BaseTransport &transport);
+	bool add_sol_conn(ClientKey client_key, BaseTransport &transport);
+	bool add_sol_standby_conn(ClientKey client_key, BaseTransport &transport);
 	bool add_unsol_conn(BaseTransport &transport);
 	// bool add_unsol_standby_conn(BaseTransport &transport); TODO: to be introduced later
 
@@ -165,8 +181,8 @@ private:
 	asyncio::Timer peer_selection_timer;
 
 	void peer_selection_timer_cb() {
-		for(auto& [baddr, conns] : conn_map) {
-			delegate->manage_subscriptions(baddr, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
+		for(auto& [client_key, conns] : conn_map) {
+			delegate->manage_subscriptions(client_key, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
 		}
 
 		for(auto& conn : unsol_conns) {
@@ -309,7 +325,7 @@ public:
 		MessageHeaderType prev_header = {}
 	);
 
-	void subscribe(core::SocketAddress const &baddr, core::SocketAddress const &addr, uint8_t const *remote_static_pk);
+	void subscribe(ClientKey client_key, core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk);
 	void unsubscribe(core::SocketAddress const &addr);
 private:
@@ -475,7 +491,7 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 
 		if (blacklist_addr.find(transport.dst_addr) != blacklist_addr.end()) {
 			blacklist_addr.erase(transport.dst_addr);
-			add_sol_conn(core::SocketAddress(), transport);
+			add_sol_conn({}, transport);
 			return 0;
 		}
 
@@ -1098,7 +1114,7 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// );
 
 	beacon_map.erase(transport.dst_addr);
-	for(auto& [baddr, conns] : conn_map) {
+	for(auto& [client_key, conns] : conn_map) {
 		bool is_sol = remove_conn(conns.sol_conns, transport) || remove_conn(conns.sol_standby_conns, transport);
 		if (is_sol && reason == 1) {
 			// add to blacklist
@@ -1118,7 +1134,7 @@ void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 
 		// Call Manage_subscribers to rebalance lists
 		if(is_sol)
-			delegate->manage_subscriptions(baddr, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
+			delegate->manage_subscriptions(client_key, max_sol_conns, conns.sol_conns, conns.sol_standby_conns);
 	}
 
 	// Remove subscriptions
@@ -1274,7 +1290,7 @@ void PUBSUBNODETYPE::send_message_on_channel_impl(
 	if(conn_map.size() != 0) {
 		auto rnd = message_id % ((conn_map.size()+4) / 5);
 		auto idx = 0u;
-		for(auto& [baddr, conns] : conn_map) {
+		for(auto& [client_key, conns] : conn_map) {
 			// (void)_;
 			idx++;
 			if(idx < rnd*5) {
@@ -1285,7 +1301,7 @@ void PUBSUBNODETYPE::send_message_on_channel_impl(
 				break;
 			}
 
-			SPDLOG_INFO("Sending message {} to {}", message_id, baddr.to_string());
+			SPDLOG_INFO("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
 
 			for (
 				auto it = conns.sol_conns.begin();
@@ -1352,7 +1368,7 @@ void PUBSUBNODETYPE::send_message_with_cut_through_check(
 
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::subscribe(
-	core::SocketAddress const &baddr,
+	ClientKey client_key,
 	core::SocketAddress const &addr,
 	uint8_t const *remote_static_pk
 ) {
@@ -1363,14 +1379,14 @@ void PUBSUBNODETYPE::subscribe(
 	auto *transport = f.get_transport(addr);
 
 	if(transport == nullptr) {
-		beacon_map[addr] = baddr;
+		beacon_map[addr] = client_key;
 		dial(addr, remote_static_pk);
 		return;
 	} else if(!transport->is_active()) {
 		return;
 	}
 
-	add_sol_conn(baddr, *transport);
+	add_sol_conn(client_key, *transport);
 }
 
 //! subscribes to given publisher
@@ -1379,7 +1395,7 @@ void PUBSUBNODETYPE::subscribe(
 */
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::subscribe(core::SocketAddress const &addr, uint8_t const *remote_static_pk) {
-	subscribe(core::SocketAddress(), addr, remote_static_pk);
+	subscribe({}, addr, remote_static_pk);
 }
 
 //! unsubscribes from given publisher
@@ -1404,13 +1420,13 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
-	SPDLOG_DEBUG("add sol: {}, {}", baddr.to_string(), transport.dst_addr.to_string());
-	auto& conns = conn_map[baddr];
+bool PUBSUBNODETYPE::add_sol_conn(ClientKey client_key, BaseTransport &transport) {
+	SPDLOG_DEBUG("add sol: {}, {}", client_key.to_string(), transport.dst_addr.to_string());
+	auto& conns = conn_map[client_key];
 
 	//TODO: size check.
 	if (conns.sol_conns.size() >= max_sol_conns) {
-		add_sol_standby_conn(baddr, transport);
+		add_sol_standby_conn(client_key, transport);
 		return false;
 	}
 
@@ -1442,8 +1458,8 @@ bool PUBSUBNODETYPE::add_sol_conn(core::SocketAddress const &baddr, BaseTranspor
 }
 
 template<PUBSUBNODE_TEMPLATE>
-bool PUBSUBNODETYPE::add_sol_standby_conn(core::SocketAddress const &baddr, BaseTransport &transport) {
-	auto& conns = conn_map[baddr];
+bool PUBSUBNODETYPE::add_sol_standby_conn(ClientKey client_key, BaseTransport &transport) {
+	auto& conns = conn_map[client_key];
 
 	remove_conn(unsol_conns, transport);
 
