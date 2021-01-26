@@ -186,8 +186,8 @@ private:
 		}
 
 		for(auto& conn : unsol_conns) {
-			auto* static_pk = conn->get_static_pk();
-			auto* remote_static_pk = conn->get_remote_static_pk();
+			[[maybe_unused]] auto* static_pk = conn->get_static_pk();
+			[[maybe_unused]] auto* remote_static_pk = conn->get_remote_static_pk();
 			SPDLOG_DEBUG(
 				"Node {:spn}: Unsol conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
