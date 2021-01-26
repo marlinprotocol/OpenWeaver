@@ -175,7 +175,7 @@ public:
 	}
 
 	void manage_subscriptions(
-		core::SocketAddress baddr,
+		typename PubSubNodeType::ClientKey baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns

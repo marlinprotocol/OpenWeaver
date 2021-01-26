@@ -46,7 +46,7 @@ public:
 	}
 
 	void manage_subscriptions(
-		SocketAddress,
+		std::array<uint8_t, 20>,
 		size_t,
 		typename PubSubNodeType::TransportSet&,
 		typename PubSubNodeType::TransportSet&

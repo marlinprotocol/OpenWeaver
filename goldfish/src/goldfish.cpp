@@ -81,7 +81,7 @@ public:
 	}
 
 	void manage_subscriptions(
-		SocketAddress,
+		typename PubSubNodeType::ClientKey,
 		size_t,
 		typename PubSubNodeType::TransportSet&,
 		typename PubSubNodeType::TransportSet&) {

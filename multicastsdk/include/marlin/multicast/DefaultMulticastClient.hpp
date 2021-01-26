@@ -38,14 +38,18 @@ public:
 	PubSubNodeType ps;
 
 	void new_peer(
-		core::SocketAddress const &baddr,
+		std::array<uint8_t, 20> client_key,
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps.subscribe(baddr, addr, static_pk);
+			// Skip zero keys
+			if(client_key == std::array<uint8_t, 20>({})) {
+				return;
+			}
+			ps.subscribe(client_key, addr, static_pk);
 		}
 	}
 
@@ -91,7 +95,7 @@ public:
 	}
 
 	void manage_subscriptions(
-		core::SocketAddress baddr,
+		typename PubSubNodeType::ClientKey baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
