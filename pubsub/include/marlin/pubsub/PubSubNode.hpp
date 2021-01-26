@@ -676,6 +676,11 @@ void PUBSUBNODETYPE::send_RESPONSE(
 	transport.send(std::move(m));
 }
 
+template <typename T>
+struct msg_log {
+    static bool const value = false;
+};
+
 //! Callback on receipt of message data
 /*!
 	\li reassembles the fragmented packets received by the streamTransport back into meaninfull data component
@@ -697,6 +702,10 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 	auto channel = bytes.read_uint16_be_unsafe(8);
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
+
+	if constexpr(msg_log<PubSubDelegate>::value) {
+		delegate->msg_log(transport.dst_addr, beacon_map[transport.dst_addr], message_id, bytes);
+	}
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
