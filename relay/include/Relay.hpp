@@ -59,7 +59,7 @@ public:
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
-	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::forward<Args>(args)...) {}
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::nullopt, std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -71,13 +71,16 @@ public:
 		std::vector<core::SocketAddress>&& heartbeat_addrs,
 		std::string address,
 		std::string name,
+		std::optional<std::string> keyname,
 		Args&&... args
 	) {
 		this->protocol = protocol;
 		this->pubsub_port = pubsub_port;
 
-		if(boost::filesystem::exists("./.marlin/keys/static")) {
-			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+		std::string keypath = "./.marlin/keys/" + keyname.value_or("static");
+
+		if(boost::filesystem::exists(keypath)) {
+			std::ifstream sk(keypath, std::ios::binary);
 			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 				throw;
 			}
@@ -86,7 +89,7 @@ public:
 			crypto_box_keypair(static_pk, static_sk);
 
 			boost::filesystem::create_directories("./.marlin/keys/");
-			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+			std::ofstream sk(keypath, std::ios::binary);
 
 			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 		}
