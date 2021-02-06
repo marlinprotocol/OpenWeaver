@@ -228,8 +228,8 @@ public:
 
 
 		for (auto* transport : sol_standby_conns) {
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Standby conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
@@ -238,8 +238,8 @@ public:
 		}
 
 		for (auto* transport : sol_conns) {
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Sol conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
