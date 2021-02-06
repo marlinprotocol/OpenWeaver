@@ -5,6 +5,7 @@
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
+#include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
@@ -20,12 +21,15 @@
 #include <random>
 #include <unordered_set>
 #include <tuple>
-#include "marlin/pubsub/DefaultAbci.hpp"
 
+#include <libwebsockets.h>
 #include <secp256k1_recovery.h>
-#include <marlin/pubsub/PubSubTransportSet.hpp>
 #include <cryptopp/keccak.h>
+#include <spdlog/fmt/fmt.h>
+#include <rapidjson/document.h>
 
+#include "marlin/pubsub/PubSubTransportSet.hpp"
+#include "marlin/pubsub/DefaultAbci.hpp"
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
 
@@ -57,6 +61,276 @@ struct IsTransportEncrypted<stream::StreamTransport<
 }
 
 namespace pubsub {
+
+int status;
+
+template<typename DelegateType>
+struct StakeRequester {
+	lws_context_creation_info info;
+	lws_protocols protocols[2] = {
+		{ "http", http_handler, 0, 0, 0, 0, 0 },
+		{ nullptr, nullptr, 0, 0, 0, 0, 0 }
+	};
+	void* loop = uv_default_loop();
+	DelegateType* delegate = nullptr;
+
+	StakeRequester() : refresh_timer(this) {
+		std::memset(&info, 0, sizeof(info));  // prevents some issues with garbage values
+		info.foreign_loops = &loop;
+		info.port = CONTEXT_PORT_NO_LISTEN;
+		info.options = LWS_SERVER_OPTION_LIBUV | LWS_SERVER_OPTION_UV_NO_SIGSEGV_SIGFPE_SPIN;
+		info.connect_timeout_secs = 5;
+		info.protocols = protocols;
+		info.user = this;
+
+		refresh_timer.template start<StakeRequester, &StakeRequester::refresh>(0, 30000);
+	}
+
+	std::unordered_map<std::array<uint8_t, 20>, uint64_t> stakes;
+	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> cumulative_weights;
+
+	uint64_t request(std::array<uint8_t, 20> client_key) {
+		auto iter = stakes.find(client_key);
+		if(iter == stakes.end()) {
+			return 0;
+		}
+		return iter->second;
+	}
+
+	std::vector<std::array<uint8_t, 20>> sample(uint64_t n = 1) {
+		std::vector<std::array<uint8_t, 20>> samples;
+		samples.reserve(n);
+
+		if(cumulative_weights.size() <= n) {
+			for(auto iter = cumulative_weights.begin(); iter != cumulative_weights.end(); iter++) {
+				samples.push_back(iter->second);
+			}
+			return samples;
+		}
+
+		std::random_device rd;
+		std::uniform_int_distribution<uint64_t> dist(0, cumulative_weights.back().first);
+
+		while(samples.size() != 5) {
+			auto rnd = dist(rd);
+			auto iter = std::lower_bound(
+				cumulative_weights.begin(),
+				cumulative_weights.end(),
+				rnd,
+				[](std::pair<uint64_t, std::array<uint8_t, 20>> p, uint64_t v) { return p.first < v; }
+			);
+
+			if(std::find(samples.begin(), samples.end(), iter->second) != samples.end()) {
+				continue;
+			} else {
+				samples.push_back(iter->second);
+			}
+		}
+
+		return samples;
+	}
+
+	asyncio::Timer refresh_timer;
+
+	void refresh() {
+		auto* context = lws_create_context(&info);
+		if(context == nullptr) {
+			SPDLOG_ERROR("Failed to init libws context");
+			return;
+		}
+
+		lws_client_connect_info connect_info = lws_client_connect_info();
+		std::memset(&connect_info, 0, sizeof(connect_info));  // prevents some issues with garbage values
+		connect_info.context = context;
+		connect_info.address = "graph.marlin.pro";
+		connect_info.port = 80;
+		connect_info.ssl_connection = 0;
+		connect_info.method = "POST";
+		connect_info.protocol = "http";
+		connect_info.alpn = "http/1.1";
+		connect_info.path = "/subgraphs/name/marlinprotocol/staking";
+		connect_info.host = connect_info.address;
+		connect_info.origin = connect_info.address;
+
+		auto* conn = lws_client_connect_via_info(&connect_info);
+		(void)conn;
+
+		return;
+	}
+
+	uint8_t resp[1000000];
+	uint64_t size = 0;
+
+	static int http_handler(lws* conn, lws_callback_reasons reason, void* user, void* in, size_t len) {
+		auto& req = *(StakeRequester<DelegateType>*)lws_context_user(lws_get_context(conn));
+		switch (reason) {
+		case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+			SPDLOG_ERROR("lws conn error: {}", in ? (char*)in : "<unknown>");
+
+			req.size = 0;
+
+			break;
+		case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
+			SPDLOG_DEBUG("lws conn established");
+			char buf[256];
+			lws_get_peer_simple(conn, buf, sizeof(buf));
+			status = lws_http_client_http_response(conn);
+
+			SPDLOG_DEBUG("lws conn: {}, http response: {}", buf, status);
+			break;
+		case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ:
+			SPDLOG_DEBUG("lws read");
+			SPDLOG_DEBUG("lws read: {} bytes: {}", len, std::string((char const*)in, (char const*)in+len));
+
+			if(req.size + len > 1000000) {
+				return -1;
+			}
+			SPDLOG_DEBUG("lws copy");
+			std::memcpy(req.resp+req.size, in, len);
+			req.size += len;
+
+			return 0; /* don't passthru */
+		case LWS_CALLBACK_RECEIVE_CLIENT_HTTP:
+			{
+				char buffer[1024 + LWS_PRE];
+				char *px = buffer + LWS_PRE;
+				int lenx = sizeof(buffer) - LWS_PRE;
+
+				if (lws_http_client_read(conn, &px, &lenx) < 0)
+					return -1;
+			}
+			return 0; /* don't passthru */
+
+		case LWS_CALLBACK_COMPLETED_CLIENT_HTTP:
+			SPDLOG_DEBUG("lws conn completed: {}", status);
+			{
+			rapidjson::Document d;
+			d.Parse((char*)req.resp, req.size);
+
+			if(!d.HasParseError()) {
+				SPDLOG_DEBUG("Parsed");
+				// TODO: Better validation
+
+				// Reset stake data
+				req.stakes.clear();
+				req.cumulative_weights.clear();
+
+				// Iterate through clusters
+				auto& clusters = d["data"]["clusters"];
+				for(rapidjson::SizeType i = 0; i < clusters.Size(); i++) {
+					SPDLOG_DEBUG("Cluster {}", i);
+					auto& cluster = clusters[i];
+					uint64_t total_amount = 0;
+					bool mpondThreshold = false;
+					// Iterate through tokens
+					auto& tokens = cluster["totalDelegations"];
+					for(rapidjson::SizeType j = 0; j < tokens.Size(); j++) {
+						SPDLOG_DEBUG("Delegation {}", j);
+						auto& delegation = tokens[j];
+						std::string amount = delegation["amount"].GetString();
+						std::string token_id = delegation["token"]["tokenId"].GetString();
+						if(token_id == "0x1635815984abab0dbb9afd77984dad69c24bf3d711bc0ddb1e2d53ef2d523e5e") {
+							if(amount.size() > 12) {
+								auto am = std::stoi(amount.substr(0, amount.size() - 12));
+								total_amount += am;
+								if(am >= 500000) {
+									mpondThreshold = true;
+								}
+							}
+						} else if(token_id == "0x5802add45f8ec0a524470683e7295faacc853f97cf4a8d3ffbaaf25ce0fd87c4") {
+							if(amount.size() > 18) {
+								auto am = std::stoi(amount.substr(0, amount.size() - 18));
+								total_amount += am;
+							}
+						}
+					}
+
+					if(mpondThreshold) {
+						std::string client_key_str = cluster["clientKey"].GetString();
+						std::array<uint8_t, 20> addr;
+						for(uint i = 0; i < 20; i++) {
+							uint8_t b = 0;
+							auto byte = client_key_str[2*i+2];
+							if(byte >= '0' && byte <= '9') b += byte - '0';
+							else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
+							else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
+							b <<= 4;
+
+							byte = client_key_str[2*i+3];
+							if(byte >= '0' && byte <= '9') b += byte - '0';
+							else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
+							else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
+
+							addr.data()[i] = b;
+						}
+
+						SPDLOG_DEBUG("Client key: 0x{:spn}, Stake: {}", spdlog::to_hex(addr.data(), addr.data()+addr.size()), total_amount);
+						req.stakes[addr] = total_amount;
+					}
+				}
+
+				uint64_t total = 0;
+				req.cumulative_weights.reserve(req.stakes.size());
+				for(auto iter = req.stakes.begin(); iter != req.stakes.end(); iter++) {
+					total += (uint64_t)std::sqrt(iter->second);
+					req.cumulative_weights.push_back(std::make_pair(total, iter->first));
+					SPDLOG_DEBUG("Cumulative: {}", total);
+				}
+			}
+			}
+
+			req.size = 0;
+
+			lws_cancel_service(lws_get_context(conn)); /* abort poll wait */
+			break;
+
+		case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
+			SPDLOG_DEBUG("lws conn closed: {}", status);
+
+			req.size = 0;
+
+			lws_cancel_service(lws_get_context(conn)); /* abort poll wait */
+			break;
+
+		case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
+			SPDLOG_DEBUG("lws adding header: {}", status);
+			if (lws_http_is_redirected_to_get(conn)) {
+				break;
+			}
+			if (lws_add_http_header_by_name(conn, (uint8_t*)"Content-Type:", (uint8_t*)"application/json", 16, (uint8_t**)in, (*(uint8_t**)in)+len)) {
+				return -1;
+			}
+			if (lws_add_http_header_by_name(conn, (uint8_t*)"Content-Length:", (uint8_t*)"174", 3, (uint8_t**)in, (*(uint8_t**)in)+len)) {
+				return -1;
+			}
+			lws_client_http_body_pending(conn, 1);
+			lws_callback_on_writable(conn);
+			break;
+
+		case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE:
+			SPDLOG_DEBUG("lws writing body: {}", status);
+			if (lws_http_is_redirected_to_get(conn)) {
+				break;
+			}
+
+			lws_client_http_body_pending(conn, 0);
+
+			{
+				// auto& requester = *(StakeRequester<DelegateType>*)user;
+				auto body = std::string("{\"query\": \"query { clusters(where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}");
+
+				if (lws_write(conn, (uint8_t*)body.c_str(), 174, LWS_WRITE_HTTP) != 174)
+					return -1;
+			}
+
+			return 0;
+		default:
+			break;
+		}
+
+		return lws_callback_http_dummy(conn, reason, user, in, len);
+	}
+};
 
 struct MessageHeader {
 	uint8_t const* attestation_data = nullptr;
@@ -90,7 +364,6 @@ private:
 	static constexpr uint64_t DefaultMsgIDTimerInterval = 10000;
 	static constexpr uint64_t DefaultPeerSelectTimerInterval = 60000;
 	static constexpr uint64_t DefaultBlacklistTimerInterval = 600000;
-
 //---------------- Transport types ----------------//
 public:
 	using ClientKey = std::array<uint8_t, 20>;
@@ -139,6 +412,7 @@ public:
 		BaseTransport*
 	>;
 private:
+	StakeRequester<Self> streq;
 	AttesterType attester;
 	WitnesserType witnesser;
 	AbciType abci;
@@ -197,11 +471,11 @@ private:
 		}
 
 		// std::for_each(
-		// 	this->delegate->channels.begin(),
-		// 	this->delegate->channels.end(),
-		// 	[&] (uint16_t channel) {
-		// 		this->delegate->manage_subscribers(channel, this->channel_subscriptions[channel], this->potential_channel_subscriptions[channel]);
-		// 	}
+		//	this->delegate->channels.begin(),
+		//	this->delegate->channels.end(),
+		//	[&] (uint16_t channel) {
+		//		this->delegate->manage_subscribers(channel, this->channel_subscriptions[channel], this->potential_channel_subscriptions[channel]);
+		//	}
 		// );
 	}
 
@@ -387,16 +661,16 @@ private:
 			}
 		}
 		// std::for_each(
-		// 	this->delegate->channels.begin(),
-		// 	this->delegate->channels.end(),
-		// 	[&] (uint16_t channel) {
-		// 		for (auto* transport : this->channel_subscriptions[channel]) {
-		// 			this->send_HEARTBEAT(*transport);
-		// 		}
-		// 		for (auto* pot_transport : this->potential_channel_subscriptions[channel]) {
-		// 			this->send_HEARTBEAT(*pot_transport);
-		// 		}
-		// 	}
+		//	this->delegate->channels.begin(),
+		//	this->delegate->channels.end(),
+		//	[&] (uint16_t channel) {
+		//		for (auto* transport : this->channel_subscriptions[channel]) {
+		//			this->send_HEARTBEAT(*transport);
+		//		}
+		//		for (auto* pot_transport : this->potential_channel_subscriptions[channel]) {
+		//			this->send_HEARTBEAT(*pot_transport);
+		//		}
+		//	}
 		// );
 	}
 
@@ -1114,12 +1388,12 @@ template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_close(BaseTransport &transport, uint16_t reason) {
 	// Remove from subscribers
 	// std::for_each(
-	// 	delegate->channels.begin(),
-	// 	delegate->channels.end(),
-	// 	[&] (uint16_t channel) {
-	// 		channel_subscriptions[channel].erase(&transport);
-	// 		potential_channel_subscriptions[channel].erase(&transport);
-	// 	}
+	//	delegate->channels.begin(),
+	//	delegate->channels.end(),
+	//	[&] (uint16_t channel) {
+	//		channel_subscriptions[channel].erase(&transport);
+	//		potential_channel_subscriptions[channel].erase(&transport);
+	//	}
 	// );
 
 	beacon_map.erase(transport.dst_addr);
@@ -1227,6 +1501,8 @@ PUBSUBNODETYPE::PubSubNode(
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
+
+	streq.request({});
 }
 
 template<PUBSUBNODE_TEMPLATE>
@@ -1296,20 +1572,25 @@ void PUBSUBNODETYPE::send_message_on_channel_impl(
 	core::SocketAddress const *excluded,
 	MessageHeaderType prev_header
 ) {
-	if(conn_map.size() != 0) {
-		auto rnd = message_id % ((conn_map.size()+4) / 5);
-		auto idx = 0u;
+	if(conn_map.size() <= 5) {
 		for(auto& [client_key, conns] : conn_map) {
-			// (void)_;
-			idx++;
-			if(idx < rnd*5) {
-				continue;
-			}
+			SPDLOG_INFO("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
 
-			if(idx > rnd*5+4) {
-				break;
+			for (
+				auto it = conns.sol_conns.begin();
+				it != conns.sol_conns.end();
+				it++
+			) {
+				// Exclude given address, usually sender tp prevent loops
+				if(excluded != nullptr && (*it)->dst_addr == *excluded)
+					continue;
+				send_message_with_cut_through_check(*it, channel, message_id, data, size, prev_header);
 			}
-
+		}
+	} else {
+		auto cks = streq.sample(5);
+		for(auto& client_key : cks) {
+			auto& conns = conn_map[client_key];
 			SPDLOG_INFO("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
 
 			for (
@@ -1443,7 +1724,6 @@ bool PUBSUBNODETYPE::add_sol_conn(ClientKey client_key, BaseTransport &transport
 	remove_conn(unsol_conns, transport);
 
 	if (!conns.sol_conns.check_tranport_in_set(transport)) {
-
 		std::for_each(
 			delegate->channels.begin(),
 			delegate->channels.end(),

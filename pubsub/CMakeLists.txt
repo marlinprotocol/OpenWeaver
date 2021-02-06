@@ -24,7 +24,7 @@ target_include_directories(pubsub
 		$<INSTALL_INTERFACE:include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_compile_features(pubsub INTERFACE cxx_std_17)
+target_compile_features(pubsub INTERFACE cxx_std_20)
 
 # marlin::lpf
 target_link_libraries(pubsub INTERFACE marlin::lpf)
@@ -43,6 +43,13 @@ target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
 
 # secp256k1
 target_link_libraries(pubsub INTERFACE secp256k1::secp256k1)
+
+# lws
+target_link_libraries(pubsub INTERFACE websockets)
+
+# rapidjson
+target_link_libraries(pubsub INTERFACE rapidjson)
+
 
 install(TARGETS pubsub
 	EXPORT marlin-pubsub-export

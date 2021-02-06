@@ -96,13 +96,13 @@ public:
 
 	void msg_log(
 		core::SocketAddress taddr,
-		core::SocketAddress baddr,
+		typename PubSubNodeType::ClientKey baddr,
 		uint64_t message_id,
 		core::WeakBuffer
 	) {
 		SPDLOG_INFO(
-			"Msg log: {}, cluster: {}, relay: {}",
-			message_id, baddr.to_string(), taddr.to_string()
+			"Msg log: {}, cluster: 0x{:spn}, relay: {}",
+			message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()
 		);
 	}
 
