@@ -84,6 +84,10 @@ function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN)
 	)
 endfunction()
 
+bridge_exe(dot 20700 20702 20901)
+bridge_exe(iris 21700 21702 21901)
+bridge_exe(cosmos 22200 22202 22401)
+
 add_executable(msggen
 	examples/msggen.cpp
 )
@@ -107,45 +111,6 @@ target_link_libraries(multicastTcpBridge PUBLIC marlin::lpf)
 
 # MarlinStream
 target_link_libraries(multicastTcpBridge PUBLIC marlin::stream)
-
-
-add_executable(dot_bridge
-	examples/dot_bridge.cpp
-)
-
-target_link_libraries(dot_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(dot_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(dot_bridge PUBLIC marlin::stream)
-
-
-add_executable(iris_bridge
-	examples/iris_bridge.cpp
-)
-
-target_link_libraries(iris_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(iris_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(iris_bridge PUBLIC marlin::stream)
-
-
-add_executable(atom_bridge
-	examples/atom_bridge.cpp
-)
-
-target_link_libraries(atom_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(atom_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(atom_bridge PUBLIC marlin::stream)
 
 
 ##########################################################
