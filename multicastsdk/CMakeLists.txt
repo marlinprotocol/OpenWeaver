@@ -77,6 +77,9 @@ function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN)
 	# MarlinStream
 	target_link_libraries(${EXE_NAME} PUBLIC marlin::stream)
 
+	# structopt
+	target_link_libraries(${EXE_NAME} PUBLIC structopt::structopt)
+
 	target_compile_definitions(${EXE_NAME} PUBLIC
 		MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
 		MARLIN_BRIDGE_DEFAULT_DISC_PORT=${DEFAULT_DISC}

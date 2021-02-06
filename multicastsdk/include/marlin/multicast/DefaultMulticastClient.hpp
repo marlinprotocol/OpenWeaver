@@ -192,7 +192,7 @@ public:
 			std::tie(options.static_pk)
 		),
 		channels(options.channels) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Beacon: {}, Discovery: {}, PubSub: {}",
 			options.beacon_addr,
 			options.discovery_addr,
