@@ -45,12 +45,12 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-multicastsdk-export
-  FILE
-	MarlinMulticastSDKTargets.cmake
-  NAMESPACE
-	marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
+	FILE
+		MarlinMulticastSDKTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
 )
 
 install(FILES
@@ -62,6 +62,27 @@ install(FILES
 ##########################################################
 # C++ SDK examples
 ##########################################################
+
+function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN)
+	set(EXE_NAME ${EXE_PREFIX}_bridge)
+	add_executable(${EXE_NAME}
+		src/bridge.cpp
+	)
+
+	target_link_libraries(${EXE_NAME} PUBLIC multicastsdk)
+
+	# MarlinLpf
+	target_link_libraries(${EXE_NAME} PUBLIC marlin::lpf)
+
+	# MarlinStream
+	target_link_libraries(${EXE_NAME} PUBLIC marlin::stream)
+
+	target_compile_definitions(${EXE_NAME} PUBLIC
+		MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
+		MARLIN_BRIDGE_DEFAULT_DISC_PORT=${DEFAULT_DISC}
+		MARLIN_BRIDGE_DEFAULT_LISTEN_PORT=${DEFAULT_LISTEN}
+	)
+endfunction()
 
 add_executable(msggen
 	examples/msggen.cpp
