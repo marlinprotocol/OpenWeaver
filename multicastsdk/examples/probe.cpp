@@ -10,19 +10,6 @@ using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::lpf;
 
-class MulticastDelegate;
-
-namespace marlin {
-namespace pubsub {
-
-template <>
-struct msg_log<DefaultMulticastClient<MulticastDelegate>> {
-    static bool const value = true;
-};
-
-}  // namespace pubsub
-}  // namespace marlin
-
 
 class MulticastDelegate {
 public:
