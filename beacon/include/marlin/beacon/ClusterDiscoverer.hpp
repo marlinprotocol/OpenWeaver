@@ -158,7 +158,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 		core::SocketAddress peer_addr(transport.dst_addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer(cluster_map[beacon_map[transport.dst_addr].first].address, peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer_protocol(cluster_map[beacon_map[transport.dst_addr].first].address, peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
 }
 

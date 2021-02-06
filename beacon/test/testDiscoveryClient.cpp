@@ -22,7 +22,7 @@ struct Delegate {
 		return {};
 	};
 
-	std::function<void(SocketAddress const&, uint8_t const*, uint32_t, uint16_t)> new_peer = [](
+	std::function<void(SocketAddress const&, uint8_t const*, uint32_t, uint16_t)> new_peer_protocol = [](
 		SocketAddress const& addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,

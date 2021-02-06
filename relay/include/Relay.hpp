@@ -120,7 +120,7 @@ public:
 	}
 
 	// relay logic
-	void new_peer(
+	void new_peer_protocol(
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,

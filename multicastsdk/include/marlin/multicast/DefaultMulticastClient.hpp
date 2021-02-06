@@ -37,7 +37,7 @@ public:
 	beacon::ClusterDiscoverer<Self> b;
 	PubSubNodeType ps;
 
-	void new_peer(
+	void new_peer_protocol(
 		std::array<uint8_t, 20> client_key,
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
