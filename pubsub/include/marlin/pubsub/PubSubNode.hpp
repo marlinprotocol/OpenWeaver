@@ -36,7 +36,8 @@
 
 namespace std {
 	/// Hash function for SocketAddress so it can be used as a key
-	template <>
+	template <
+		>
 	struct hash<std::array<uint8_t, 20>>
 	{
 		/// Hash function for SocketAddress so it can be used as a key
@@ -75,6 +76,8 @@ struct StakeRequester {
 	DelegateType* delegate = nullptr;
 
 	StakeRequester() : refresh_timer(this) {
+		lws_set_log_level(1, NULL);
+
 		std::memset(&info, 0, sizeof(info));  // prevents some issues with garbage values
 		info.foreign_loops = &loop;
 		info.port = CONTEXT_PORT_NO_LISTEN;
