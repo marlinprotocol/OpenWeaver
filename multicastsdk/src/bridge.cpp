@@ -183,7 +183,7 @@ struct CliOptions {
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
 };
-STRUCTOPT(CliOptions,  keystore_path, keystore_pass_path, discovery_addr, pubsub_addr, beacon_addr);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
@@ -210,10 +210,10 @@ int main(int argc, char** argv) {
 			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT))
 		);
 		auto listen_addr = SocketAddress::from_string(
-			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_LISTEN_PORT))
+			options.listen_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_LISTEN_PORT))
 		);
 		auto beacon_addr = SocketAddress::from_string(
-			options.pubsub_addr.value_or("127.0.0.1:8002")
+			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
 
 		SPDLOG_INFO(
