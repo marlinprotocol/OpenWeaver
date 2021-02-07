@@ -36,7 +36,13 @@ struct Delegate {
 	}
 
 	void did_send(TransportType &transport, Buffer &&packet) {
-        t_did_send(transport, std::move(packet));
+//        t_did_send(transport, std::move(packet));
+            SPDLOG_INFO(
+        	    "Transport {{ Src: {}, Dst: {} }}: Did send packet: {} bytes",
+        	    transport.src_addr.to_string(),
+        	    transport.dst_addr.to_string(),
+        	    packet.size()
+            );
 	}
 
 	void did_dial(TransportType &transport) {
@@ -83,19 +89,22 @@ TEST(StreamCongestion, Constructible) {
     	crypto_box_keypair(static_pk, static_sk);
 
     	SPDLOG_INFO(
-	    	"PK: {:spn}\nSK: {:spn}",
+	    	"\nPK: {:spn}\nSK: {:spn}",
 		    spdlog::to_hex(static_pk, static_pk+32),
 		    spdlog::to_hex(static_sk, static_sk+32)
 	    );
 
-	    StreamTransportFactory<
+        spdlog::set_level(spdlog::level::debug);
+
+	StreamTransportFactory<
 	    	Delegate,
-		    Delegate,
-		    UdpTransportFactory,
-		    UdpTransport
+		Delegate,
+		UdpTransportFactory,
+		UdpTransport
 	    > s, c;
 
-	    Delegate d;
+	Delegate d;
+
         d.t_did_send = [&] (TransportType &transport, Buffer &&packet)
         {
             SPDLOG_INFO(
@@ -106,10 +115,14 @@ TEST(StreamCongestion, Constructible) {
             );
         };
 
-	    s.bind(SocketAddress::loopback_ipv4(8000));
-	    s.listen(d);
-	    c.bind(SocketAddress::loopback_ipv4(0));
-	    c.dial(SocketAddress::loopback_ipv4(8000), d, static_pk);
+	s.bind(SocketAddress::loopback_ipv4(8000));
+	s.listen(d);
+	c.bind(SocketAddress::loopback_ipv4(8001));
+	c.listen(d);
+	s.dial(SocketAddress::loopback_ipv4(8001), d, static_pk);
 
-	    EXPECT_EQ(1,1);
+        EventLoop::run();
+	SPDLOG_INFO("{}",EventLoop::now());
+
+//	    EXPECT_EQ(1,1);
 }

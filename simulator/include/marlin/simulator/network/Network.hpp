@@ -81,6 +81,13 @@ int Network<NetworkConditionerType>::send(
 		packet.size()
 	);
 
+	if (conditioner.count == 27) {
+		std::optional<uint32_t> src_conn_id = packet.read_uint32_le(2);
+		SPDLOG_INFO("src_conn_id {}",src_conn_id.value());
+		int ret = packet.write_uint32_be(2,0);
+		ret++;
+	}
+
 	if(should_drop) {
 		return -2;
 	}

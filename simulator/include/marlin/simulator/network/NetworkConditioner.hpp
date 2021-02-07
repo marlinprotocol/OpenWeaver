@@ -7,6 +7,8 @@ namespace marlin {
 namespace simulator {
 
 class NetworkConditioner {
+	public:
+		int count = 0;
 public:
 	bool should_drop(
 		uint64_t in_tick,
@@ -27,11 +29,16 @@ public:
 // Impl
 
 bool NetworkConditioner::should_drop(
-	uint64_t,
-	core::SocketAddress const&,
-	core::SocketAddress const&,
-	uint64_t
+	uint64_t in_tick,
+	core::SocketAddress const& src,
+	core::SocketAddress const& dst,
+	uint64_t size
 ) {
+	size++;
+	SPDLOG_DEBUG("{}, {}, {}",in_tick,src.to_string(), dst.to_string());
+	this->count++;
+	if(count>20 && count<25)
+		return true;
 	return false;
 }
 
