@@ -177,8 +177,10 @@ public:
 	Delegate *delegate = nullptr;
 	std::vector<uint16_t> channels = {0};
 
+	template<typename... Args>
 	DefaultMulticastClient(
-		DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions()
+		DefaultMulticastClientOptions const& options,
+		Args&&... attester_args
 	) : b(
 			core::SocketAddress::from_string(options.discovery_addr),
 			options.static_sk
@@ -188,7 +190,7 @@ public:
 			options.max_conn,
 			0,
 			options.static_sk,
-			{},
+			std::forward_as_tuple(std::forward<Args>(attester_args)...),
 			std::tie(options.static_pk)
 		),
 		channels(options.channels) {

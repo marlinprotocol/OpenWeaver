@@ -65,8 +65,8 @@ public:
 	LpfTcpTransport* tcpClient = nullptr;
 	LpfTcpTransportFactory f;
 
-	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr) {
-		multicastClient = new DefaultMulticastClient<MulticastDelegate, SigAttester> (clop);
+	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr, uint8_t* key) {
+		multicastClient = new DefaultMulticastClient<MulticastDelegate, SigAttester> (clop, key);
 		multicastClient->delegate = this;
 
 		// bind to address and start listening on tcpserver
@@ -238,7 +238,7 @@ int main(int argc, char** argv) {
 			pubsub_addr.to_string()
 		};
 
-		MulticastDelegate del(clop, listen_addr.to_string());
+		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());
 
 		return DefaultMulticastClient<MulticastDelegate, SigAttester>::run_event_loop();
 	} catch (structopt::exception& e) {
@@ -252,10 +252,10 @@ int main(int argc, char** argv) {
 std::string string_to_hex(const std::string& input)
 {
     std::string output;
-	CryptoPP::StringSource ss2( input, true,
-    new CryptoPP::HexEncoder(
-        new CryptoPP::StringSink( output )
-    )); // HexEncoder
+    CryptoPP::StringSource ss2( input, true,
+	    new CryptoPP::HexEncoder(
+		new CryptoPP::StringSink( output )
+		)); // HexEncoder
     return output;
 }
 
@@ -264,7 +264,7 @@ std::string hex_to_string(const std::string& input)
 	std::string output;
 	CryptoPP::StringSource ss2( input, true,
     new CryptoPP::HexDecoder(
-        new CryptoPP::StringSink( output )
+	new CryptoPP::StringSink( output )
     )); // HexDecoder
     return output;
 }
