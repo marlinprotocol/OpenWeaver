@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
 	crypto_box_keypair(static_pk, static_sk);
 
 	// Pubsub
-	Goldfish::PubSubNodeType ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk);
+	Goldfish::PubSubNodeType ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, StakeRequester<Goldfish::PubSubNodeType>("/subgraphs/name/marlinprotocol/staking", ""));
 	ps.delegate = &g;
 	g.ps = &ps;
 

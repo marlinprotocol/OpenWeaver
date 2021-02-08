@@ -4,6 +4,7 @@
 #include <marlin/pubsub/PubSubNode.hpp>
 #include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/beacon/ClusterDiscoverer.hpp>
+#include <tuple>
 
 
 namespace marlin {
@@ -18,6 +19,8 @@ struct DefaultMulticastClientOptions {
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
 	std::string pubsub_addr = "127.0.0.1:8000";
+	std::string staking_url = "/subgraphs/name/marlinprotocol/staking";
+	std::string network_id = "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4";
 	size_t max_conn = 2;
 };
 
@@ -190,6 +193,7 @@ public:
 			options.max_conn,
 			0,
 			options.static_sk,
+			pubsub::StakeRequester<PubSubNodeType>(options.staking_url, options.network_id),
 			std::forward_as_tuple(std::forward<Args>(attester_args)...),
 			std::tie(options.static_pk)
 		),

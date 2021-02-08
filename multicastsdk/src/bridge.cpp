@@ -29,6 +29,10 @@
 #define MARLIN_BRIDGE_DEFAULT_LISTEN_PORT 15003
 #endif
 
+#ifndef MARLIN_BRIDGE_DEFAULT_NETWORK_ID
+#define MARLIN_BRIDGE_DEFAULT_NETWORK_ID ""
+#endif
+
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
@@ -182,8 +186,10 @@ struct CliOptions {
 	std::optional<std::string> listen_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
+	enum class Contracts { mainnet, kovan };
+	std::optional<Contracts> contracts;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
@@ -210,11 +216,21 @@ int main(int argc, char** argv) {
 			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT))
 		);
 		auto listen_addr = SocketAddress::from_string(
-			options.listen_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_LISTEN_PORT))
+			options.listen_addr.value_or("127.0.0.1:" STR(MARLIN_BRIDGE_DEFAULT_LISTEN_PORT))
 		);
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
+
+		std::string staking_url;
+		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
+		case CliOptions::Contracts::mainnet:
+			staking_url = "/subgraphs/name/marlinprotocol/staking";
+			break;
+		case CliOptions::Contracts::kovan:
+			staking_url = "/subgraphs/name/princesinha19/marlin-staking";
+			break;
+		};
 
 		SPDLOG_INFO(
 			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}, addr: 0x{:spn}",
@@ -235,7 +251,9 @@ int main(int argc, char** argv) {
 			std::vector<uint16_t>({0, 1}),
 			beacon_addr.to_string(),
 			discovery_addr.to_string(),
-			pubsub_addr.to_string()
+			pubsub_addr.to_string(),
+			staking_url,
+			MARLIN_BRIDGE_DEFAULT_NETWORK_ID
 		};
 
 		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());

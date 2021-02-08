@@ -75,7 +75,10 @@ struct StakeRequester {
 	void* loop = uv_default_loop();
 	DelegateType* delegate = nullptr;
 
-	StakeRequester() : refresh_timer(this) {
+	std::string staking_url;
+	std::string network_id;
+
+	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), refresh_timer(this) {
 		lws_set_log_level(1, NULL);
 
 		std::memset(&info, 0, sizeof(info));  // prevents some issues with garbage values
@@ -151,7 +154,7 @@ struct StakeRequester {
 		connect_info.method = "POST";
 		connect_info.protocol = "http";
 		connect_info.alpn = "http/1.1";
-		connect_info.path = "/subgraphs/name/marlinprotocol/staking";
+		connect_info.path = staking_url.c_str();
 		connect_info.host = connect_info.address;
 		connect_info.origin = connect_info.address;
 
@@ -320,7 +323,7 @@ struct StakeRequester {
 
 			{
 				// auto& requester = *(StakeRequester<DelegateType>*)user;
-				auto body = std::string("{\"query\": \"query { clusters(where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}");
+				auto body = std::string("{\"query\": \"query { clusters(where: {networkId: \\\"" + req.network_id + "\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}");
 
 				if (lws_write(conn, (uint8_t*)body.c_str(), 174, LWS_WRITE_HTTP) != 174)
 					return -1;
@@ -565,6 +568,7 @@ public:
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
+		StakeRequester<Self>&& req,
 		std::tuple<AttesterArgs...> attester_args = {},
 		std::tuple<WitnesserArgs...> witnesser_args = {},
 		std::tuple<AbciArgs...> abci_args = {}
@@ -619,6 +623,7 @@ private:
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
+		StakeRequester<Self>&& req,
 		std::tuple<AttesterArgs...> attester_args,
 		std::tuple<WitnesserArgs...> witnesser_args,
 		std::tuple<AbciArgs...> abci_args,
@@ -1450,6 +1455,7 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
+	StakeRequester<Self>&& req,
 	std::tuple<AttesterArgs...> attester_args,
 	std::tuple<WitnesserArgs...> witnesser_args,
 	std::tuple<AbciArgs...> abci_args
@@ -1458,6 +1464,7 @@ PUBSUBNODETYPE::PubSubNode(
 	max_sol,
 	max_unsol,
 	keys,
+	std::move(req),
 	std::move(attester_args),
 	std::move(witnesser_args),
 	std::move(abci_args),
@@ -1480,6 +1487,7 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
+	StakeRequester<Self>&& req,
 	std::tuple<AttesterArgs...> attester_args [[maybe_unused]],
 	std::tuple<WitnesserArgs...> witnesser_args [[maybe_unused]],
 	std::tuple<AbciArgs...> abci_args [[maybe_unused]],
@@ -1488,6 +1496,7 @@ PUBSUBNODETYPE::PubSubNode(
 	std::index_sequence<ABI...>
 ) : max_sol_conns(max_sol),
 	max_unsol_conns(max_unsol),
+	streq(std::move(req)),
 	attester(std::get<AI>(attester_args)...),
 	witnesser(std::get<WI>(witnesser_args)...),
 	abci(std::get<ABI>(abci_args)...),
