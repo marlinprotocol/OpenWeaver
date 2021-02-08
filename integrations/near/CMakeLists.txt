@@ -50,6 +50,9 @@ target_link_libraries(near INTERFACE snappy)
 # boost::filesystem
 target_link_libraries(near INTERFACE Boost::filesystem)
 
+# structopt
+target_link_libraries(near INTERFACE structopt::structopt)
+
 install(TARGETS near
 	EXPORT marlin-near-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

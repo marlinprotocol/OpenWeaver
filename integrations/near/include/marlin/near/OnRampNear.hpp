@@ -30,7 +30,8 @@ public:
 	void handle_transaction(core::Buffer &&message);
 	void handle_block(core::Buffer &&message);
 
-	OnRampNear(DefaultMulticastClientOptions clop): multicastClient(clop) {
+	template<typename... Args>
+	OnRampNear(DefaultMulticastClientOptions clop, SocketAddress listen_addr, Args&&... args): multicastClient(clop, std::forward<Args>(args)...) {
 		multicastClient.delegate = this;
 
 		if(sodium_init() == -1) {
@@ -68,7 +69,7 @@ public:
 			SPDLOG_ERROR("Failed to create base 58 of public key.");
 		}
 
-		f.bind(SocketAddress::from_string("0.0.0.0:21400"));
+		f.bind(listen_addr);
 		f.listen(*this);
 	}
 
