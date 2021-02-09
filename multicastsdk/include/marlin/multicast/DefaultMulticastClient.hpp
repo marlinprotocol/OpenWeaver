@@ -193,7 +193,7 @@ public:
 			options.max_conn,
 			0,
 			options.static_sk,
-			pubsub::StakeRequester<PubSubNodeType>(options.staking_url, options.network_id),
+			std::forward_as_tuple(options.staking_url, options.network_id),
 			std::forward_as_tuple(std::forward<Args>(attester_args)...),
 			std::tie(options.static_pk)
 		),

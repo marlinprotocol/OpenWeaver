@@ -81,6 +81,8 @@ struct StakeRequester {
 	StakeRequester(StakeRequester const&) = delete;
 	StakeRequester(StakeRequester&&) = delete;
 
+	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
+
 	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), refresh_timer(this) {
 		lws_set_log_level(1, NULL);
 
@@ -571,7 +573,7 @@ public:
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
-		StakeRequester<Self>&& req,
+		std::tuple<std::string, std::string> req,
 		std::tuple<AttesterArgs...> attester_args = {},
 		std::tuple<WitnesserArgs...> witnesser_args = {},
 		std::tuple<AbciArgs...> abci_args = {}
@@ -626,7 +628,7 @@ private:
 		size_t max_sol,
 		size_t max_unsol,
 		uint8_t const *keys,
-		StakeRequester<Self>&& req,
+		std::tuple<std::string, std::string> req,
 		std::tuple<AttesterArgs...> attester_args,
 		std::tuple<WitnesserArgs...> witnesser_args,
 		std::tuple<AbciArgs...> abci_args,
@@ -1458,7 +1460,7 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	StakeRequester<Self>&& req,
+	std::tuple<std::string, std::string> req,
 	std::tuple<AttesterArgs...> attester_args,
 	std::tuple<WitnesserArgs...> witnesser_args,
 	std::tuple<AbciArgs...> abci_args
@@ -1490,7 +1492,7 @@ PUBSUBNODETYPE::PubSubNode(
 	size_t max_sol,
 	size_t max_unsol,
 	uint8_t const* keys,
-	StakeRequester<Self>&& req,
+	std::tuple<std::string, std::string> req,
 	std::tuple<AttesterArgs...> attester_args [[maybe_unused]],
 	std::tuple<WitnesserArgs...> witnesser_args [[maybe_unused]],
 	std::tuple<AbciArgs...> abci_args [[maybe_unused]],
