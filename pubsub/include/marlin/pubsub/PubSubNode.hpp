@@ -78,6 +78,9 @@ struct StakeRequester {
 	std::string staking_url;
 	std::string network_id;
 
+	StakeRequester(StakeRequester const&) = delete;
+	StakeRequester(StakeRequester&&) = delete;
+
 	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), refresh_timer(this) {
 		lws_set_log_level(1, NULL);
 
