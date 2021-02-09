@@ -253,7 +253,7 @@ int main(int argc, char** argv) {
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			staking_url,
-			MARLIN_BRIDGE_DEFAULT_NETWORK_ID
+			STR(MARLIN_BRIDGE_DEFAULT_NETWORK_ID)
 		};
 
 		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());

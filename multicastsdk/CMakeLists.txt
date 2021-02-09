@@ -63,7 +63,7 @@ install(FILES
 # C++ SDK examples
 ##########################################################
 
-function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN)
+function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NETWORK_ID)
 	set(EXE_NAME ${EXE_PREFIX}_bridge)
 	add_executable(${EXE_NAME}
 		src/bridge.cpp
@@ -84,12 +84,13 @@ function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN)
 		MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
 		MARLIN_BRIDGE_DEFAULT_DISC_PORT=${DEFAULT_DISC}
 		MARLIN_BRIDGE_DEFAULT_LISTEN_PORT=${DEFAULT_LISTEN}
+		MARLIN_BRIDGE_DEFAULT_NETWORK_ID=${DEFAULT_NETWORK_ID}
 	)
 endfunction()
 
-bridge_exe(dot 20700 20702 20901)
-bridge_exe(iris 21700 21702 21901)
-bridge_exe(cosmos 22200 22202 22401)
+bridge_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f")
+bridge_exe(iris 21700 21702 21901 "")
+bridge_exe(cosmos 22200 22202 22401 "")
 
 add_executable(msggen
 	examples/msggen.cpp
