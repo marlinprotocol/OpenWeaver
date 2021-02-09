@@ -108,10 +108,15 @@ public:
 
 	// forward on marlin multicast
 	int did_recv(LpfTcpTransport &transport, Buffer &&message) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Did recv from blockchain client, message with length {}: {}",
 			message.size(),
 			spdlog::to_hex(message.data(), message.data() + message.size())
+		);
+
+		SPDLOG_INFO(
+			"Did recv from blockchain client, message with length {}",
+			message.size()
 		);
 
 		SPDLOG_DEBUG(
