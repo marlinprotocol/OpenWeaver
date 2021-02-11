@@ -22,8 +22,11 @@ struct CliOptions {
 	std::optional<std::string> listen_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
+	enum class Contracts { mainnet, kovan };
+	std::optional<Contracts> contracts;
+	std::optional<std::string> chain_identity;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts, chain_identity);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
@@ -56,6 +59,16 @@ int main(int argc, char** argv) {
 			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
 
+		std::string staking_url;
+		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
+		case CliOptions::Contracts::mainnet:
+			staking_url = "/subgraphs/name/marlinprotocol/staking";
+			break;
+		case CliOptions::Contracts::kovan:
+			staking_url = "/subgraphs/name/princesinha19/marlin-staking";
+			break;
+		};
+
 		SPDLOG_INFO(
 			"Starting gateway with discovery: {}, pubsub: {}, listen: {}, beacon: {}, addr: 0x{:spn}",
 			discovery_addr.to_string(),
@@ -75,7 +88,9 @@ int main(int argc, char** argv) {
 			std::vector<uint16_t>({0, 1}),
 			beacon_addr.to_string(),
 			discovery_addr.to_string(),
-			pubsub_addr.to_string()
+			pubsub_addr.to_string(),
+			staking_url,
+			"0xa486e4b27cce131bfeacd003018c22a55744bdb94821829f0ff1d4061d8d0533"
 		};
 
 		OnRampNear onrampNear(clop, listen_addr, (uint8_t*)key.data());
