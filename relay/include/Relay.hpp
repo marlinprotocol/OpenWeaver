@@ -102,7 +102,7 @@ public:
 
 		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 30) : std::tuple(2, 16);
 
-		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, StakeRequester<PubSubNodeType>("/subgraphs/name/marlinprotocol/staking", ""), {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
+		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
 		ps->delegate = this;
 		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 		b->address = address;

@@ -70,11 +70,11 @@ int main() {
 
 	using PBNT = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>;
 
-	auto b = new PBNT(addr, max_sol_conn, max_unsol_conn, static_sk, StakeRequester<PBNT>("", ""), {}, std::tie(static_pk));
+	auto b = new PBNT(addr, max_sol_conn, max_unsol_conn, static_sk, std::forward_as_tuple("", ""), {}, std::tie(static_pk));
 	b->delegate = &b_del;
 
 	auto addr2 = SocketAddress::from_string("127.0.0.1:8001");
-	auto b2 = new PBNT(addr2, max_sol_conn, max_unsol_conn, static_sk, StakeRequester<PBNT>("", ""), {}, std::tie(static_pk));
+	auto b2 = new PBNT(addr2, max_sol_conn, max_unsol_conn, static_sk, std::forward_as_tuple("", ""), {}, std::tie(static_pk));
 	b2->delegate = &b_del;
 
 	SPDLOG_INFO("Start");
