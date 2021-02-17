@@ -2,7 +2,7 @@
 #define MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/beacon/ClusterDiscoverer.hpp>
 #include <tuple>
 
@@ -34,7 +34,7 @@ public:
 		false,
 		false,
 		AttesterType,
-		pubsub::BloomWitnesser
+		pubsub::LpfBloomWitnesser
 	>;
 
 	beacon::ClusterDiscoverer<Self> b;
