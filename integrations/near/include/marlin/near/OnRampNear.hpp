@@ -104,7 +104,7 @@ public:
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
 		DefaultMulticastClient<OnRampNear, SigAttester> &,
-		Buffer &&bytes,
+		Buffer &&bytes [[maybe_unused]],
 		T,
 		uint16_t,
 		uint64_t
