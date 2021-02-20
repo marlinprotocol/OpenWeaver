@@ -113,11 +113,11 @@ public:
 			"OnRampNear:: did_recv, forwarding message: {}",
 			spdlog::to_hex(bytes.data(), bytes.data() + bytes.size())
 		);
-		for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
-			Buffer buf(bytes.size());
-			buf.write_unsafe(0, bytes.data(), bytes.size());
-			(*iter)->send(std::move(buf));
-		}
+		// for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
+		// 	Buffer buf(bytes.size());
+		// 	buf.write_unsafe(0, bytes.data(), bytes.size());
+		// 	(*iter)->send(std::move(buf));
+		// }
 	}
 
 	void did_send_message(NearTransport<OnRampNear> &, Buffer &&message [[maybe_unused]]) {
