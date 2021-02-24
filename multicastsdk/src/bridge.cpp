@@ -1,4 +1,10 @@
-#include <marlin/near/OnRampNear.hpp>
+#include <sodium.h>
+#include <unistd.h>
+
+#include <marlin/multicast/DefaultMulticastClient.hpp>
+#include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
+#include <marlin/stream/StreamTransportFactory.hpp>
+#include <marlin/lpf/LpfTransportFactory.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
 
 #include <structopt/app.hpp>
@@ -9,11 +15,174 @@
 #include <cryptopp/aes.h>
 #include <rapidjson/document.h>
 #include <boost/filesystem.hpp>
-#include <unistd.h>
 
 
+#ifndef MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT
+#define MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT 15000
+#endif
+
+#ifndef MARLIN_BRIDGE_DEFAULT_DISC_PORT
+#define MARLIN_BRIDGE_DEFAULT_DISC_PORT 15002
+#endif
+
+#ifndef MARLIN_BRIDGE_DEFAULT_LISTEN_PORT
+#define MARLIN_BRIDGE_DEFAULT_LISTEN_PORT 15003
+#endif
+
+#ifndef MARLIN_BRIDGE_DEFAULT_NETWORK_ID
+#define MARLIN_BRIDGE_DEFAULT_NETWORK_ID ""
+#endif
+
+// Pfff, of course macros make total sense!
+#define STRH(X) #X
+#define STR(X) STRH(X)
+
+
+using namespace marlin::multicast;
+using namespace marlin::pubsub;
 using namespace marlin::core;
 using namespace marlin::asyncio;
+using namespace marlin::stream;
+using namespace marlin::lpf;
+
+class MulticastDelegate;
+
+const bool enable_cut_through = false;
+uint16_t blockchainChannel = 0;
+
+using LpfTcpTransportFactory = LpfTransportFactory<
+	MulticastDelegate,
+	MulticastDelegate,
+	TcpTransportFactory,
+	TcpTransport,
+	enable_cut_through
+>;
+using LpfTcpTransport = LpfTransport<
+	MulticastDelegate,
+	TcpTransport,
+	enable_cut_through
+>;
+
+class MulticastDelegate {
+public:
+	DefaultMulticastClient<MulticastDelegate, SigAttester>* multicastClient;
+	LpfTcpTransport* tcpClient = nullptr;
+	LpfTcpTransportFactory f;
+
+	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr, uint8_t* key) {
+		multicastClient = new DefaultMulticastClient<MulticastDelegate, SigAttester> (clop, key);
+		multicastClient->delegate = this;
+
+		// bind to address and start listening on tcpserver
+		f.bind(SocketAddress::from_string(lpftcp_bridge_addr));
+		f.listen(*this);
+	}
+
+	//-----------------------delegates for Lpf-Tcp-Transport-----------------------------------
+
+	// Listen delegate
+	bool should_accept(SocketAddress const &addr) {
+		return true;
+	}
+
+	void did_create_transport(LpfTcpTransport &transport) {
+		SPDLOG_DEBUG(
+			"DID CREATE LPF TRANSPORT: {}",
+			transport.dst_addr.to_string()
+		);
+
+		transport.setup(this, NULL);
+
+		tcpClient = &transport;
+	}
+
+	// Transport delegate
+
+	// not required because server
+	void did_dial(LpfTcpTransport &transport) {
+		SPDLOG_DEBUG(
+			"DID DIAL: {}",
+			transport.dst_addr.to_string()
+		);
+	}
+
+	// forward on marlin multicast
+	int did_recv(LpfTcpTransport &transport, Buffer &&message) {
+		SPDLOG_DEBUG(
+			"Did recv from blockchain client, message with length {}: {}",
+			message.size(),
+			spdlog::to_hex(message.data(), message.data() + message.size())
+		);
+
+		SPDLOG_INFO(
+			"Did recv from blockchain client, message with length {}",
+			message.size()
+		);
+
+		SPDLOG_DEBUG(
+			"Sending to marlin multicast, message with length {}",
+			message.size()
+		);
+
+		multicastClient->ps.send_message_on_channel(
+			blockchainChannel,
+			message.data(),
+			message.size()
+		);
+
+		return 0;
+	}
+
+	void did_send(LpfTcpTransport &transport, Buffer &&message) {}
+
+	// TODO:
+	void did_close(LpfTcpTransport &transport, uint16_t) {
+		SPDLOG_DEBUG(
+			"Closed connection with client: {}",
+			transport.dst_addr.to_string()
+		);
+		tcpClient = nullptr;
+	}
+
+	// TODO: not required because server
+	int dial(SocketAddress const &addr, uint8_t const *remote_static_pk) {
+		return 0;
+	};
+
+	//-----------------------delegates for DefaultMultiCastClient-------------------------------
+
+	template<typename T> // TODO: Code smell, remove later
+	void did_recv(
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		Buffer &&message,
+		T header,
+		uint16_t channel,
+		uint64_t message_id
+	) {
+		SPDLOG_DEBUG(
+			"Did recv from multicast, message-id: {}",
+			message_id
+		);
+
+		//TODO: send on tcp client
+		if (channel==blockchainChannel && tcpClient != nullptr) {
+			SPDLOG_DEBUG(
+				"Sending to blockchain client"
+			);
+			tcpClient->send(std::move(message));
+		}
+	}
+
+	void did_subscribe(
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		uint16_t channel
+	) {}
+
+	void did_unsubscribe(
+		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		uint16_t channel
+	) {}
+};
 
 struct CliOptions {
 	std::optional<std::string> discovery_addr;
@@ -24,15 +193,14 @@ struct CliOptions {
 	std::optional<std::string> keystore_pass_path;
 	enum class Contracts { mainnet, kovan };
 	std::optional<Contracts> contracts;
-	std::optional<std::string> chain_identity;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts, chain_identity);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
 int main(int argc, char** argv) {
 	try {
-		auto options = structopt::app("near_gateway").parse<CliOptions>(argc, argv);
+		auto options = structopt::app("bridge").parse<CliOptions>(argc, argv);
 		std::string key;
 		if(options.beacon_addr.has_value()) {
 			if(options.keystore_path.has_value() && options.keystore_pass_path.has_value()) {
@@ -47,13 +215,13 @@ int main(int argc, char** argv) {
 			}
 		}
 		auto discovery_addr = SocketAddress::from_string(
-			options.discovery_addr.value_or("0.0.0.0:21202")
+			options.discovery_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_DISC_PORT))
 		);
 		auto pubsub_addr = SocketAddress::from_string(
-			options.pubsub_addr.value_or("0.0.0.0:21200")
+			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT))
 		);
 		auto listen_addr = SocketAddress::from_string(
-			options.listen_addr.value_or("0.0.0.0:21400")
+			options.listen_addr.value_or("127.0.0.1:" STR(MARLIN_BRIDGE_DEFAULT_LISTEN_PORT))
 		);
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
@@ -70,7 +238,7 @@ int main(int argc, char** argv) {
 		};
 
 		SPDLOG_INFO(
-			"Starting gateway with discovery: {}, pubsub: {}, listen: {}, beacon: {}, addr: 0x{:spn}",
+			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}, addr: 0x{:spn}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			listen_addr.to_string(),
@@ -90,11 +258,12 @@ int main(int argc, char** argv) {
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			staking_url,
-			"0xa486e4b27cce131bfeacd003018c22a55744bdb94821829f0ff1d4061d8d0533"
+			STR(MARLIN_BRIDGE_DEFAULT_NETWORK_ID)
 		};
 
-		OnRampNear onrampNear(clop, listen_addr, (uint8_t*)key.data());
-		return EventLoop::run();
+		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());
+
+		return DefaultMulticastClient<MulticastDelegate, SigAttester>::run_event_loop();
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
 		SPDLOG_ERROR("{}", e.help());
@@ -106,10 +275,10 @@ int main(int argc, char** argv) {
 std::string string_to_hex(const std::string& input)
 {
     std::string output;
-	CryptoPP::StringSource ss2( input, true,
-    new CryptoPP::HexEncoder(
-        new CryptoPP::StringSink( output )
-    )); // HexEncoder
+    CryptoPP::StringSource ss2( input, true,
+	    new CryptoPP::HexEncoder(
+		new CryptoPP::StringSink( output )
+		)); // HexEncoder
     return output;
 }
 
@@ -118,7 +287,7 @@ std::string hex_to_string(const std::string& input)
 	std::string output;
 	CryptoPP::StringSource ss2( input, true,
     new CryptoPP::HexDecoder(
-        new CryptoPP::StringSink( output )
+	new CryptoPP::StringSink( output )
     )); // HexDecoder
     return output;
 }

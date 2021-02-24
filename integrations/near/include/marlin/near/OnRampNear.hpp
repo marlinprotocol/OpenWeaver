@@ -30,7 +30,8 @@ public:
 	void handle_transaction(core::Buffer &&message);
 	void handle_block(core::Buffer &&message);
 
-	OnRampNear(DefaultMulticastClientOptions clop): multicastClient(clop) {
+	template<typename... Args>
+	OnRampNear(DefaultMulticastClientOptions clop, SocketAddress listen_addr, Args&&... args): multicastClient(clop, std::forward<Args>(args)...) {
 		multicastClient.delegate = this;
 
 		if(sodium_init() == -1) {
@@ -68,7 +69,7 @@ public:
 			SPDLOG_ERROR("Failed to create base 58 of public key.");
 		}
 
-		f.bind(SocketAddress::from_string("0.0.0.0:21400"));
+		f.bind(listen_addr);
 		f.listen(*this);
 	}
 
@@ -103,7 +104,7 @@ public:
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
 		DefaultMulticastClient<OnRampNear, SigAttester> &,
-		Buffer &&bytes,
+		Buffer &&bytes [[maybe_unused]],
 		T,
 		uint16_t,
 		uint64_t
@@ -112,11 +113,11 @@ public:
 			"OnRampNear:: did_recv, forwarding message: {}",
 			spdlog::to_hex(bytes.data(), bytes.data() + bytes.size())
 		);
-		for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
-			Buffer buf(bytes.size());
-			buf.write_unsafe(0, bytes.data(), bytes.size());
-			(*iter)->send(std::move(buf));
-		}
+		// for(auto iter = transport_set.begin(); iter != transport_set.end(); iter++) {
+		// 	Buffer buf(bytes.size());
+		// 	buf.write_unsafe(0, bytes.data(), bytes.size());
+		// 	(*iter)->send(std::move(buf));
+		// }
 	}
 
 	void did_send_message(NearTransport<OnRampNear> &, Buffer &&message [[maybe_unused]]) {

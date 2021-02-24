@@ -19,8 +19,9 @@ struct CliOptions {
 	std::optional<std::string> address;
 	std::optional<std::string> name;
 	std::optional<std::string> interface;
+	std::optional<std::string> keyname;
 };
-STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address, name, interface);
+STRUCTOPT(CliOptions, discovery_addrs, heartbeat_addrs, datadir, pubsub_port, discovery_port, address, name, interface, keyname);
 
 int main(int argc, char** argv) {
 	try {
@@ -70,6 +71,7 @@ int main(int argc, char** argv) {
 			std::move(heartbeat_addrs),
 			address,
 			name,
+			options.keyname,
 			datadir
 		);
 

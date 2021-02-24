@@ -59,7 +59,7 @@ public:
 		const core::SocketAddress &beacon_addr,
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
-	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::forward<Args>(args)...) {}
+	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::nullopt, std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -71,13 +71,16 @@ public:
 		std::vector<core::SocketAddress>&& heartbeat_addrs,
 		std::string address,
 		std::string name,
+		std::optional<std::string> keyname,
 		Args&&... args
 	) {
 		this->protocol = protocol;
 		this->pubsub_port = pubsub_port;
 
-		if(boost::filesystem::exists("./.marlin/keys/static")) {
-			std::ifstream sk("./.marlin/keys/static", std::ios::binary);
+		std::string keypath = "./.marlin/keys/" + keyname.value_or("static");
+
+		if(boost::filesystem::exists(keypath)) {
+			std::ifstream sk(keypath, std::ios::binary);
 			if(!sk.read((char *)static_sk, crypto_box_SECRETKEYBYTES)) {
 				throw;
 			}
@@ -86,7 +89,7 @@ public:
 			crypto_box_keypair(static_pk, static_sk);
 
 			boost::filesystem::create_directories("./.marlin/keys/");
-			std::ofstream sk("./.marlin/keys/static", std::ios::binary);
+			std::ofstream sk(keypath, std::ios::binary);
 
 			sk.write((char *)static_sk, crypto_box_SECRETKEYBYTES);
 		}
@@ -99,7 +102,7 @@ public:
 
 		auto [max_sol_conns, max_unsol_conns] = protocol == MASTER_PUBSUB_PROTOCOL_NUMBER ? std::tuple(50, 30) : std::tuple(2, 16);
 
-		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
+		ps = new PubSubNodeType(pubsub_addr, max_sol_conns, max_unsol_conns, static_sk, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), {}, std::tie(static_pk), std::forward_as_tuple<Args...>(args...));
 		ps->delegate = this;
 		b = new DiscoveryClient<Self>(beacon_addr, static_sk);
 		b->address = address;
@@ -117,7 +120,7 @@ public:
 	}
 
 	// relay logic
-	void new_peer(
+	void new_peer_protocol(
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
@@ -175,7 +178,7 @@ public:
 	}
 
 	void manage_subscriptions(
-		core::SocketAddress baddr,
+		typename PubSubNodeType::ClientKey baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
@@ -228,8 +231,8 @@ public:
 
 
 		for (auto* transport : sol_standby_conns) {
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Standby conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
@@ -238,8 +241,8 @@ public:
 		}
 
 		for (auto* transport : sol_conns) {
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Sol conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),

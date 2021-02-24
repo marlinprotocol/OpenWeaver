@@ -44,3 +44,6 @@ target_link_libraries(goldfish PUBLIC marlin::asyncio)
 
 # spdlog
 target_link_libraries(goldfish PUBLIC spdlog::spdlog_header_only)
+
+# structopt
+target_link_libraries(goldfish PUBLIC structopt::structopt)

@@ -451,6 +451,113 @@ struct LISTCLUSTERWrapper {
 	}
 };
 
+template<typename BaseMessageType>
+struct DISCCLUSTER2Wrapper {
+	BaseMessageType base;
+
+	operator BaseMessageType() && {
+		return std::move(base);
+	}
+
+	DISCCLUSTER2Wrapper() : base(1) {
+		base.set_payload({10});
+	}
+};
+
+template<typename BaseMessageType>
+struct LISTCLUSTER2Wrapper {
+	static constexpr size_t entry_size = 28;
+
+	BaseMessageType base;
+
+	operator BaseMessageType() && {
+		return std::move(base);
+	}
+
+	LISTCLUSTER2Wrapper(size_t num_peer = 0) : base(1 + entry_size*num_peer) {
+		base.set_payload({11});
+	}
+
+	LISTCLUSTER2Wrapper(BaseMessageType&& base) : base(std::move(base)) {}
+
+	template<typename It>
+	LISTCLUSTER2Wrapper& set_clusters(It& begin, It end) & {
+		size_t idx = 1;
+		while(begin != end && idx + entry_size <= base.payload_buffer().size()) {
+			std::apply([&](core::SocketAddress const& addr, std::array<uint8_t, 20> const& address) {
+				addr.serialize(base.payload()+idx, 8);
+				base.payload_buffer().write_unsafe(idx+8, address.data(), 20);
+			}, *begin);
+
+			idx += entry_size;
+
+			++begin;
+		}
+		base.truncate_unsafe(base.payload_buffer().size() - idx);
+
+		return *this;
+	}
+
+	template<typename It>
+	LISTCLUSTER2Wrapper&& set_clusters(It& begin, It end) && {
+		return std::move(set_clusters(begin, end));
+	}
+
+	[[nodiscard]] bool validate() const {
+		if(base.payload_buffer().size() < 1 || base.payload_buffer().size() % entry_size != 1) {
+			return false;
+		}
+		return true;
+	}
+
+	struct iterator {
+	private:
+		core::WeakBuffer buf;
+		size_t offset = 0;
+	public:
+		// For iterator_traits
+		using difference_type = int32_t;
+		using value_type = std::tuple<core::SocketAddress, std::array<uint8_t, 20>>;
+		using pointer = value_type const*;
+		using reference = value_type const&;
+		using iterator_category = std::input_iterator_tag;
+
+		iterator(core::WeakBuffer buf, size_t offset = 0) : buf(buf), offset(offset) {}
+
+		value_type operator*() const {
+			auto peer_addr = core::SocketAddress::deserialize(buf.data()+offset, 8);
+			std::array<uint8_t, 20> address;
+			buf.read_unsafe(offset+8, address.data(), 20);
+
+			return std::make_tuple(peer_addr, address);
+		}
+
+		iterator& operator++() {
+			offset += entry_size;
+
+			return *this;
+		}
+
+		bool operator==(iterator const& other) const {
+			return offset == other.offset;
+		}
+
+		bool operator!=(iterator const& other) const {
+			return !(*this == other);
+		}
+	};
+
+	iterator clusters_begin() const {
+		return iterator(base.payload_buffer(), 1);
+	}
+
+	iterator clusters_end() const {
+		// Relies on validation ensuring correct size i.e. size % entry_size = 1
+		// Otherwise, need to modify size below
+		return iterator(base.payload_buffer(), base.payload_buffer().size());
+	}
+};
+
 } // namespace beacon
 } // namespace marlin
 

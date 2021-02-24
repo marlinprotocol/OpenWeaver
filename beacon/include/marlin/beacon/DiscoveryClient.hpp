@@ -188,7 +188,7 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 		core::SocketAddress peer_addr(transport.dst_addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer_protocol(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
 	}
 }
 

@@ -19,15 +19,11 @@ struct SigAttester {
 	secp256k1_context* ctx_verifier = nullptr;
 	uint8_t key[32];
 
-	SigAttester() {
+	SigAttester(uint8_t* key) {
 		ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 		ctx_verifier = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 
-		do {
-			CryptoPP::OS_GenerateRandomBlock(false, key, 32);
-		} while(
-			secp256k1_ec_seckey_verify(ctx_verifier, key) != 1
-		);
+		std::memcpy(this->key, key, 32);
 	}
 
 	~SigAttester() {

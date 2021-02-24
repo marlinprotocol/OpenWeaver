@@ -2,8 +2,9 @@
 #define MARLIN_MULTICAST_DEFAULTMULTICASTCLIENT_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/beacon/ClusterDiscoverer.hpp>
+#include <tuple>
 
 
 namespace marlin {
@@ -18,6 +19,8 @@ struct DefaultMulticastClientOptions {
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
 	std::string pubsub_addr = "127.0.0.1:8000";
+	std::string staking_url = "/subgraphs/name/marlinprotocol/staking";
+	std::string network_id = "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4";
 	size_t max_conn = 2;
 };
 
@@ -31,21 +34,25 @@ public:
 		false,
 		false,
 		AttesterType,
-		pubsub::BloomWitnesser
+		pubsub::LpfBloomWitnesser
 	>;
 
 	beacon::ClusterDiscoverer<Self> b;
 	PubSubNodeType ps;
 
-	void new_peer(
-		core::SocketAddress const &baddr,
+	void new_peer_protocol(
+		std::array<uint8_t, 20> client_key,
 		core::SocketAddress const &addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			ps.subscribe(baddr, addr, static_pk);
+			// Skip zero keys
+			if(client_key == std::array<uint8_t, 20>({})) {
+				return;
+			}
+			ps.subscribe(client_key, addr, static_pk);
 		}
 	}
 
@@ -90,8 +97,20 @@ public:
 		);
 	}
 
+	void msg_log(
+		core::SocketAddress taddr,
+		typename PubSubNodeType::ClientKey baddr,
+		uint64_t message_id,
+		core::WeakBuffer
+	) {
+		SPDLOG_INFO(
+			"Msg log: {}, cluster: 0x{:spn}, relay: {}",
+			message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()
+		);
+	}
+
 	void manage_subscriptions(
-		core::SocketAddress baddr,
+		typename PubSubNodeType::ClientKey baddr,
 		size_t max_sol_conns,
 		typename PubSubNodeType::TransportSet& sol_conns,
 		typename PubSubNodeType::TransportSet& sol_standby_conns
@@ -136,9 +155,9 @@ public:
 		}
 
 		for (auto* transport [[maybe_unused]] : sol_standby_conns) {
-			auto* static_pk = transport->get_static_pk();
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* static_pk = transport->get_static_pk();
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Standby conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
@@ -147,9 +166,9 @@ public:
 		}
 
 		for (auto* transport [[maybe_unused]] : sol_conns) {
-			auto* static_pk = transport->get_static_pk();
-			auto* remote_static_pk = transport->get_remote_static_pk();
-			SPDLOG_INFO(
+			[[maybe_unused]] auto* static_pk = transport->get_static_pk();
+			[[maybe_unused]] auto* remote_static_pk = transport->get_remote_static_pk();
+			SPDLOG_DEBUG(
 				"Node {:spn}: Sol conn: {:spn}: rtt: {}",
 				spdlog::to_hex(static_pk, static_pk + crypto_box_PUBLICKEYBYTES),
 				spdlog::to_hex(remote_static_pk, remote_static_pk + crypto_box_PUBLICKEYBYTES),
@@ -161,8 +180,10 @@ public:
 	Delegate *delegate = nullptr;
 	std::vector<uint16_t> channels = {0};
 
+	template<typename... Args>
 	DefaultMulticastClient(
-		DefaultMulticastClientOptions const& options = DefaultMulticastClientOptions()
+		DefaultMulticastClientOptions const& options,
+		Args&&... attester_args
 	) : b(
 			core::SocketAddress::from_string(options.discovery_addr),
 			options.static_sk
@@ -172,11 +193,12 @@ public:
 			options.max_conn,
 			0,
 			options.static_sk,
-			{},
+			std::forward_as_tuple(options.staking_url, options.network_id),
+			std::forward_as_tuple(std::forward<Args>(attester_args)...),
 			std::tie(options.static_pk)
 		),
 		channels(options.channels) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Beacon: {}, Discovery: {}, PubSub: {}",
 			options.beacon_addr,
 			options.discovery_addr,

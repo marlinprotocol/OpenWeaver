@@ -45,12 +45,12 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 ##########################################################
 
 install(EXPORT marlin-multicastsdk-export
-  FILE
-	MarlinMulticastSDKTargets.cmake
-  NAMESPACE
-	marlin::
-  DESTINATION
-	${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
+	FILE
+		MarlinMulticastSDKTargets.cmake
+	NAMESPACE
+		marlin::
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/marlinMulticastSDK
 )
 
 install(FILES
@@ -63,11 +63,46 @@ install(FILES
 # C++ SDK examples
 ##########################################################
 
+function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NETWORK_ID)
+	set(EXE_NAME ${EXE_PREFIX}_bridge)
+	add_executable(${EXE_NAME}
+		src/bridge.cpp
+	)
+
+	target_link_libraries(${EXE_NAME} PUBLIC multicastsdk)
+
+	# MarlinLpf
+	target_link_libraries(${EXE_NAME} PUBLIC marlin::lpf)
+
+	# MarlinStream
+	target_link_libraries(${EXE_NAME} PUBLIC marlin::stream)
+
+	# structopt
+	target_link_libraries(${EXE_NAME} PUBLIC structopt::structopt)
+
+	target_compile_definitions(${EXE_NAME} PUBLIC
+		MARLIN_BRIDGE_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
+		MARLIN_BRIDGE_DEFAULT_DISC_PORT=${DEFAULT_DISC}
+		MARLIN_BRIDGE_DEFAULT_LISTEN_PORT=${DEFAULT_LISTEN}
+		MARLIN_BRIDGE_DEFAULT_NETWORK_ID=${DEFAULT_NETWORK_ID}
+	)
+endfunction()
+
+bridge_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f")
+bridge_exe(iris 21700 21702 21901 "")
+bridge_exe(cosmos 22200 22202 22401 "")
+
 add_executable(msggen
 	examples/msggen.cpp
 )
 
 target_link_libraries(msggen PUBLIC multicastsdk)
+
+add_executable(probe
+	examples/probe.cpp
+)
+
+target_link_libraries(probe PUBLIC multicastsdk)
 
 add_executable(multicastTcpBridge
 	examples/MulticastTcpBridge.cpp
@@ -80,45 +115,6 @@ target_link_libraries(multicastTcpBridge PUBLIC marlin::lpf)
 
 # MarlinStream
 target_link_libraries(multicastTcpBridge PUBLIC marlin::stream)
-
-
-add_executable(dot_bridge
-	examples/dot_bridge.cpp
-)
-
-target_link_libraries(dot_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(dot_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(dot_bridge PUBLIC marlin::stream)
-
-
-add_executable(iris_bridge
-	examples/iris_bridge.cpp
-)
-
-target_link_libraries(iris_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(iris_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(iris_bridge PUBLIC marlin::stream)
-
-
-add_executable(atom_bridge
-	examples/atom_bridge.cpp
-)
-
-target_link_libraries(atom_bridge PUBLIC multicastsdk)
-
-# MarlinLpf
-target_link_libraries(atom_bridge PUBLIC marlin::lpf)
-
-# MarlinStream
-target_link_libraries(atom_bridge PUBLIC marlin::stream)
 
 
 ##########################################################

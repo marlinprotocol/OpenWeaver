@@ -22,16 +22,11 @@
 #include <spdlog/fmt/bin_to_hex.h>
 
 #include "Messages.hpp"
+#include "PeerInfo.hpp"
 
 
 namespace marlin {
 namespace beacon {
-
-struct PeerInfo {
-	uint64_t last_seen;
-	std::array<uint8_t, 32> key;
-	std::array<uint8_t, 20> address;
-};
 
 //! Class implementing the server side node discovery functionality
 /*!
@@ -55,6 +50,8 @@ private:
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 	using DISCCLUSTER = DISCCLUSTERWrapper<BaseMessageType>;
 	using LISTCLUSTER = LISTCLUSTERWrapper<BaseMessageType>;
+	using DISCCLUSTER2 = DISCCLUSTER2Wrapper<BaseMessageType>;
+	using LISTCLUSTER2 = LISTCLUSTER2Wrapper<BaseMessageType>;
 
 	BaseTransportFactory f;
 	BaseTransportFactory hf;
@@ -75,13 +72,23 @@ private:
 	void did_recv_DISCCLUSTER(BaseTransport &transport);
 	void send_LISTCLUSTER(BaseTransport &transport);
 
+	void did_recv_DISCCLUSTER2(BaseTransport &transport);
+	void send_LISTCLUSTER2(BaseTransport &transport);
+
 	std::unordered_map<core::SocketAddress, PeerInfo> peers;
 
 	BaseTransport* rt = nullptr;
 
 	secp256k1_context* ctx_signer = nullptr;
 	secp256k1_context* ctx_verifier = nullptr;
-	uint8_t key[32];
+
+	// Zero initialize explicitly
+	uint8_t key[32] = {};
+
+	bool is_key_empty() {
+		uint8_t zero[32] = {};
+		return std::memcmp(key, zero, 32) == 0;
+	}
 public:
 	// Listen delegate
 	bool should_accept(core::SocketAddress const &addr);
@@ -220,6 +227,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 
 		if(cur_time - p_time > 60 && p_time - cur_time > 60) {
 			// Too old or too in future
+			SPDLOG_ERROR("REG: Time error");
+
 			return;
 		}
 
@@ -249,6 +258,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 
 			if(res == 0) {
 				// Recovery failed
+				SPDLOG_ERROR("REG: Recovery failure: {}", spdlog::to_hex(payload.data(), payload.data() + payload.size()));
+
 				return;
 			}
 		}
@@ -305,45 +316,54 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 	if(rt != nullptr) {
 		auto time = (uint64_t)std::time(nullptr);
 		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
-		BaseMessageType m(74);
-		auto reg = m.payload_buffer();
-		reg.data()[0] = 7;
-		reg.write_uint64_le_unsafe(1, time);
 
-		uint8_t hash[32];
-		CryptoPP::Keccak_256 hasher;
-		// Hash message
-		hasher.CalculateTruncatedDigest(hash, 32, reg.data()+1, 8);
+		if(is_key_empty()) {
+			BaseMessageType m(1);
+			auto reg = m.payload_buffer();
+			reg.data()[0] = 7;
 
-		// Sign
-		secp256k1_ecdsa_recoverable_signature sig;
-		auto res = secp256k1_ecdsa_sign_recoverable(
-			ctx_signer,
-			&sig,
-			hash,
-			key,
-			nullptr,
-			nullptr
-		);
+			rt->send(std::move(m));
+		} else {
+			BaseMessageType m(74);
+			auto reg = m.payload_buffer();
+			reg.data()[0] = 7;
+			reg.write_uint64_le_unsafe(1, time);
 
-		if(res == 0) {
-			// Sign failed
-			SPDLOG_ERROR("Beacon: Failed to send REG: signature failure");
-			return;
+			uint8_t hash[32];
+			CryptoPP::Keccak_256 hasher;
+			// Hash message
+			hasher.CalculateTruncatedDigest(hash, 32, reg.data()+1, 8);
+
+			// Sign
+			secp256k1_ecdsa_recoverable_signature sig;
+			auto res = secp256k1_ecdsa_sign_recoverable(
+				ctx_signer,
+				&sig,
+				hash,
+				key,
+				nullptr,
+				nullptr
+			);
+
+			if(res == 0) {
+				// Sign failed
+				SPDLOG_ERROR("Beacon: Failed to send REG: signature failure");
+				return;
+			}
+
+			// Output
+			int recid;
+			secp256k1_ecdsa_recoverable_signature_serialize_compact(
+				ctx_signer,
+				reg.data()+9,
+				&recid,
+				&sig
+			);
+
+			reg.data()[73] = (uint8_t)recid;
+
+			rt->send(std::move(m));
 		}
-
-		// Output
-		int recid;
-		secp256k1_ecdsa_recoverable_signature_serialize_compact(
-			ctx_signer,
-			reg.data()+9,
-			&recid,
-			&sig
-		);
-
-		reg.data()[73] = (uint8_t)recid;
-
-		rt->send(std::move(m));
 	}
 }
 
@@ -376,7 +396,36 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
 	}
 }
 
-//---------------- Discovery protocol functions begin ----------------//
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER2(
+	BaseTransport &transport
+) {
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+
+	send_LISTCLUSTER2(transport);
+}
+
+
+template<typename DiscoveryServerDelegate>
+void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER2(
+	BaseTransport &transport
+) {
+	// Filter out the dst transport
+	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
+	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
+
+	// Extract data into addr format
+	auto transformation = [](auto x) { return std::make_tuple(x.first, x.second.address); };
+	auto t_begin = boost::make_transform_iterator(f_begin, transformation);
+	auto t_end = boost::make_transform_iterator(f_end, transformation);
+
+	while(t_begin != t_end) {
+		transport.send(LISTCLUSTER2(150).set_clusters(t_begin, t_end));
+	}
+}
+
+//---------------- Discovery protocol functions end ----------------//
 
 
 //---------------- Listen delegate functions begin ----------------//
@@ -458,6 +507,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
 		// LISTCLUSTER
 		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
 		break;
+		// DISCCLUSTER2
+		case 10: did_recv_DISCCLUSTER2(transport);
+		break;
+		// LISTCLUSTER2
+		case 11: SPDLOG_ERROR("Unexpected LISTCLUSTER2 from {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
 		break;
@@ -496,6 +551,12 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_send(
 		// LISTCLUSTER
 		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());
 		break;
+		// DISCCLUSTER2
+		case 10: SPDLOG_TRACE("DISCCLUSTER2 >>> {}", transport.dst_addr.to_string());
+		break;
+		// LISTCLUSTER2
+		case 11: SPDLOG_TRACE("LISTCLUSTER2 >>> {}", transport.dst_addr.to_string());
+		break;
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
 		break;
@@ -526,6 +587,7 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	} else if(key.size() == 32) {
 		if(secp256k1_ec_seckey_verify(ctx_verifier, (uint8_t*)key.c_str()) != 1) {
 			SPDLOG_ERROR("Beacon: failed to verify key", key.size());
+			return;
 		}
 		std::memcpy(this->key, key.c_str(), 32);
 

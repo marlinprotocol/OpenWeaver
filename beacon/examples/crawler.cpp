@@ -17,20 +17,39 @@ public:
 		return {};
 	}
 
-	void new_peer(
-        core::SocketAddress const& baddr,
+	void new_peer_protocol(
+		std::array<uint8_t, 20> client_key,
 		core::SocketAddress const& addr,
 		uint8_t const* static_pk,
 		uint32_t protocol,
 		uint16_t version
 	) {
+		if(client_key == std::array<uint8_t, 20>({})) {
+			// Skip zero
+			return;
+		}
 		SPDLOG_INFO(
-			"New peer: {}, {}, {:spn}, {}, {}",
-            baddr.to_string(),
+			"New peer: 0x{:spn}, {}, {:spn}, {}, {}",
+			spdlog::to_hex(client_key.data(), client_key.data()+20),
 			addr.to_string(),
 			spdlog::to_hex(static_pk, static_pk+32),
 			protocol,
 			version
+		);
+	}
+
+	void new_cluster(
+		core::SocketAddress const& addr,
+		std::array<uint8_t, 20> const& client_key
+	) {
+		if(client_key == std::array<uint8_t, 20>({})) {
+			// Skip zero
+			return;
+		}
+		SPDLOG_INFO(
+			"New cluster: 0x{:spn}, {}",
+			spdlog::to_hex(client_key.data(), client_key.data()+20),
+			addr.to_string()
 		);
 	}
 };
@@ -41,7 +60,7 @@ int main() {
 
 	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-    crypto_box_keypair(static_pk, static_sk);
+	crypto_box_keypair(static_pk, static_sk);
 
 	BeaconDelegate del;
 
