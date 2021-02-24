@@ -22,6 +22,7 @@ private:
 
 	template<typename DelegateType, void (DelegateType::*callback)()>
 	void timer_cb() {
+		next_event = nullptr;
 		(((DelegateType*)(delegate))->*callback)();
 
 		if(repeat > 0) {
@@ -31,6 +32,7 @@ private:
 
 	template<typename DelegateType, typename DataType, void (DelegateType::*callback)(DataType&)>
 	void timer_cb() {
+		next_event = nullptr;
 		(((DelegateType*)(delegate))->*callback)(*(DataType*)data);
 
 		if(repeat > 0) {
@@ -39,7 +41,7 @@ private:
 	}
 
 	uint64_t repeat = 0;
-	std::shared_ptr<Event<Simulator>> next_event = nullptr;
+	Event<Simulator>* next_event = nullptr;
 public:
 	void* delegate;
 
@@ -55,11 +57,11 @@ public:
 	void start(uint64_t timeout, uint64_t repeat) {
 		stop();
 		this->repeat = repeat;
-		next_event = std::make_shared<TimerEvent<
+		next_event = new TimerEvent<
 			Simulator,
 			Self,
 			&Self::timer_cb<DelegateType, callback>
-		>>(
+		>(
 			Simulator::default_instance.current_tick() + timeout,
 			*this
 		);
@@ -71,22 +73,23 @@ public:
 	void start(uint64_t timeout, uint64_t repeat) {
 		stop();
 		this->repeat = repeat;
-		auto event = std::make_shared<TimerEvent<
+		next_event = new TimerEvent<
 			Simulator,
 			Self,
 			&Self::timer_cb<DelegateType, DataType, callback>
-		>>(
+		>(
 			Simulator::default_instance.current_tick() + timeout,
 			*this
 		);
 
-		Simulator::default_instance.add_event(event);
+		Simulator::default_instance.add_event(next_event);
 	}
 
 	void stop() {
 		repeat = 0;
 		if(next_event != nullptr){
 			Simulator::default_instance.remove_event(next_event);
+			next_event = nullptr;
 		}
 	}
 
