@@ -92,11 +92,11 @@ int Network<NetworkConditionerType>::send(
 		packet.size()
 	);
 
-	auto event = std::make_shared<DataOnInterfaceEvent<
+	auto event = new DataOnInterfaceEvent<
 		EventManager,
 		core::Buffer,
 		NetworkInterface<SelfType>
-	>>(
+	>(
 		out_tick,
 		dst_addr.get_port(),
 		src_addr,

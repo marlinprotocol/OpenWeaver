@@ -8,7 +8,7 @@ Simulator Simulator::default_instance = Simulator();
 
 Simulator::Simulator() {}
 
-void Simulator::add_event(std::shared_ptr<Event<Simulator>> event) {
+void Simulator::add_event(Event<Simulator>* event) {
 	if(!queue.is_empty() && event->get_tick() < queue.get_next_event()->get_tick()) {
 		// Simulations cannot move backward
 		throw;
@@ -16,7 +16,7 @@ void Simulator::add_event(std::shared_ptr<Event<Simulator>> event) {
 	queue.add_event(event);
 }
 
-void Simulator::remove_event(std::shared_ptr<Event<Simulator>> event) {
+void Simulator::remove_event(Event<Simulator>* event) {
 	queue.remove_event(event);
 }
 

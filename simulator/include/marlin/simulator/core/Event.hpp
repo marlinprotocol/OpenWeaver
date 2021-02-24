@@ -26,6 +26,8 @@ public:
 	}
 
 	virtual void run(EventManager&) = 0;
+
+	virtual ~Event() = default;
 };
 
 

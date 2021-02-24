@@ -14,14 +14,14 @@ public:
 
 		if(tick >= 10) return;
 
-		auto new_event = std::make_shared<RepeatedEvent>(tick+1);
+		auto new_event = new RepeatedEvent(tick+1);
 		manager.add_event(new_event);
 	}
 };
 
 int main() {
 	auto& simulator = Simulator::default_instance;
-	simulator.add_event(std::make_shared<RepeatedEvent>(1));
+	simulator.add_event(new RepeatedEvent(1));
 
 	cout<<"Simulation start"<<endl;
 

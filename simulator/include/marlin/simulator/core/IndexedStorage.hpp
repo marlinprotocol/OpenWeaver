@@ -14,13 +14,13 @@ namespace simulator {
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MapIndex {
 private:
-	absl::btree_map<MemberType, std::shared_ptr<T>> index;
+	absl::btree_map<MemberType, T*> index;
 public:
-	void add(std::shared_ptr<T> t_ptr) {
+	void add(T* t_ptr) {
 		index[(*t_ptr.*member)()] = t_ptr;
 	}
 
-	void remove(std::shared_ptr<T> t_ptr) {
+	void remove(T* t_ptr) {
 		index.erase((*t_ptr.*member)());
 	}
 
@@ -32,11 +32,11 @@ public:
 		return index.empty();
 	}
 
-	std::shared_ptr<T> front() {
+	T* front() {
 		return index.begin()->second;
 	}
 
-	std::shared_ptr<T> at(MemberType m) {
+	T* at(MemberType m) {
 		return index.at(m);
 	}
 };
@@ -44,13 +44,13 @@ public:
 template<typename T, typename MemberType, MemberType (T::*member)()>
 struct MultimapIndex {
 private:
-	absl::btree_multimap<MemberType, std::shared_ptr<T>> index;
+	absl::btree_multimap<MemberType, T*> index;
 public:
-	void add(std::shared_ptr<T> t_ptr) {
+	void add(T* t_ptr) {
 		index.insert(std::make_pair((*t_ptr.*member)(), t_ptr));
 	}
 
-	void remove(std::shared_ptr<T> t_ptr) {
+	void remove(T* t_ptr) {
 		auto [begin, end] = index.equal_range((*t_ptr.*member)());
 
 		while(begin != end) {
@@ -71,7 +71,7 @@ public:
 		return index.empty();
 	}
 
-	std::shared_ptr<T> front() {
+	T* front() {
 		return index.begin()->second;
 	}
 };
@@ -84,11 +84,11 @@ class IndexedStorage {
 private:
 	std::tuple<Indexes...> indexes;
 public:
-	void add(std::shared_ptr<T> t) {
+	void add(T* t) {
 		std::apply([t](auto& ...x) { (..., x.add(t)); }, indexes);
 	}
 
-	void remove(std::shared_ptr<T> t) {
+	void remove(T* t) {
 		std::apply([t](auto& ...x) { (..., x.remove(t)); }, indexes);
 	}
 

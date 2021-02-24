@@ -16,8 +16,8 @@ public:
 	EventQueue<Simulator> queue;
 	Simulator();
 
-	void add_event(std::shared_ptr<Event<Simulator>> event);
-	void remove_event(std::shared_ptr<Event<Simulator>> event);
+	void add_event(Event<Simulator>* event);
+	void remove_event(Event<Simulator>* event);
 	void run();
 
 	uint64_t current_tick();

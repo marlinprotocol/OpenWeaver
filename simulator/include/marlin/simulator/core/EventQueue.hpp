@@ -24,10 +24,10 @@ private:
 		>
 	> storage;
 public:
-	void add_event(std::shared_ptr<Event<EventManager>> event);
-	void remove_event(std::shared_ptr<Event<EventManager>> event);
+	void add_event(Event<EventManager>* event);
+	void remove_event(Event<EventManager>* event);
 	void remove_event(uint64_t event_id);
-	std::shared_ptr<Event<EventManager>> get_next_event();
+	Event<EventManager>* get_next_event();
 	bool is_empty();
 };
 
@@ -35,18 +35,19 @@ public:
 // Impl
 
 template<typename EventManager>
-void EventQueue<EventManager>::add_event(std::shared_ptr<Event<EventManager>> event) {
+void EventQueue<EventManager>::add_event(Event<EventManager>* event) {
 	storage.add(event);
 }
 
 template<typename EventManager>
-void EventQueue<EventManager>::remove_event(std::shared_ptr<Event<EventManager>> event) {
+void EventQueue<EventManager>::remove_event(Event<EventManager>* event) {
 	storage.remove(event);
+	delete event;
 }
 
 template<typename EventManager>
 void EventQueue<EventManager>::remove_event(uint64_t event_id) {
-	storage.remove(storage.template get<0>().at(event_id));
+	remove(storage.template get<0>().at(event_id));
 }
 
 template<typename EventManager>
@@ -55,7 +56,7 @@ bool EventQueue<EventManager>::is_empty() {
 }
 
 template<typename EventManager>
-std::shared_ptr<Event<EventManager>> EventQueue<EventManager>::get_next_event() {
+Event<EventManager>* EventQueue<EventManager>::get_next_event() {
 	return storage.template get<1>().front();
 }
 
