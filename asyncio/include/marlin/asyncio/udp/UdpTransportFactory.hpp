@@ -8,6 +8,7 @@
 #define MARLIN_ASYNCIO_UDPTRANSPORTFACTORY_HPP
 
 #include <uv.h>
+#include <marlin/uvpp/Udp.hpp>
 #include <marlin/core/transports/TransportFactoryScaffold.hpp>
 #include "marlin/core/Buffer.hpp"
 #include "marlin/core/SocketAddress.hpp"
@@ -15,8 +16,10 @@
 
 #include <spdlog/spdlog.h>
 
+
 namespace marlin {
 namespace asyncio {
+
 
 //! factory class to create instances of UDPTransport connection by either explicitly dialling or listening to incoming requests and messages
 template<typename ListenDelegate, typename TransportDelegate>
@@ -25,14 +28,14 @@ class UdpTransportFactory : public core::TransportFactoryScaffold<
 	UdpTransport<TransportDelegate>,
 	ListenDelegate,
 	TransportDelegate,
-	uv_udp_t*,
-	uv_udp_t*
+	uvpp::UdpE*,
+	uvpp::UdpE*
 > {
 public:
 	using SelfType = UdpTransportFactory<ListenDelegate, TransportDelegate>;
 	using SelfTransportType = UdpTransport<TransportDelegate>;
 	using TransportFactoryScaffoldType = core::TransportFactoryScaffold<
-		SelfType, SelfTransportType, ListenDelegate, TransportDelegate, uv_udp_t*, uv_udp_t*
+		SelfType, SelfTransportType, ListenDelegate, TransportDelegate, uvpp::UdpE*, uvpp::UdpE*
 	>;
 private:
 	using TransportFactoryScaffoldType::base_factory;
@@ -84,7 +87,7 @@ public:
 template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 UdpTransportFactory() {
-	base_factory = new uv_udp_t();
+	base_factory = new uvpp::UdpE();
 }
 
 template<typename ListenDelegate, typename TransportDelegate>
@@ -94,7 +97,7 @@ close_cb(uv_handle_t *handle) {
 	delete static_cast<
 		RecvPayload *
 	>(handle->data);
-	delete (uv_udp_t*)handle;
+	delete (uvpp::UdpE*)(uv_udp_t*)handle;
 }
 
 //! Destructor, closes the listening socket
