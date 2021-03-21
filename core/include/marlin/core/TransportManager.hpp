@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <utility>
 #include "marlin/core/SocketAddress.hpp"
+#include <absl/container/flat_hash_map.h>
 
 namespace marlin {
 namespace core {
@@ -14,9 +15,9 @@ namespace core {
 /// Template Class which acts as a helper to store and retreive transport instances of template type against a query address
 template<typename TransportType>
 class TransportManager {
-	std::unordered_map<
+	absl::flat_hash_map<
 		SocketAddress,
-		TransportType
+		std::unique_ptr<TransportType>
 	> transport_map;
 
 	// Prevent copy, causes subtle bugs with objects holding onto different instances because of implicit copy somewhere
@@ -33,7 +34,7 @@ public:
 			return nullptr;
 		}
 
-		return &iter->second;
+		return iter->second.get();
 	}
 
 	/// Get transport with a given destination address,
@@ -45,9 +46,9 @@ public:
 	) {
 		auto res = transport_map.try_emplace(
 			addr,
-			std::forward<Args>(args)...
+			new TransportType(std::forward<Args>(args)...)
 		);
-		return std::make_pair(&res.first->second, res.second);
+		return std::make_pair(res.first->second.get(), res.second);
 	}
 
 	/// Remove transport with the given destination address

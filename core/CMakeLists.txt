@@ -40,6 +40,9 @@ target_link_libraries(core PUBLIC libuv::uv_a)
 # spdlog
 target_link_libraries(core PUBLIC spdlog::spdlog_header_only)
 
+# absl::flat_hash_map
+target_link_libraries(core PUBLIC absl::flat_hash_map)
+
 install(TARGETS core
 	EXPORT marlin-core-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
