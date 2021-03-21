@@ -71,6 +71,7 @@ public:
 	~UdpTransportFactory();
 
 	UdpTransportFactory(UdpTransportFactory const&) = delete;
+	UdpTransportFactory(UdpTransportFactory&&) = delete;
 
 	int bind(core::SocketAddress const &addr);
 	int listen(ListenDelegate &delegate);
@@ -105,7 +106,7 @@ template<typename ListenDelegate, typename TransportDelegate>
 UdpTransportFactory<ListenDelegate, TransportDelegate>::
 ~UdpTransportFactory() {
 	uv_close(
-		(uv_handle_t *)base_factory,
+		(uv_handle_t *)(uv_udp_t*)base_factory,
 		close_cb
 	);
 }
