@@ -24,17 +24,17 @@ struct DefaultMulticastClientOptions {
 	size_t max_conn = 2;
 };
 
-template<typename Delegate, typename AttesterType = pubsub::EmptyAttester>
+template<typename Delegate, typename AttesterType = pubsub::EmptyAttester, typename WitnesserType = pubsub::LpfBloomWitnesser>
 class DefaultMulticastClient {
 public:
-	using Self = DefaultMulticastClient<Delegate, AttesterType>;
+	using Self = DefaultMulticastClient<Delegate, AttesterType, WitnesserType>;
 	using PubSubNodeType = pubsub::PubSubNode<
 		Self,
 		false,
 		false,
 		false,
 		AttesterType,
-		pubsub::LpfBloomWitnesser
+		WitnesserType
 	>;
 
 	beacon::ClusterDiscoverer<Self> b;
