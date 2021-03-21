@@ -1,6 +1,7 @@
 #include <sodium.h>
 #include <unistd.h>
 
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/multicast/DefaultMulticastClient.hpp>
 
 
@@ -9,20 +10,21 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::lpf;
+using namespace marlin::pubsub;
 
 
 class MulticastDelegate {
 public:
-	DefaultMulticastClient<MulticastDelegate>* multicastClient;
+	DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser>* multicastClient;
 
 	MulticastDelegate(DefaultMulticastClientOptions clop) {
-		multicastClient = new DefaultMulticastClient<MulticastDelegate> (clop);
+		multicastClient = new DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser> (clop);
 		multicastClient->delegate = this;
 	}
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser> &client,
 		Buffer &&message,
 		T header,
 		uint16_t channel,
@@ -36,12 +38,12 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser> &client,
 		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<MulticastDelegate> &client,
+		DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser> &client,
 		uint16_t channel
 	) {}
 };
@@ -92,5 +94,5 @@ int main(int argc, char **argv) {
 
 	MulticastDelegate del(clop);
 
-	return DefaultMulticastClient<MulticastDelegate>::run_event_loop();
+	return DefaultMulticastClient<MulticastDelegate, EmptyAttester, BloomWitnesser>::run_event_loop();
 }
