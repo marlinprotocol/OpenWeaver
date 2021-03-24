@@ -238,13 +238,58 @@ int main(int argc, char** argv) {
 		};
 
 		SPDLOG_INFO(
-			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}, addr: 0x{:spn}",
+			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			listen_addr.to_string(),
-			beacon_addr.to_string(),
-			spdlog::to_hex(key.data(), key.data()+key.size())
+			beacon_addr.to_string()
 		);
+
+		{
+			if(key.size() == 0) {
+				SPDLOG_INFO("Bridge: No identity key provided");
+			} else if(key.size() == 32) {
+				auto* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+				auto* ctx_verifier = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+				if(secp256k1_ec_seckey_verify(ctx_verifier, (uint8_t*)key.c_str()) != 1) {
+					SPDLOG_ERROR("Bridge: failed to verify key", key.size());
+					secp256k1_context_destroy(ctx_verifier);
+					secp256k1_context_destroy(ctx_signer);
+					return -1;
+				}
+
+				secp256k1_pubkey pubkey;
+				auto res = secp256k1_ec_pubkey_create(
+					ctx_signer,
+					&pubkey,
+					(uint8_t*)key.c_str()
+				);
+				(void)res;
+
+				uint8_t pubkeyser[65];
+				size_t len = 65;
+				secp256k1_ec_pubkey_serialize(
+					ctx_signer,
+					pubkeyser,
+					&len,
+					&pubkey,
+					SECP256K1_EC_UNCOMPRESSED
+				);
+
+				// Get address
+				uint8_t hash[32];
+				CryptoPP::Keccak_256 hasher;
+				hasher.CalculateTruncatedDigest(hash, 32, pubkeyser+1, 64);
+				// address is in hash[12..31]
+
+				SPDLOG_INFO("Bridge: Identity is 0x{:spn}", spdlog::to_hex(hash+12, hash+32));
+
+				secp256k1_context_destroy(ctx_verifier);
+				secp256k1_context_destroy(ctx_signer);
+			} else {
+				SPDLOG_ERROR("Bridge: failed to load key: {}", key.size());
+			}
+		}
 
 		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 		uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
