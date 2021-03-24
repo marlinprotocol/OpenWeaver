@@ -282,12 +282,12 @@ int main(int argc, char** argv) {
 				hasher.CalculateTruncatedDigest(hash, 32, pubkeyser+1, 64);
 				// address is in hash[12..31]
 
-				SPDLOG_INFO("Beacon: Identity is 0x{:spn}", spdlog::to_hex(hash+12, hash+32));
+				SPDLOG_INFO("Bridge: Identity is 0x{:spn}", spdlog::to_hex(hash+12, hash+32));
 
 				secp256k1_context_destroy(ctx_verifier);
 				secp256k1_context_destroy(ctx_signer);
 			} else {
-				SPDLOG_ERROR("Beacon: failed to load key: {}", key.size());
+				SPDLOG_ERROR("Bridge: failed to load key: {}", key.size());
 			}
 		}
 
