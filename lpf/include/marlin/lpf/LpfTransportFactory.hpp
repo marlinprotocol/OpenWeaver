@@ -12,8 +12,8 @@ template<
 	typename TransportDelegate,
 	template<typename, typename> class StreamTransportFactory,
 	template<typename> class StreamTransport,
-	bool should_cut_through = false,
-	int prefix_length = 8
+	typename SHOULD_CUT_THROUGH = std::false_type,
+	typename PREFIX_LENGTH = std::integral_constant<uint8_t, 8>
 >
 class LpfTransportFactory {
 private:
@@ -22,8 +22,8 @@ private:
 		TransportDelegate,
 		StreamTransportFactory,
 		StreamTransport,
-		should_cut_through,
-		prefix_length
+		SHOULD_CUT_THROUGH,
+		PREFIX_LENGTH
 	>;
 	using SelfTransport = LpfTransport<
 		TransportDelegate,
@@ -40,6 +40,8 @@ private:
 
 	ListenDelegate *delegate;
 	core::TransportManager<SelfTransport> transport_manager;
+	static constexpr bool should_cut_through = SHOULD_CUT_THROUGH::value;
+	static constexpr uint8_t prefix_length = PREFIX_LENGTH::value;
 
 public:
 	bool should_accept(core::SocketAddress const &addr);

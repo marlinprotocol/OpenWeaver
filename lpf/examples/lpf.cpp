@@ -9,10 +9,10 @@ using namespace marlin::asyncio;
 using namespace marlin::lpf;
 
 template<typename Delegate>
-using TransportType = LpfTransport<Delegate, TcpTransport, false, 8>;
+using TransportType = LpfTransport<Delegate, TcpTransport>;
 
 template<typename ListenDelegate, typename TransportDelegate>
-using TransportFactoryType = LpfTransportFactory<ListenDelegate, TransportDelegate, TcpTransportFactory, TcpTransport, false, 8>;
+using TransportFactoryType = LpfTransportFactory<ListenDelegate, TransportDelegate, TcpTransportFactory, TcpTransport>;
 
 struct Delegate {
 	int did_recv(TransportType<Delegate> &transport, Buffer &&message) {

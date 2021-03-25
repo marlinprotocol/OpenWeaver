@@ -28,12 +28,12 @@ using LpfTcpTransportFactory = LpfTransportFactory<
 	MulticastDelegate,
 	TcpTransportFactory,
 	TcpTransport,
-	enable_cut_through
+	std::bool_constant<enable_cut_through>
 >;
 using LpfTcpTransport = LpfTransport<
 	MulticastDelegate,
 	TcpTransport,
-	enable_cut_through
+	std::bool_constant<enable_cut_through>
 >;
 
 class MulticastDelegate {
