@@ -408,12 +408,12 @@ public:
 		Self,
 		BaseStreamTransportFactory,
 		BaseStreamTransport,
-		enable_cut_through
+		std::bool_constant<enable_cut_through>
 	>;
 	using BaseTransport = lpf::LpfTransport<
 		Self,
 		BaseStreamTransport,
-		enable_cut_through
+		std::bool_constant<enable_cut_through>
 	>;
 	using AbciType = AbciTemplate<
 		Self,

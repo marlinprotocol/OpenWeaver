@@ -54,11 +54,8 @@ public:
 	int bind(core::SocketAddress const& addr);
 	int listen(ListenDelegateType& delegate);
 
-	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType* metadata);
-	template<typename MetadataType>
-	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate, MetadataType&& metadata);
+	template<typename... Args>
+	int dial(core::SocketAddress const& addr, ListenDelegateType& delegate, Args&&... args);
 
 	TransportType* get_transport(core::SocketAddress const& addr);
 
@@ -130,24 +127,18 @@ template<
 	typename ListenDelegateType,
 	typename TransportDelegateType
 >
-std::pair<
-	SimulatedTransport<
-		EventManager,
-		NetworkInterfaceType,
-		TransportDelegateType
-	>*,
-	int
-> SimulatedTransportFactory<
+template<typename... Args>
+int SimulatedTransportFactory<
 	EventManager,
 	NetworkInterfaceType,
 	ListenDelegateType,
 	TransportDelegateType
->::dial_impl(core::SocketAddress const& addr, ListenDelegateType& delegate) {
+>::dial(core::SocketAddress const& addr, ListenDelegateType& delegate, Args&&... args) {
 	if(!is_listening) {
 		auto status = listen(delegate);
 		if(status < 0) {
 			SPDLOG_ERROR("SimulatedTransportFactory {}: Listen failure: {}", this->addr.to_string());
-			return {nullptr, status};
+			return status;
 		}
 	}
 
@@ -160,92 +151,13 @@ std::pair<
 		this->manager
 	);
 
-	return {transport, res ? 1 : 0};
-}
-
-template<
-	typename EventManager,
-	typename NetworkInterfaceType,
-	typename ListenDelegateType,
-	typename TransportDelegateType
->
-int SimulatedTransportFactory<
-	EventManager,
-	NetworkInterfaceType,
-	ListenDelegateType,
-	TransportDelegateType
->::dial(core::SocketAddress const& addr, ListenDelegateType& delegate) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
+	if(res) {
 		delegate.did_create_transport(*transport);
 	}
 
-	transport->delegate->did_dial(*transport);
+	transport->delegate->did_dial(*transport, std::forward<Args>(args)...);
 
-	return status;
-}
-
-template<
-	typename EventManager,
-	typename NetworkInterfaceType,
-	typename ListenDelegateType,
-	typename TransportDelegateType
->
-template<typename MetadataType>
-int SimulatedTransportFactory<
-	EventManager,
-	NetworkInterfaceType,
-	ListenDelegateType,
-	TransportDelegateType
->::dial(
-	core::SocketAddress const& addr,
-	ListenDelegateType& delegate,
-	MetadataType* metadata
-) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport, metadata);
-	}
-
-	transport->delegate->did_dial(*transport, metadata);
-
-	return status;
-}
-
-template<
-	typename EventManager,
-	typename NetworkInterfaceType,
-	typename ListenDelegateType,
-	typename TransportDelegateType
->
-template<typename MetadataType>
-int SimulatedTransportFactory<
-	EventManager,
-	NetworkInterfaceType,
-	ListenDelegateType,
-	TransportDelegateType
->::dial(
-	core::SocketAddress const& addr,
-	ListenDelegateType& delegate,
-	MetadataType&& metadata
-) {
-	auto [transport, status] = dial_impl(addr, delegate);
-
-	if(status < 0) {
-		return status;
-	} else if(status == 1) {
-		delegate.did_create_transport(*transport);
-	}
-
-	transport->delegate->did_dial(*transport, std::move(metadata));
-
-	return status;
+	return res ? 1 : 0;
 }
 
 template<

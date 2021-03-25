@@ -233,7 +233,7 @@ private:
 
 public:
 	/// Delegate calls from base transport
-	void did_dial(BaseTransport &transport, uint8_t const*);
+	void did_dial(BaseTransport &transport, uint8_t const* remote_static_pk);
 	/// Delegate calls from base transport
 	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
 	/// Delegate calls from base transport
@@ -254,8 +254,7 @@ public:
 		core::SocketAddress const &src_addr,
 		core::SocketAddress const &dst_addr,
 		BaseTransport &transport,
-		core::TransportManager<Self> &transport_manager,
-		uint8_t const* remote_static_pk
+		core::TransportManager<Self> &transport_manager
 	);
 
 	/// Setup function that can be called to set the delegate and the private key
@@ -2042,8 +2041,7 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	core::SocketAddress const &src_addr,
 	core::SocketAddress const &dst_addr,
 	BaseTransport &transport,
-	core::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager,
-	uint8_t const* remote_static_pk
+	core::TransportManager<StreamTransport<DelegateType, DatagramTransport>> &transport_manager
 ) : transport(transport),
 	transport_manager(transport_manager),
 	state_timer(this),
@@ -2055,10 +2053,6 @@ StreamTransport<DelegateType, DatagramTransport>::StreamTransport(
 	delegate(nullptr) {
 	if(sodium_init() == -1) {
 		throw;
-	}
-
-	if (remote_static_pk != nullptr) {
-		std::memcpy(this->remote_static_pk, remote_static_pk, crypto_box_PUBLICKEYBYTES);
 	}
 }
 
