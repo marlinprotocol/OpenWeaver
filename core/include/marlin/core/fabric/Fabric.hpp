@@ -40,6 +40,11 @@ private:
 public:
 	using OuterMessageType = decltype(std::get<0>(stages))::OuterMessageType;
 	using InnerMessageType = decltype(std::get<sizeof...(Fibers) - 1>(fibers))::InnerMessageType;
+
+	template<typename FabricType, typename... Args, size_t idx = 1>
+	int did_recv(FabricType&&, core::Buffer&&, Args&&...) {
+		return 0;
+	}
 };
 
 }  // namespace core
