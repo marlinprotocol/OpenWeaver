@@ -41,7 +41,20 @@ public:
 	using OuterMessageType = decltype(std::get<0>(stages))::OuterMessageType;
 	using InnerMessageType = decltype(std::get<sizeof...(Fibers) - 1>(fibers))::InnerMessageType;
 
+	// Guide to fiber index
+	// 0						call on external fabric
+	// [1,len(Fibers)]			call on fiber
+	// len(Fibers)+1			call on external fabric
+
 	template<typename FabricType, typename... Args, size_t idx = 1>
+		requires (
+			// idx should be in range
+			idx <= sizeof...(Fibers) + 1 &&
+			// Should never have idx 0
+			idx != 0 &&
+			// Should never be called with idx 1 if outermost fiber is closed on the outer side
+			!(idx == 1 && NthFiber<1>::is_outer_open == false)
+		)
 	int did_recv(FabricType&&, core::Buffer&&, Args&&...) {
 		return 0;
 	}
