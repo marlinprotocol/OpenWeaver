@@ -13,6 +13,27 @@ class Fabric {
 		requires (n <= sizeof...(Fibers))
 	using NthFiber = typename std::tuple_element<n, std::tuple<void, Fibers...>>::type;
 
+	template<typename FiberOuter, typename FiberInner>
+	static constexpr bool fits() {
+		return (
+			// Outer fiber must be open on the inner side
+			FiberOuter::is_inner_open &&
+			// Inner fiber must be open on the outer side
+			FiberInner::is_outer_open &&
+			// MessageType must be compatible
+			std::is_same_v<FiberOuter::InnerMessageType, FiberInner::OuterMessageType>
+		);
+	}
+
+	template<size_t... Is>
+	static constexpr bool fits(std::index_sequence<Is...>) {
+		// fold expression
+		return ... && (Is == 0 || fits<NthFiber<Is>, NthFiber<Is+1>>());
+	}
+
+	// Assert that all fibers fit well together
+	static_assert(fits(std::index_sequence_for<Is...>);
+
 private:
 	// Important: Not zero indexed!
 	std::tuple<void, Fibers...> fibers;
