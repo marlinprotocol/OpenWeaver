@@ -45,6 +45,9 @@ public:
 	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
 	using InnerMessageType = typename NthFiber<sizeof...(Fibers)>::InnerMessageType;
 
+	static constexpr bool is_outer_open = NthFiber<1>::is_outer_open;
+	static constexpr bool is_inner_open = NthFiber<sizeof...(Fibers)>::is_inner_open;
+
 	// Guide to fiber index
 	// 0						call on external fabric
 	// [1,len(Fibers)]			call on fiber
