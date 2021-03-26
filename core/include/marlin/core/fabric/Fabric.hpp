@@ -57,9 +57,9 @@ public:
 			// Should never have idx 0
 			idx != 0 &&
 			// Should never be called with idx 1 if outermost fiber is closed on the outer side
-			!(idx == 1 && NthFiber<1>::is_outer_open == false)
+			!(idx == 1 && !NthFiber<1>::is_outer_open)
 		)
-	int did_recv(FabricType&&, core::Buffer&&, Args&&...) {
+	int did_recv(FabricType&&, Buffer&&, Args&&...) {
 		return 0;
 	}
 };
