@@ -8,6 +8,11 @@ namespace core {
 template<typename... Fibers>
 class Fabric {
 
+	// Important: Not zero indexed!
+	template<int n>
+		requires (n <= sizeof...(Fibers))
+	using NthFiber = typename std::tuple_element<n, std::tuple<void, Fibers...>>::type;
+
 private:
 	// Important: Not zero indexed!
 	std::tuple<void, Fibers...> fibers;
