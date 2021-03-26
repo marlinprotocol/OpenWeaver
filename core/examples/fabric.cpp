@@ -12,7 +12,7 @@ struct Fiber {
 };
 
 int main() {
-	Fabric<Fiber, Fiber, Fiber> f;
+	Fabric<Fiber, Fabric<Fiber, Fiber>, Fiber, Fiber> f;
 	(void)f;
 	return 0;
 }
