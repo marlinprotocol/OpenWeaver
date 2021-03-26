@@ -13,6 +13,7 @@ struct Fiber {
 
 int main() {
 	Fabric<Fiber, Fiber, Fiber> f;
+	(void)f;
 	return 0;
 }
 
