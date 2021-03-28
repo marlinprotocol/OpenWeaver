@@ -29,6 +29,10 @@ public:
 private:
 	struct Empty {};
 
+	// Forward declaration
+	template<size_t idx>
+	struct Shuttle;
+
 	// Important: Not zero indexed!
 	template<size_t idx>
 		//requires (idx <= sizeof...(Fibers))
