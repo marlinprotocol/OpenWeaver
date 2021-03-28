@@ -71,11 +71,11 @@ private:
 			if constexpr (idx == sizeof...(Fibers)) {
 				// inside shuttle of last fiber, exit
 				return fabric.ext_fabric.did_recv(fabric, std::forward<Args>(args)...);
+			} else {
+				// Transition to next fiber
+				auto& next_fiber = std::get<idx>(fabric.fibers);
+				return next_fiber.did_recv(Shuttle<idx+1>(), std::forward<Args>(args)...);
 			}
-
-			// Transition to next fiber
-			auto& next_fiber = std::get<idx>(fabric.fibers);
-			return next_fiber.did_recv(Shuttle<idx+1>(), std::forward<Args>(args)...);
 		}
 	};
 
