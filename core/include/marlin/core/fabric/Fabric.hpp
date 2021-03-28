@@ -29,6 +29,20 @@ struct TupleCat<T, std::tuple<TupleTypes...>> {
 	using type = std::tuple<TupleTypes..., T>;
 };
 
+template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+	requires (idx != 0)
+struct TupleHelper {
+	using base = typename TupleHelper<idx-1, Shuttle, FiberTemplates...>::type;
+	using type = typename TupleCat<FiberTemplate<Shuttle<idx>>, base>::type;
+};
+
+template<template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+struct TupleHelper<1, Shuttle, FiberTemplate, FiberTemplates...> {
+	struct Empty {};
+	using type = std::tuple<Empty, FiberTemplate<Shuttle<1>>>;
+};
+
+
 // Fibers assumed to be ordered from Outer to Inner
 template<typename ExtFabric, template<typename> typename... FiberTemplates>
 class Fabric {
