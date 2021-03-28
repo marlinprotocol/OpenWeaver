@@ -8,8 +8,11 @@ namespace marlin {
 namespace core {
 
 // Fibers assumed to be ordered from Outer to Inner
-template<typename... Fibers>
+template<typename ExtFabric, typename... Fibers>
 class Fabric {
+public:
+	using SelfType = Fabric<ExtFabric, Fibers...>
+private:
 	struct Empty {};
 
 	// Important: Not zero indexed!
@@ -38,9 +41,12 @@ class Fabric {
 	// Assert that all fibers fit well together
 	static_assert(fits(std::make_index_sequence<sizeof...(Fibers)-1>{}));
 
-private:
 	// Important: Not zero indexed!
-	std::tuple<Empty, Fibers...> fibers;
+	[[no_unique_address]] std::tuple<Empty, Fibers...> fibers;
+
+	// External fabric
+	[[no_unique_address]] ExtFabric ext_fabric;
+
 public:
 	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
 	using InnerMessageType = typename NthFiber<sizeof...(Fibers)>::InnerMessageType;
