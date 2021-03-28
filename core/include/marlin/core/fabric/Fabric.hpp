@@ -102,8 +102,8 @@ public:
 			// Should never call external fabric if innermost fiber is closed on the inner side
 			!(idx == sizeof...(Fibers) + 1 && !NthFiber<sizeof...(Fibers)>::is_inner_open)
 		)
-	int did_recv(FabricType&&, typename NthFiber<idx>::OuterMessageType&&, Args&&...) {
-		return 0;
+	int did_recv(FabricType&&, typename NthFiber<idx>::OuterMessageType&& buf, Args&&... args) {
+		return std::get<idx>(fibers).did_recv(Shuttle<idx>(), std::move(buf), std::forward<Args>(args)...);
 	}
 };
 
