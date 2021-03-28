@@ -85,11 +85,11 @@ private:
 	[[no_unique_address]] ExtFabric ext_fabric;
 
 	// Important: Not zero indexed!
-	[[no_unique_address]] TupleHelper<
+	[[no_unique_address]] typename TupleHelper<
 		sizeof...(FiberTemplates),
 		Shuttle,
 		FiberTemplates...
-	> fibers;
+	>::type fibers;
 
 	// Warning: Potentially very brittle
 	// Calculate offset of fabric from reference to fiber
