@@ -57,7 +57,7 @@ private:
 	}
 
 	// Assert that all fibers fit well together
-	static_assert(fits(std::make_index_sequence<sizeof...(Fibers)-1>{}));
+	static_assert(fits(std::make_index_sequence<sizeof...(FiberTemplates)-1>{}));
 
 	// Important: Not zero indexed!
 	[[no_unique_address]] std::tuple<Empty, Fibers...> fibers;
