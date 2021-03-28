@@ -59,6 +59,19 @@ private:
 		return *(SelfType*)((uint8_t*)&fiber_ptr - ((uint8_t*)ref_fiber_ptr - (uint8_t*)ref_fabric_ptr));
 	}
 
+	// Shuttle for properly transitioning between fibers
+	template<size_t idx>
+	struct Shuttle {
+		template<typename... Args>
+		int did_recv(NthFiber<idx-1>& caller, Args&&... args) {
+			// Warning: Requires that caller is fiber at idx - 1
+			auto& fabric = get_fabric<idx-1>(caller);
+
+			auto& next_fiber = std::get<idx>(fabric.fibers);
+			return next_fiber.did_recv(Shuttle<idx+1>(), std::forward<Args>(args)...);
+		}
+	};
+
 public:
 	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
 	using InnerMessageType = typename NthFiber<sizeof...(Fibers)>::InnerMessageType;
