@@ -81,11 +81,15 @@ private:
 	// Assert that all fibers fit well together
 	static_assert(fits(std::make_index_sequence<sizeof...(FiberTemplates)-1>{}));
 
-	// Important: Not zero indexed!
-	[[no_unique_address]] std::tuple<Empty, Fibers...> fibers;
-
 	// External fabric
 	[[no_unique_address]] ExtFabric ext_fabric;
+
+	// Important: Not zero indexed!
+	[[no_unique_address]] TupleHelper<
+		sizeof...(FiberTemplates),
+		Shuttle,
+		FiberTemplates...
+	> fibers;
 
 	// Warning: Potentially very brittle
 	// Calculate offset of fabric from reference to fiber
