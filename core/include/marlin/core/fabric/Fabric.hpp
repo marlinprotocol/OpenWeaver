@@ -7,6 +7,20 @@
 namespace marlin {
 namespace core {
 
+template<size_t idx, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+	requires (idx != 0)
+struct NthFiberHelper {
+	template<typename T>
+	using type = typename NthFiberHelper<idx-1, FiberTemplates...>::template type<T>;
+};
+
+template<template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+struct NthFiberHelper<1, FiberTemplate, FiberTemplates...> {
+	template<typename T>
+	using type = FiberTemplate<T>;
+};
+
+
 // Fibers assumed to be ordered from Outer to Inner
 template<typename ExtFabric, template<typename> typename... FiberTemplates>
 class Fabric {
