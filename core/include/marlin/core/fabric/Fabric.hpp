@@ -11,7 +11,7 @@ namespace core {
 template<typename ExtFabric, template<typename> typename... FiberTemplates>
 class Fabric {
 public:
-	using SelfType = Fabric<ExtFabric, Fibers...>;
+	using SelfType = Fabric<ExtFabric, FiberTemplates...>;
 private:
 	struct Empty {};
 
