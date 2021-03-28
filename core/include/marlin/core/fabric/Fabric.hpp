@@ -57,7 +57,7 @@ private:
 
 	// Important: Not zero indexed!
 	template<size_t idx>
-		//requires (idx <= sizeof...(Fibers))
+		//requires (idx <= sizeof...(FiberTemplates))
 	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx>>;
 
 	template<typename FiberOuter, typename FiberInner>
@@ -112,7 +112,7 @@ private:
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(Fibers)) {
+			if constexpr (idx == sizeof...(FiberTemplates)) {
 				// inside shuttle of last fiber, exit
 				return fabric.ext_fabric.did_recv(fabric, std::forward<Args>(args)...);
 			} else {
@@ -125,10 +125,10 @@ private:
 
 public:
 	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
-	using InnerMessageType = typename NthFiber<sizeof...(Fibers)>::InnerMessageType;
+	using InnerMessageType = typename NthFiber<sizeof...(FiberTemplates)>::InnerMessageType;
 
 	static constexpr bool is_outer_open = NthFiber<1>::is_outer_open;
-	static constexpr bool is_inner_open = NthFiber<sizeof...(Fibers)>::is_inner_open;
+	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)>::is_inner_open;
 
 	// Guide to fiber index
 	// 0						call on external fabric
@@ -138,13 +138,16 @@ public:
 	template<typename FabricType, typename... Args, size_t idx = 1>
 		requires (
 			// idx should be in range
-			idx <= sizeof...(Fibers) + 1 &&
+			idx <= sizeof...(FiberTemplates) + 1 &&
 			// Should never have idx 0
 			idx != 0 &&
 			// Should never be called with idx 1 if outermost fiber is closed on the outer side
 			!(idx == 1 && !NthFiber<1>::is_outer_open) &&
 			// Should never call external fabric if innermost fiber is closed on the inner side
-			!(idx == sizeof...(Fibers) + 1 && !NthFiber<sizeof...(Fibers)>::is_inner_open)
+			!(
+				idx == sizeof...(FiberTemplates) + 1 &&
+				!NthFiber<sizeof...(FiberTemplates)>::is_inner_open
+			)
 		)
 	int did_recv(FabricType&&, typename NthFiber<idx>::OuterMessageType&& buf, Args&&... args) {
 		return std::get<idx>(fibers).did_recv(Shuttle<idx>(), std::move(buf), std::forward<Args>(args)...);
