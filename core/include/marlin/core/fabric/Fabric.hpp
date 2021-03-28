@@ -63,10 +63,17 @@ private:
 	template<size_t idx>
 	struct Shuttle {
 		template<typename... Args>
-		int did_recv(NthFiber<idx-1>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx - 1
-			auto& fabric = get_fabric<idx-1>(caller);
+		int did_recv(NthFiber<idx>& caller, Args&&... args) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
 
+			// Check for exit first
+			if constexpr (idx == sizeof...(Fibers)) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.did_recv(fabric, std::forward<Args>(args)...);
+			}
+
+			// Transition to next fiber
 			auto& next_fiber = std::get<idx>(fabric.fibers);
 			return next_fiber.did_recv(Shuttle<idx+1>(), std::forward<Args>(args)...);
 		}
