@@ -8,7 +8,7 @@ namespace marlin {
 namespace core {
 
 // Fibers assumed to be ordered from Outer to Inner
-template<typename ExtFabric, typename... Fibers>
+template<typename ExtFabric, template<typename> typename... FiberTemplates>
 class Fabric {
 public:
 	using SelfType = Fabric<ExtFabric, Fibers...>;
