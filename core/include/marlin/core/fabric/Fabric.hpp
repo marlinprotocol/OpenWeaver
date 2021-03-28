@@ -154,6 +154,13 @@ public:
 	}
 };
 
+
+template<template<typename> typename... F>
+struct FabricF {
+	template<typename T>
+	using type = Fabric<T, F...>;
+};
+
 }  // namespace core
 }  // namespace marlin
 
