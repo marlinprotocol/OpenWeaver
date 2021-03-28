@@ -30,9 +30,9 @@ private:
 	struct Empty {};
 
 	// Important: Not zero indexed!
-	template<size_t n>
-		//requires (n <= sizeof...(Fibers))
-	using NthFiber = typename std::tuple_element<n, std::tuple<Empty, Fibers...>>::type;
+	template<size_t idx>
+		//requires (idx <= sizeof...(Fibers))
+	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx>>;
 
 	template<typename FiberOuter, typename FiberInner>
 	static constexpr bool fits_binary() {
