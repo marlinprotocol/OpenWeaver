@@ -21,6 +21,14 @@ struct NthFiberHelper<1, FiberTemplate, FiberTemplates...> {
 };
 
 
+template<typename T, typename Tuple>
+struct TupleCat {};
+
+template<typename T, typename... TupleTypes>
+struct TupleCat<T, std::tuple<TupleTypes...>> {
+	using type = std::tuple<TupleTypes..., T>;
+};
+
 // Fibers assumed to be ordered from Outer to Inner
 template<typename ExtFabric, template<typename> typename... FiberTemplates>
 class Fabric {
