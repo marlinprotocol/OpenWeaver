@@ -30,12 +30,12 @@ struct Fiber {
 		idx(std::get<1>(init_tuple)) {}
 
 	template<typename FabricType>
-	int did_recv(FabricType&& fabric, Buffer&& buf) {
+	int did_recv(FabricType&&, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
 		if constexpr (std::is_same_v<ExtFabric, Empty>) {
 			return 0;
 		} else {
-			return fabric.did_recv(*this, std::move(buf));
+			return ext_fabric.did_recv(*this, std::move(buf));
 		}
 	}
 };
@@ -87,46 +87,44 @@ int main() {
 	f_nested.did_recv(0_sz, Buffer(5));
 
 	// Nested fabric
-	// !!! Does not compile
-	//Fabric<
-		//Fiber<Empty>,
-		//Fiber,
-		//Fiber,
-		//Fiber,
-		//Fiber,
-		//FabricF<Fiber, Fiber>::type
-	//> f_nested2(std::make_tuple(
-		//// Fiber<Empty>
-		//std::make_tuple(std::make_tuple(), 0_sz),
-		//// Other fibers
-		//std::make_tuple(1_sz),
-		//std::make_tuple(2_sz),
-		//std::make_tuple(3_sz),
-		//std::make_tuple(4_sz),
-		//std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
-	//));
-	//f_nested2.did_recv(0_sz, Buffer(5));
+	Fabric<
+		Fiber<Empty>,
+		Fiber,
+		Fiber,
+		Fiber,
+		Fiber,
+		FabricF<Fiber, Fiber>::type
+	> f_nested2(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(1_sz),
+		std::make_tuple(2_sz),
+		std::make_tuple(3_sz),
+		std::make_tuple(4_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
+	));
+	f_nested2.did_recv(0_sz, Buffer(5));
 
 	// Nested fabric
-	// !!! Does not compile
-	//Fabric<
-		//Fiber<Empty>,
-		//FabricF<Fiber, Fiber>::type,
-		//Fiber,
-		//Fiber,
-		//Fiber,
-		//Fiber
-	//> f_nested3(std::make_tuple(
-		//// Fiber<Empty>
-		//std::make_tuple(std::make_tuple(), 0_sz),
-		//// Other fibers
-		//std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		//std::make_tuple(1_sz),
-		//std::make_tuple(2_sz),
-		//std::make_tuple(3_sz),
-		//std::make_tuple(4_sz)
-	//));
-	//f_nested3.did_recv(0_sz, Buffer(5));
+	Fabric<
+		Fiber<Empty>,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		Fiber,
+		Fiber,
+		Fiber
+	> f_nested3(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(1_sz),
+		std::make_tuple(2_sz),
+		std::make_tuple(3_sz),
+		std::make_tuple(4_sz)
+	));
+	f_nested3.did_recv(0_sz, Buffer(5));
 
 	// Nested fabric
 	Fabric<
