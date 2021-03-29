@@ -3,13 +3,21 @@
 
 using namespace marlin::core;
 
-template<size_t idx = 0>
+template<typename ExtFabric>
 struct Fiber {
 	static constexpr bool is_outer_open = true;
 	static constexpr bool is_inner_open = true;
 
 	using InnerMessageType = Buffer;
 	using OuterMessageType = Buffer;
+
+	[[no_unique_address]] ExtFabric ext_fabric;
+	size_t idx = 0;
+
+	template<typename ExtTupleType>
+	Fiber(std::tuple<ExtTupleType, size_t>&& init_tuple) :
+		ext_fabric(std::get<0>(init_tuple)),
+		idx(std::get<1>(init_tuple)) {}
 
 	template<typename FabricType>
 	int did_recv(FabricType&& fabric, Buffer&& buf) {
