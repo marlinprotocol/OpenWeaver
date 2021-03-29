@@ -3,6 +3,11 @@
 
 using namespace marlin::core;
 
+
+size_t operator "" _sz (unsigned long long x) {
+  return x;
+}
+
 struct Empty {
 	template<typename... Args>
 	Empty(Args&&...) {}
@@ -35,11 +40,28 @@ struct Fiber {
 	}
 };
 
+
 int main() {
-	Fabric<Fiber<0>, Fabric<Fiber<1>, Fiber<2>>, Fiber<3>, Fiber<4>> f;
+	Fabric<
+		Fiber<Empty>,
+		Fiber,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		Fiber
+	> f(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(5_sz),
+		std::make_tuple(6_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(3_sz),
+		std::make_tuple(4_sz)
+	));
 	// unique identity rule strikes again -_-
 	SPDLOG_INFO("{}", sizeof(f));
 
-	return f.did_recv(Fiber<0>(), Buffer(5));
+	return f.did_recv(0_sz, Buffer(5));
 }
 
