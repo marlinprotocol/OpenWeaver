@@ -42,6 +42,136 @@ struct Fiber {
 
 
 int main() {
+	// Simplest fabric
+	Fabric<
+		Fiber<Empty>,
+		Fiber
+	> f_simplest(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(1_sz)
+	));
+	f_simplest.did_recv(0_sz, Buffer(5));
+
+	// Multiple fibers fabric
+	Fabric<
+		Fiber<Empty>,
+		Fiber,
+		Fiber,
+		Fiber,
+		Fiber,
+		Fiber
+	> f_multiple(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(1_sz),
+		std::make_tuple(2_sz),
+		std::make_tuple(3_sz),
+		std::make_tuple(4_sz),
+		std::make_tuple(5_sz)
+	));
+	f_multiple.did_recv(0_sz, Buffer(5));
+
+	// Nested fabric
+	Fabric<
+		Fiber<Empty>,
+		FabricF<Fiber, Fiber>::type
+	> f_nested(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
+	));
+	f_nested.did_recv(0_sz, Buffer(5));
+
+	// Nested fabric
+	// !!! Does not compile
+	//Fabric<
+		//Fiber<Empty>,
+		//Fiber,
+		//Fiber,
+		//Fiber,
+		//Fiber,
+		//FabricF<Fiber, Fiber>::type
+	//> f_nested2(std::make_tuple(
+		//// Fiber<Empty>
+		//std::make_tuple(std::make_tuple(), 0_sz),
+		//// Other fibers
+		//std::make_tuple(1_sz),
+		//std::make_tuple(2_sz),
+		//std::make_tuple(3_sz),
+		//std::make_tuple(4_sz),
+		//std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
+	//));
+	//f_nested2.did_recv(0_sz, Buffer(5));
+
+	// Nested fabric
+	// !!! Does not compile
+	//Fabric<
+		//Fiber<Empty>,
+		//FabricF<Fiber, Fiber>::type,
+		//Fiber,
+		//Fiber,
+		//Fiber,
+		//Fiber
+	//> f_nested3(std::make_tuple(
+		//// Fiber<Empty>
+		//std::make_tuple(std::make_tuple(), 0_sz),
+		//// Other fibers
+		//std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		//std::make_tuple(1_sz),
+		//std::make_tuple(2_sz),
+		//std::make_tuple(3_sz),
+		//std::make_tuple(4_sz)
+	//));
+	//f_nested3.did_recv(0_sz, Buffer(5));
+
+	// Nested fabric
+	Fabric<
+		Fiber<Empty>,
+		Fiber,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		Fiber
+	> f_nested4(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(1_sz),
+		std::make_tuple(2_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(3_sz),
+		std::make_tuple(4_sz)
+	));
+	f_nested4.did_recv(0_sz, Buffer(5));
+
+	// Nested fabric
+	Fabric<
+		Fiber<Empty>,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f_nested5(std::make_tuple(
+		// Fiber<Empty>
+		std::make_tuple(std::make_tuple(), 0_sz),
+		// Other fibers
+		std::make_tuple(1_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(2_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(3_sz),
+		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
+		std::make_tuple(4_sz)
+	));
+	f_nested5.did_recv(0_sz, Buffer(5));
+
 	Fabric<
 		Fiber<Empty>,
 		Fiber,
@@ -59,9 +189,8 @@ int main() {
 		std::make_tuple(3_sz),
 		std::make_tuple(4_sz)
 	));
-	// unique identity rule strikes again -_-
-	SPDLOG_INFO("{}", sizeof(f));
+	f.did_recv(0_sz, Buffer(5));
 
-	return f.did_recv(0_sz, Buffer(5));
+	return 0;
 }
 
