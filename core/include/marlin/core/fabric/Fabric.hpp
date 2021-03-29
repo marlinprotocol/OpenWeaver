@@ -174,22 +174,14 @@ public:
 	// [1,len(Fibers)]			call on fiber
 	// len(Fibers)+1			call on external fabric
 
-	template<typename FabricType, typename... Args, size_t idx = 1>
+	template<typename FabricType, typename... Args>
 		requires (
-			// idx should be in range
-			idx <= sizeof...(FiberTemplates) + 1 &&
-			// Should never have idx 0
-			idx != 0 &&
-			// Should never be called with idx 1 if outermost fiber is closed on the outer side
-			!(idx == 1 && !NthFiber<1>::is_outer_open) &&
-			// Should never call external fabric if innermost fiber is closed on the inner side
-			!(
-				idx == sizeof...(FiberTemplates) + 1 &&
-				!NthFiber<sizeof...(FiberTemplates)>::is_inner_open
-			)
+			// Should only be called if outermost fiber is
+			// open on the outer side
+			NthFiber<1>::is_outer_open
 		)
-	int did_recv(FabricType&&, typename NthFiber<idx>::OuterMessageType&& buf, Args&&... args) {
-		return std::get<idx>(fibers).did_recv(Shuttle<idx>(), std::move(buf), std::forward<Args>(args)...);
+	int did_recv(FabricType&&, typename NthFiber<1>::OuterMessageType&& buf, Args&&... args) {
+		return std::get<1>(fibers).did_recv(Shuttle<1>(), std::move(buf), std::forward<Args>(args)...);
 	}
 };
 
