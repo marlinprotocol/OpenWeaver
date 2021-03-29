@@ -172,25 +172,6 @@ int main() {
 	));
 	f_nested5.did_recv(0_sz, Buffer(5));
 
-	Fabric<
-		Fiber<Empty>,
-		Fiber,
-		Fiber,
-		FabricF<Fiber, Fiber>::type,
-		Fiber,
-		Fiber
-	> f(std::make_tuple(
-		// Fiber<Empty>
-		std::make_tuple(std::make_tuple(), 0_sz),
-		// Other fibers
-		std::make_tuple(5_sz),
-		std::make_tuple(6_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(3_sz),
-		std::make_tuple(4_sz)
-	));
-	f.did_recv(0_sz, Buffer(5));
-
 	return 0;
 }
 
