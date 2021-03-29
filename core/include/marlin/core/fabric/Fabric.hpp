@@ -26,23 +26,28 @@ struct TupleCat {};
 
 template<typename T, typename... TupleTypes>
 struct TupleCat<T, std::tuple<TupleTypes...>> {
-	using type = std::tuple<TupleTypes..., T>;
+	using type = std::tuple<T, TupleTypes...>;
 };
 
-template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-	requires (idx != 0)
+template<size_t idx, size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper {
-	using base = typename TupleHelper<idx-1, Shuttle, FiberTemplates...>::type;
+	using base = typename TupleHelper<idx+1, total, Shuttle, FiberTemplates...>::type;
 	using type = typename TupleCat<FiberTemplate<Shuttle<idx>>, base>::type;
 };
 
-template<template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-struct TupleHelper<1, Shuttle, FiberTemplate, FiberTemplates...> {
+template<size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+struct TupleHelper<0, total, Shuttle, FiberTemplate, FiberTemplates...> {
 	struct Empty {
 		template<typename... Args>
 		Empty(Args&&...) {}
 	};
-	using type = std::tuple<Empty, FiberTemplate<Shuttle<1>>>;
+	using base = typename TupleHelper<1, total, Shuttle, FiberTemplate, FiberTemplates...>::type;
+	using type = typename TupleCat<std::tuple<Empty>, base>::type;
+};
+
+template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
+struct TupleHelper<idx, idx, Shuttle, FiberTemplate, FiberTemplates...> {
+	using type = std::tuple<FiberTemplate<Shuttle<idx>>>;
 };
 
 
@@ -88,6 +93,7 @@ private:
 
 	// Important: Not zero indexed!
 	[[no_unique_address]] typename TupleHelper<
+		0,
 		sizeof...(FiberTemplates),
 		Shuttle,
 		FiberTemplates...
@@ -134,6 +140,8 @@ private:
 	// Shuttle for properly transitioning between fibers
 	template<size_t idx>
 	struct Shuttle {
+		static_assert(idx != 0 && idx <= sizeof...(FiberTemplates));
+
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
