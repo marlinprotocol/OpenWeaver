@@ -38,7 +38,10 @@ struct TupleHelper {
 
 template<template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper<1, Shuttle, FiberTemplate, FiberTemplates...> {
-	struct Empty {};
+	struct Empty {
+		template<typename... Args>
+		Empty(Args&&...) {}
+	};
 	using type = std::tuple<Empty, FiberTemplate<Shuttle<1>>>;
 };
 
