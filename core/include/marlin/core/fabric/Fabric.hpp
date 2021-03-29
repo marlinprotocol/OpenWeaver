@@ -109,6 +109,9 @@ private:
 	template<size_t idx>
 	struct Shuttle {
 		template<typename... Args>
+		Shuttle(Args&&...) {}
+
+		template<typename... Args>
 		int did_recv(NthFiber<idx>& caller, Args&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
