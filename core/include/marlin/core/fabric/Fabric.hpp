@@ -93,6 +93,32 @@ private:
 		FiberTemplates...
 	>::type fibers;
 
+
+	// Private constructor
+	template<typename ExtTupleType, typename... TupleTypes, size_t... Is>
+	Fabric(std::tuple<ExtTupleType, TupleTypes...>&& init_tuple, std::index_sequence<Is...>) :
+		ext_fabric(std::move(std::get<0>(init_tuple))),
+		fibers(
+			// Empty
+			std::make_tuple(),
+			// Other fibers
+			std::move(std::tuple_cat(
+				// Shuttle
+				std::make_tuple(std::make_tuple()),
+				// Init
+				std::move(std::get<Is+1>(init_tuple))
+			))...
+		)
+	{}
+
+public:
+	// Public constructor
+	template<typename ExtTupleType, typename... TupleTypes>
+	Fabric(std::tuple<ExtTupleType, TupleTypes...>&& init_tuple) :
+		Fabric(std::move(init_tuple), std::index_sequence_for<TupleTypes...>())
+	{}
+
+private:
 	// Warning: Potentially very brittle
 	// Calculate offset of fabric from reference to fiber
 	template<size_t idx>
