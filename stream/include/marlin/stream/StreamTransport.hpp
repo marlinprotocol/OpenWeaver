@@ -15,6 +15,7 @@
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/core/TransportManager.hpp>
+#include <marlin/utils/logs.hpp>
 
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
@@ -319,6 +320,7 @@ public:
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::reset() {
+	MARLIN_LOG_DEBUG("{} {}", conn_state, this->src_addr.to_string());
 	// Reset transport
 	conn_state = ConnectionState::Listen;
 	src_conn_id = 0;
@@ -431,6 +433,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 bool StreamTransport<DelegateType, DatagramTransport>::register_send_intent(
 	SendStream &stream
 ) {
+	MARLIN_LOG_DEBUG_0();
+
 	if(send_queue_ids.find(stream.stream_id) != send_queue_ids.end()) {
 		return false;
 	}
@@ -453,6 +457,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 int StreamTransport<DelegateType, DatagramTransport>::send_lost_data(
 	uint64_t initial_bytes_in_flight
 ) {
+	MARLIN_LOG_DEBUG("{}", this->src_addr.to_string());
+
 	for(
 		auto iter = lost_packets.begin();
 		iter != lost_packets.end();
@@ -491,6 +497,14 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 	SendStream &stream,
 	uint64_t initial_bytes_in_flight
 ) {
+	MARLIN_LOG_DEBUG(
+            	     "Stream Id {} Bytes {}, initial bytes {} Addr {}",
+            	     stream.stream_id,
+            	     stream.bytes_in_flight,
+            	     initial_bytes_in_flight,
+	    	     this->src_addr.to_string()
+    );
+
 	for(
 		;
 		stream.next_item_iterator != stream.data_queue.end();
@@ -521,6 +535,11 @@ int StreamTransport<DelegateType, DatagramTransport>::send_new_data(
 			data_item.sent_offset += dsize;
 		}
 	}
+
+	MARLIN_LOG_DEBUG(
+			 "End {}, sent offset {}",
+			 stream.sent_offset
+	);
 
 	return 0;
 }
@@ -664,7 +683,7 @@ void StreamTransport<DelegateType, DatagramTransport>::ack_timer_cb() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIAL() {
-	SPDLOG_DEBUG(
+	MARLIN_LOG_DEBUG(
 		"Stream transport {{ Src: {}, Dst: {} }}: DIAL >>>> {:spn}",
 		src_addr.to_string(),
 		dst_addr.to_string(),
@@ -691,6 +710,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	DIAL &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
@@ -828,6 +849,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_DIALCONF() {
+	MARLIN_LOG_DEBUG_0();
+
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
@@ -846,6 +869,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 	DIALCONF &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
 
@@ -989,6 +1014,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
+	MARLIN_LOG_DEBUG_0();
+
 	transport.send(
 		CONF()
 		.set_src_conn_id(this->src_conn_id)
@@ -1000,6 +1027,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CONF(
 	CONF &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	if(!packet.validate()) {
 		return;
 	}
@@ -1078,6 +1107,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
+    MARLIN_LOG_DEBUG_0();
+
 	transport.send(
 		RST()
 		.set_src_conn_id(src_conn_id)
@@ -1089,6 +1120,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	RST &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}", this->src_addr.to_string());
+
 	if(!packet.validate()) {
 		return;
 	}
@@ -1117,6 +1150,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	uint64_t offset,
 	uint16_t length
 ) {
+	MARLIN_LOG_DEBUG_0();
+
 	this->last_sent_packet++;
 
 	bool is_fin = (stream.done_queueing &&
@@ -1174,6 +1209,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 	DATA &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}", this->src_addr.to_string());
+
 	if(!packet.validate(12 + crypto_aead_aes256gcm_ABYTES)) {
 		return;
 	}
@@ -1345,6 +1382,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DATA(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_ACK() {
+	MARLIN_LOG_DEBUG_0();
+
 	size_t size = ack_ranges.ranges.size() > 171 ? 171 : ack_ranges.ranges.size();
 
 	transport.send(
@@ -1361,6 +1400,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	ACK &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	if(!packet.validate()) {
 		return;
 	}
@@ -1416,7 +1457,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	) {
 		uint64_t range = *iter;
 
-		uint64_t low = high - range;
+		int low = high - range;
 
 		// Short circuit on gap range
 		if(gap) {
@@ -1424,9 +1465,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 			continue;
 		}
 
+		MARLIN_LOG_DEBUG("1st Inner loop PRE size {}, high {}, low {} iter {}", sent_packets.size(), high, low, *iter);
+
 		// Get packets within range [low+1, high]
 		auto low_iter = sent_packets.lower_bound(low + 1);
 		auto high_iter = sent_packets.upper_bound(high);
+
+		MARLIN_LOG_DEBUG("1st Inner loop {}, Post size {}", sent_packets.size());
 
 		// Iterate acked packets
 		for(
@@ -1480,6 +1525,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						*this,
 						std::move(iter->data)
 					);
+
+					MARLIN_LOG_DEBUG_0("3rd Loop");
 				}
 
 				if(fully_acked) {
@@ -1489,9 +1536,13 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 				// Already acked range, ignore
 			}
 
+			MARLIN_LOG_DEBUG("Pre 2nd Inner Loop {} {}", bytes_in_flight, sent_packet.length);
+
 			// Cleanup
 			stream.bytes_in_flight -= sent_packet.length;
 			bytes_in_flight -= sent_packet.length;
+
+			MARLIN_LOG_DEBUG("2nd Inner {} {}", bytes_in_flight, sent_packet.length);
 
 			SPDLOG_TRACE("Times: {}, {}", sent_packet.sent_time, congestion_start);
 
@@ -2124,6 +2175,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
+	if( !is_active() )
+		return;
+
 	// Preserve conn ids so retries work
 	auto src_conn_id = this->src_conn_id;
 	auto dst_conn_id = this->dst_conn_id;
@@ -2142,6 +2196,10 @@ void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
+	MARLIN_LOG_DEBUG("{}",state_timer_interval);
+	if ( !is_active() )
+		return;
+
 	if(state_timer_interval >= 8000) { // Abort on too many retries
 		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Close timeout",
@@ -2175,6 +2233,12 @@ double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream& stream) {
+
+	MARLIN_LOG_DEBUG("Stream Timer Interval {} Id {} SrcAddr {}", stream.state_timer_interval, stream.stream_id, this->src_addr.to_string());
+	
+	if ( !is_active() )
+		return;
+
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_DEBUG(
@@ -2227,6 +2291,11 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream& stream) {
+	MARLIN_LOG_DEBUG("Stream Time Interval {}", stream.state_timer_interval);
+
+	if (!is_active())
+		return;
+
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_DEBUG(

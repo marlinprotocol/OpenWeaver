@@ -8,7 +8,7 @@
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/core/CidrBlock.hpp>
 #include <marlin/core/TransportManager.hpp>
-
+#include <marlin/utils/logs.hpp>
 
 namespace marlin {
 namespace simulator {
@@ -116,7 +116,10 @@ void SimulatedTransport<
 	NetworkInterfaceType,
 	DelegateType
 >::close(uint16_t reason) {
-	delegate->did_close(*this, reason);
+	MARLIN_LOG_DEBUG_0();
+
+	delegate->close(reason);
+
 	transport_manager.erase(dst_addr);
 }
 

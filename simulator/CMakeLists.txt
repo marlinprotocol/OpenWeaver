@@ -16,6 +16,8 @@ add_library(simulator STATIC
 )
 add_library(marlin::simulator ALIAS simulator)
 
+#target_link_libraries(simulator PRIVATE )
+
 target_include_directories(simulator
 	PUBLIC
 		$<INSTALL_INTERFACE:include/marlin/simulator>
@@ -25,7 +27,7 @@ target_include_directories(simulator
 )
 target_compile_options(simulator PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(simulator PUBLIC cxx_std_17)
-target_link_libraries(simulator absl::btree)
+target_link_libraries(simulator absl::btree marlin::utils)
 
 set_target_properties(simulator PROPERTIES
 	OUTPUT_NAME "marlin-simulator"

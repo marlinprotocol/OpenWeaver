@@ -32,11 +32,10 @@ target_link_libraries(stream INTERFACE sodium::sodium)
 # marlin::asyncio
 target_link_libraries(stream INTERFACE marlin::asyncio)
 
+target_link_libraries(stream INTERFACE marlin::utils)
+
 # spdlog
 target_link_libraries(stream INTERFACE spdlog::spdlog_header_only)
-
-# Boost::filesystem
-target_link_libraries(stream INTERFACE Boost::filesystem)
 
 install(TARGETS stream
 	EXPORT marlin-stream-export
@@ -72,6 +71,7 @@ enable_testing()
 
 set(TEST_SOURCES
 	test/testAckRanges.cpp
+	test/testCongestion.cpp
 )
 
 add_custom_target(stream_tests)
@@ -101,6 +101,16 @@ add_dependencies(stream_examples stream_example)
 target_link_libraries(stream_example PUBLIC stream)
 target_compile_options(stream_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(stream_example PRIVATE cxx_std_17)
+
+#add_executable(stream_ex_test
+#	examples/stream_test.cpp
+#)
+#add_dependencies(stream_examples stream_ex_test)
+
+#target_link_libraries(stream_ex_test PUBLIC stream)
+#target_compile_options(stream_ex_test PRIVATE -Werror #-Wall -Wextra -pedantic-errors)
+#target_compile_features(stream_ex_test PRIVATE cxx_std_17)
+
 
 add_executable(stream_server
 	examples/server.cpp

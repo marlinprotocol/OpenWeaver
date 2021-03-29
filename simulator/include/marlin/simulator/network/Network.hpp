@@ -3,6 +3,7 @@
 
 #include "marlin/simulator/network/DataOnInterfaceEvent.hpp"
 #include "marlin/simulator/network/NetworkConditioner.hpp"
+#include <marlin/utils/logs.hpp>
 
 namespace marlin {
 namespace simulator {
@@ -24,6 +25,8 @@ public:
 	NetworkInterface<SelfType>& get_or_create_interface(
 		core::SocketAddress const& addr
 	);
+	
+	std::function<void(core::Buffer &)> edit_packet;
 
 	template<typename EventManager>
 	int send(
@@ -85,6 +88,29 @@ int Network<NetworkConditionerType>::send(
 		return -2;
 	}
 
+	edit_packet(packet);
+	std::optional<uint8_t> packet_type = packet.read_uint8_unsafe(1);
+	std::optional<uint32_t> s_id = packet.read_uint32(2);
+	std::optional<uint32_t> d_id = packet.read_uint32_le(6);
+	std::optional<uint64_t> packet_number;
+	if (packet_type.value() == 8)
+		MARLIN_LOG_DEBUG("Flush Packet {}", conditioner.count);
+	if(should_drop) {
+
+		MARLIN_LOG_DEBUG("Packet Dropped {}, {}", packet.size(), packet_type.value());
+
+		if ( packet_type.value() == 2 ) {
+			// ACK Packet number read
+			packet_number = packet.read_uint64(10);
+			MARLIN_LOG_DEBUG(" Src {}, Dst {}, Packet number {}", s_id.value(), d_id.value(), packet_number.value());
+		} else if( packet_type.value() == 0 ) {
+			// DATA Packet number read
+			packet_number = packet.read_uint64(12);
+			MARLIN_LOG_DEBUG("DATA {}", packet_number.value());
+		}	
+		return -2;
+	}
+	
 	auto out_tick = conditioner.get_out_tick(
 		manager.current_tick(),
 		src_addr,

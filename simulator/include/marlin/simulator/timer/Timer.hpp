@@ -7,7 +7,7 @@
 #include <type_traits>
 #include "marlin/simulator/core/Simulator.hpp"
 #include "marlin/simulator/timer/TimerEvent.hpp"
-
+#include <marlin/utils/logs.hpp>
 
 namespace marlin {
 namespace simulator {
@@ -65,6 +65,8 @@ public:
 			Simulator::default_instance.current_tick() + timeout,
 			*this
 		);
+
+		MARLIN_LOG_DEBUG_0();
 
 		Simulator::default_instance.add_event(next_event);
 	}
