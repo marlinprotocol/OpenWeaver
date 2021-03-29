@@ -3,6 +3,11 @@
 
 using namespace marlin::core;
 
+struct Empty {
+	template<typename... Args>
+	Empty(Args&&...) {}
+};
+
 template<typename ExtFabric>
 struct Fiber {
 	static constexpr bool is_outer_open = true;
@@ -22,7 +27,11 @@ struct Fiber {
 	template<typename FabricType>
 	int did_recv(FabricType&& fabric, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		return fabric.did_recv(*this, std::move(buf));
+		if constexpr (std::is_same_v<ExtFabric, Empty>) {
+			return 0;
+		} else {
+			return fabric.did_recv(*this, std::move(buf));
+		}
 	}
 };
 
