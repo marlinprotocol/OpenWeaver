@@ -8,9 +8,21 @@ size_t operator "" _sz (unsigned long long x) {
   return x;
 }
 
-struct Empty {
+struct Terminal {
+	static constexpr bool is_outer_open = false;
+	static constexpr bool is_inner_open = false;
+
+	using InnerMessageType = Buffer;
+	using OuterMessageType = Buffer;
+
 	template<typename... Args>
-	Empty(Args&&...) {}
+	Terminal(Args&&...) {}
+
+	template<typename FabricType>
+	int did_recv(FabricType&&, Buffer&&) {
+		SPDLOG_INFO("Did recv: Terminal");
+		return 0;
+	}
 };
 
 template<typename ExtFabric>
@@ -32,11 +44,7 @@ struct Fiber {
 	template<typename FabricType>
 	int did_recv(FabricType&&, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		if constexpr (std::is_same_v<ExtFabric, Empty>) {
-			return 0;
-		} else {
-			return ext_fabric.did_recv(*this, std::move(buf));
-		}
+		return ext_fabric.did_recv(*this, std::move(buf));
 	}
 };
 
@@ -44,10 +52,10 @@ struct Fiber {
 int main() {
 	// Simplest fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		Fiber
 	> f_simplest(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(1_sz)
@@ -56,14 +64,14 @@ int main() {
 
 	// Multiple fibers fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		Fiber,
 		Fiber,
 		Fiber,
 		Fiber,
 		Fiber
 	> f_multiple(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(1_sz),
@@ -76,10 +84,10 @@ int main() {
 
 	// Nested fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		FabricF<Fiber, Fiber>::type
 	> f_nested(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
@@ -88,14 +96,14 @@ int main() {
 
 	// Nested fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		Fiber,
 		Fiber,
 		Fiber,
 		Fiber,
 		FabricF<Fiber, Fiber>::type
 	> f_nested2(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(1_sz),
@@ -108,14 +116,14 @@ int main() {
 
 	// Nested fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		FabricF<Fiber, Fiber>::type,
 		Fiber,
 		Fiber,
 		Fiber,
 		Fiber
 	> f_nested3(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
@@ -128,14 +136,14 @@ int main() {
 
 	// Nested fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		Fiber,
 		Fiber,
 		FabricF<Fiber, Fiber>::type,
 		Fiber,
 		Fiber
 	> f_nested4(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(1_sz),
@@ -148,7 +156,7 @@ int main() {
 
 	// Nested fabric
 	Fabric<
-		Fiber<Empty>,
+		Terminal,
 		Fiber,
 		FabricF<Fiber, Fiber>::type,
 		Fiber,
@@ -157,7 +165,7 @@ int main() {
 		FabricF<Fiber, Fiber>::type,
 		Fiber
 	> f_nested5(std::make_tuple(
-		// Fiber<Empty>
+		// Terminal
 		std::make_tuple(std::make_tuple(), 0_sz),
 		// Other fibers
 		std::make_tuple(1_sz),
