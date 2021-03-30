@@ -18,8 +18,8 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	template<typename FabricType>
-	int did_recv(FabricType&&, Buffer&&) {
+	template<typename FiberType>
+	int did_recv(FiberType&, Buffer&&) {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
@@ -41,8 +41,7 @@ struct Fiber {
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
-	template<typename FabricType>
-	int did_recv(FabricType&&, Buffer&& buf) {
+	int did_recv(Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
 		return ext_fabric.did_recv(*this, std::move(buf));
 	}
@@ -60,7 +59,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(1_sz)
 	));
-	f_simplest.did_recv(0_sz, Buffer(5));
+	f_simplest.did_recv(Buffer(5));
 
 	// Multiple fibers fabric
 	Fabric<
@@ -80,7 +79,7 @@ int main() {
 		std::make_tuple(4_sz),
 		std::make_tuple(5_sz)
 	));
-	f_multiple.did_recv(0_sz, Buffer(5));
+	f_multiple.did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -92,7 +91,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
 	));
-	f_nested.did_recv(0_sz, Buffer(5));
+	f_nested.did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -112,7 +111,7 @@ int main() {
 		std::make_tuple(4_sz),
 		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
 	));
-	f_nested2.did_recv(0_sz, Buffer(5));
+	f_nested2.did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -132,7 +131,7 @@ int main() {
 		std::make_tuple(3_sz),
 		std::make_tuple(4_sz)
 	));
-	f_nested3.did_recv(0_sz, Buffer(5));
+	f_nested3.did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -152,7 +151,7 @@ int main() {
 		std::make_tuple(3_sz),
 		std::make_tuple(4_sz)
 	));
-	f_nested4.did_recv(0_sz, Buffer(5));
+	f_nested4.did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -176,7 +175,7 @@ int main() {
 		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
 		std::make_tuple(4_sz)
 	));
-	f_nested5.did_recv(0_sz, Buffer(5));
+	f_nested5.did_recv(Buffer(5));
 
 	return 0;
 }

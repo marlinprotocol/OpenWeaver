@@ -160,7 +160,7 @@ private:
 			} else {
 				// Transition to next fiber
 				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_recv(Shuttle<idx+1>(), std::forward<Args>(args)...);
+				return next_fiber.did_recv(std::forward<Args>(args)...);
 			}
 		}
 	};
@@ -177,14 +177,14 @@ public:
 	// [1,len(Fibers)]			call on fiber
 	// len(Fibers)+1			call on external fabric
 
-	template<typename FabricType, typename... Args>
+	template<typename... Args>
 		requires (
 			// Should only be called if outermost fiber is
 			// open on the outer side
 			NthFiber<1>::is_outer_open
 		)
-	int did_recv(FabricType&&, typename NthFiber<1>::OuterMessageType&& buf, Args&&... args) {
-		return std::get<1>(fibers).did_recv(Shuttle<1>(), std::move(buf), std::forward<Args>(args)...);
+	int did_recv(typename NthFiber<1>::OuterMessageType&& buf, Args&&... args) {
+		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
 	}
 };
 
