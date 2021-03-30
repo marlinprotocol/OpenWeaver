@@ -28,7 +28,7 @@ target_include_directories(core
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_compile_options(core PRIVATE -Werror -Wall -Wextra -pedantic-errors)
-target_compile_features(core PUBLIC cxx_std_17)
+target_compile_features(core PUBLIC cxx_std_20)
 
 set_target_properties(core PROPERTIES
 	OUTPUT_NAME "marlin-core"
@@ -114,6 +114,7 @@ endforeach(TEST_SOURCE)
 ##########################################################
 
 set(EXAMPLE_SOURCES
+	examples/fabric.cpp
 )
 
 add_custom_target(core_examples)
