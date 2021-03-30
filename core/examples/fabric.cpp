@@ -4,10 +4,6 @@
 using namespace marlin::core;
 
 
-size_t operator "" _sz (unsigned long long x) {
-  return x;
-}
-
 struct Terminal {
 	static constexpr bool is_outer_open = false;
 	static constexpr bool is_inner_open = false;
@@ -34,10 +30,10 @@ struct Fiber {
 	using OuterMessageType = Buffer;
 
 	[[no_unique_address]] ExtFabric ext_fabric;
-	size_t idx = 0;
+	int idx = 0;
 
 	template<typename ExtTupleType>
-	Fiber(std::tuple<ExtTupleType, size_t>&& init_tuple) :
+	Fiber(std::tuple<ExtTupleType, int>&& init_tuple) :
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
@@ -55,9 +51,9 @@ int main() {
 		Fiber
 	> f_simplest(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(1_sz)
+		std::make_tuple(1)
 	));
 	f_simplest.did_recv(Buffer(5));
 
@@ -71,13 +67,13 @@ int main() {
 		Fiber
 	> f_multiple(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(1_sz),
-		std::make_tuple(2_sz),
-		std::make_tuple(3_sz),
-		std::make_tuple(4_sz),
-		std::make_tuple(5_sz)
+		std::make_tuple(1),
+		std::make_tuple(2),
+		std::make_tuple(3),
+		std::make_tuple(4),
+		std::make_tuple(5)
 	));
 	f_multiple.did_recv(Buffer(5));
 
@@ -87,9 +83,9 @@ int main() {
 		FabricF<Fiber, Fiber>::type
 	> f_nested(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
 	f_nested.did_recv(Buffer(5));
 
@@ -103,13 +99,13 @@ int main() {
 		FabricF<Fiber, Fiber>::type
 	> f_nested2(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(1_sz),
-		std::make_tuple(2_sz),
-		std::make_tuple(3_sz),
-		std::make_tuple(4_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz))
+		std::make_tuple(1),
+		std::make_tuple(2),
+		std::make_tuple(3),
+		std::make_tuple(4),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
 	f_nested2.did_recv(Buffer(5));
 
@@ -123,13 +119,13 @@ int main() {
 		Fiber
 	> f_nested3(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(1_sz),
-		std::make_tuple(2_sz),
-		std::make_tuple(3_sz),
-		std::make_tuple(4_sz)
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(1),
+		std::make_tuple(2),
+		std::make_tuple(3),
+		std::make_tuple(4)
 	));
 	f_nested3.did_recv(Buffer(5));
 
@@ -143,13 +139,13 @@ int main() {
 		Fiber
 	> f_nested4(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(1_sz),
-		std::make_tuple(2_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(3_sz),
-		std::make_tuple(4_sz)
+		std::make_tuple(1),
+		std::make_tuple(2),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(3),
+		std::make_tuple(4)
 	));
 	f_nested4.did_recv(Buffer(5));
 
@@ -165,15 +161,15 @@ int main() {
 		Fiber
 	> f_nested5(std::make_tuple(
 		// Terminal
-		std::make_tuple(std::make_tuple(), 0_sz),
+		std::make_tuple(std::make_tuple(), 0),
 		// Other fibers
-		std::make_tuple(1_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(2_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(3_sz),
-		std::make_tuple(std::make_tuple(1_sz), std::make_tuple(2_sz)),
-		std::make_tuple(4_sz)
+		std::make_tuple(1),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(2),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(3),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(4)
 	));
 	f_nested5.did_recv(Buffer(5));
 
