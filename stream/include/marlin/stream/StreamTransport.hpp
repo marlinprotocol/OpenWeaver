@@ -710,7 +710,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 	DIAL &&packet
 ) {
-	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+	MARLIN_LOG_INFO("{}",this->src_addr.to_string());
 
 	constexpr size_t pt_len = (crypto_box_PUBLICKEYBYTES + crypto_kx_PUBLICKEYBYTES);
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
@@ -869,7 +869,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 	DIALCONF &&packet
 ) {
-	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+	MARLIN_LOG_INFO("{}",this->src_addr.to_string());
 
 	constexpr size_t pt_len = crypto_kx_PUBLICKEYBYTES;
 	constexpr size_t ct_len = pt_len + crypto_box_SEALBYTES;
@@ -989,6 +989,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		}
 
 		send_CONF();
+		MARLIN_LOG_INFO_0("PSTD3");
 
 		break;
 	}
@@ -1010,6 +1011,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIALCONF(
 		break;
 	}
 	}
+	MARLIN_LOG_DEBUG("End {}",this->src_addr.to_string());
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1021,6 +1023,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CONF() {
 		.set_src_conn_id(this->src_conn_id)
 		.set_dst_conn_id(this->dst_conn_id)
 	);
+
 }
 
 template<typename DelegateType, template<typename> class DatagramTransport>
@@ -1107,7 +1110,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_RST(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-    MARLIN_LOG_DEBUG_0();
+	MARLIN_LOG_DEBUG_0();
 
 	transport.send(
 		RST()
@@ -1120,7 +1123,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 	RST &&packet
 ) {
-	MARLIN_LOG_DEBUG("{}", this->src_addr.to_string());
+	MARLIN_LOG_DEBUG("{} {} val {}", conn_state, this->src_addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -1128,6 +1131,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_RST(
 
 	auto src_conn_id = packet.src_conn_id();
 	auto dst_conn_id = packet.dst_conn_id();
+
 	if(src_conn_id == this->src_conn_id && dst_conn_id == this->dst_conn_id) {
 		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: RST",
@@ -1150,7 +1154,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_DATA(
 	uint64_t offset,
 	uint16_t length
 ) {
-	MARLIN_LOG_DEBUG_0();
+	MARLIN_LOG_INFO_0();
 
 	this->last_sent_packet++;
 
@@ -1526,6 +1530,9 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						std::move(iter->data)
 					);
 
+					if(stream.data_queue.size() == 0)
+						break;
+
 					MARLIN_LOG_DEBUG_0("3rd Loop");
 				}
 
@@ -1580,6 +1587,8 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 				return;
 			}
+			if (sent_packets.size() == 0)
+				break;			
 		}
 
 		high = low;
@@ -1967,6 +1976,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_dial(
 
 	src_conn_id = (uint32_t)std::random_device()();
 	send_DIAL();
+
 	conn_state = ConnectionState::DialSent;
 }
 
@@ -2032,6 +2042,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv(
 		// FLUSHCONF
 		case 9: did_recv_FLUSHCONF(std::move(packet));
 		break;
+		case 10: did_recv_CLOSE(std::move(packet));
+		break;
+		case 11: did_recv_CLOSECONF(std::move(packet));
+		break;	 
 		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
 		break;

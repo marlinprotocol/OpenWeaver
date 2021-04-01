@@ -372,7 +372,7 @@ struct CLOSEWrapper {
 
 	/// Construct a CLOSE message
 	CLOSEWrapper() : base(12) {
-		base.set_payload({0, 12});
+		base.set_payload({0, 10});
 	}
 
 	/// Validate the CLOSE message

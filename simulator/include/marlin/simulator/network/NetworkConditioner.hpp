@@ -34,10 +34,10 @@ public:
 // Impl
 
 bool NetworkConditioner::should_drop(
-	uint64_t in_tick,
-	core::SocketAddress const& src,
-	core::SocketAddress const& dst,
-	uint64_t size
+	uint64_t in_tick [[maybe_unused]],
+	core::SocketAddress const& src [[maybe_unused]],
+	core::SocketAddress const& dst [[maybe_unused]],
+	uint64_t size [[maybe_unused]]
 ) {
 	MARLIN_LOG_DEBUG("Tick {}, src {}, dst {}, size {}", in_tick, src.to_string(), dst.to_string(), size);
 	return drop_pattern();

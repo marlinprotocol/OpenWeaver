@@ -93,6 +93,7 @@ int Network<NetworkConditionerType>::send(
 	std::optional<uint32_t> s_id = packet.read_uint32(2);
 	std::optional<uint32_t> d_id = packet.read_uint32_le(6);
 	std::optional<uint64_t> packet_number;
+	MARLIN_LOG_INFO("{} {} src {}", conditioner.count, packet_type.value(), src_addr.to_string());
 	if (packet_type.value() == 8)
 		MARLIN_LOG_DEBUG("Flush Packet {}", conditioner.count);
 	if(should_drop) {
@@ -129,9 +130,7 @@ int Network<NetworkConditionerType>::send(
 		std::move(packet),
 		interface
 	);
-
 	manager.add_event(event);
-
 	return 0;
 }
 

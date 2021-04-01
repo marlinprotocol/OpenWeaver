@@ -133,10 +133,11 @@ TEST(StreamTest, CorruptionTest) {
 	};
 
 	NetworkType network(nc);
-   	spdlog::set_level(spdlog::level::debug);
+   	//spdlog::set_level(spdlog::level::debug);
 
 	network.edit_packet = [&](Buffer& packet [[maybe_unused]]){
-	        if (nc.count == 27) {
+	        if (nc.count == 7) {
+			SPDLOG_DEBUG("{}",packet.read_uint8(0).value());
         	        std::optional<uint32_t> src_conn_id = packet.read_uint32_le(2);
                 	SPDLOG_INFO("src_conn_id {}",src_conn_id.value());
                		int ret = packet.write_uint32_le(2,0);
@@ -172,34 +173,14 @@ TEST(StreamTest, CorruptionTest) {
 	};
 
 	d.t_did_dial = [&](TransportType &transport){
-		if (d.count > 7){
-                	return;
-            	}
-//                if(d.count > 0xfff) {
-//                        return;
-//                }
-
-
-//                if((count & 0xff) == 0) {
-//                      SPDLOG_INFO("Checkpoint: {}", count);
-//                }
-                ++d.count;
-
-                auto buf = Buffer(s_SIZE*10+350+d.count);
-                std::memset(buf.data(), 0, s_SIZE*10+350+d.count);
-
-                auto buf1 = Buffer(s_SIZE*10+350+d.count);
-                std::memset(buf.data(), 0, s_SIZE*10+350+d.count);
-
-                auto buf2 = Buffer(s_SIZE*10+350+d.count);
-                std::memset(buf.data(), 0, s_SIZE*10+350+d.count);
-
-                auto stream_id = (uint32_t)std::random_device()();
-                SPDLOG_INFO("Did dial {}",stream_id);
+		d.count++;
+		if (d.count>1)
+			return;
+                auto buf = Buffer(350);
+                std::memset(buf.data(), 0, 350);
+		uint8_t stream_id = 1;
+                MARLIN_LOG_INFO("Did dial {}",stream_id);
                 transport.send(std::move(buf), stream_id%3);
-                transport.send(std::move(buf1), (stream_id+1)%3);
-                transport.send(std::move(buf2), (stream_id+2)%3);
-
 	};
 
 	s.bind(SocketAddress::from_string("192.168.0.1:8000"));
@@ -207,9 +188,11 @@ TEST(StreamTest, CorruptionTest) {
 	c.bind(SocketAddress::from_string("192.168.0.2:8000"));
 	c.dial(SocketAddress::from_string("192.168.0.1:8000"), d, static_pk);
 
+	EXPECT_TRUE(true);
+
 	EventLoop::run();
 }
-
+/*
 TEST(StreamTest, SecondTest) {
         Simulator& simulator = Simulator::default_instance;
         NetworkConditioner nc;
@@ -225,16 +208,10 @@ TEST(StreamTest, SecondTest) {
         };
 
         NetworkType network(nc);
-       spdlog::set_level(spdlog::level::debug);
+        spdlog::set_level(spdlog::level::debug);
 
         network.edit_packet = [&](Buffer& packet [[maybe_unused]]){
                 return;
-                if (nc.count == 27) {
-                        std::optional<uint32_t> src_conn_id = packet.read_uint32_le(2);
-                        SPDLOG_INFO("src_conn_id {}",src_conn_id.value());
-                        int ret = packet.write_uint32_le(2,0);
-                        ret++;
-                 }
         };
 
         auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
@@ -260,14 +237,6 @@ TEST(StreamTest, SecondTest) {
                 if (d.count > 0){
                         return;
                 }
-//                if(d.count > 0xfff) {
-//                        return;
-//                }
-
-
-//                if((count & 0xff) == 0) {
-//                      SPDLOG_INFO("Checkpoint: {}", count);
-//                }
                 ++d.count;
 
                 auto buf = Buffer(s_SIZE*10+350+d.count);
@@ -338,14 +307,6 @@ TEST(StreamTest, ThirdTest) {
 
         network.edit_packet = [&](Buffer& packet [[maybe_unused]]){
                 return;
-/*
-		if (nc.count == 27) {
-                        std::optional<uint32_t> src_conn_id = packet.read_uint32_le(2);
-                        SPDLOG_INFO("src_conn_id {}",src_conn_id.value());
-                        int ret = packet.write_uint32_le(2,0);
-                        ret++;
-                 }
-*/
         };
 
         auto& i1 = network.get_or_create_interface(SocketAddress::from_string("192.168.0.1:0"));
@@ -411,4 +372,4 @@ TEST(StreamTest, ThirdTest) {
 
         simulator.run();
 }
-
+*/
