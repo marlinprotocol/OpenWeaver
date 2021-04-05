@@ -1416,7 +1416,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	) {
 		uint64_t range = *iter;
 
-		uint64_t low = high - range;
+		int low = high - range;
 
 		// Short circuit on gap range
 		if(gap) {
@@ -1480,6 +1480,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						*this,
 						std::move(iter->data)
 					);
+
+					if(stream.data_queue.size() == 0)
+						break;
+
 				}
 
 				if(fully_acked) {
@@ -1529,6 +1533,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 				return;
 			}
+
+			if (sent_packets.size() == 0)
+				break;			
+
 		}
 
 		high = low;
@@ -2124,6 +2132,9 @@ int StreamTransport<DelegateType, DatagramTransport>::send(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
+	if( !is_active() )
+		return;
+
 	// Preserve conn ids so retries work
 	auto src_conn_id = this->src_conn_id;
 	auto dst_conn_id = this->dst_conn_id;
@@ -2142,6 +2153,9 @@ void StreamTransport<DelegateType, DatagramTransport>::close(uint16_t reason) {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::close_timer_cb() {
+	if ( !is_active() )
+		return;
+
 	if(state_timer_interval >= 8000) { // Abort on too many retries
 		SPDLOG_DEBUG(
 			"Stream transport {{ Src: {}, Dst: {} }}: Close timeout",
@@ -2175,6 +2189,8 @@ double StreamTransport<DelegateType, DatagramTransport>::get_rtt() {
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::skip_timer_cb(RecvStream& stream) {
+	if ( !is_active() )
+		return;
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_DEBUG(
@@ -2227,6 +2243,8 @@ void StreamTransport<DelegateType, DatagramTransport>::skip_stream(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::flush_timer_cb(SendStream& stream) {
+	if ( !is_active() )
+		return;	
 	if(stream.state_timer_interval >= 64000) { // Abort on too many retries
 		stream.state_timer_interval = 0;
 		SPDLOG_DEBUG(
