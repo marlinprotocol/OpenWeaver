@@ -51,6 +51,10 @@ struct Delegate {
 		SPDLOG_INFO("Did close");
 	}
 
+	void close(uint16_t reason){
+		SPDLOG_INFO("Close {}", reason);
+	}
+
 	bool should_accept(SocketAddress const&) {
 		return true;
 	}
