@@ -116,8 +116,7 @@ void SimulatedTransport<
 	NetworkInterfaceType,
 	DelegateType
 >::close(uint16_t reason) {
-	
-	delegate->close(reason);
+	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
 

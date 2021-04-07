@@ -25,7 +25,10 @@ struct Delegate {
 		if(Simulator::default_instance.current_tick() > 10) {
 			transport.close();
 		} else {
-			transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
+			auto buf = Buffer(1350);
+			std::memset(buf.data(), 0, 1350);
+			transport.send(std::move(buf));
+			//transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 		}
 	}
 
@@ -44,15 +47,13 @@ struct Delegate {
 
 	void did_dial(TransportType& transport) {
 		SPDLOG_INFO("Did dial");
-		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
+		auto buf = Buffer(1350);
+		std::memset(buf.data(), 0, 1350);
+		transport.send(std::move(buf));
 	}
 
 	void did_close(TransportType&, uint16_t) {
 		SPDLOG_INFO("Did close");
-	}
-
-	void close(uint16_t reason){
-		SPDLOG_INFO("Close {}", reason);
 	}
 
 	bool should_accept(SocketAddress const&) {
@@ -65,6 +66,7 @@ struct Delegate {
 };
 
 int main() {
+
 	auto& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	Network<NetworkConditioner> network(nc);

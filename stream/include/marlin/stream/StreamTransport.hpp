@@ -15,6 +15,7 @@
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/core/TransportManager.hpp>
+#include <marlin/utils/logs.hpp>
 
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
@@ -330,6 +331,7 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	for(auto& [_, stream] : send_streams) {
 		(void)_;
 		stream.state_timer.stop();
+		stream.data_queue.clear();
 	}
 	send_streams.clear();
 	for(auto& [_, stream] : recv_streams) {
@@ -1481,9 +1483,11 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						std::move(iter->data)
 					);
 
-					if(stream.data_queue.size() == 0)
-						break;
-
+					if(stream.data_queue.size() == 0){
+							break;
+					}
+					
+					MARLIN_LOG_DEBUG("3rd Loop {} {}", stream.data_queue.size(), iter->data.size());
 				}
 
 				if(fully_acked) {
@@ -1797,6 +1801,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE(uint16_t reason) {
+	MARLIN_LOG_DEBUG_0();
 	transport.send(
 		CLOSE()
 		.set_src_conn_id(src_conn_id)
@@ -1809,6 +1814,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 	CLOSE &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	if(!packet.validate()) {
 		return;
 	}
@@ -1858,6 +1865,8 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
+	MARLIN_LOG_DEBUG_0();
+
 	transport.send(
 		CLOSECONF()
 		.set_src_conn_id(src_conn_id)
@@ -1869,6 +1878,8 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 	CLOSECONF &&packet
 ) {
+	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+
 	if(!packet.validate()) {
 		return;
 	}
@@ -1932,6 +1943,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 	BaseTransport &,
 	uint16_t reason
 ) {
+	this->close(reason);
 	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
@@ -1989,7 +2001,10 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv(
 		// FLUSHCONF
 		case 9: did_recv_FLUSHCONF(std::move(packet));
 		break;
-		// UNKNOWN
+		case 10: did_recv_CLOSE(std::move(packet));
+		break;
+		case 11: did_recv_CLOSECONF(std::move(packet));
+		break;		// UNKNOWN
 		default: SPDLOG_TRACE("UNKNOWN <<< {}", dst_addr.to_string());
 		break;
 	}
