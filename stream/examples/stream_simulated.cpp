@@ -59,31 +59,36 @@ struct Delegate {
 	}
 
 	void did_send(TransportType &transport, Buffer &&packet [[maybe_unused]]) {
-		 SPDLOG_INFO(
-		 	"Transport {{ Src: {}, Dst: {} }}: Did send packet: {} bytes",
-		 	transport.src_addr.to_string(),
-		 	transport.dst_addr.to_string(),
-		 	packet.size()
-		 );
+		// SPDLOG_INFO(
+		// 	"Transport {{ Src: {}, Dst: {} }}: Did send packet: {} bytes",
+		// 	transport.src_addr.to_string(),
+		// 	transport.dst_addr.to_string(),
+		// 	packet.size()
+		// );
 		did_dial(transport);
 	}
 
 	void did_dial(TransportType &transport) {
-		if(count > 10) {
+		if(count > 0xfff) {
 			transport.close();
 			return;
 		}
+		if((count & 0xff) == 0) {
+			SPDLOG_INFO("Checkpoint: {}", count);
+		}
 		++count;
 
-		auto buf = Buffer(1350);
-		std::memset(buf.data(), 0, 1350);
+		auto buf = Buffer(m_SIZE);
+		std::memset(buf.data(), 0, m_SIZE);
 
 		// SPDLOG_INFO("Did dial");
 
-		transport.send(std::move(buf), 1);
+		transport.send(std::move(buf));
 	}
 
-	void did_close(TransportType &, uint16_t) {}
+	void did_close(TransportType &, uint16_t) {
+		SPDLOG_INFO("Transport Closed");
+	}
 
 	bool should_accept(SocketAddress const &) {
 		return true;
@@ -112,7 +117,7 @@ struct Delegate {
 };
 
 int main() {
-	spdlog::set_level(spdlog::level::debug);
+	
 	Simulator& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	NetworkType network(nc);

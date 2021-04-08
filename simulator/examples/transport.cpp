@@ -25,10 +25,7 @@ struct Delegate {
 		if(Simulator::default_instance.current_tick() > 10) {
 			transport.close();
 		} else {
-			auto buf = Buffer(1350);
-			std::memset(buf.data(), 0, 1350);
-			transport.send(std::move(buf));
-			//transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
+			transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 		}
 	}
 
@@ -47,9 +44,7 @@ struct Delegate {
 
 	void did_dial(TransportType& transport) {
 		SPDLOG_INFO("Did dial");
-		auto buf = Buffer(1350);
-		std::memset(buf.data(), 0, 1350);
-		transport.send(std::move(buf));
+		transport.send(Buffer({0,0,0,0,0,0,0,0,0,0}, 10));
 	}
 
 	void did_close(TransportType&, uint16_t) {
@@ -66,7 +61,6 @@ struct Delegate {
 };
 
 int main() {
-
 	auto& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	Network<NetworkConditioner> network(nc);

@@ -32,9 +32,6 @@ target_link_libraries(stream INTERFACE sodium::sodium)
 # marlin::asyncio
 target_link_libraries(stream INTERFACE marlin::asyncio)
 
-# marlin::utils
-target_link_libraries(stream INTERFACE marlin::utils)
-
 # spdlog
 target_link_libraries(stream INTERFACE spdlog::spdlog_header_only)
 
