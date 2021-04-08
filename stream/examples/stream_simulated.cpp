@@ -70,7 +70,6 @@ struct Delegate {
 
 	void did_dial(TransportType &transport) {
 		if(count > 0xfff) {
-			transport.close();
 			return;
 		}
 		if((count & 0xff) == 0) {
