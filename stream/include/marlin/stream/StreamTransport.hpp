@@ -330,7 +330,6 @@ void StreamTransport<DelegateType, DatagramTransport>::reset() {
 	for(auto& [_, stream] : send_streams) {
 		(void)_;
 		stream.state_timer.stop();
-		stream.data_queue.clear();
 	}
 	send_streams.clear();
 	for(auto& [_, stream] : recv_streams) {
