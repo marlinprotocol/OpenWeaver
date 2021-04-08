@@ -15,7 +15,6 @@
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/core/TransportManager.hpp>
-#include <marlin/utils/logs.hpp>
 
 #include "protocol/SendStream.hpp"
 #include "protocol/RecvStream.hpp"
@@ -27,7 +26,6 @@ namespace stream {
 
 /// Timeout when no acks are received, used by the TLP timer
 #define DEFAULT_TLP_INTERVAL 1000
-/// Bytes that can be sent in a given batch, used by the packet pacing mechanism
 #define DEFAULT_PACING_LIMIT 400000
 /// Bytes that can be sent in a single packet to prevent fragmentation, accounts for header overheads
 #define DEFAULT_FRAGMENT_SIZE 1350
@@ -1487,7 +1485,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 							break;
 					}
 					
-					MARLIN_LOG_DEBUG("3rd Loop {} {}", stream.data_queue.size(), iter->data.size());
 				}
 
 				if(fully_acked) {
@@ -1801,7 +1798,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE(uint16_t reason) {
-	MARLIN_LOG_DEBUG_0();
+	SPDLOG_DEBUG("{}", __FUNCTION__);
 	transport.send(
 		CLOSE()
 		.set_src_conn_id(src_conn_id)
@@ -1814,7 +1811,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 	CLOSE &&packet
 ) {
-	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+	SPDLOG_DEBUG("{} {}", __FUNCTION__,this->src_addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -1865,7 +1862,7 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	MARLIN_LOG_DEBUG_0();
+	SPDLOG_DEBUG("{}",__FUNCTION__);
 
 	transport.send(
 		CLOSECONF()
@@ -1878,7 +1875,7 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 	CLOSECONF &&packet
 ) {
-	MARLIN_LOG_DEBUG("{}",this->src_addr.to_string());
+	SPDLOG_DEBUG("{} {}", __FUNCTION__, this->src_addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -2001,7 +1998,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv(
 		// FLUSHCONF
 		case 9: did_recv_FLUSHCONF(std::move(packet));
 		break;
-		case 10: did_recv_CLOSE(std::move(packet));
+		case 12: did_recv_CLOSE(std::move(packet));
 		break;
 		case 11: did_recv_CLOSECONF(std::move(packet));
 		break;		// UNKNOWN
