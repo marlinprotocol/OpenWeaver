@@ -1476,16 +1476,12 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 						fully_acked = false;
 						break;
 					}
-
+					// TODO: Handle delegate->did_send return type for connection continuation
 					delegate->did_send(
 						*this,
 						std::move(iter->data)
 					);
 
-					if(stream.data_queue.size() == 0){
-							break;
-					}
-					
 				}
 
 				if(fully_acked) {
@@ -1535,9 +1531,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 
 				return;
 			}
-
-			if (sent_packets.size() == 0)
-				break;			
 
 		}
 
