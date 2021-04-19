@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
 			staking_url = "/subgraphs/name/marlinprotocol/staking";
 			break;
 		case CliOptions::Contracts::kovan:
-			staking_url = "/subgraphs/name/princesinha19/marlin-staking";
+			staking_url = "/subgraphs/name/marlinprotocol/staking-kovan";
 			break;
 		};
 
