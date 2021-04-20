@@ -1416,12 +1416,19 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	) {
 		uint64_t range = *iter;
 
-		int low = high - range;
+		uint64_t low = high - range;
 
 		// Short circuit on gap range
 		if(gap) {
 			high = low;
 			continue;
+		}
+
+		//TODO: if either of high, low+1 are negative throw encoding error
+		//  https://tools.ietf.org/html/draft-ietf-quic-transport-34#section-19.3.1
+		//Tips	  https://wesmckinney.com/blog/avoid-unsigned-integers/
+		if ( low+1 > high){
+			break;
 		}
 
 		// Get packets within range [low+1, high]
@@ -1933,7 +1940,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_close(
 	BaseTransport &,
 	uint16_t reason
 ) {
-	this->close(reason);
 	delegate->did_close(*this, reason);
 	transport_manager.erase(dst_addr);
 }
