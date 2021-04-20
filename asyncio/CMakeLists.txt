@@ -93,6 +93,7 @@ endforeach(TEST_SOURCE)
 set(EXAMPLE_SOURCES
 	examples/udp.cpp
 	examples/tcp.cpp
+	examples/tcp_rc.cpp
 	examples/timer.cpp
 	examples/ws.cpp
 )
