@@ -85,9 +85,7 @@ struct Delegate {
 		transport.send(std::move(buf));
 	}
 
-	void did_close(TransportType &, uint16_t) {
-		SPDLOG_INFO("Transport Closed");
-	}
+	void did_close(TransportType &, uint16_t) {}
 
 	bool should_accept(SocketAddress const &) {
 		return true;
@@ -116,7 +114,6 @@ struct Delegate {
 };
 
 int main() {
-	
 	Simulator& simulator = Simulator::default_instance;
 	NetworkConditioner nc;
 	NetworkType network(nc);
