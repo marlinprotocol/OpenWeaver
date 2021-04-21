@@ -1798,7 +1798,6 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_FLUSHCONF(
 
 template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::send_CLOSE(uint16_t reason) {
-	SPDLOG_DEBUG("{}", __FUNCTION__);
 	transport.send(
 		CLOSE()
 		.set_src_conn_id(src_conn_id)
@@ -1811,8 +1810,6 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSE(
 	CLOSE &&packet
 ) {
-	SPDLOG_DEBUG("{} {}", __FUNCTION__,this->src_addr.to_string());
-
 	if(!packet.validate()) {
 		return;
 	}
@@ -1862,8 +1859,6 @@ void StreamTransport<DelegateType, DatagramTransport>::send_CLOSECONF(
 	uint32_t src_conn_id,
 	uint32_t dst_conn_id
 ) {
-	SPDLOG_DEBUG("{}",__FUNCTION__);
-
 	transport.send(
 		CLOSECONF()
 		.set_src_conn_id(src_conn_id)
@@ -1875,8 +1870,6 @@ template<typename DelegateType, template<typename> class DatagramTransport>
 void StreamTransport<DelegateType, DatagramTransport>::did_recv_CLOSECONF(
 	CLOSECONF &&packet
 ) {
-	SPDLOG_DEBUG("{} {}", __FUNCTION__, this->src_addr.to_string());
-
 	if(!packet.validate()) {
 		return;
 	}
