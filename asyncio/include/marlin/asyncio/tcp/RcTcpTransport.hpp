@@ -1,8 +1,9 @@
-#ifndef MARLIN_ASYNCIO_PIPETRANSPORT
-#define MARLIN_ASYNCIO_PIPETRANSPORT
+#ifndef MARLIN_ASYNCIO_TCP_RCTCPTRANSPORT
+#define MARLIN_ASYNCIO_TCP_RCTCPTRANSPORT
 
 #include <uv.h>
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
 #include "marlin/asyncio/core/Timer.hpp"
 #include <spdlog/spdlog.h>
 
@@ -10,11 +11,11 @@ namespace marlin {
 namespace asyncio {
 
 template<typename DelegateType>
-class PipeTransport {
+class RcTcpTransport {
 public:
-	using SelfType = PipeTransport<DelegateType>;
+	using SelfType = RcTcpTransport<DelegateType>;
 private:
-	uv_pipe_t* pipe = nullptr;
+	uv_tcp_t* tcp = nullptr;
 
 	static void recv_cb(
 		uv_stream_t* handle,
@@ -26,11 +27,11 @@ private:
 public:
 	DelegateType* delegate;
 
-	PipeTransport();
-	PipeTransport(PipeTransport const&) = delete;
-	~PipeTransport();
+	RcTcpTransport();
+	RcTcpTransport(RcTcpTransport const&) = delete;
+	~RcTcpTransport();
 
-	void connect(std::string path);
+	void connect(core::SocketAddress dst);
 	void send(core::WeakBuffer bytes);
 	void close();
 };
@@ -39,6 +40,6 @@ public:
 }  // namespace marlin
 
 // Impl
-#include "PipeTransport.ipp"
+#include "RcTcpTransport.ipp"
 
-#endif  // MARLIN_ASYNCIO_PIPETRANSPORT
+#endif  // MARLIN_ASYNCIO_TCP_RCTCPTRANSPORT

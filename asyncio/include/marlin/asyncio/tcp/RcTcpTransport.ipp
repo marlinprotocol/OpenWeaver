@@ -3,29 +3,29 @@ namespace asyncio {
 
 //---------------- Helper macros begin ----------------//
 
-#define PIPETRANSPORT_TEMPLATE typename DelegateType
+#define RCTCPTRANSPORT_TEMPLATE typename DelegateType
 
-#define PIPETRANSPORT PipeTransport< \
+#define RCTCPTRANSPORT RcTcpTransport< \
 	DelegateType \
 >
 
 //---------------- Helper macros end ----------------//
 
-template<PIPETRANSPORT_TEMPLATE>
-PIPETRANSPORT::PipeTransport() {
-	pipe = new uv_pipe_t();
-	pipe->data = this;
+template<RCTCPTRANSPORT_TEMPLATE>
+RCTCPTRANSPORT::RcTcpTransport() {
+	tcp = new uv_tcp_t();
+	tcp->data = this;
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-PIPETRANSPORT::~PipeTransport() {
-	uv_close((uv_handle_t*)pipe, [](uv_handle_t* handle) {
+template<RCTCPTRANSPORT_TEMPLATE>
+RCTCPTRANSPORT::~RcTcpTransport() {
+	uv_close((uv_handle_t*)tcp, [](uv_handle_t* handle) {
 		delete handle;
 	});
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-void PIPETRANSPORT::recv_cb(
+template<RCTCPTRANSPORT_TEMPLATE>
+void RCTCPTRANSPORT::recv_cb(
 	uv_stream_t* handle,
 	ssize_t nread,
 	uv_buf_t const* buf
@@ -42,7 +42,7 @@ void PIPETRANSPORT::recv_cb(
 	// Error
 	if(nread < 0) {
 		SPDLOG_ERROR(
-			"PipeTransport: Recv callback error: {}",
+			"RcTcpTransport: Recv callback error: {}",
 			nread
 		);
 
@@ -62,19 +62,19 @@ void PIPETRANSPORT::recv_cb(
 	);
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-void PIPETRANSPORT::connect_cb(uv_connect_t* req, int status) {
+template<RCTCPTRANSPORT_TEMPLATE>
+void RCTCPTRANSPORT::connect_cb(uv_connect_t* req, int status) {
 	auto* transport = (SelfType*)req->data;
 	delete req;
 
-	SPDLOG_INFO("PipeTransport: Status: {}", status);
+	SPDLOG_INFO("RcTcpTransport: Status: {}", status);
 	if(status < 0) {
 		transport->delegate->did_disconnect(*transport, 1);
 		return;
 	}
 
 	auto res = uv_read_start(
-		(uv_stream_t*)transport->pipe,
+		(uv_stream_t*)transport->tcp,
 		[](
 			uv_handle_t*,
 			size_t suggested_size,
@@ -88,7 +88,7 @@ void PIPETRANSPORT::connect_cb(uv_connect_t* req, int status) {
 
 	if (res < 0) {
 		SPDLOG_ERROR(
-			"PipeTransport: Read start error: {}",
+			"RcTcpTransport: Read start error: {}",
 			res
 		);
 		transport->close();
@@ -97,29 +97,29 @@ void PIPETRANSPORT::connect_cb(uv_connect_t* req, int status) {
 	transport->delegate->did_connect(*transport);
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-void PIPETRANSPORT::connect(std::string path) {
-	uv_pipe_init(uv_default_loop(), pipe, 0);
+template<RCTCPTRANSPORT_TEMPLATE>
+void RCTCPTRANSPORT::connect(core::SocketAddress dst) {
+	uv_tcp_init(uv_default_loop(), tcp);
 
 	auto req = new uv_connect_t();
 	req->data = this;
-	uv_pipe_connect(
+	uv_tcp_connect(
 		req,
-		pipe,
-		path.c_str(),
+		tcp,
+		reinterpret_cast<sockaddr const *>(&dst),
 		connect_cb
 	);
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-void PIPETRANSPORT::send(core::WeakBuffer bytes) {
+template<RCTCPTRANSPORT_TEMPLATE>
+void RCTCPTRANSPORT::send(core::WeakBuffer bytes) {
 	auto* req = new uv_write_t();
 	req->data = this;
 
 	auto buf = uv_buf_init((char*)bytes.data(), bytes.size());
 	int res = uv_write(
 		req,
-		(uv_stream_t*)pipe,
+		(uv_stream_t*)tcp,
 		&buf,
 		1,
 		[](uv_write_t *req, int status) {
@@ -142,9 +142,9 @@ void PIPETRANSPORT::send(core::WeakBuffer bytes) {
 	}
 }
 
-template<PIPETRANSPORT_TEMPLATE>
-void PIPETRANSPORT::close() {
-	uv_close((uv_handle_t*)pipe, [](uv_handle_t* handle) {
+template<RCTCPTRANSPORT_TEMPLATE>
+void RCTCPTRANSPORT::close() {
+	uv_close((uv_handle_t*)tcp, [](uv_handle_t* handle) {
 		delete handle;
 	});
 	delegate->did_close(*this);
@@ -152,8 +152,8 @@ void PIPETRANSPORT::close() {
 
 //---------------- Helper macros undef begin ----------------//
 
-#undef PIPETRANSPORT_TEMPLATE
-#undef PIPETRANSPORT
+#undef RCTCPTRANSPORT_TEMPLATE
+#undef RCTCPTRANSPORT
 
 //---------------- Helper macros undef end ----------------//
 
