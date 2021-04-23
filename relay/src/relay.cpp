@@ -36,10 +36,10 @@ int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("relay").parse<CliOptions>(argc, argv);
 		auto pubsub_bind_addr = options.pubsub_bind_addr.value_or(
-			std::string("0.0.0.0:").append(STR(MARLIN_RELAY_DEFAULT_PUBSUB_PORT))
+			"0.0.0.0:" STR(MARLIN_RELAY_DEFAULT_PUBSUB_PORT)
 		);
 		auto discovery_bind_addr = options.discovery_bind_addr.value_or(
-			std::string("0.0.0.0:").append(STR(MARLIN_RELAY_DEFAULT_DISCOVERY_PORT))
+			"0.0.0.0:" STR(MARLIN_RELAY_DEFAULT_DISC_PORT)
 		);
 		auto name = options.name.value_or(NameGenerator::generate());
 
