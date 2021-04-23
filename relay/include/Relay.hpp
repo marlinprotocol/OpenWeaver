@@ -64,6 +64,13 @@ public:
 	template<typename... Args>
 	Relay(
 		uint32_t protocol,
+		const core::SocketAddress &pubsub_addr,
+		Args&&... args
+	) : Relay(protocol, pubsub_addr.get_port(), pubsub_addr, std::forward<Args>(args)...) {}
+
+	template<typename... Args>
+	Relay(
+		uint32_t protocol,
 		const uint32_t pubsub_port,
 		const core::SocketAddress &pubsub_addr,
 		const core::SocketAddress &beacon_addr,
