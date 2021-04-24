@@ -22,7 +22,8 @@ template<
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
 	template<typename, typename...> class AbciTemplate = DefaultAbci,
-	typename AttesterType = EmptyAttester
+	typename AttesterType = EmptyAttester,
+	typename WitnesserType = BloomWitnesser
 >
 class Relay {
 private:
@@ -31,7 +32,8 @@ private:
 		accept_unsol_conn,
 		enable_relay,
 		AbciTemplate,
-		AttesterType
+		AttesterType,
+		WitnesserType
 	>;
 
 	using PubSubNodeType = PubSubNode<
@@ -40,7 +42,7 @@ private:
 		accept_unsol_conn,
 		enable_relay,
 		AttesterType,
-		BloomWitnesser,
+		WitnesserType,
 		AbciTemplate
 	>;
 
