@@ -34,6 +34,9 @@ private:
 	uint64_t id = 0;
 	std::unordered_map<uint64_t, std::tuple<core::Buffer, MetadataTypes...>> block_store;
 	uint8_t key[32];
+
+	uint8_t counter = 0;
+	uint64_t resp_id = 0;
 public:
 	DelegateType* delegate;
 	core::SocketAddress dst;

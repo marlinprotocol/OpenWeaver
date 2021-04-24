@@ -21,9 +21,29 @@ void ABCI::did_connect(BaseTransport&) {
 }
 
 template<ABCI_TEMPLATE>
-void ABCI::did_recv(BaseTransport&, core::Buffer&& bytes) {
-	auto id = bytes.read_uint64_be_unsafe(0);
-	bool res = bytes.read_uint8_unsafe(8) > 0;
+void ABCI::did_recv(BaseTransport& transport, core::Buffer&& bytes) {
+	if(bytes.size() + counter < 8) {
+		// Partial id
+		for(uint8_t i = 0; i < bytes.size(); i++, counter++) {
+			resp_id = (resp_id << 8) | bytes.data()[i];
+		}
+		return;
+	} else {
+		// Full size available
+		uint8_t i = 0;
+		for(; counter < 8; i++, counter++) {
+			resp_id = (resp_id << 8) | bytes.data()[i];
+		}
+		bytes.cover_unsafe(i);
+	}
+
+	if(bytes.size() == 0) {
+		// do not have result
+		return;
+	}
+
+	auto id = resp_id;
+	bool res = bytes.read_uint8_unsafe(0) > 0;
 
 	if(!res) {
 		// RPC error
@@ -55,6 +75,14 @@ void ABCI::did_recv(BaseTransport&, core::Buffer&& bytes) {
 			metadata...
 		);
 	}, std::move(block_request));
+
+	counter = 0;
+	resp_id = 0;
+	if(bytes.size() == 1) {
+		return;
+	}
+	bytes.cover_unsafe(1);
+	did_recv(transport, std::move(bytes));
 }
 
 template<ABCI_TEMPLATE>
