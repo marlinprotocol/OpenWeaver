@@ -2,6 +2,7 @@
 #include "NameGenerator.hpp"
 
 #include <structopt/app.hpp>
+#include <marlin/pubsub/attestation/LpfAttester.hpp>
 
 #ifndef MARLIN_RELAY_DEFAULT_PUBSUB_PORT
 #define MARLIN_RELAY_DEFAULT_PUBSUB_PORT 15000
@@ -67,7 +68,7 @@ int main(int argc, char** argv) {
 			discovery_bind_addr
 		);
 
-		Relay<true, true, true> relay(
+		Relay<true, true, true, DefaultAbci, LpfAttester> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			SocketAddress::from_string(pubsub_bind_addr),
 			SocketAddress::from_string(discovery_bind_addr),
