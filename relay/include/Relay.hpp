@@ -21,7 +21,8 @@ template<
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
-	template<typename, typename...> class AbciTemplate = DefaultAbci
+	template<typename, typename...> class AbciTemplate = DefaultAbci,
+	typename AttesterType = EmptyAttester
 >
 class Relay {
 private:
@@ -29,7 +30,8 @@ private:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		AbciTemplate
+		AbciTemplate,
+		AttesterType
 	>;
 
 	using PubSubNodeType = PubSubNode<
@@ -37,7 +39,7 @@ private:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		EmptyAttester,
+		AttesterType,
 		BloomWitnesser,
 		AbciTemplate
 	>;
