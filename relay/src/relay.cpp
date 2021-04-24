@@ -3,6 +3,8 @@
 
 #include <structopt/app.hpp>
 #include <marlin/pubsub/attestation/LpfAttester.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
+
 
 #ifndef MARLIN_RELAY_DEFAULT_PUBSUB_PORT
 #define MARLIN_RELAY_DEFAULT_PUBSUB_PORT 15000
@@ -68,7 +70,7 @@ int main(int argc, char** argv) {
 			discovery_bind_addr
 		);
 
-		Relay<true, true, true, DefaultAbci, LpfAttester> relay(
+		Relay<true, true, true, DefaultAbci, LpfAttester, LpfBloomWitnesser> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			SocketAddress::from_string(pubsub_bind_addr),
 			SocketAddress::from_string(discovery_bind_addr),
