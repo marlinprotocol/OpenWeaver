@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 			discovery_bind_addr
 		);
 
-		Relay<true, true, true, DefaultAbci, LpfAttester, LpfBloomWitnesser> relay(
+		Relay<true, true, true, DefaultAbci, LpfAttester, LpfBloomWitnesser, 0xf> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			SocketAddress::from_string(pubsub_bind_addr),
 			SocketAddress::from_string(discovery_bind_addr),
