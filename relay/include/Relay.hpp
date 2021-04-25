@@ -23,7 +23,8 @@ template<
 	bool enable_relay = false,
 	template<typename, typename...> class AbciTemplate = DefaultAbci,
 	typename AttesterType = EmptyAttester,
-	typename WitnesserType = BloomWitnesser
+	typename WitnesserType = BloomWitnesser,
+	uint8_t log_mask = 0x0
 >
 class Relay {
 private:
@@ -33,7 +34,8 @@ private:
 		enable_relay,
 		AbciTemplate,
 		AttesterType,
-		WitnesserType
+		WitnesserType,
+		log_mask
 	>;
 
 	using PubSubNodeType = PubSubNode<
@@ -173,13 +175,7 @@ public:
 		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
-		if(channel == 0 && (message_id & 0x0) == 0) {
-			SPDLOG_INFO(
-				"Received message {} on channel {}",
-				message_id,
-				channel
-			);
-		} else if(channel == 1 && (message_id & 0xf) == 0) {
+		if((message_id & log_mask) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,
