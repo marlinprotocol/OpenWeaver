@@ -41,10 +41,18 @@ using namespace marlin::pubsub;
 using namespace marlin::core;
 using namespace marlin::cosmos;
 
+struct MulticastDelegate;
+
+using DefaultMulticastClientType = DefaultMulticastClient<
+	MulticastDelegate,
+	SigAttester,
+	LpfBloomWitnesser,
+	0xf
+>;
 
 class MulticastDelegate {
 public:
-	DefaultMulticastClient<MulticastDelegate, SigAttester> multicastClient;
+	DefaultMulticastClientType multicastClient;
 	using AbciType = Abci<MulticastDelegate, uint64_t>;
 	AbciType abci;
 
@@ -85,13 +93,13 @@ public:
 	}
 
 	void did_recv(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &,
+		DefaultMulticastClientType &,
 		Buffer &&message,
 		auto&&,
 		uint16_t,
 		uint64_t message_id
 	) {
-		SPDLOG_INFO(
+		SPDLOG_DEBUG(
 			"Did recv from multicast, message-id: {}",
 			message_id
 		);
@@ -100,16 +108,18 @@ public:
 			SPDLOG_ERROR("Abci not active, dropping block");
 			return;
 		}
-		abci.analyze_block(std::move(message), message_id);
+		if((message_id & 0xf) == 0) {
+			abci.analyze_block(std::move(message), message_id);
+		}
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		DefaultMulticastClientType &client,
 		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		DefaultMulticastClientType &client,
 		uint16_t channel
 	) {}
 };
@@ -238,7 +248,7 @@ int main(int argc, char** argv) {
 
 		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());
 
-		return DefaultMulticastClient<MulticastDelegate, SigAttester>::run_event_loop();
+		return DefaultMulticastClientType::run_event_loop();
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
 		SPDLOG_ERROR("{}", e.help());

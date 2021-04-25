@@ -114,21 +114,22 @@ public:
 			spdlog::to_hex(message.data(), message.data() + message.size())
 		);
 
-		SPDLOG_INFO(
-			"Did recv from blockchain client, message with length {}",
-			message.size()
-		);
-
 		SPDLOG_DEBUG(
 			"Sending to marlin multicast, message with length {}",
 			message.size()
 		);
 
-		multicastClient->ps.send_message_on_channel(
+		auto message_id = multicastClient->ps.send_message_on_channel(
 			blockchainChannel,
 			message.data(),
 			message.size()
 		);
+		if((message_id & 0xf) == 0) {
+			SPDLOG_INFO(
+				"Did recv from blockchain client, message with length {}",
+				message.size()
+			);
+		}
 
 		return 0;
 	}
