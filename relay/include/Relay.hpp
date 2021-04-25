@@ -21,7 +21,10 @@ template<
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
-	template<typename, typename...> class AbciTemplate = DefaultAbci
+	template<typename, typename...> class AbciTemplate = DefaultAbci,
+	typename AttesterType = EmptyAttester,
+	typename WitnesserType = BloomWitnesser,
+	uint8_t log_mask = 0x0
 >
 class Relay {
 private:
@@ -29,7 +32,10 @@ private:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		AbciTemplate
+		AbciTemplate,
+		AttesterType,
+		WitnesserType,
+		log_mask
 	>;
 
 	using PubSubNodeType = PubSubNode<
@@ -37,8 +43,8 @@ private:
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
-		EmptyAttester,
-		BloomWitnesser,
+		AttesterType,
+		WitnesserType,
 		AbciTemplate
 	>;
 
@@ -60,6 +66,13 @@ public:
 		const core::SocketAddress &beacon_server_addr,
 		Args&&... args
 	) : Relay(protocol, pubsub_port, pubsub_addr, beacon_addr, {beacon_server_addr}, {beacon_server_addr}, "", "", std::nullopt, std::forward<Args>(args)...) {}
+
+	template<typename... Args>
+	Relay(
+		uint32_t protocol,
+		const core::SocketAddress &pubsub_addr,
+		Args&&... args
+	) : Relay(protocol, pubsub_addr.get_port(), pubsub_addr, std::forward<Args>(args)...) {}
 
 	template<typename... Args>
 	Relay(
@@ -162,13 +175,7 @@ public:
 		uint16_t channel [[maybe_unused]],
 		uint64_t message_id [[maybe_unused]]
 	) {
-		if(channel == 0 && (message_id & 0x0) == 0) {
-			SPDLOG_INFO(
-				"Received message {} on channel {}",
-				message_id,
-				channel
-			);
-		} else if(channel == 1 && (message_id & 0xf) == 0) {
+		if((message_id & log_mask) == 0) {
 			SPDLOG_INFO(
 				"Received message {} on channel {}",
 				message_id,

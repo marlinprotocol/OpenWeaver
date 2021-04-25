@@ -53,3 +53,26 @@ add_executable(eth_relay
 	src/bsc_relay.cpp
 )
 target_link_libraries(eth_relay PUBLIC relay marlin::abci_bsc)
+
+
+function(relay_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC)
+	set(EXE_NAME ${EXE_PREFIX}_relay)
+	add_executable(${EXE_NAME}
+		src/relay.cpp
+	)
+
+	target_link_libraries(${EXE_NAME} PUBLIC relay)
+
+	# structopt
+	target_link_libraries(${EXE_NAME} PUBLIC structopt::structopt)
+
+	target_compile_definitions(${EXE_NAME} PUBLIC
+		MARLIN_RELAY_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
+		MARLIN_RELAY_DEFAULT_DISC_PORT=${DEFAULT_DISC}
+	)
+endfunction()
+
+relay_exe(dot 20500 20502)
+relay_exe(iris 21500 21502)
+relay_exe(cosmos 22000 22002)
+
