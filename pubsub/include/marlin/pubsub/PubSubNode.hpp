@@ -1591,7 +1591,7 @@ void PUBSUBNODETYPE::send_message_on_channel_impl(
 ) {
 	if(conn_map.size() <= 5) {
 		for(auto& [client_key, conns] : conn_map) {
-			SPDLOG_INFO("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
+			SPDLOG_DEBUG("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
 
 			for (
 				auto it = conns.sol_conns.begin();
