@@ -24,10 +24,10 @@ struct DefaultMulticastClientOptions {
 	size_t max_conn = 2;
 };
 
-template<typename Delegate, typename AttesterType = pubsub::EmptyAttester, typename WitnesserType = pubsub::LpfBloomWitnesser>
+template<typename Delegate, typename AttesterType = pubsub::EmptyAttester, typename WitnesserType = pubsub::LpfBloomWitnesser, uint8_t log_mask = 0x0>
 class DefaultMulticastClient {
 public:
-	using Self = DefaultMulticastClient<Delegate, AttesterType, WitnesserType>;
+	using Self = DefaultMulticastClient<Delegate, AttesterType, WitnesserType, log_mask>;
 	using PubSubNodeType = pubsub::PubSubNode<
 		Self,
 		false,
@@ -103,10 +103,12 @@ public:
 		uint64_t message_id,
 		core::WeakBuffer
 	) {
-		SPDLOG_INFO(
-			"Msg log: {}, cluster: 0x{:spn}, relay: {}",
-			message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()
-		);
+		if((message_id & log_mask) == 0) {
+			SPDLOG_INFO(
+				"Msg log: {}, cluster: 0x{:spn}, relay: {}",
+				message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()
+			);
+		}
 	}
 
 	void manage_subscriptions(
