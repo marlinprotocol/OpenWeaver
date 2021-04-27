@@ -5,6 +5,7 @@
 #include "marlin/core/Buffer.hpp"
 
 #include <unordered_map>
+#include <set>
 
 namespace marlin {
 namespace simulator {
@@ -21,6 +22,23 @@ public:
 	virtual void did_close() = 0;
 };
 
+class DropRange {
+private:
+	std::set<uint16_t> drop_range;
+public:
+	void add_range(uint16_t start, uint16_t offset, uint16_t interval){
+		for( uint16_t count = start; count <= start+offset; count+=interval ){
+			drop_range.emplace(count);
+		}
+	};
+	bool in_range(uint16_t packet_num){
+		if ( drop_range.find(packet_num) != drop_range.end() ){
+			return true;
+		}
+		return false;
+	};
+};
+
 template<typename NetworkType>
 class NetworkInterface {
 public:
@@ -30,14 +48,17 @@ public:
 private:
 	std::unordered_map<uint16_t, NetworkListenerType*> listeners;
 	NetworkType& network;
-
+	uint16_t ingress_packet_count=0;
 public:
 	core::SocketAddress addr;
+	DropRange drop_packets;
 
 	NetworkInterface(
 		NetworkType& network,
 		core::SocketAddress const& addr
 	);
+
+	std::function<bool()> drop_pattern = [](){return false;};
 
 	int bind(NetworkListenerType& listener, uint16_t port);
 	void close(uint16_t port);
@@ -95,7 +116,14 @@ void NetworkInterface<NetworkType>::did_recv(
 	core::SocketAddress const& addr,
 	core::Buffer&& packet
 ) {
+	this->ingress_packet_count++;
 	if(listeners.find(port) == listeners.end()) {
+		return;
+	}
+
+	bool drop = this->drop_packets.in_range(this->ingress_packet_count);
+
+	if ( drop ){
 		return;
 	}
 
