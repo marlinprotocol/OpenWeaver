@@ -426,8 +426,8 @@ private:
 	StakeRequester<Self> streq;
 	AttesterType attester;
 	WitnesserType witnesser;
-	AbciType abci;
 	bool is_abci_active = false;
+	AbciType abci;
 // ---------------- Subscription management ----------------//
 public:
 	typedef PubSubTransportSet<BaseTransport> TransportSet;
@@ -517,7 +517,6 @@ private:
 		std::string msg_string
 	);
 
-	int did_recv_RECEIPT(BaseTransport&, core::Buffer&&);
 	int did_recv_MESSAGE(BaseTransport &transport, core::Buffer &&message);
 	void send_MESSAGE(
 		BaseTransport &transport,
@@ -1087,7 +1086,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 	core::Buffer &&bytes,
 	std::string,
 	std::string,
-	core::WeakBuffer block_header,
+	core::WeakBuffer,
 	uint64_t message_id,
 	uint16_t channel,
 	MessageHeaderType message_header,
@@ -1132,62 +1131,7 @@ int PUBSUBNODETYPE::did_analyze_block(
 		message_id
 	);
 
-	// Send receipt.
-	uint8_t receipt_hash[32];
-	CryptoPP::Keccak_256 hasher;
-	hasher.CalculateTruncatedDigest(receipt_hash, 32, block_header.data(), block_header.size());
-
-	uint8_t* key = abci.get_key();
-	if(key == nullptr) {
-		SPDLOG_DEBUG(
-			"In did_recv_MESSAGE, key creation failed"
-		);
-		return -1;
-	}
-
-	secp256k1_context* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-
-	// Sign
-	secp256k1_ecdsa_recoverable_signature sig;
-	auto res = secp256k1_ecdsa_sign_recoverable(
-		ctx_signer,
-		&sig,
-		receipt_hash,
-		key,
-		nullptr,
-		nullptr
-	);
-
-	if(res == 0) {
-		// Sign failed
-		SPDLOG_DEBUG(
-			"In did_recv_MESSAGE, sign failed"
-		);
-		return -1;
-	}
-
-	// Output
-	int recid;
-	core::Buffer out(66);
-	out.data()[0] = 5;
-	secp256k1_ecdsa_recoverable_signature_serialize_compact(
-		ctx_signer,
-		out.data() + 1,
-		&recid,
-		&sig
-	);
-	out.data()[65] = (uint8_t)recid;
-	secp256k1_context_destroy(ctx_signer);
-	transport->send(std::move(out));
-
 	return 0;
-}
-
-
-template<PUBSUBNODE_TEMPLATE>
-int PUBSUBNODETYPE::did_recv_RECEIPT(BaseTransport&, core::Buffer&&) {
-	// TODO: function handles when the node receives a receipt. Should also check if some block is missed.
-	return 1;
 }
 
 
@@ -1302,6 +1246,7 @@ void PUBSUBNODETYPE::did_create_transport(
 
 template<PUBSUBNODE_TEMPLATE>
 void PUBSUBNODETYPE::did_connect(AbciType &) {
+	SPDLOG_INFO("Did connect");
 	is_abci_active = true;
 }
 
@@ -1382,9 +1327,6 @@ int PUBSUBNODETYPE::did_recv(
 		break;
 		// HEARTBEAT, ignore
 		case 4:
-		break;
-		// RECEIPT
-		case 5: return this->did_recv_RECEIPT(transport, std::move(bytes));
 		break;
 	}
 
@@ -1504,7 +1446,7 @@ PUBSUBNODETYPE::PubSubNode(
 	streq(std::move(req)),
 	attester(std::get<AI>(attester_args)...),
 	witnesser(std::get<WI>(witnesser_args)...),
-	abci(std::get<ABI>(abci_args)...),
+	abci(this, std::get<ABI>(abci_args)...),
 	peer_selection_timer(this),
 	blacklist_timer(this),
 	message_id_gen(std::random_device()()),
@@ -1514,7 +1456,6 @@ PUBSUBNODETYPE::PubSubNode(
 {
 	f.bind(addr);
 	f.listen(*this);
-	abci.delegate = this;
 	message_id_timer.template start<Self, &Self::message_id_timer_cb>(DefaultMsgIDTimerInterval, DefaultMsgIDTimerInterval);
 	peer_selection_timer.template start<Self, &Self::peer_selection_timer_cb>(DefaultPeerSelectTimerInterval, DefaultPeerSelectTimerInterval);
 	blacklist_timer.template start<Self, &Self::blacklist_timer_cb>(DefaultBlacklistTimerInterval, DefaultBlacklistTimerInterval);
