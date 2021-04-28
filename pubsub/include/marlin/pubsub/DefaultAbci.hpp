@@ -11,6 +11,9 @@ class DefaultAbci {
 public:
 	void* delegate;
 
+	template<typename... Args>
+	DefaultAbci(Args&&...) {}
+
 	int submit_receipt_onchain(core::Buffer &&) {
 		return 1;
 	}

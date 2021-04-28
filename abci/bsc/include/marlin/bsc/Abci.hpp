@@ -38,7 +38,7 @@ public:
 	DelegateType* delegate;
 	std::string path;
 
-	Abci(std::string datadir) : connect_timer(this), path(datadir + "/geth.ipc") {
+	Abci(DelegateType* delegate, std::string datadir) : connect_timer(this), delegate(delegate), path(datadir + "/geth.ipc") {
 		pipe.delegate = this;
 		connect_timer_cb();
 

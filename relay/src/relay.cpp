@@ -2,6 +2,7 @@
 #include "NameGenerator.hpp"
 
 #include <structopt/app.hpp>
+#include <marlin/pubsub/EmptyAbci.hpp>
 #include <marlin/pubsub/attestation/LpfAttester.hpp>
 #include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 
@@ -70,7 +71,7 @@ int main(int argc, char** argv) {
 			discovery_bind_addr
 		);
 
-		Relay<true, true, true, DefaultAbci, LpfAttester, LpfBloomWitnesser, 0xf> relay(
+		Relay<true, true, true, EmptyAbci, LpfAttester, LpfBloomWitnesser, 0xf> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			SocketAddress::from_string(pubsub_bind_addr),
 			SocketAddress::from_string(discovery_bind_addr),
