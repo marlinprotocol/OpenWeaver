@@ -19,10 +19,13 @@ public:
 	using InnerMessageType = core::Buffer;
 
 private:
+	[[no_unique_address]] ExtFabric ext_fabric;
 	uvpp:UdpE* udp_handle = nullptr;
 
 public:
-	UdpFiber() {
+	template<typename ExtTupleType>
+	UdpFiber(std::tuple<ExtTupleType>&& init_tuple) :
+		ext_fabric(std::get<0>(init_tuple)) {
 		udp_handle = new uvpp::UdpE();
 	}
 };
