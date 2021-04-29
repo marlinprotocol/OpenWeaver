@@ -188,6 +188,12 @@ public:
 	int did_recv(OMT&& buf, Args&&... args) {
 		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
 	}
+
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
+	int bind(SocketAddress const& addr) {
+		return std::get<1>(fibers).bind(addr);
+	}
 };
 
 
