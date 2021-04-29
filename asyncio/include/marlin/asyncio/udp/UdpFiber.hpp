@@ -29,6 +29,7 @@ public:
 	UdpFiber(std::tuple<ExtTupleType>&& init_tuple) :
 		ext_fabric(std::get<0>(init_tuple)) {
 		udp_handle = new uvpp::UdpE();
+		udp_handle->data = this;
 	}
 
 	[[nodiscard]] int bind(core::SocketAddress const& addr) {
@@ -57,6 +58,74 @@ public:
 		}
 
 		return 0;
+	}
+
+	static void naive_alloc_cb(
+		uv_handle_t*,
+		size_t suggested_size,
+		uv_buf_t* buf
+	) {
+		buf->base = new char[suggested_size];
+		buf->len = suggested_size;
+	}
+
+	static void recv_cb(
+		uv_udp_t* handle,
+		ssize_t nread,
+		uv_buf_t const* buf,
+		sockaddr const* _addr,
+		unsigned
+	) {
+		// Error
+		if(nread < 0) {
+			sockaddr saddr;
+			int len = sizeof(sockaddr);
+
+			uv_udp_getsockname(handle, &saddr, &len);
+
+			SPDLOG_ERROR(
+				"Asyncio: Socket {}: Recv callback error: {}",
+				reinterpret_cast<core::SocketAddress const*>(&saddr)->to_string(),
+				nread
+			);
+
+			delete[] buf->base;
+			return;
+		}
+
+		if(nread == 0) {
+			delete[] buf->base;
+			return;
+		}
+
+		auto& addr = *reinterpret_cast<core::SocketAddress const*>(_addr);
+		auto& fiber = *(SelfType*)(handle->data);
+
+		fiber.did_recv(
+			core::Buffer((uint8_t*)buf->base, nread),
+			addr
+		);
+	}
+
+	[[nodiscard]] int listen() {
+		int res = uv_udp_recv_start(
+			udp_handle,
+			naive_alloc_cb,
+			recv_cb
+		);
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Asyncio: Start recv error: {}",
+				res
+			);
+			return res;
+		}
+
+		return 0;
+	}
+
+	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
+		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
 };
 
