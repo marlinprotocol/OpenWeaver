@@ -177,13 +177,15 @@ public:
 	// [1,len(Fibers)]			call on fiber
 	// len(Fibers)+1			call on external fabric
 
-	template<typename... Args>
+	template<
+		typename OMT = OuterMessageType,
+		typename... Args
+	>
 		requires (
-			// Should only be called if outermost fiber is
-			// open on the outer side
-			NthFiber<1>::is_outer_open
+			// Should only be called if fabric is open on the outer side
+			is_outer_open
 		)
-	int did_recv(typename NthFiber<1>::OuterMessageType&& buf, Args&&... args) {
+	int did_recv(OMT&& buf, Args&&... args) {
 		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
 	}
 };
