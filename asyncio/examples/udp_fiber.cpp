@@ -17,8 +17,8 @@ struct Terminal {
 	Terminal(Args&&...) {}
 
 	template<typename FiberType>
-	int did_recv(FiberType&, Buffer&&) {
-		SPDLOG_INFO("Did recv: Terminal");
+	int did_recv(FiberType&, Buffer&& buf, SocketAddress addr) {
+		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		return 0;
 	}
 };
@@ -35,6 +35,7 @@ int main() {
 		std::make_tuple()
 	));
 	f.bind(SocketAddress::from_string("127.0.0.1:8000"));
+	f.listen();
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
