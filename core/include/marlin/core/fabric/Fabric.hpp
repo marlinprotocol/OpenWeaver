@@ -194,6 +194,12 @@ public:
 	int bind(SocketAddress const& addr) {
 		return std::get<1>(fibers).bind(addr);
 	}
+
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
+	int listen() {
+		return std::get<1>(fibers).listen();
+	}
 };
 
 
