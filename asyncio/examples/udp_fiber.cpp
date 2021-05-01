@@ -1,5 +1,6 @@
 #include "marlin/asyncio/udp/UdpFiber.hpp"
 #include <marlin/core/fabric/Fabric.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -40,11 +41,13 @@ struct Terminal {
 int main() {
 	Fabric<
 		Terminal,
-		UdpFiber
+		UdpFiber,
+		VersioningFiber
 	> server(std::make_tuple(
 		// terminal
 		std::make_tuple(),
 		// udp fiber
+		std::make_tuple(),
 		std::make_tuple()
 	));
 	server.bind(SocketAddress::from_string("127.0.0.1:8000"));
@@ -52,11 +55,13 @@ int main() {
 
 	Fabric<
 		Terminal,
-		UdpFiber
+		UdpFiber,
+		VersioningFiber
 	> client(std::make_tuple(
 		// terminal
 		std::make_tuple(),
 		// udp fiber
+		std::make_tuple(),
 		std::make_tuple()
 	));
 	client.bind(SocketAddress::from_string("127.0.0.1:9000"));
