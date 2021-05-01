@@ -41,7 +41,34 @@ public:
 	}
 };
 
+template<typename ExtraData>
+class UdpSendReq : public uv_udp_send_t {
+public:
+	[[no_unique_address]] ExtraData extra_data;
+
+	// Construct data in place from arguments
+	template<typename... ExtraDataArgs>
+	UdpSendReq(ExtraDataArgs&&... extra_data_args) noexcept(noexcept(ExtraData(std::forward<ExtraDataArgs>(extra_data_args)...))) : extra_data(std::forward<ExtraDataArgs>(extra_data_args)...) {
+		data = nullptr;
+	}
+
+	//-------- Rule of five begin --------//
+
+	~UdpSendReq() = default;
+
+	// Not copyable
+	UdpSendReq(UdpSendReq const& req) = delete;
+	UdpSendReq& operator=(UdpSendReq const& req) = delete;
+
+	// Not movable
+	UdpSendReq(UdpSendReq&& req) = delete;
+	UdpSendReq& operator=(UdpSendReq&& req) = delete;
+
+	//-------- Rule of five end --------//
+};
+
 using UdpE = Udp<Empty>;
+using UdpSendReqE = UdpSendReq<Empty>;
 
 }  // namespace uvpp
 }  // namespace marlin
