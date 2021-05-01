@@ -23,8 +23,15 @@ struct Terminal {
 	}
 
 	template<typename FiberType>
-	int did_dial(FiberType&, SocketAddress addr) {
+	int did_dial(FiberType& fabric, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did dial: {}", addr.to_string());
+		fabric.send(Buffer({0,0,0,0,0}, 5), addr);
+		return 0;
+	}
+
+	template<typename FiberType>
+	int did_send(FiberType&, Buffer&& buf) {
+		SPDLOG_INFO("Terminal: Did send: {} bytes", buf.size());
 		return 0;
 	}
 };
@@ -54,5 +61,6 @@ int main() {
 	));
 	client.bind(SocketAddress::from_string("127.0.0.1:9000"));
 	client.dial(SocketAddress::from_string("127.0.0.1:8000"));
+
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
