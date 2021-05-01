@@ -163,6 +163,22 @@ private:
 				return next_fiber.did_recv(std::forward<Args>(args)...);
 			}
 		}
+
+		template<typename... Args>
+		int did_dial(NthFiber<idx>& caller, Args&&... args) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
+
+			// Check for exit first
+			if constexpr (idx == sizeof...(FiberTemplates)) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.did_dial(fabric, std::forward<Args>(args)...);
+			} else {
+				// Transition to next fiber
+				auto& next_fiber = std::get<idx+1>(fabric.fibers);
+				return next_fiber.did_dial(std::forward<Args>(args)...);
+			}
+		}
 	};
 
 public:
@@ -199,6 +215,12 @@ public:
 		requires (!is_open)
 	int listen() {
 		return std::get<1>(fibers).listen();
+	}
+
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
+	int dial(core::SocketAddress addr) {
+		return std::get<1>(fibers).dial(addr);
 	}
 };
 
