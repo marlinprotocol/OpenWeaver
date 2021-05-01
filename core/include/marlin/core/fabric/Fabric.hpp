@@ -222,6 +222,18 @@ public:
 	int dial(core::SocketAddress addr) {
 		return std::get<1>(fibers).dial(addr);
 	}
+
+	template<
+		typename IMT = InnerMessageType,
+		typename... Args
+	>
+		requires (
+			// Should only be called if fabric is open on the inner side
+			is_inner_open
+		)
+	int send(InnerMessageType&& buf, core::SocketAddress addr) {
+		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
+	}
 };
 
 
