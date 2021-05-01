@@ -2,6 +2,7 @@
 #define MARLIN_CORE_FABRIC_FABRIC_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
 
 
 namespace marlin {
