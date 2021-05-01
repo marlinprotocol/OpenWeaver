@@ -196,6 +196,22 @@ private:
 				return next_fiber.did_send(std::forward<Args>(args)...);
 			}
 		}
+
+		template<typename... Args>
+		int send(NthFiber<idx>& caller, Args&&... args) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
+
+			// Check for exit first
+			if constexpr (idx == 1) {
+				// inside shuttle of first fiber, exit
+				return fabric.ext_fabric.send(fabric, std::forward<Args>(args)...);
+			} else {
+				// Transition to next fiber
+				auto& next_fiber = std::get<idx-1>(fabric.fibers);
+				return next_fiber.send(std::forward<Args>(args)...);
+			}
+		}
 	};
 
 public:
