@@ -18,7 +18,7 @@ public:
 
 	// Construct data in place from arguments
 	template<typename... ExtraDataArgs>
-	Udp(ExtraDataArgs&&... extra_data_args) noexcept(noexcept(ExtraData(extra_data_args...))) : extra_data(std::forward<ExtraDataArgs>(extra_data_args)...) {
+	Udp(ExtraDataArgs&&... extra_data_args) noexcept(noexcept(ExtraData(std::forward<ExtraDataArgs>(extra_data_args)...))) : extra_data(std::forward<ExtraDataArgs>(extra_data_args)...) {
 		data = nullptr;
 	}
 
