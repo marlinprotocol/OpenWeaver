@@ -21,6 +21,12 @@ struct Terminal {
 		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		return 0;
 	}
+
+	template<typename FiberType>
+	int did_dial(FiberType&, SocketAddress addr) {
+		SPDLOG_INFO("Terminal: Did dial: {}", addr.to_string());
+		return 0;
+	}
 };
 
 
@@ -28,14 +34,25 @@ int main() {
 	Fabric<
 		Terminal,
 		UdpFiber
-	> f(std::make_tuple(
+	> server(std::make_tuple(
 		// terminal
-		std::make_tuple(std::make_tuple(), 0),
+		std::make_tuple(),
 		// udp fiber
 		std::make_tuple()
 	));
-	f.bind(SocketAddress::from_string("127.0.0.1:8000"));
-	f.listen();
+	server.bind(SocketAddress::from_string("127.0.0.1:8000"));
+	server.listen();
 
+	Fabric<
+		Terminal,
+		UdpFiber
+	> client(std::make_tuple(
+		// terminal
+		std::make_tuple(),
+		// udp fiber
+		std::make_tuple()
+	));
+	client.bind(SocketAddress::from_string("127.0.0.1:9000"));
+	client.dial(SocketAddress::from_string("127.0.0.1:8000"));
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
