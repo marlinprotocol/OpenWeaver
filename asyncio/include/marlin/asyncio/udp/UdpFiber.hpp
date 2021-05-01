@@ -168,6 +168,10 @@ public:
 		delete req;
 	}
 
+	int did_send(core::Buffer&& buf) {
+		return ext_fabric.did_send(*this, std::move(buf));
+	}
+
 	[[nodiscard]] int send(core::Buffer&& buf, core::SocketAddress addr) {
 		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
 		req->data = this;
