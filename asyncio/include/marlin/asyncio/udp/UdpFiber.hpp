@@ -141,6 +141,32 @@ public:
 	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
 		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
+
+	[[nodiscard]] int send(core::Buffer&& buf, core::SocketAddress addr) {
+		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
+		req->data = this;
+
+		auto uv_buf = uv_buf_init((char*)req->extra_data.data(), req->extra_data.size());
+		int res = uv_udp_send(
+			req,
+			udp_handle,
+			&uv_buf,
+			1,
+			reinterpret_cast<const sockaddr*>(&addr),
+			send_cb
+		);
+
+		if (res < 0) {
+			SPDLOG_ERROR(
+				"Asyncio: Socket: Send error: {}, To: {}",
+				res,
+				addr.to_string()
+			);
+			return res;
+		}
+
+		return 0;
+	}
 };
 
 }  // namespace asyncio
