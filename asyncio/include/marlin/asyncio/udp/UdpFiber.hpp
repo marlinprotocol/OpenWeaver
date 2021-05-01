@@ -142,6 +142,32 @@ public:
 		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
 
+	static void send_cb(
+		uv_udp_send_t* _req,
+		int status
+	) {
+		auto* req = (uvpp::UdpSendReq<core::Buffer>*)_req;
+
+		if(req->data == nullptr) {
+			delete req;
+			return;
+		}
+		auto& fiber = *(UdpFiber*)req->data;
+
+		if(status < 0) {
+			SPDLOG_ERROR(
+				"Asyncio: Socket: Send callback error: {}",
+				status
+			);
+		} else {
+			fiber.did_send(
+				std::move(req->extra_data)
+			);
+		}
+
+		delete req;
+	}
+
 	[[nodiscard]] int send(core::Buffer&& buf, core::SocketAddress addr) {
 		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
 		req->data = this;
