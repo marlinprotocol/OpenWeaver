@@ -35,6 +35,10 @@ public:
 	Udp& operator=(Udp&& udp) = delete;
 
 	//-------- Rule of five end --------//
+
+	bool is_active() {
+		return uv_is_active((uv_handle_t*)this) != 0;
+	}
 };
 
 using UdpE = Udp<Empty>;
