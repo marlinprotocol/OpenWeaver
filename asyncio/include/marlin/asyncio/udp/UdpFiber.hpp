@@ -124,6 +124,20 @@ public:
 		return 0;
 	}
 
+	[[nodiscard]] int dial(core::SocketAddress addr) {
+		// listen if not already
+		if(udp_handle->is_active()) {
+			auto status = listen();
+			if(status < 0) {
+				return status;
+			}
+		}
+
+		ext_fabric.did_dial(*this, addr);
+
+		return 0;
+	}
+
 	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
 		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
