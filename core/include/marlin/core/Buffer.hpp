@@ -62,6 +62,15 @@ public:
 
 		return _buf;
 	}
+
+	/// Get a WeakBuffer corresponding to the payload area
+	WeakBuffer payload_buffer() &;
+	WeakBuffer const payload_buffer() const&;
+	/// Get a Buffer corresponding to the payload area, consumes the existing object
+	Buffer payload_buffer() &&;
+	/// Get a uint8_t* corresponding to the payload area
+	uint8_t* payload();
+	uint8_t const* payload() const;
 };
 
 } // namespace core

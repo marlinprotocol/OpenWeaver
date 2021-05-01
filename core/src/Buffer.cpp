@@ -49,5 +49,25 @@ Buffer::~Buffer() {
 	delete[] buf;
 }
 
+WeakBuffer Buffer::payload_buffer() & {
+	return *this;
+}
+
+WeakBuffer const Buffer::payload_buffer() const& {
+	return *this;
+}
+
+Buffer Buffer::payload_buffer() && {
+	return std::move(*this);
+}
+
+uint8_t* Buffer::payload() {
+	return data();
+}
+
+uint8_t const* Buffer::payload() const {
+	return data();
+}
+
 } // namespace core
 } // namespace marlin
