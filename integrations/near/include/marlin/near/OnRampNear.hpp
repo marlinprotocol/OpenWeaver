@@ -74,7 +74,7 @@ public:
 	}
 
 	void did_recv(NearTransport <OnRampNear> &transport, Buffer &&message) {
-		SPDLOG_DEBUG(
+		SPDLOG_INFO(
 			"Message received from Near: {} bytes: {}",
 			message.size(),
 			spdlog::to_hex(message.data(), message.data() + message.size())
