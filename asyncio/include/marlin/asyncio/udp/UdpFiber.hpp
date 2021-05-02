@@ -126,7 +126,7 @@ public:
 
 	[[nodiscard]] int dial(core::SocketAddress addr) {
 		// listen if not already
-		if(udp_handle->is_active()) {
+		if(!udp_handle->is_active()) {
 			auto status = listen();
 			if(status < 0) {
 				return status;
