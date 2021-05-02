@@ -107,7 +107,7 @@ private:
 	// Private constructor
 	template<typename ExtTupleType, typename... TupleTypes, size_t... Is>
 	Fabric(std::tuple<ExtTupleType, TupleTypes...>&& init_tuple, std::index_sequence<Is...>) :
-		ext_fabric(std::move(std::get<0>(init_tuple))),
+		ext_fabric(std::forward<ExtTupleType>(std::get<0>(init_tuple))),
 		fibers(
 			// Empty
 			std::make_tuple(),
