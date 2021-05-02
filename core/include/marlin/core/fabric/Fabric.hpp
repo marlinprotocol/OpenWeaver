@@ -252,8 +252,8 @@ public:
 
 	template<bool is_open = is_outer_open>
 		requires (!is_open)
-	int dial(core::SocketAddress addr) {
-		return std::get<1>(fibers).dial(addr);
+	int dial(core::SocketAddress addr, auto&&... args) {
+		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
 	}
 
 	template<
