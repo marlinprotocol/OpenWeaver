@@ -1,9 +1,10 @@
 #ifndef MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 #define MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 
-#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
-#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -25,7 +26,7 @@ namespace beacon {
 */
 template<
 	typename ClusterDiscovererDelegate,
-	template<typename> typename FiberTemplate
+	template<typename> typename FiberTemplate = core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
 >
 class ClusterDiscoverer {
 private:
@@ -75,6 +76,10 @@ public:
 	int did_recv(FiberType& fiber, BaseMessageType&& packet, core::SocketAddress addr);
 	int did_send(FiberType& fiber, core::Buffer&& packet);
 
+	ClusterDiscoverer(
+		core::SocketAddress const& addr,
+		uint8_t const* static_sk
+	);
 	template<typename ...Args>
 	ClusterDiscoverer(
 		core::SocketAddress const& addr,
@@ -413,6 +418,7 @@ int CLUSTERDISCOVERER::did_send(
 
 //---------------- Transport delegate functions end ----------------//
 
+
 template<CLUSTERDISCOVERER_TEMPLATE>
 template<typename ...Args>
 CLUSTERDISCOVERER::ClusterDiscoverer(
@@ -435,6 +441,13 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
 	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
+
+template<CLUSTERDISCOVERER_TEMPLATE>
+CLUSTERDISCOVERER::ClusterDiscoverer(
+	core::SocketAddress const &addr,
+	uint8_t const* static_sk
+) : ClusterDiscoverer(addr, static_sk, std::make_tuple(), std::make_tuple()) {}
+
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 CLUSTERDISCOVERER::~ClusterDiscoverer() {

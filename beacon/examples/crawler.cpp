@@ -68,9 +68,8 @@ int main() {
 	BeaconDelegate del;
 
 	auto crawler = new beacon::ClusterDiscoverer<
-		BeaconDelegate,
-		core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
-	>(caddr, static_sk, std::make_tuple(), std::make_tuple());
+		BeaconDelegate
+	>(caddr, static_sk);
 	crawler->delegate = &del;
 
 	crawler->start_discovery(baddr);
