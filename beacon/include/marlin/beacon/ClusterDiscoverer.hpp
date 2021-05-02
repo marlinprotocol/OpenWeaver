@@ -141,7 +141,7 @@ void CLUSTERDISCOVERER::send_DISCPROTO(
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTPROTO(
-	FiberType& fiber,
+	FiberType&,
 	LISTPROTO&& packet,
 	core::SocketAddress addr
 ) {
@@ -238,7 +238,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER&& packet,
-	core::SocketAddress addr
+	core::SocketAddress
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER <<< {}", addr.to_string());
 
@@ -268,7 +268,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER2&& packet,
-	core::SocketAddress addr
+	core::SocketAddress
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER2 <<< {}", addr.to_string());
 
