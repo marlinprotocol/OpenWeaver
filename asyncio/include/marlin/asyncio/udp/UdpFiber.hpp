@@ -124,7 +124,7 @@ public:
 		return 0;
 	}
 
-	[[nodiscard]] int dial(core::SocketAddress addr) {
+	[[nodiscard]] int dial(core::SocketAddress addr, auto&&... args) {
 		// listen if not already
 		if(!udp_handle->is_active()) {
 			auto status = listen();
@@ -133,7 +133,7 @@ public:
 			}
 		}
 
-		ext_fabric.did_dial(*this, addr);
+		ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
 
 		return 0;
 	}
