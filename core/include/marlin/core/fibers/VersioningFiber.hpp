@@ -35,8 +35,8 @@ public:
 		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
 
-	int did_dial(SocketAddress addr) {
-		return ext_fabric.did_dial(*this, addr);
+	int did_dial(SocketAddress addr, auto&&... args) {
+		return ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
 	}
 
 	int send(InnerMessageType&& buf, SocketAddress addr) {
