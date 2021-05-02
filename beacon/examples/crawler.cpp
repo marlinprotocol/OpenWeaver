@@ -3,6 +3,9 @@
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/ClusterDiscoverer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
 #include <cstring>
 #include <fstream>
 #include <boost/filesystem.hpp>
@@ -64,7 +67,10 @@ int main() {
 
 	BeaconDelegate del;
 
-	auto crawler = new beacon::ClusterDiscoverer<BeaconDelegate>(caddr, static_sk);
+	auto crawler = new beacon::ClusterDiscoverer<
+		BeaconDelegate,
+		core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
+	>(caddr, static_sk, std::make_tuple(), std::make_tuple());
 	crawler->delegate = &del;
 
 	crawler->start_discovery(baddr);
