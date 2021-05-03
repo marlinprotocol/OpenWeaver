@@ -14,7 +14,7 @@
 #include <fstream>
 
 namespace marlin {
-namespace cosmos {
+namespace near {
 
 template<typename DelegateType, typename... MetadataTypes>
 class Abci {
@@ -45,9 +45,9 @@ public:
 		tcp.delegate = this;
 		connect_timer_cb();
 
-		if(boost::filesystem::exists("./.marlin/keys/abci/cosmos")) {
+		if(boost::filesystem::exists("./.marlin/keys/abci/near")) {
 			// Load existing keypair
-			std::ifstream sk("./.marlin/keys/abci/cosmos", std::ios::binary);
+			std::ifstream sk("./.marlin/keys/abci/near", std::ios::binary);
 			if(!sk.read((char*)key, 32)) {
 				throw;
 			}
@@ -63,7 +63,7 @@ public:
 
 			// Store for reuse
 			boost::filesystem::create_directories("./.marlin/keys/abci");
-			std::ofstream sk("./.marlin/keys/abci/cosmos", std::ios::binary);
+			std::ofstream sk("./.marlin/keys/abci/near", std::ios::binary);
 
 			sk.write((char*)key, 32);
 		}
@@ -86,7 +86,7 @@ public:
 	uint64_t analyze_block(core::Buffer&& block, MT&&... metadata);
 };
 
-}  // namespace cosmos
+}  // namespace near
 }  // namespace marlin
 
 // Impl

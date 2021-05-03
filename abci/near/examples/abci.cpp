@@ -4,7 +4,7 @@
 
 #include <structopt/app.hpp>
 
-using namespace marlin::cosmos;
+using namespace marlin::near;
 using namespace marlin::asyncio;
 using namespace marlin::core;
 

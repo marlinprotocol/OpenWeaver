@@ -1,7 +1,7 @@
 #include <rapidjson/document.h>
 
 namespace marlin {
-namespace cosmos {
+namespace near {
 
 //---------------- Helper macros begin ----------------//
 
@@ -122,9 +122,10 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 
 	std::string block_bin = "";
 	uint8_t *buf = block.data();
-	for(int i = 0; i < block.size(); i++) {
-		block_bin += std::to_string(block[i]) + (i < block.size() - 1 ? ", ": "");
+	for(int i = 0; i < int(block.size()); i++) {
+		block_bin += std::to_string(buf[i]) + (i < int(block.size()) - 1 ? ", ": "");
 	}
+	buf = NULL;
 
 	std::string rpcBody = "{"
 		"\"jsonrpc\": \"2.0\","
@@ -139,11 +140,10 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 	"}";
 
 	std::string rpc = "POST / HTTP/1.0\r\nContent-Type: application/json\r\nContent-Length: " + std::to_string(rpcBody.size()) + "\r\n\r\n" + rpcBody;
-	std::cout << "HERE  	" << rpc << std::endl;
 
-	core::Buffer buf(rpc.size());
-	buf.write_unsafe(0, reinterpret_cast<const uint8_t*>(&rpc[0]), rpc.size());
-	tcp.send(std::move(buf));
+	core::Buffer req(rpc.size());
+	req.write_unsafe(0, reinterpret_cast<const uint8_t*>(&rpc[0]), rpc.size());
+	tcp.send(std::move(req));
 
 	block_store.try_emplace(id, std::move(block), std::forward<MT>(metadata)...);
 	return id++;
@@ -156,5 +156,5 @@ uint64_t ABCI::analyze_block(core::Buffer&& block, MT&&... metadata) {
 
 //---------------- Helper macros undef end ----------------//
 
-}  // namespace cosmos
+}  // namespace near
 }  // namespace marlin
