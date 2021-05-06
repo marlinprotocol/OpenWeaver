@@ -140,12 +140,6 @@ add_executable(msggen
 
 target_link_libraries(msggen PUBLIC multicastsdk)
 
-#add_executable(probe
-	#examples/probe.cpp
-#)
-
-#target_link_libraries(probe PUBLIC multicastsdk)
-
 add_executable(multicastTcpBridge
 	examples/MulticastTcpBridge.cpp
 )
