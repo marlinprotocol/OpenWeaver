@@ -92,6 +92,7 @@ endforeach(TEST_SOURCE)
 
 set(EXAMPLE_SOURCES
 	examples/udp.cpp
+	examples/udp_fiber.cpp
 	examples/tcp.cpp
 	examples/timer.cpp
 	examples/ws.cpp

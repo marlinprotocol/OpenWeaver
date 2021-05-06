@@ -1,9 +1,10 @@
 #ifndef MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 #define MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 
-#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
-#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -25,20 +26,17 @@ namespace beacon {
 */
 template<
 	typename ClusterDiscovererDelegate,
-	template<typename, typename> class TransportFactory = asyncio::UdpTransportFactory,
-	template<typename> class Transport = asyncio::UdpTransport
+	template<typename> typename FiberTemplate = core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
 >
 class ClusterDiscoverer {
 private:
 	using Self = ClusterDiscoverer<
 		ClusterDiscovererDelegate,
-		TransportFactory,
-		Transport
+		FiberTemplate
 	>;
+	using FiberType = FiberTemplate<Self&>;
 
-	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
-	using BaseTransport = core::VersionedTransport<Self, Transport>;
-	using BaseMessageType = typename BaseTransport::MessageType;
+	using BaseMessageType = typename FiberType::InnerMessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
@@ -49,20 +47,20 @@ private:
 	using DISCCLUSTER2 = DISCCLUSTER2Wrapper<BaseMessageType>;
 	using LISTCLUSTER2 = LISTCLUSTER2Wrapper<BaseMessageType>;
 
-	BaseTransportFactory f;
+	FiberType fiber;
 
 	// Discovery protocol
-	void send_DISCPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
+	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTPROTO(FiberType& fiber, LISTPROTO&& packet, core::SocketAddress addr);
 
-	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
+	void send_DISCPEER(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTPEER(FiberType& fiber, LISTPEER&& packet, core::SocketAddress addr);
 
-	void send_DISCCLUSTER(BaseTransport &transport);
-	void did_recv_LISTCLUSTER(BaseTransport &transport, LISTCLUSTER &&packet);
+	void send_DISCCLUSTER(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTCLUSTER(FiberType& fiber, LISTCLUSTER&& packet, core::SocketAddress addr);
 
-	void send_DISCCLUSTER2(BaseTransport &transport);
-	void did_recv_LISTCLUSTER2(BaseTransport &transport, LISTCLUSTER2 &&packet);
+	void send_DISCCLUSTER2(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTCLUSTER2(FiberType& fiber, LISTCLUSTER2&& packet, core::SocketAddress addr);
 
 	std::vector<core::SocketAddress> discovery_addrs;
 
@@ -73,26 +71,26 @@ private:
 	asyncio::Timer heartbeat_timer;
 
 public:
-	// Listen delegate
-	bool should_accept(core::SocketAddress const &addr);
-	void did_create_transport(BaseTransport &transport, size_t = 0);
-
 	// Transport delegate
-	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send(BaseTransport &transport, core::Buffer &&packet);
+	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
+	int did_recv(FiberType& fiber, BaseMessageType&& packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer&& packet);
 
+	ClusterDiscoverer(
+		core::SocketAddress const& addr,
+		uint8_t const* static_sk
+	);
 	template<typename ...Args>
 	ClusterDiscoverer(
-		core::SocketAddress const &addr,
+		core::SocketAddress const& addr,
 		uint8_t const* static_sk,
 		Args&&... args
 	);
 	~ClusterDiscoverer();
 
-	ClusterDiscovererDelegate *delegate;
+	ClusterDiscovererDelegate* delegate;
 
-	void start_discovery(core::SocketAddress const &beacon_addr);
+	void start_discovery(core::SocketAddress beacon_addr);
 	void start_discovery(
 		std::vector<core::SocketAddress>&& discovery_addrs,
 		std::vector<core::SocketAddress>&& heartbeat_addrs
@@ -117,13 +115,11 @@ private:
 //---------------- Helper macros begin ----------------//
 
 #define CLUSTERDISCOVERER_TEMPLATE typename ClusterDiscovererDelegate, \
-	template<typename, typename> class TransportFactory, \
-	template<typename> class Transport
+	template<typename> typename FiberTemplate
 
 #define CLUSTERDISCOVERER ClusterDiscoverer< \
 	ClusterDiscovererDelegate, \
-	TransportFactory, \
-	Transport \
+	FiberTemplate \
 >
 
 //---------------- Helper macros end ----------------//
@@ -137,17 +133,19 @@ private:
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::send_DISCPROTO(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCPROTO());
+	fiber.send(DISCPROTO(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTPROTO(
-	BaseTransport &transport,
-	LISTPROTO &&packet
+	FiberType&,
+	LISTPROTO&& packet,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTPROTO <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -155,10 +153,10 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 
 	for(auto iter = packet.protocols_begin(); iter != packet.protocols_end(); ++iter) {
 		auto [protocol, version, port] = *iter;
-		core::SocketAddress peer_addr(transport.dst_addr);
+		core::SocketAddress peer_addr(addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer_protocol(cluster_map[beacon_map[transport.dst_addr].first].address, peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer_protocol(cluster_map[beacon_map[addr].first].address, peer_addr, node_key_map[addr].data(), protocol, version);
 	}
 }
 
@@ -167,9 +165,10 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::send_DISCPEER(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCPEER());
+	fiber.send(DISCPEER(), addr);
 }
 
 /*!
@@ -178,10 +177,11 @@ void CLUSTERDISCOVERER::send_DISCPEER(
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTPEER(
-	BaseTransport &transport [[maybe_unused]],
-	LISTPEER &&packet
+	FiberType& fiber [[maybe_unused]],
+	LISTPEER&& packet,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTPEER <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -190,8 +190,8 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 	for(auto iter = packet.peers_begin(); iter != packet.peers_end(); ++iter) {
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
-	beacon_map[peer_addr] = std::make_pair(transport.dst_addr, asyncio::EventLoop::now());
-		f.dial(peer_addr, *this, 0);
+		beacon_map[peer_addr] = std::make_pair(addr, asyncio::EventLoop::now());
+		fiber.dial(peer_addr, 0);
 	}
 }
 
@@ -200,45 +200,47 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::beacon_timer_cb() {
-    // Discover clusters
+	// Discover clusters
 	for(auto& addr : discovery_addrs) {
-		f.dial(addr, *this, 3);
+		fiber.dial(addr, 3);
 	}
 
-    // Prune clusters
-    for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
-	if(iter->second.last_seen + 120000 < asyncio::EventLoop::now()) {
-	    // Stale cluster
-	    iter = cluster_map.erase(iter);
-	} else {
-			iter++;
+	// Prune clusters
+	for(auto iter = cluster_map.begin(); iter != cluster_map.end();) {
+		if(iter->second.last_seen + 120000 < asyncio::EventLoop::now()) {
+			// Stale cluster
+			iter = cluster_map.erase(iter);
+		} else {
+				iter++;
 		}
-    }
+	}
 
-    // Prune relay
-    for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
-	if(iter->second.second + 120000 < asyncio::EventLoop::now()) {
-	    // Stale cluster
-	    iter = beacon_map.erase(iter);
-	} else {
-			iter++;
+	// Prune relay
+	for(auto iter = beacon_map.begin(); iter != beacon_map.end();) {
+		if(iter->second.second + 120000 < asyncio::EventLoop::now()) {
+			// Stale cluster
+			iter = beacon_map.erase(iter);
+		} else {
+				iter++;
 		}
-    }
+	}
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::send_DISCCLUSTER(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCCLUSTER());
+	fiber.send(DISCCLUSTER(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
-	BaseTransport &transport [[maybe_unused]],
-	LISTCLUSTER &&packet
+	FiberType& fiber [[maybe_unused]],
+	LISTCLUSTER&& packet,
+	core::SocketAddress
 ) {
-	SPDLOG_DEBUG("LISTCLUSTER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTCLUSTER <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 	SPDLOG_WARN("Validation failure");
@@ -250,23 +252,25 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 
-		f.dial(cluster_addr, *this, 1);
+		fiber.dial(cluster_addr, 1);
 	}
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::send_DISCCLUSTER2(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCCLUSTER2());
+	fiber.send(DISCCLUSTER2(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
-	BaseTransport &transport [[maybe_unused]],
-	LISTCLUSTER2 &&packet
+	FiberType& fiber [[maybe_unused]],
+	LISTCLUSTER2&& packet,
+	core::SocketAddress
 ) {
-	SPDLOG_DEBUG("LISTCLUSTER2 <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTCLUSTER2 <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 	SPDLOG_WARN("Validation failure");
@@ -288,52 +292,35 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 		cluster_map[cluster_addr].address = cluster_client_key;
-		f.dial(cluster_addr, *this, 1);
+		fiber.dial(cluster_addr, 1);
 	}
 }
 
 //---------------- Discovery protocol functions begin ----------------//
 
 
-//---------------- Listen delegate functions begin ----------------//
-
-template<CLUSTERDISCOVERER_TEMPLATE>
-bool CLUSTERDISCOVERER::should_accept(
-	core::SocketAddress const &
-) {
-	return false;
-}
-
-template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_create_transport(
-	BaseTransport &transport,
-	size_t
-) {
-	transport.setup(this);
-}
-
-//---------------- Listen delegate functions end ----------------//
-
-
 //---------------- Transport delegate functions begin ----------------//
 
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_dial(
-	BaseTransport &transport,
+int CLUSTERDISCOVERER::did_dial(
+	FiberType& fiber,
+	core::SocketAddress addr,
 	size_t type
 ) {
 	if(type == 0) {
 		// Normal peer
-		send_DISCPROTO(transport);
+		send_DISCPROTO(fiber, addr);
 	} else if(type == 1) {
 		// Discovery peer
-		send_DISCPEER(transport);
+		send_DISCPEER(fiber, addr);
 	} else if(type == 2) {
 		// Heartbeat peer
 	} else if(type == 3) {
 	// Cluster discovery peer
-	send_DISCCLUSTER2(transport);
-    }
+	send_DISCCLUSTER2(fiber, addr);
+	}
+
+	return 0;
 }
 
 //! receives the packet and processes them
@@ -348,83 +335,89 @@ void CLUSTERDISCOVERER::did_dial(
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_recv(
-	BaseTransport &transport,
-	BaseMessageType &&packet
+int CLUSTERDISCOVERER::did_recv(
+	FiberType& fiber,
+	BaseMessageType&& packet,
+	core::SocketAddress addr
 ) {
 	if(!packet.validate()) {
-		return;
+		return -1;
 	}
 
 	auto type = packet.payload_buffer().read_uint8(0);
 	if(type == std::nullopt) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: SPDLOG_ERROR("Unexpected DISCPROTO from {}", transport.dst_addr.to_string());
+		case 0: SPDLOG_ERROR("Unexpected DISCPROTO from {}", addr.to_string());
 		break;
 		// LISTPROTO
-		case 1: did_recv_LISTPROTO(transport, std::move(packet));
+		case 1: did_recv_LISTPROTO(fiber, std::move(packet), addr);
 		break;
 		// DISCOVER
-		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", transport.dst_addr.to_string());
+		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", addr.to_string());
 		break;
 		// PEERLIST
-		case 3: did_recv_LISTPEER(transport, std::move(packet));
+		case 3: did_recv_LISTPEER(fiber, std::move(packet), addr);
 		break;
 		// HEARTBEAT
-		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", transport.dst_addr.to_string());
+		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", addr.to_string());
 		break;
 		// DISCADDR
-		case 5: SPDLOG_ERROR("Unexpected DISCADDR from {}", transport.dst_addr.to_string());
+		case 5: SPDLOG_ERROR("Unexpected DISCADDR from {}", addr.to_string());
 		break;
 		// LISTCLUSTER
-		case 8: did_recv_LISTCLUSTER(transport, std::move(packet));
+		case 8: did_recv_LISTCLUSTER(fiber, std::move(packet), addr);
 		break;
 		// LISTCLUSTER2
-		case 11: did_recv_LISTCLUSTER2(transport, std::move(packet));
+		case 11: did_recv_LISTCLUSTER2(fiber, std::move(packet), addr);
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
-void CLUSTERDISCOVERER::did_send(
-	BaseTransport &transport [[maybe_unused]],
-	core::Buffer &&packet
+int CLUSTERDISCOVERER::did_send(
+	FiberType& fiber [[maybe_unused]],
+	core::Buffer&& packet
 ) {
 	auto type = packet.read_uint8(1);
 	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
+		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", addr.to_string());
 		break;
 		// LISTPROTO
-		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", transport.dst_addr.to_string());
+		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", addr.to_string());
 		break;
 		// DISCPEER
-		case 2: SPDLOG_TRACE("DISCPEER >>> {}", transport.dst_addr.to_string());
+		case 2: SPDLOG_TRACE("DISCPEER >>> {}", addr.to_string());
 		break;
 		// LISTPEER
-		case 3: SPDLOG_TRACE("LISTPEER >>> {}", transport.dst_addr.to_string());
+		case 3: SPDLOG_TRACE("LISTPEER >>> {}", addr.to_string());
 		break;
 		// HEARTBEAT
-		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
+		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", addr.to_string());
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
 //---------------- Transport delegate functions end ----------------//
+
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 template<typename ...Args>
@@ -432,9 +425,14 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	core::SocketAddress const &addr,
 	uint8_t const* static_sk,
 	Args&&... args
-) : f(std::forward<Args>(args)...), beacon_timer(this), heartbeat_timer(this) {
-	f.bind(addr);
-	f.listen(*this);
+) : fiber(std::forward_as_tuple(
+	// ExtFabric which is Self&
+	*this,
+	// Internal fibers, simply forward
+	std::forward<Args>(args)...
+)), beacon_timer(this), heartbeat_timer(this) {
+	fiber.bind(addr);
+	fiber.listen();
 
 	if(sodium_init() == -1) {
 		throw;
@@ -443,6 +441,13 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
 	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
+
+template<CLUSTERDISCOVERER_TEMPLATE>
+CLUSTERDISCOVERER::ClusterDiscoverer(
+	core::SocketAddress const &addr,
+	uint8_t const* static_sk
+) : ClusterDiscoverer(addr, static_sk, std::make_tuple(), std::make_tuple()) {}
+
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 CLUSTERDISCOVERER::~ClusterDiscoverer() {
@@ -454,7 +459,7 @@ CLUSTERDISCOVERER::~ClusterDiscoverer() {
 */
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::start_discovery(
-	const core::SocketAddress &beacon_addr
+	core::SocketAddress beacon_addr
 ) {
 	discovery_addrs.push_back(beacon_addr);
 	beacon_timer.template start<Self, &Self::beacon_timer_cb>(0, 60000);
