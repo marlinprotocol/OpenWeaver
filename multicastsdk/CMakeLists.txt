@@ -114,17 +114,37 @@ sc_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a
 sc_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701")
 sc_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f")
 
+function(probe_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_NETWORK_ID)
+	set(EXE_NAME ${EXE_PREFIX}_probe)
+	add_executable(${EXE_NAME}
+		src/probe.cpp
+	)
+
+	target_link_libraries(${EXE_NAME} PUBLIC multicastsdk)
+	target_link_libraries(${EXE_NAME} PUBLIC structopt::structopt)
+
+	target_compile_definitions(${EXE_NAME} PUBLIC
+		MARLIN_PROBE_DEFAULT_PUBSUB_PORT=${DEFAULT_PUBSUB}
+		MARLIN_PROBE_DEFAULT_DISC_PORT=${DEFAULT_DISC}
+		MARLIN_PROBE_DEFAULT_NETWORK_ID=${DEFAULT_NETWORK_ID}
+	)
+endfunction()
+
+probe_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f")
+probe_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701")
+probe_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f")
+
 add_executable(msggen
 	examples/msggen.cpp
 )
 
 target_link_libraries(msggen PUBLIC multicastsdk)
 
-add_executable(probe
-	examples/probe.cpp
-)
+#add_executable(probe
+	#examples/probe.cpp
+#)
 
-target_link_libraries(probe PUBLIC multicastsdk)
+#target_link_libraries(probe PUBLIC multicastsdk)
 
 add_executable(multicastTcpBridge
 	examples/MulticastTcpBridge.cpp
