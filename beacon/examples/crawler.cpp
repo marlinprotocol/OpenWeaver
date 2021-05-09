@@ -10,7 +10,9 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 
-#include "spdlog/fmt/bin_to_hex.h"
+#include <spdlog/fmt/bin_to_hex.h>
+#include <structopt/app.hpp>
+
 
 using namespace marlin;
 
@@ -57,22 +59,40 @@ public:
 	}
 };
 
-int main() {
-	auto baddr = core::SocketAddress::from_string("34.82.79.68:8002");
-	auto caddr = core::SocketAddress::from_string("0.0.0.0:18002");
+struct CliOptions {
+	std::optional<std::string> discovery_addr;
+	std::optional<std::string> bootstrap_addr;
+};
+STRUCTOPT(CliOptions, discovery_addr, bootstrap_addr);
 
-	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
-	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-	crypto_box_keypair(static_pk, static_sk);
+int main(int argc, char** argv) {
+	try {
+		auto options = structopt::app("bridge").parse<CliOptions>(argc, argv);
+		auto baddr = core::SocketAddress::from_string(
+			options.bootstrap_addr.value_or("34.82.79.68:8002")
+		);
+		auto caddr = core::SocketAddress::from_string(
+			options.discovery_addr.value_or("0.0.0.0:18002")
+		);
 
-	BeaconDelegate del;
+		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
+		uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
+		crypto_box_keypair(static_pk, static_sk);
 
-	auto crawler = new beacon::ClusterDiscoverer<
-		BeaconDelegate
-	>(caddr, static_sk);
-	crawler->delegate = &del;
+		BeaconDelegate del;
 
-	crawler->start_discovery(baddr);
+		auto crawler = new beacon::ClusterDiscoverer<
+			BeaconDelegate
+		>(caddr, static_sk);
+		crawler->delegate = &del;
 
-	return asyncio::EventLoop::run();
+		crawler->start_discovery(baddr);
+
+		return asyncio::EventLoop::run();
+	} catch (structopt::exception& e) {
+		SPDLOG_ERROR("{}", e.what());
+		SPDLOG_ERROR("{}", e.help());
+	}
+
+	return -1;
 }
