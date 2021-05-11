@@ -33,6 +33,10 @@
 #define MARLIN_BRIDGE_DEFAULT_NETWORK_ID ""
 #endif
 
+#ifndef MARLIN_BRIDGE_DEFAULT_MASK
+#define MARLIN_BRIDGE_DEFAULT_MASK 0x0
+#endif
+
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
@@ -63,14 +67,21 @@ using LpfTcpTransport = LpfTransport<
 	std::bool_constant<enable_cut_through>
 >;
 
+using DefaultMulticastClientType = DefaultMulticastClient<
+	MulticastDelegate,
+	SigAttester,
+	LpfBloomWitnesser,
+	MARLIN_BRIDGE_DEFAULT_MASK
+>;
+
 class MulticastDelegate {
 public:
-	DefaultMulticastClient<MulticastDelegate, SigAttester>* multicastClient;
+	DefaultMulticastClientType* multicastClient;
 	LpfTcpTransport* tcpClient = nullptr;
 	LpfTcpTransportFactory f;
 
 	MulticastDelegate(DefaultMulticastClientOptions clop, std::string lpftcp_bridge_addr, uint8_t* key) {
-		multicastClient = new DefaultMulticastClient<MulticastDelegate, SigAttester> (clop, key);
+		multicastClient = new DefaultMulticastClientType (clop, key);
 		multicastClient->delegate = this;
 
 		// bind to address and start listening on tcpserver
@@ -154,7 +165,7 @@ public:
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		DefaultMulticastClientType &client,
 		Buffer &&message,
 		T header,
 		uint16_t channel,
@@ -175,12 +186,12 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		DefaultMulticastClientType &client,
 		uint16_t channel
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<MulticastDelegate, SigAttester> &client,
+		DefaultMulticastClientType &client,
 		uint16_t channel
 	) {}
 };
@@ -309,7 +320,7 @@ int main(int argc, char** argv) {
 
 		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());
 
-		return DefaultMulticastClient<MulticastDelegate, SigAttester>::run_event_loop();
+		return DefaultMulticastClientType::run_event_loop();
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
 		SPDLOG_ERROR("{}", e.help());
