@@ -31,6 +31,10 @@
 #define MARLIN_SC_DEFAULT_NETWORK_ID ""
 #endif
 
+#ifndef MARLIN_SC_DEFAULT_MASK
+#define MARLIN_SC_DEFAULT_MASK 0x0
+#endif
+
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
@@ -47,7 +51,7 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	SigAttester,
 	LpfBloomWitnesser,
-	0xf
+	MARLIN_SC_DEFAULT_MASK
 >;
 
 class MulticastDelegate {
