@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/cosmos/Abci.hpp>
+#include <marlin/dot/Abci.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
 
 #include <structopt/app.hpp>
@@ -43,7 +43,7 @@
 using namespace marlin::multicast;
 using namespace marlin::pubsub;
 using namespace marlin::core;
-using namespace marlin::cosmos;
+using namespace marlin::dot;
 
 struct MulticastDelegate;
 
@@ -103,7 +103,7 @@ public:
 		uint16_t,
 		uint64_t message_id
 	) {
-		SPDLOG_DEBUG(
+		SPDLOG_INFO(
 			"Did recv from multicast, message-id: {}",
 			message_id
 		);
@@ -113,6 +113,7 @@ public:
 			return;
 		}
 		if((message_id & 0xf) == 0) {
+			SPDLOG_INFO("message size: {}", message.size());
 			abci.analyze_block(std::move(message), message_id);
 		}
 	}

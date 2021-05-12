@@ -100,7 +100,7 @@ function(sc_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NE
 	)
 
 	target_link_libraries(${EXE_NAME} PUBLIC multicastsdk)
-	target_link_libraries(${EXE_NAME} PUBLIC abci_cosmos)
+	target_link_libraries(${EXE_NAME} PUBLIC abci_dot)
 	target_link_libraries(${EXE_NAME} PUBLIC structopt::structopt)
 
 	target_compile_definitions(${EXE_NAME} PUBLIC
