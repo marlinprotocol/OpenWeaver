@@ -670,6 +670,13 @@ DISCOVERYSERVER::DiscoveryServer(
 ) : DiscoveryServer(baddr, haddr, raddr, key, std::make_tuple(), std::make_tuple()) {}
 
 
+//---------------- Helper macros undef begin ----------------//
+
+#undef DISCOVERYSERVER_TEMPLATE
+#undef DISCOVERYSERVER
+
+//---------------- Helper macros undef end ----------------//
+
 } // namespace beacon
 } // namespace marlin
 
