@@ -88,6 +88,7 @@ endforeach(TEST_SOURCE)
 
 set(EXAMPLE_SOURCES
 	examples/basic.cpp
+	examples/fiber.cpp
 	examples/network.cpp
 	examples/timer.cpp
 	examples/transport.cpp
