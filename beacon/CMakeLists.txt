@@ -84,7 +84,7 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
-	test/testDiscoveryClient.cpp
+#	test/testDiscoveryClient.cpp
 )
 
 add_custom_target(beacon_tests)

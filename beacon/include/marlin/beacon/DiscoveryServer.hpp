@@ -5,10 +5,11 @@
 #ifndef MARLIN_BEACON_BEACON_HPP
 #define MARLIN_BEACON_BEACON_HPP
 
-#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
-#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -35,14 +36,19 @@ namespace beacon {
 	\li HEARTBEAT - nodes which ping with a heartbeat are registered
 	\li DISCPEER - nodes which ping with Discpeer are sent a list of peers
 */
-template<typename DiscoveryServerDelegate>
+template<
+	typename DiscoveryServerDelegate,
+	template<typename> typename FiberTemplate = core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
+>
 class DiscoveryServer {
 private:
-	using Self = DiscoveryServer<DiscoveryServerDelegate>;
+	using Self = DiscoveryServer<
+		DiscoveryServerDelegate,
+		FiberTemplate
+	>;
+	using FiberType = FiberTemplate<Self&>;
 
-	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, asyncio::UdpTransportFactory, asyncio::UdpTransport>;
-	using BaseTransport = core::VersionedTransport<Self, asyncio::UdpTransport>;
-	using BaseMessageType = typename BaseTransport::MessageType;
+	using BaseMessageType = typename FiberType::InnerMessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
@@ -53,31 +59,31 @@ private:
 	using DISCCLUSTER2 = DISCCLUSTER2Wrapper<BaseMessageType>;
 	using LISTCLUSTER2 = LISTCLUSTER2Wrapper<BaseMessageType>;
 
-	BaseTransportFactory f;
-	BaseTransportFactory hf;
+	FiberType fiber;
+	FiberType h_fiber;
 
 	// Discovery protocol
-	void did_recv_DISCPROTO(BaseTransport &transport);
-	void send_LISTPROTO(BaseTransport &transport);
+	void did_recv_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
+	void send_LISTPROTO(FiberType& fiber, core::SocketAddress addr);
 
-	void did_recv_DISCPEER(BaseTransport &transport);
-	void send_LISTPEER(BaseTransport &transport);
+	void did_recv_DISCPEER(FiberType& fiber, core::SocketAddress addr);
+	void send_LISTPEER(FiberType& fiber, core::SocketAddress addr);
 
-	void did_recv_HEARTBEAT(BaseTransport &transport, HEARTBEAT &&bytes);
-	void did_recv_REG(BaseTransport &transport, BaseMessageType&& packet);
+	void did_recv_HEARTBEAT(FiberType& fiber, HEARTBEAT &&bytes, core::SocketAddress addr);
+	void did_recv_REG(FiberType& fiber, BaseMessageType&& packet, core::SocketAddress addr);
 
 	void heartbeat_timer_cb();
 	asyncio::Timer heartbeat_timer;
 
-	void did_recv_DISCCLUSTER(BaseTransport &transport);
-	void send_LISTCLUSTER(BaseTransport &transport);
+	void did_recv_DISCCLUSTER(FiberType& fiber, core::SocketAddress addr);
+	void send_LISTCLUSTER(FiberType& fiber, core::SocketAddress addr);
 
-	void did_recv_DISCCLUSTER2(BaseTransport &transport);
-	void send_LISTCLUSTER2(BaseTransport &transport);
+	void did_recv_DISCCLUSTER2(FiberType& fiber, core::SocketAddress addr);
+	void send_LISTCLUSTER2(FiberType& fiber, core::SocketAddress addr);
 
 	std::unordered_map<core::SocketAddress, PeerInfo> peers;
 
-	BaseTransport* rt = nullptr;
+	std::optional<core::SocketAddress> raddr = std::nullopt;
 
 	secp256k1_context* ctx_signer = nullptr;
 	secp256k1_context* ctx_verifier = nullptr;
@@ -90,15 +96,22 @@ private:
 		return std::memcmp(key, zero, 32) == 0;
 	}
 public:
-	// Listen delegate
-	bool should_accept(core::SocketAddress const &addr);
-	void did_create_transport(BaseTransport &transport);
-
 	// Transport delegate
-	void did_dial(BaseTransport &transport);
-	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send(BaseTransport &transport, core::Buffer &&packet);
+	int did_dial(FiberType& fiber, core::SocketAddress addr);
+	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer &&packet);
 
+private:
+	template<typename ...Args>
+	DiscoveryServer(
+		core::SocketAddress const& baddr,
+		core::SocketAddress const& haddr,
+		std::optional<core::SocketAddress> raddr,
+		std::string key,
+		Args&&... args
+	);
+
+public:
 	DiscoveryServer(
 		core::SocketAddress const& baddr,
 		core::SocketAddress const& haddr,
@@ -112,6 +125,19 @@ public:
 
 // Impl
 
+//---------------- Helper macros begin ----------------//
+
+#define DISCOVERYSERVER_TEMPLATE typename DiscoveryServerDelegate, \
+	template<typename> typename FiberTemplate
+
+#define DISCOVERYSERVER DiscoveryServer< \
+	DiscoveryServerDelegate, \
+	FiberTemplate \
+>
+
+//---------------- Helper macros end ----------------//
+
+
 //---------------- Discovery protocol functions begin ----------------//
 
 
@@ -119,20 +145,22 @@ public:
 	\li Callback on receipt of disc proto
 	\li Sends back the protocols supported on this node
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPROTO(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_DISCPROTO(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCPROTO <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCPROTO <<< {}", addr.to_string());
 
-	send_LISTPROTO(transport);
+	send_LISTPROTO(fiber, addr);
 }
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::send_LISTPROTO(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(LISTPROTO());
+	fiber.send(LISTPROTO(), addr);
 }
 
 
@@ -140,25 +168,27 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPROTO(
 	\li Callback on receipt of disc peer
 	\li Sends back the list of peers
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCPEER(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_DISCPEER(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCPEER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCPEER <<< {}", addr.to_string());
 
-	send_LISTPEER(transport);
+	send_LISTPEER(fiber, addr);
 }
 
 
 /*!
 	sends the list of peers on this node
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::send_LISTPEER(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
 	// Filter out the dst transport
-	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto filter = [&](auto x) { return !(x.first == addr); };
 	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
 	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
@@ -168,7 +198,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		transport.send(LISTPEER(150).set_peers(t_begin, t_end));
+		fiber.send(LISTPEER(150).set_peers(t_begin, t_end), addr);
 	}
 }
 
@@ -176,14 +206,15 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTPEER(
 	\li Callback on receipt of heartbeat from a client node
 	\li Refreshes the entry of the node with current timestamp
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
-	BaseTransport &transport,
-	HEARTBEAT &&bytes
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_HEARTBEAT(
+	FiberType& fiber,
+	HEARTBEAT &&bytes,
+	core::SocketAddress addr
 ) {
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
-		transport.dst_addr.to_string(),
+		addr.to_string(),
 		spdlog::to_hex(bytes.key(), bytes.key()+32)
 	);
 
@@ -192,32 +223,33 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_HEARTBEAT(
 	}
 
 	// Allow only heartbeat addr transports to add themselves to the registry
-	if(!(transport.src_addr == hf.addr)) {
+	if(&fiber != &this->h_fiber) {
 		return;
 	}
 
-	peers[transport.dst_addr].last_seen = asyncio::EventLoop::now();
-	peers[transport.dst_addr].key = bytes.key_array();
+	peers[addr].last_seen = asyncio::EventLoop::now();
+	peers[addr].key = bytes.key_array();
 }
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
-	BaseTransport &transport,
-	BaseMessageType &&packet
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_REG(
+	FiberType& fiber,
+	BaseMessageType &&packet,
+	core::SocketAddress addr
 ) {
 	SPDLOG_INFO(
 		"REG <<< {}",
-		transport.dst_addr.to_string()
+		addr.to_string()
 	);
 
 	// Allow only heartbeat addr transports to add themselves to the registry
-	if(!(transport.src_addr == hf.addr)) {
+	if(&fiber != &this->h_fiber) {
 		return;
 	}
 
 	SPDLOG_INFO(
 		"REG <<< {}",
-		transport.dst_addr.to_string()
+		addr.to_string()
 	);
 
 	auto payload = packet.payload_buffer();
@@ -279,10 +311,10 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 		// address is in hash[12..31]
 
 		SPDLOG_DEBUG("Address: {:spn}", spdlog::to_hex(hash+12, hash+32));
-		std::memcpy(peers[transport.dst_addr].address.data(), hash+12, 20);
+		std::memcpy(peers[addr].address.data(), hash+12, 20);
 	}
 
-	peers[transport.dst_addr].last_seen = asyncio::EventLoop::now();
+	peers[addr].last_seen = asyncio::EventLoop::now();
 
 	constexpr bool has_new_reg = requires(
 		DiscoveryServerDelegate d
@@ -291,7 +323,7 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 	};
 
 	if constexpr (has_new_reg) {
-		delegate->new_reg(transport.dst_addr, peers[transport.dst_addr]);
+		delegate->new_reg(addr, peers[addr]);
 	}
 }
 
@@ -299,8 +331,8 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_recv_REG(
 /*!
 	callback to periodically cleanup the old peers which have been inactive for more than a minute (inactive = not received heartbeat)
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::heartbeat_timer_cb() {
 	auto now = asyncio::EventLoop::now();
 
 	auto iter = peers.begin();
@@ -313,16 +345,16 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 		}
 	}
 
-	if(rt != nullptr) {
+	if(raddr != std::nullopt) {
 		auto time = (uint64_t)std::time(nullptr);
-		SPDLOG_INFO("REG >>> {}", rt->dst_addr.to_string());
+		SPDLOG_INFO("REG >>> {}", raddr->to_string());
 
 		if(is_key_empty()) {
 			BaseMessageType m(1);
 			auto reg = m.payload_buffer();
 			reg.data()[0] = 7;
 
-			rt->send(std::move(m));
+			fiber.send(std::move(m), *raddr);
 		} else {
 			BaseMessageType m(74);
 			auto reg = m.payload_buffer();
@@ -362,27 +394,29 @@ void DiscoveryServer<DiscoveryServerDelegate>::heartbeat_timer_cb() {
 
 			reg.data()[73] = (uint8_t)recid;
 
-			rt->send(std::move(m));
+			fiber.send(std::move(m), *raddr);
 		}
 	}
 }
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_DISCCLUSTER(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", addr.to_string());
 
-	send_LISTCLUSTER(transport);
+	send_LISTCLUSTER(fiber, addr);
 }
 
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::send_LISTCLUSTER(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
 	// Filter out the dst transport
-	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto filter = [&](auto x) { return !(x.first == addr); };
 	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
 	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
@@ -392,26 +426,28 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		transport.send(LISTCLUSTER(150).set_clusters(t_begin, t_end));
+		fiber.send(LISTCLUSTER(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv_DISCCLUSTER2(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::did_recv_DISCCLUSTER2(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCCLUSTER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCCLUSTER <<< {}", addr.to_string());
 
-	send_LISTCLUSTER2(transport);
+	send_LISTCLUSTER2(fiber, addr);
 }
 
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER2(
-	BaseTransport &transport
+template<DISCOVERYSERVER_TEMPLATE>
+void DISCOVERYSERVER::send_LISTCLUSTER2(
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
 	// Filter out the dst transport
-	auto filter = [&](auto x) { return !(x.first == transport.dst_addr); };
+	auto filter = [&](auto x) { return !(x.first == addr); };
 	auto f_begin = boost::make_filter_iterator(filter, peers.begin(), peers.end());
 	auto f_end = boost::make_filter_iterator(filter, peers.end(), peers.end());
 
@@ -421,39 +457,22 @@ void DiscoveryServer<DiscoveryServerDelegate>::send_LISTCLUSTER2(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		transport.send(LISTCLUSTER2(150).set_clusters(t_begin, t_end));
+		fiber.send(LISTCLUSTER2(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
 //---------------- Discovery protocol functions end ----------------//
 
 
-//---------------- Listen delegate functions begin ----------------//
-
-template<typename DiscoveryServerDelegate>
-bool DiscoveryServer<DiscoveryServerDelegate>::should_accept(
-	core::SocketAddress const &
-) {
-	return true;
-}
-
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_create_transport(
-	BaseTransport &transport
-) {
-	transport.setup(this);
-}
-
-//---------------- Listen delegate functions end ----------------//
-
-
 //---------------- Transport delegate functions begin ----------------//
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
-	BaseTransport &bt
+template<DISCOVERYSERVER_TEMPLATE>
+int DISCOVERYSERVER::did_dial(
+	FiberType&,
+	core::SocketAddress addr
 ) {
-	rt = &bt;
+	raddr = addr;
+	return 0;
 }
 
 
@@ -468,115 +487,132 @@ void DiscoveryServer<DiscoveryServerDelegate>::did_dial(
 	\li 3			:	ERROR - LISTPEER, meant for client
 	\li 4			:	HEARTBEAT
 */
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_recv(
-	BaseTransport &transport,
-	BaseMessageType &&packet
+template<DISCOVERYSERVER_TEMPLATE>
+int DISCOVERYSERVER::did_recv(
+	FiberType& fiber,
+	BaseMessageType &&packet,
+	core::SocketAddress addr
 ) {
 	if(!packet.validate()) {
-		return;
+		return -1;
 	}
 
 	auto type = packet.payload_buffer().read_uint8(0);
 	if(type == std::nullopt) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: did_recv_DISCPROTO(transport);
+		case 0: did_recv_DISCPROTO(fiber, addr);
 		break;
 		// LISTPROTO
-		case 1: SPDLOG_ERROR("Unexpected LISTPROTO from {}", transport.dst_addr.to_string());
+		case 1: SPDLOG_ERROR("Unexpected LISTPROTO from {}", addr.to_string());
 		break;
 		// DISCOVER
-		case 2: did_recv_DISCPEER(transport);
+		case 2: did_recv_DISCPEER(fiber, addr);
 		break;
 		// PEERLIST
-		case 3: SPDLOG_ERROR("Unexpected LISTPEER from {}", transport.dst_addr.to_string());
+		case 3: SPDLOG_ERROR("Unexpected LISTPEER from {}", addr.to_string());
 		break;
 		// HEARTBEAT
-		case 4: did_recv_HEARTBEAT(transport, std::move(packet));
+		case 4: did_recv_HEARTBEAT(fiber, std::move(packet), addr);
 		break;
 		// HEARTBEAT
-		case 7: did_recv_REG(transport, std::move(packet));
+		case 7: did_recv_REG(fiber, std::move(packet), addr);
 		break;
 		// DISCCLUSTER
-		case 9: did_recv_DISCCLUSTER(transport);
+		case 9: did_recv_DISCCLUSTER(fiber, addr);
 		break;
 		// LISTCLUSTER
-		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", transport.dst_addr.to_string());
+		case 8: SPDLOG_ERROR("Unexpected LISTCLUSTER from {}", addr.to_string());
 		break;
 		// DISCCLUSTER2
-		case 10: did_recv_DISCCLUSTER2(transport);
+		case 10: did_recv_DISCCLUSTER2(fiber, addr);
 		break;
 		// LISTCLUSTER2
-		case 11: SPDLOG_ERROR("Unexpected LISTCLUSTER2 from {}", transport.dst_addr.to_string());
+		case 11: SPDLOG_ERROR("Unexpected LISTCLUSTER2 from {}", addr.to_string());
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
-template<typename DiscoveryServerDelegate>
-void DiscoveryServer<DiscoveryServerDelegate>::did_send(
-	BaseTransport &transport [[maybe_unused]],
+template<DISCOVERYSERVER_TEMPLATE>
+int DISCOVERYSERVER::did_send(
+	FiberType&,
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
 	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
+		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", addr.to_string());
 		break;
 		// LISTPROTO
-		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", transport.dst_addr.to_string());
+		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", addr.to_string());
 		break;
 		// DISCPEER
-		case 2: SPDLOG_TRACE("DISCPEER >>> {}", transport.dst_addr.to_string());
+		case 2: SPDLOG_TRACE("DISCPEER >>> {}", addr.to_string());
 		break;
 		// LISTPEER
-		case 3: SPDLOG_TRACE("LISTPEER >>> {}", transport.dst_addr.to_string());
+		case 3: SPDLOG_TRACE("LISTPEER >>> {}", addr.to_string());
 		break;
 		// HEARTBEAT
-		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
+		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", addr.to_string());
 		break;
 		// DISCCLUSTER
-		case 9: SPDLOG_TRACE("DISCCLUSTER >>> {}", transport.dst_addr.to_string());
+		case 9: SPDLOG_TRACE("DISCCLUSTER >>> {}", addr.to_string());
 		break;
 		// LISTCLUSTER
-		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", transport.dst_addr.to_string());
+		case 8: SPDLOG_TRACE("LISTCLUSTER >>> {}", addr.to_string());
 		break;
 		// DISCCLUSTER2
-		case 10: SPDLOG_TRACE("DISCCLUSTER2 >>> {}", transport.dst_addr.to_string());
+		case 10: SPDLOG_TRACE("DISCCLUSTER2 >>> {}", addr.to_string());
 		break;
 		// LISTCLUSTER2
-		case 11: SPDLOG_TRACE("LISTCLUSTER2 >>> {}", transport.dst_addr.to_string());
+		case 11: SPDLOG_TRACE("LISTCLUSTER2 >>> {}", addr.to_string());
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
 //---------------- Transport delegate functions end ----------------//
 
-template<typename DiscoveryServerDelegate>
-DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
+template<DISCOVERYSERVER_TEMPLATE>
+template<typename ...Args>
+DISCOVERYSERVER::DiscoveryServer(
 	core::SocketAddress const& baddr,
 	core::SocketAddress const& haddr,
 	std::optional<core::SocketAddress> raddr,
-	std::string key
-) : heartbeat_timer(this) {
-	f.bind(baddr);
-	f.listen(*this);
+	std::string key,
+	Args&&... args
+) : fiber(std::forward_as_tuple(
+	// ExtFabric which is Self&
+	*this,
+	// Internal fibers, simply forward
+	std::forward<Args>(args)...
+)), h_fiber(std::forward_as_tuple(
+	// ExtFabric which is Self&
+	*this,
+	// Internal fibers, simply forward
+	std::forward<Args>(args)...
+)), heartbeat_timer(this) {
+	fiber.bind(baddr);
+	fiber.listen();
 
-	hf.bind(haddr);
-	hf.listen(*this);
+	h_fiber.bind(haddr);
+	h_fiber.listen();
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 
@@ -621,9 +657,25 @@ DiscoveryServer<DiscoveryServerDelegate>::DiscoveryServer(
 	}
 
 	if(raddr.has_value()) {
-		f.dial(*raddr, *this);
+		fiber.dial(*raddr);
 	}
 }
+
+template<DISCOVERYSERVER_TEMPLATE>
+DISCOVERYSERVER::DiscoveryServer(
+	core::SocketAddress const& baddr,
+	core::SocketAddress const& haddr,
+	std::optional<core::SocketAddress> raddr,
+	std::string key
+) : DiscoveryServer(baddr, haddr, raddr, key, std::make_tuple(), std::make_tuple()) {}
+
+
+//---------------- Helper macros undef begin ----------------//
+
+#undef DISCOVERYSERVER_TEMPLATE
+#undef DISCOVERYSERVER
+
+//---------------- Helper macros undef end ----------------//
 
 } // namespace beacon
 } // namespace marlin

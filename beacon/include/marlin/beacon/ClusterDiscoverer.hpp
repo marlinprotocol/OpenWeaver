@@ -316,8 +316,8 @@ int CLUSTERDISCOVERER::did_dial(
 	} else if(type == 2) {
 		// Heartbeat peer
 	} else if(type == 3) {
-	// Cluster discovery peer
-	send_DISCCLUSTER2(fiber, addr);
+		// Cluster discovery peer
+		send_DISCCLUSTER2(fiber, addr);
 	}
 
 	return 0;

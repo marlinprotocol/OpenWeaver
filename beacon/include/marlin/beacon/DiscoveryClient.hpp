@@ -5,9 +5,10 @@
 #ifndef MARLIN_BEACON_DISCOVERYCLIENT_HPP
 #define MARLIN_BEACON_DISCOVERYCLIENT_HPP
 
-#include <marlin/core/transports/VersionedTransportFactory.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
-#include <marlin/asyncio/udp/UdpTransportFactory.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -28,40 +29,37 @@ namespace beacon {
 */
 template<
 	typename DiscoveryClientDelegate,
-	template<typename, typename> class TransportFactory = asyncio::UdpTransportFactory,
-	template<typename> class Transport = asyncio::UdpTransport
+	template<typename> typename FiberTemplate = core::FabricF<asyncio::UdpFiber, core::VersioningFiber>::type
 >
 class DiscoveryClient {
 private:
 	using Self = DiscoveryClient<
 		DiscoveryClientDelegate,
-		TransportFactory,
-		Transport
+		FiberTemplate
 	>;
+	using FiberType = FiberTemplate<Self&>;
 
-	using BaseTransportFactory = core::VersionedTransportFactory<Self, Self, TransportFactory, Transport>;
-	using BaseTransport = core::VersionedTransport<Self, Transport>;
-	using BaseMessageType = typename BaseTransport::MessageType;
+	using BaseMessageType = typename FiberType::InnerMessageType;
 	using DISCPROTO = DISCPROTOWrapper<BaseMessageType>;
 	using LISTPROTO = LISTPROTOWrapper<BaseMessageType>;
 	using DISCPEER = DISCPEERWrapper<BaseMessageType>;
 	using LISTPEER = LISTPEERWrapper<BaseMessageType>;
 	using HEARTBEAT = HEARTBEATWrapper<BaseMessageType>;
 
-	BaseTransportFactory f;
+	FiberType fiber;
 
 	// Discovery protocol
-	void send_DISCPROTO(BaseTransport &transport);
-	void did_recv_DISCPROTO(BaseTransport &transport);
-	void send_LISTPROTO(BaseTransport &transport);
-	void did_recv_LISTPROTO(BaseTransport &transport, LISTPROTO &&packet);
+	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
+	void send_LISTPROTO(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTPROTO(FiberType& fiber, LISTPROTO &&packet, core::SocketAddress addr);
 
-	void send_DISCPEER(BaseTransport &transport);
-	void did_recv_LISTPEER(BaseTransport &transport, LISTPEER &&packet);
+	void send_DISCPEER(FiberType& fiber, core::SocketAddress addr);
+	void did_recv_LISTPEER(FiberType& fiber, LISTPEER &&packet, core::SocketAddress addr);
 
-	void send_HEARTBEAT(BaseTransport &transport);
+	void send_HEARTBEAT(FiberType& fiber, core::SocketAddress addr);
 
-	void did_recv_DISCADDR(BaseTransport &transport);
+	void did_recv_DISCADDR(FiberType& fiber, core::SocketAddress addr);
 
 	std::vector<core::SocketAddress> discovery_addrs;
 	std::vector<core::SocketAddress> heartbeat_addrs;
@@ -73,15 +71,15 @@ private:
 	asyncio::Timer heartbeat_timer;
 
 public:
-	// Listen delegate
-	bool should_accept(core::SocketAddress const &addr);
-	void did_create_transport(BaseTransport &transport, size_t = 0);
-
 	// Transport delegate
-	void did_dial(BaseTransport &transport, size_t type = 0);
-	void did_recv(BaseTransport &transport, BaseMessageType &&packet);
-	void did_send(BaseTransport &transport, core::Buffer &&packet);
+	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
+	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer &&packet);
 
+	DiscoveryClient(
+		core::SocketAddress const& addr,
+		uint8_t const* static_sk
+	);
 	template<typename ...Args>
 	DiscoveryClient(
 		core::SocketAddress const &addr,
@@ -116,13 +114,11 @@ private:
 //---------------- Helper macros begin ----------------//
 
 #define DISCOVERYCLIENT_TEMPLATE typename DiscoveryClientDelegate, \
-	template<typename, typename> class TransportFactory, \
-	template<typename> class Transport
+	template<typename> typename FiberTemplate
 
 #define DISCOVERYCLIENT DiscoveryClient< \
 	DiscoveryClientDelegate, \
-	TransportFactory, \
-	Transport \
+	FiberTemplate \
 >
 
 //---------------- Helper macros end ----------------//
@@ -136,9 +132,10 @@ private:
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPROTO(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCPROTO());
+	fiber.send(DISCPROTO(), addr);
 }
 
 
@@ -148,11 +145,12 @@ void DISCOVERYCLIENT::send_DISCPROTO(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_DISCPROTO(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCPROTO <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCPROTO <<< {}", addr.to_string());
 
-	send_LISTPROTO(transport);
+	send_LISTPROTO(fiber, addr);
 }
 
 
@@ -161,23 +159,26 @@ void DISCOVERYCLIENT::did_recv_DISCPROTO(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_LISTPROTO(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
 	auto protocols = delegate->get_protocols();
 	assert(protocols.size() < 100);
 
-	transport.send(
+	fiber.send(
 		LISTPROTO(protocols.size())
-		.set_protocols(protocols.begin(), protocols.end())
+		.set_protocols(protocols.begin(), protocols.end()),
+		addr
 	);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPROTO(
-	BaseTransport &transport,
-	LISTPROTO &&packet
+	FiberType&,
+	LISTPROTO &&packet,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("LISTPROTO <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTPROTO <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -185,10 +186,10 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 
 	for(auto iter = packet.protocols_begin(); iter != packet.protocols_end(); ++iter) {
 		auto [protocol, version, port] = *iter;
-		core::SocketAddress peer_addr(transport.dst_addr);
+		core::SocketAddress peer_addr(addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer_protocol(peer_addr, node_key_map[transport.dst_addr].data(), protocol, version);
+		delegate->new_peer_protocol(peer_addr, node_key_map[addr].data(), protocol, version);
 	}
 }
 
@@ -197,9 +198,10 @@ void DISCOVERYCLIENT::did_recv_LISTPROTO(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_DISCPEER(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(DISCPEER());
+	fiber.send(DISCPEER(), addr);
 }
 
 /*!
@@ -208,10 +210,11 @@ void DISCOVERYCLIENT::send_DISCPEER(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_LISTPEER(
-	BaseTransport &transport [[maybe_unused]],
-	LISTPEER &&packet
+	FiberType& fiber,
+	LISTPEER &&packet,
+	core::SocketAddress addr [[maybe_unused]]
 ) {
-	SPDLOG_DEBUG("LISTPEER <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("LISTPEER <<< {}", addr.to_string());
 
 	if(!packet.validate()) {
 		return;
@@ -221,7 +224,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 
-		f.dial(peer_addr, *this, 0);
+		fiber.dial(peer_addr, 0);
 	}
 }
 
@@ -230,16 +233,18 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 */
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::send_HEARTBEAT(
-	BaseTransport &transport
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	transport.send(HEARTBEAT().set_key(static_pk));
+	fiber.send(HEARTBEAT().set_key(static_pk), addr);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::did_recv_DISCADDR(
-	BaseTransport &transport [[maybe_unused]]
+	FiberType& fiber,
+	core::SocketAddress addr
 ) {
-	SPDLOG_DEBUG("DISCADDR <<< {}", transport.dst_addr.to_string());
+	SPDLOG_DEBUG("DISCADDR <<< {}", addr.to_string());
 
 	uint8_t name_size = name.size() > 255 ? 255 : name.size();
 
@@ -250,7 +255,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 	p.data()[43] = name_size;
 	std::memcpy(p.data()+44, name.c_str(), name_size);
 
-	transport.send(std::move(m));
+	fiber.send(std::move(m), addr);
 }
 
 /*!
@@ -259,7 +264,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::beacon_timer_cb() {
 	for(auto& addr : discovery_addrs) {
-		f.dial(addr, *this, 1);
+		fiber.dial(addr, 1);
 	}
 }
 
@@ -269,50 +274,33 @@ void DISCOVERYCLIENT::beacon_timer_cb() {
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::heartbeat_timer_cb() {
 	for(auto& addr : heartbeat_addrs) {
-		f.dial(addr, *this, 2);
+		fiber.dial(addr, 2);
 	}
 }
 
 //---------------- Discovery protocol functions begin ----------------//
 
 
-//---------------- Listen delegate functions begin ----------------//
-
-template<DISCOVERYCLIENT_TEMPLATE>
-bool DISCOVERYCLIENT::should_accept(
-	core::SocketAddress const &
-) {
-	return is_discoverable;
-}
-
-template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_create_transport(
-	BaseTransport &transport,
-	size_t
-) {
-	transport.setup(this);
-}
-
-//---------------- Listen delegate functions end ----------------//
-
-
 //---------------- Transport delegate functions begin ----------------//
 
 template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_dial(
-	BaseTransport &transport,
+int DISCOVERYCLIENT::did_dial(
+	FiberType& fiber,
+	core::SocketAddress addr,
 	size_t type
 ) {
 	if(type == 0) {
 		// Normal peer
-		send_DISCPROTO(transport);
+		send_DISCPROTO(fiber, addr);
 	} else if(type == 1) {
 		// Discovery peer
-		send_DISCPEER(transport);
+		send_DISCPEER(fiber, addr);
 	} else if(type == 2) {
 		// Heartbeat peer
-		send_HEARTBEAT(transport);
+		send_HEARTBEAT(fiber, addr);
 	}
+
+	return 0;
 }
 
 //! receives the packet and processes them
@@ -327,74 +315,79 @@ void DISCOVERYCLIENT::did_dial(
 	\li 4			:	ERROR- HEARTBEAT, meant for server
 */
 template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_recv(
-	BaseTransport &transport,
-	BaseMessageType &&packet
+int DISCOVERYCLIENT::did_recv(
+	FiberType& fiber,
+	BaseMessageType &&packet,
+	core::SocketAddress addr
 ) {
 	if(!packet.validate()) {
-		return;
+		return -1;
 	}
 
 	auto type = packet.payload_buffer().read_uint8(0);
 	if(type == std::nullopt) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: did_recv_DISCPROTO(transport);
+		case 0: did_recv_DISCPROTO(fiber, addr);
 		break;
 		// LISTPROTO
-		case 1: did_recv_LISTPROTO(transport, std::move(packet));
+		case 1: did_recv_LISTPROTO(fiber, std::move(packet), addr);
 		break;
 		// DISCOVER
-		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", transport.dst_addr.to_string());
+		case 2: SPDLOG_ERROR("Unexpected DISCPEER from {}", addr.to_string());
 		break;
 		// PEERLIST
-		case 3: did_recv_LISTPEER(transport, std::move(packet));
+		case 3: did_recv_LISTPEER(fiber, std::move(packet), addr);
 		break;
 		// HEARTBEAT
-		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", transport.dst_addr.to_string());
+		case 4: SPDLOG_ERROR("Unexpected HEARTBEAT from {}", addr.to_string());
 		break;
 		// DISCADDR
-		case 5: did_recv_DISCADDR(transport);
+		case 5: did_recv_DISCADDR(fiber, addr);
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN <<< {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN <<< {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
-void DISCOVERYCLIENT::did_send(
-	BaseTransport &transport [[maybe_unused]],
+int DISCOVERYCLIENT::did_send(
+	FiberType&,
 	core::Buffer &&packet
 ) {
 	auto type = packet.read_uint8(1);
 	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
-		return;
+		return -1;
 	}
 
 	switch(type.value()) {
 		// DISCPROTO
-		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", transport.dst_addr.to_string());
+		case 0: SPDLOG_TRACE("DISCPROTO >>> {}", addr.to_string());
 		break;
 		// LISTPROTO
-		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", transport.dst_addr.to_string());
+		case 1: SPDLOG_TRACE("LISTPROTO >>> {}", addr.to_string());
 		break;
 		// DISCPEER
-		case 2: SPDLOG_TRACE("DISCPEER >>> {}", transport.dst_addr.to_string());
+		case 2: SPDLOG_TRACE("DISCPEER >>> {}", addr.to_string());
 		break;
 		// LISTPEER
-		case 3: SPDLOG_TRACE("LISTPEER >>> {}", transport.dst_addr.to_string());
+		case 3: SPDLOG_TRACE("LISTPEER >>> {}", addr.to_string());
 		break;
 		// HEARTBEAT
-		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", transport.dst_addr.to_string());
+		case 4: SPDLOG_TRACE("HEARTBEAT >>> {}", addr.to_string());
 		break;
 		// UNKNOWN
-		default: SPDLOG_TRACE("UNKNOWN >>> {}", transport.dst_addr.to_string());
+		default: SPDLOG_TRACE("UNKNOWN >>> {}", addr.to_string());
 		break;
 	}
+
+	return 0;
 }
 
 //---------------- Transport delegate functions end ----------------//
@@ -405,9 +398,14 @@ DISCOVERYCLIENT::DiscoveryClient(
 	core::SocketAddress const &addr,
 	uint8_t const* static_sk,
 	Args&&... args
-) : f(std::forward<Args>(args)...), beacon_timer(this), heartbeat_timer(this) {
-	f.bind(addr);
-	f.listen(*this);
+) : fiber(std::forward_as_tuple(
+	// ExtFabric which is Self&
+	*this,
+	// Internal fibers, simply forward
+	std::forward<Args>(args)...
+)), beacon_timer(this), heartbeat_timer(this) {
+	fiber.bind(addr);
+	fiber.listen();
 
 	if(sodium_init() == -1) {
 		throw;
@@ -416,6 +414,12 @@ DISCOVERYCLIENT::DiscoveryClient(
 	std::memcpy(this->static_sk, static_sk, crypto_box_SECRETKEYBYTES);
 	crypto_scalarmult_base(this->static_pk, this->static_sk);
 }
+
+template<DISCOVERYCLIENT_TEMPLATE>
+DISCOVERYCLIENT::DiscoveryClient(
+	core::SocketAddress const &addr,
+	uint8_t const* static_sk
+) : DiscoveryClient(addr, static_sk, std::make_tuple(), std::make_tuple()) {}
 
 template<DISCOVERYCLIENT_TEMPLATE>
 DISCOVERYCLIENT::~DiscoveryClient() {

@@ -2,10 +2,36 @@
 #define MARLIN_CORE_FIBERS_VERSIONINGFIBER_HPP
 
 #include <marlin/core/Buffer.hpp>
-#include <marlin/core/transports/VersionedTransport.hpp>
 
 namespace marlin {
 namespace core {
+
+#include <marlin/core/messages/FieldDef.hpp>
+
+template<
+	typename BaseMessageType,
+	typename VERSION = std::integral_constant<uint8_t, 0>,
+	typename MIN_VERSION = std::integral_constant<uint8_t, 0>,
+	typename MAX_VERSION = std::integral_constant<uint8_t, 0>
+>
+struct VersionedMessage {
+	MARLIN_MESSAGES_BASE(VersionedMessage);
+	MARLIN_MESSAGES_UINT_FIELD(8,, version, 0);
+	MARLIN_MESSAGES_PAYLOAD_FIELD(1);
+
+	/// Construct a versioned message with a given payload size
+	VersionedMessage(size_t payload_size = 0) : base(1 + payload_size) {
+		this->set_version(VERSION());
+	}
+
+	/// Validate the versioned message
+	[[nodiscard]] bool validate() const {
+		return base.payload_buffer().size() > 0 && this->version() >= MIN_VERSION() && this->version() <= MAX_VERSION();
+	}
+};
+
+#include <marlin/core/messages/FieldUndef.hpp>
+
 
 template<typename ExtFabric>
 class VersioningFiber {
