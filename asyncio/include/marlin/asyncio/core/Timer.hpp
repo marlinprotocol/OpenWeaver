@@ -43,6 +43,8 @@ private:
 public:
 	void* delegate;
 
+	Timer() {}
+
 	template<typename DelegateType>
 	Timer(DelegateType* delegate) : delegate(delegate) {
 		timer = new uv_timer_t();
@@ -57,6 +59,7 @@ public:
 
 	template<typename DelegateType, void (DelegateType::*callback)()>
 	void start(uint64_t timeout, uint64_t repeat) {
+		printf("Timer starting\n");
 		uv_timer_start(timer, timer_cb<DelegateType, callback>, timeout, repeat);
 	}
 

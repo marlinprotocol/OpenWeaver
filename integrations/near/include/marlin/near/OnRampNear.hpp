@@ -8,12 +8,14 @@
 #include <libbase58.h>
 #include <boost/filesystem.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
+#include <marlin/asyncio/tcp/RcTcpTransport.hpp>
 
 
 using namespace marlin::near;
 using namespace marlin::core;
 using namespace marlin::multicast;
 using namespace marlin::pubsub;
+using namespace marlin::asyncio;
 
 namespace marlin {
 namespace near {
@@ -25,14 +27,26 @@ public:
 	uint8_t static_sk[crypto_sign_SECRETKEYBYTES], static_pk[crypto_sign_PUBLICKEYBYTES]; // should be moved to DefaultMulticastClient and add a function there to sign a message.
 	NearTransportFactory<OnRampNear, OnRampNear> f;
 	std::unordered_set<NearTransport<OnRampNear>*> transport_set;
+	RcTcpTransport <OnRampNear> rcTcp;
 
+	uint64_t connect_timer_interval = 1000;
+	asyncio::Timer connect_timer;
+	
 	void handle_handshake(NearTransport<OnRampNear> &, core::Buffer &&message);
 	void handle_transaction(core::Buffer &&message);
 	void handle_block(core::Buffer &&message);
 
+	void connect_timer_cb() {
+		SPDLOG_INFO("Connecting");
+		rcTcp.connect(SocketAddress::from_string("127.0.0.1:3030"));
+	}
+
 	template<typename... Args>
 	OnRampNear(DefaultMulticastClientOptions clop, SocketAddress listen_addr, Args&&... args): multicastClient(clop, std::forward<Args>(args)...) {
+
 		multicastClient.delegate = this;
+		
+		// connect_timer = Timer<OnRampNear>(this);
 
 		if(sodium_init() == -1) {
 			throw;
@@ -71,6 +85,37 @@ public:
 
 		f.bind(listen_addr);
 		f.listen(*this);
+	}
+
+	void did_connect(RcTcpTransport <OnRampNear> &) {
+		SPDLOG_INFO("Connected");
+	}
+
+	void did_recv(RcTcpTransport <OnRampNear> &, core::Buffer&& bytes) {
+		SPDLOG_INFO("{}", spdlog::to_hex(bytes.data(), bytes.data() + bytes.size()));
+	}
+
+	void did_disconnect(RcTcpTransport <OnRampNear> &, uint) {
+		SPDLOG_INFO("Disconnected");
+		// Wait and retry
+		connect_timer.template start<
+			OnRampNear,
+			&OnRampNear::connect_timer_cb
+		>(connect_timer_interval, 0);
+		SPDLOG_INFO("Disconnected");
+
+		// Exponential backoff till ~1 min
+		connect_timer_interval *= 2;
+		if(connect_timer_interval > 64000) {
+			connect_timer_interval = 64000;
+		}
+		SPDLOG_INFO("Disconnected");
+	}
+
+	void did_close(RcTcpTransport <OnRampNear> &) {}
+
+	void close() {
+		rcTcp.close();
 	}
 
 	void did_recv(NearTransport <OnRampNear> &transport, Buffer &&message) {
@@ -177,6 +222,34 @@ void OnRampNear::handle_transaction(core::Buffer &&message) {
 }
 
 void OnRampNear::handle_block(core::Buffer &&message) {
+	connect_timer_cb();
+	std::string block_bin = "";
+	uint8_t *buf = message.data();
+	for(int i = 1; i < int(message.size()); i++) {
+		block_bin += std::to_string(buf[i]) + (i < int(message.size()) - 1 ? ", ": "");
+	}
+	buf = NULL;
+
+	std::string rpcBody = "{"
+		"\"jsonrpc\": \"2.0\","
+		"\"id\": \"dontcare\","
+		"\"method\": \"query\","
+		"\"params\": {"
+			"\"request_type\": \"dummy_function\","
+			"\"account_id\": \"client.chainlink.testnet\","
+			"\"finality\": \"final\","
+			"\"block_bin\": [" + block_bin + "]"
+		"}"
+	"}";
+
+	std::string rpc = "POST / HTTP/1.0\r\nContent-Type: application/json\r\nContent-Length: " + std::to_string(rpcBody.size()) + "\r\n\r\n" + rpcBody;
+
+	printf("%s\n", rpc.data());
+	core::Buffer req(rpc.size());
+	req.write_unsafe(0, reinterpret_cast<const uint8_t*>(rpc.data()), rpc.size());
+	rcTcp.send(req);
+
+
 	SPDLOG_DEBUG("Handling block");
 	message.uncover_unsafe(4);
 	CryptoPP::BLAKE2b blake2b((uint)8);
