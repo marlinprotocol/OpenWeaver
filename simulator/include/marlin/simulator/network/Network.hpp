@@ -3,6 +3,7 @@
 
 #include "marlin/simulator/network/DataOnInterfaceEvent.hpp"
 #include "marlin/simulator/network/NetworkConditioner.hpp"
+#include "marlin/simulator/network/NetworkInterface.hpp"
 
 namespace marlin {
 namespace simulator {
