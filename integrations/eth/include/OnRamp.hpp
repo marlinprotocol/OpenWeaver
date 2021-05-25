@@ -289,6 +289,8 @@ public:
 				message.data(),
 				message.size()
 			);
+		} else if(message.data()[0] == 0x18) { // eth65 PooledTransactions
+			// Nothing
 		} else {
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: Unknown message: {} bytes: {}",
