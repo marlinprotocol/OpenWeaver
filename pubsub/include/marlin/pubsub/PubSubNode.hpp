@@ -5,6 +5,11 @@
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
+#include <marlin/simulator/core/Simulator.hpp>
+#include <marlin/simulator/transport/SimulatedTransportFactory.hpp>
+#include <marlin/simulator/network/Network.hpp>
+#include <marlin/stream/StreamTransportFactory.hpp>
+
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
@@ -33,7 +38,7 @@
 #include "marlin/pubsub/attestation/EmptyAttester.hpp"
 #include "marlin/pubsub/witness/EmptyWitnesser.hpp"
 
-
+using namespace marlin::simulator;
 namespace std {
 	/// Hash function for SocketAddress so it can be used as a key
 	template <
@@ -361,6 +366,7 @@ struct MessageHeader {
 */
 template<
 	typename PubSubDelegate,
+	typename Trans,
 	bool enable_cut_through = false,
 	bool accept_unsol_conn = false,
 	bool enable_relay = false,
@@ -380,6 +386,7 @@ public:
 	using ClientKey = std::array<uint8_t, 20>;
 	using Self = PubSubNode<
 		PubSubDelegate,
+		Trans,
 		enable_cut_through,
 		accept_unsol_conn,
 		enable_relay,
@@ -403,6 +410,46 @@ public:
 		asyncio::UdpTransport
 	>;
 
+	template<typename Delegate>
+	using SimTransportType = SimulatedTransport<
+	        Simulator,
+	        NetworkInterface<Network<NetworkConditioner>>,
+	        Delegate
+	>;
+
+	using SimTransportFactoryType = SimulatedTransportFactory<
+	        Simulator,
+	        NetworkInterface<Network<NetworkConditioner>>,
+	        Self,
+	        Self
+	>;
+
+	// template<typename Delegate>
+	// using BaseStreamTransport1 = stream::StreamTransport<
+	// 	Delegate,
+	// 	SimTransportType
+	// >;
+
+	// template<typename ListenDelegate, typename TransportDelegate>
+	// using BaseStreamTransportFactory1 = stream::StreamTransportFactory<
+	// 	ListenDelegate,
+	// 	TransportDelegate,
+	// 	SimTransportFactoryType,
+	// 	SimTransportType
+	// >;
+	// using BaseTransportFactory1 = lpf::LpfTransportFactory<
+	// 	Self,
+	// 	Self,
+	// 	BaseStreamTransportFactory1,
+	// 	BaseStreamTransport1,
+	// 	std::bool_constant<enable_cut_through>
+	// >;
+	// using BaseTransport1 = lpf::LpfTransport<
+	// 	Self,
+	// 	BaseStreamTransport1,
+	// 	std::bool_constant<enable_cut_through>
+	// >;
+
 	using BaseTransportFactory = lpf::LpfTransportFactory<
 		Self,
 		Self,
@@ -410,6 +457,7 @@ public:
 		BaseStreamTransport,
 		std::bool_constant<enable_cut_through>
 	>;
+
 	using BaseTransport = lpf::LpfTransport<
 		Self,
 		BaseStreamTransport,
@@ -727,6 +775,7 @@ private:
 //---------------- Helper macros begin ----------------//
 
 #define PUBSUBNODE_TEMPLATE typename PubSubDelegate, \
+	typename Trans, \
 	bool enable_cut_through, \
 	bool accept_unsol_conn, \
 	bool enable_relay, \
@@ -777,6 +826,7 @@ int PUBSUBNODETYPE::did_recv_SUBSCRIBE(
 	if (accept_unsol_conn) {
 
 		if (blacklist_addr.find(transport.dst_addr) != blacklist_addr.end()) {
+			SPDLOG_INFO("not blacklist");
 			blacklist_addr.erase(transport.dst_addr);
 			add_sol_conn({}, transport);
 			return 0;
@@ -855,6 +905,7 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 
 	// TODO
 	remove_conn(unsol_conns, transport);
+	SPDLOG_DEBUG("{}", __FUNCTION__);
 }
 
 /*!
@@ -1058,6 +1109,7 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 					&transport.dst_addr,
 					header
 				);
+				SPDLOG_INFO("{}",__FUNCTION__);
 
 				delegate->did_recv(
 					*this,
@@ -1367,6 +1419,8 @@ int PUBSUBNODETYPE::did_recv(
 	// Hide message type
 	bytes.cover_unsafe(1);
 
+	SPDLOG_INFO("{} {}", __FUNCTION__, message_type);
+
 	switch(message_type) {
 		// SUBSCRIBE
 		case 0: return this->did_recv_SUBSCRIBE(transport, std::move(bytes));
@@ -1547,6 +1601,7 @@ uint64_t PUBSUBNODETYPE::send_message_on_channel(
 	uint64_t size,
 	core::SocketAddress const *excluded
 ) {
+	SPDLOG_INFO("Hit");
 	uint64_t message_id = this->message_id_dist(this->message_id_gen);
 	send_message_on_channel_impl(channel, message_id, data, size, excluded);
 
@@ -1591,7 +1646,7 @@ void PUBSUBNODETYPE::send_message_on_channel_impl(
 ) {
 	if(conn_map.size() <= 5) {
 		for(auto& [client_key, conns] : conn_map) {
-			SPDLOG_DEBUG("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
+			SPDLOG_INFO("Sending message {} to 0x{:spn}", message_id, spdlog::to_hex(client_key.data(), client_key.data()+client_key.size()));
 
 			for (
 				auto it = conns.sol_conns.begin();
@@ -1716,11 +1771,12 @@ void PUBSUBNODETYPE::unsubscribe(core::SocketAddress const &addr) {
 	if(transport == nullptr) {
 		return;
 	}
-
+	// SPDLOG_INFO("{}",__FUNCTION__);
 	std::for_each(
 		delegate->channels.begin(),
 		delegate->channels.end(),
 		[&] (uint16_t channel) {
+			// SPDLOG_INFO("{} {}", __FUNCTION__, channel);
 			send_UNSUBSCRIBE(*transport, channel);
 		}
 	);
@@ -1807,9 +1863,9 @@ bool PUBSUBNODETYPE::add_unsol_conn(BaseTransport &transport) {
 
 template<PUBSUBNODE_TEMPLATE>
 bool PUBSUBNODETYPE::remove_conn(TransportSet &t_set, BaseTransport &transport) {
-
+	SPDLOG_INFO("{} {}",transport.src_addr.to_string(), transport.dst_addr.to_string());
 	if (t_set.check_tranport_in_set(transport)) {
-		SPDLOG_DEBUG("Removing address: {} from list",
+		SPDLOG_INFO("Removing address: {} from list",
 			transport.dst_addr.to_string()
 		);
 
