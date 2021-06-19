@@ -43,7 +43,7 @@ struct MaskCosmosv1 {
 		WeakBuffer buf
 	) {
 		// msg type
-		auto type = buf.read_uint8_unsafe(2);
+		auto type = buf.read_uint8_unsafe(1);
 
 		// block check
 		if(type == 0x90) {
