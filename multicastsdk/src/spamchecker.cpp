@@ -92,7 +92,7 @@ public:
 		uint64_t message_id
 	) {
 		SPDLOG_INFO(
-			"Spam checked block: {}", message_id
+			"Spam checked message: {}", message_id
 		);
 	}
 
@@ -400,4 +400,3 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	SPDLOG_INFO("decrypted keystore");
 	return decrypted;
 }
-
