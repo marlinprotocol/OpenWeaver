@@ -238,7 +238,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER&& packet,
-	core::SocketAddress
+	core::SocketAddress addr [[maybe_unused]]
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER <<< {}", addr.to_string());
 
@@ -268,7 +268,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER2&& packet,
-	core::SocketAddress
+	core::SocketAddress addr [[maybe_unused]]
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER2 <<< {}", addr.to_string());
 

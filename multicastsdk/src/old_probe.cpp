@@ -21,12 +21,15 @@
 #endif
 
 #ifndef MARLIN_PROBE_DEFAULT_MASK
-#define MARLIN_PROBE_DEFAULT_MASK 0x0
+#define MARLIN_PROBE_DEFAULT_MASK All
 #endif
 
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
+
+#define CONCATH(A, B) A ## B
+#define CONCAT(A, B) CONCATH(A, B)
 
 
 using namespace marlin::multicast;
@@ -42,7 +45,7 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	EmptyAttester,
 	BloomWitnesser,
-	MARLIN_PROBE_DEFAULT_MASK
+	CONCAT(Mask, MARLIN_PROBE_DEFAULT_MASK)
 >;
 
 class MulticastDelegate {

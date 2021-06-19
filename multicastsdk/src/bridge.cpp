@@ -34,12 +34,15 @@
 #endif
 
 #ifndef MARLIN_BRIDGE_DEFAULT_MASK
-#define MARLIN_BRIDGE_DEFAULT_MASK 0x0
+#define MARLIN_BRIDGE_DEFAULT_MASK All
 #endif
 
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
+
+#define CONCATH(A, B) A ## B
+#define CONCAT(A, B) CONCATH(A, B)
 
 
 using namespace marlin::multicast;
@@ -48,6 +51,24 @@ using namespace marlin::core;
 using namespace marlin::asyncio;
 using namespace marlin::stream;
 using namespace marlin::lpf;
+
+
+struct MaskCosmosv1 {
+	static uint64_t mask(
+		WeakBuffer buf
+	) {
+		// msg type
+		auto type = buf.read_uint8_unsafe(1);
+
+		// block check
+		if(type == 0x90) {
+			return 0x0;
+		}
+
+		return 0xff;
+	}
+};
+
 
 class MulticastDelegate;
 
@@ -71,7 +92,7 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	SigAttester,
 	LpfBloomWitnesser,
-	MARLIN_BRIDGE_DEFAULT_MASK
+	CONCAT(Mask, MARLIN_BRIDGE_DEFAULT_MASK)
 >;
 
 class MulticastDelegate {
@@ -468,4 +489,3 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	SPDLOG_INFO("decrypted keystore");
 	return decrypted;
 }
-

@@ -32,12 +32,15 @@
 #endif
 
 #ifndef MARLIN_SC_DEFAULT_MASK
-#define MARLIN_SC_DEFAULT_MASK 0x0
+#define MARLIN_SC_DEFAULT_MASK All
 #endif
 
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
+
+#define CONCATH(A, B) A ## B
+#define CONCAT(A, B) CONCATH(A, B)
 
 
 using namespace marlin::multicast;
@@ -45,13 +48,31 @@ using namespace marlin::pubsub;
 using namespace marlin::core;
 using namespace marlin::cosmos;
 
+
+struct MaskCosmosv1 {
+	static uint64_t mask(
+		WeakBuffer buf
+	) {
+		// msg type
+		auto type = buf.read_uint8_unsafe(1);
+
+		// block check
+		if(type == 0x90) {
+			return 0x0;
+		}
+
+		return 0xff;
+	}
+};
+
+
 struct MulticastDelegate;
 
 using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	SigAttester,
 	LpfBloomWitnesser,
-	MARLIN_SC_DEFAULT_MASK
+	CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)
 >;
 
 class MulticastDelegate {
@@ -92,7 +113,7 @@ public:
 		uint64_t message_id
 	) {
 		SPDLOG_INFO(
-			"Spam checked block: {}", message_id
+			"Spam checked message: {}", message_id
 		);
 	}
 
@@ -112,7 +133,8 @@ public:
 			SPDLOG_ERROR("Abci not active, dropping block");
 			return;
 		}
-		if((message_id & 0xf) == 0) {
+
+		if((message_id & CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)::mask(message)) == 0) {
 			abci.analyze_block(std::move(message), message_id);
 		}
 	}
@@ -400,4 +422,3 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	SPDLOG_INFO("decrypted keystore");
 	return decrypted;
 }
-
