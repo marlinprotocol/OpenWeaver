@@ -32,7 +32,7 @@
 #endif
 
 #ifndef MARLIN_SC_DEFAULT_MASK
-#define MARLIN_SC_DEFAULT_MASK 0x0
+#define MARLIN_SC_DEFAULT_MASK "All"
 #endif
 
 // Pfff, of course macros make total sense!
@@ -44,6 +44,32 @@ using namespace marlin::multicast;
 using namespace marlin::pubsub;
 using namespace marlin::core;
 using namespace marlin::cosmos;
+
+
+struct MaskAll {
+	static uint64_t mask(
+		WeakBuffer
+	) {
+		return 0x0;
+	}
+};
+
+struct MaskDotv1 {
+	static uint64_t pass(
+		WeakBuffer buf
+	) {
+		// msg type
+		auto type = buf.read_uint8_unsafe(2);
+
+		// block check
+		if(type == 0x90) {
+			return 0x0;
+		}
+
+		return 0xff;
+	}
+};
+
 
 struct MulticastDelegate;
 
