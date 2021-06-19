@@ -32,7 +32,7 @@
 #endif
 
 #ifndef MARLIN_SC_DEFAULT_MASK
-#define MARLIN_SC_DEFAULT_MASK "All"
+#define MARLIN_SC_DEFAULT_MASK All
 #endif
 
 // Pfff, of course macros make total sense!
