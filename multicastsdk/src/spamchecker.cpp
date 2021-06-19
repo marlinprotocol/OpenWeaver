@@ -49,14 +49,6 @@ using namespace marlin::core;
 using namespace marlin::cosmos;
 
 
-struct MaskAll {
-	static uint64_t mask(
-		WeakBuffer
-	) {
-		return 0x0;
-	}
-};
-
 struct MaskCosmosv1 {
 	static uint64_t mask(
 		WeakBuffer buf
@@ -80,7 +72,7 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	SigAttester,
 	LpfBloomWitnesser,
-	0x0
+	CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)
 >;
 
 class MulticastDelegate {
