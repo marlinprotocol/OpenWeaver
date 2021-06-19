@@ -39,6 +39,9 @@
 #define STRH(X) #X
 #define STR(X) STRH(X)
 
+#define CONCATH(A, B) A ## B
+#define CONCAT(A, B) CONCATH(A, B)
+
 
 using namespace marlin::multicast;
 using namespace marlin::pubsub;
@@ -54,8 +57,8 @@ struct MaskAll {
 	}
 };
 
-struct MaskDotv1 {
-	static uint64_t pass(
+struct MaskCosmosv1 {
+	static uint64_t mask(
 		WeakBuffer buf
 	) {
 		// msg type
@@ -77,7 +80,7 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
 	SigAttester,
 	LpfBloomWitnesser,
-	MARLIN_SC_DEFAULT_MASK
+	0x0
 >;
 
 class MulticastDelegate {
@@ -138,7 +141,8 @@ public:
 			SPDLOG_ERROR("Abci not active, dropping block");
 			return;
 		}
-		if((message_id & 0xf) == 0) {
+
+		if((message_id & CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)::mask(message)) == 0) {
 			abci.analyze_block(std::move(message), message_id);
 		}
 	}
