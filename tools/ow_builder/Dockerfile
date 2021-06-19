@@ -7,7 +7,7 @@ RUN ln -snf /usr/share/zoneinfo/UTC /etc/localtime && echo UTC > /etc/timezone
 
 # installing requirements to get and extract prebuilt binaries
 RUN apt-get -y update && apt-get install -y \
- libtool automake doxygen autoconf clang cmake build-essential
+ libtool automake doxygen autoconf clang cmake
 
 # set c++ and cc to clang
 RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100

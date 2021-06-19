@@ -30,9 +30,9 @@ Component                        Expected                     Actuals
  |- make version                 GNU Make 4.2.1               GNU Make 4.2.1
  |- cmake version                3.16.3                       cmake version 3.16.3
  |- autoconf version             2.69                         autoconf (GNU Autoconf) 2.69
- |- glibcxx highest version      <=GLIBCXX_3.4.28             GLIBCXX_3.4.28
- |- c++ --version                10.0.0                       clang version 10.0.0-4ubuntu1 
- |- cc --version                 10.0.0                       clang version 10.0.0-4ubuntu1 
+ |- glibcxx highest version      GLIBCXX_3.4.28               GLIBCXX_3.4.28
+ |- c++ --version                clang 10.0.0                 clang version 10.0.0-4ubuntu1 
+ |- cc --version                 clang 10.0.0                 clang version 10.0.0-4ubuntu1 
  |- ldd --version                2.31                         ldd (Ubuntu GLIBC 2.31-0ubuntu9.2) 2.31
 ```
 Remove intermediate build images using
