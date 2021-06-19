@@ -1,27 +1,17 @@
 #we are using ubuntu base image
-FROM ubuntu:18.04
+FROM ubuntu:20.04
+ARG uid
+ARG uname
+
+RUN ln -snf /usr/share/zoneinfo/UTC /etc/localtime && echo UTC > /etc/timezone
 
 # installing requirements to get and extract prebuilt binaries
-RUN apt-get update && apt-get install -y \
- xz-utils  curl  build-essential  libtool    sudo \
- automake  vim   doxygen          autoconf   wget \
- lsb-release     software-properties-common \
- && rm -rf /var/lib/apt/lists/*
+RUN apt-get -y update && apt-get install -y \
+ libtool automake doxygen autoconf clang cmake
 
-# setting up clang 12
-RUN wget https://apt.llvm.org/llvm.sh
-RUN chmod +x llvm.sh
-RUN sudo ./llvm.sh 12
-
-# setting up cmake (the bundled cmake with apt in 18.04 is too old)
-RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
-RUN sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main'
-RUN sudo apt update
-RUN sudo apt-get install -y cmake
-
-# set c++ and cc to clang 12
-RUN sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-12 100
-RUN sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-12 100
+# set c++ and cc to clang
+RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
 
 # set a distinct shell prompt
 RUN echo 'export PS1="\[$(tput sgr0)\]\[$(tput bold)\][OW-BUILDER] $(tput sgr0)\]user:\u pwd:\w \\$\[$(tput sgr0)\] "' >> ~/.bashrc
@@ -30,5 +20,8 @@ RUN echo 'export PS1="\[$(tput sgr0)\]\[$(tput bold)\][OW-BUILDER] $(tput sgr0)\
 COPY list_versions.sh .
 RUN /bin/bash list_versions.sh
 
+# user setup
+RUN adduser -u $uid $uname
+
 # start the container from bash
-ENTRYPOINT [ “/bin/bash” ]
+ENTRYPOINT [ “su $uname” ]
