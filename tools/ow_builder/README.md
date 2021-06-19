@@ -19,20 +19,21 @@ sudo systemctl start docker.service
 ## Build and run the container
 Build the container (with pwd of shell at `Dockerfile`'s directory) using
 ```
-sudo docker build -t ow_builder .
+sudo docker build --build-arg uid=$(echo $UID) --build-arg uname=$(whoami) -t ow_builder .
 ```
 The build procedure will provide you with versions of components in one of the steps while building the container image. Verify correctness (good output should look close to the following):
 ```
 BUILD ENVIRONMENT STATUS
 Component                        Expected                     Actuals
 ---------                        --------                     -------
- |- doxygen version              1.8.13                       1.8.13
- |- make version                 GNU Make 4.1                 GNU Make 4.1
- |- cmake version                3.20.4                       cmake version 3.20.4
+ |- doxygen version              1.8.17                       1.8.17
+ |- make version                 GNU Make 4.2.1               GNU Make 4.2.1
+ |- cmake version                3.16.3                       cmake version 3.16.3
  |- autoconf version             2.69                         autoconf (GNU Autoconf) 2.69
- |- glibcxx highest version      <=3.4.25                     GLIBCXX_3.4.25
- |- c++ --version                12.0.1                       Ubuntu clang version 12.0.1
- |- cc --version                 12.0.1                       Ubuntu clang version 12.0.1
+ |- glibcxx highest version      <=GLIBCXX_3.4.28             GLIBCXX_3.4.28
+ |- c++ --version                10.0.0                       clang version 10.0.0-4ubuntu1 
+ |- cc --version                 10.0.0                       clang version 10.0.0-4ubuntu1 
+ |- ldd --version                2.31                         ldd (Ubuntu GLIBC 2.31-0ubuntu9.2) 2.31
 ```
 Remove intermediate build images using
 ```
@@ -51,6 +52,7 @@ sudo docker run \
     --entrypoint /bin/bash \
     --volume `echo $OWDIR`:/OpenWeaver \
     --workdir /OpenWeaver \
+    --user `whoami` \
     ow_builder:latest
 ```
 This will mount OpenWeaver onto container and start an interactive shell on the container with working directory set to OpenWeaver's dir.
