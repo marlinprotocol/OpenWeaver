@@ -32,6 +32,7 @@ $ mkdir build && cd build  # to create a build directory
 
 $ cmake .. -DCMAKE_BUILD_TYPE=Release && make -j8  # to build
 ```
+For builds in a containterized environments with compilation toolchain separate from host machines, see [ow_builder](tools/ow_builder/README.md).
 
 ## Notable binaries
 
