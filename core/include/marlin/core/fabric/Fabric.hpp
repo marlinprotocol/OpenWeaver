@@ -152,6 +152,16 @@ private:
 		using ExtInner = decltype(std::declval<ExtFabric>().i(std::declval<SelfType>()));
 		using ExtOuter = decltype(std::declval<ExtFabric>().o(std::declval<SelfType>()));
 
+		// Stub
+		Shuttle& i(auto&&...) {
+			return *this;
+		}
+
+		// Stub
+		Shuttle& o(auto&&...) {
+			return *this;
+		}
+
 		template<typename... Args>
 		int did_recv(NthFiber<idx>& caller, Args&&... args) {
 			// Warning: Requires that caller is fiber at idx
@@ -269,6 +279,16 @@ public:
 		)
 	int send(InnerMessageType&& buf, core::SocketAddress addr) {
 		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
+	}
+
+	// Stub
+	SelfType& i(auto&&...) {
+		return *this;
+	}
+
+	// Stub
+	SelfType& o(auto&&...) {
+		return *this;
 	}
 };
 
