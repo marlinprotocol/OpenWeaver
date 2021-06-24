@@ -149,6 +149,9 @@ private:
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
+		using ExtInner = decltype(std::declval<ExtFabric>().i(std::declval<SelfType>()));
+		using ExtOuter = decltype(std::declval<ExtFabric>().o(std::declval<SelfType>()));
+
 		template<typename... Args>
 		int did_recv(NthFiber<idx>& caller, Args&&... args) {
 			// Warning: Requires that caller is fiber at idx
