@@ -149,14 +149,14 @@ private:
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
-		auto i(NthFiber<idx>& caller) {
+		auto& i(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates)) {
 				// inside shuttle of last fiber, exit
-				auto&& fiber = fabric.ext_fabric.i(fabric);
+				auto& fiber = fabric.ext_fabric.i(fabric);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -168,7 +168,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto&& fiber = std::get<idx+1>(fabric.fibers);
+				auto& fiber = std::get<idx+1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -181,14 +181,14 @@ private:
 			}
 		}
 
-		auto o(NthFiber<idx>& caller) {
+		auto& o(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
 			if constexpr (idx == 1) {
 				// inside shuttle of last fiber, exit
-				auto&& fiber = fabric.ext_fabric.o(fabric);
+				auto& fiber = fabric.ext_fabric.o(fabric);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -200,7 +200,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto&& fiber = std::get<idx-1>(fabric.fibers);
+				auto& fiber = std::get<idx-1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -244,8 +244,8 @@ public:
 		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
 	}
 
-	auto i(auto&&) {
-		auto&& fiber = std::get<1>(fibers);
+	auto& i(auto&&) {
+		auto& fiber = std::get<1>(fibers);
 
 		// recursive check
 		if constexpr (requires (decltype(fiber) f) {
@@ -257,8 +257,8 @@ public:
 		}
 	}
 
-	auto o(auto&&) {
-		auto&& fiber = std::get<sizeof...(FiberTemplates)>(fibers);
+	auto& o(auto&&) {
+		auto& fiber = std::get<sizeof...(FiberTemplates)>(fibers);
 
 		// recursive check
 		if constexpr (requires (decltype(fiber) f) {
