@@ -149,17 +149,32 @@ private:
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
-		using ExtInner = decltype(std::declval<ExtFabric>().i(std::declval<SelfType>()));
-		using ExtOuter = decltype(std::declval<ExtFabric>().o(std::declval<SelfType>()));
+		auto& i(NthFiber<idx>& caller) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
 
-		// Stub
-		Shuttle& i(auto&&...) {
-			return *this;
+			// Check for exit first
+			if constexpr (idx == sizeof...(FiberTemplates)) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.i(fabric);
+			} else {
+				// Transition to next fiber
+				return std::get<idx+1>(fabric.fibers);
+			}
 		}
 
-		// Stub
-		Shuttle& o(auto&&...) {
-			return *this;
+		auto& o(NthFiber<idx>& caller) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
+
+			// Check for exit first
+			if constexpr (idx == 1) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.o(fabric);
+			} else {
+				// Transition to next fiber
+				return std::get<idx-1>(fabric.fibers);
+			}
 		}
 
 		template<typename... Args>
