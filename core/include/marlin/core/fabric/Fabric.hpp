@@ -172,6 +172,19 @@ private:
 			}
 		}
 
+		auto& is(NthFiber<idx>& caller) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
+
+			// Check for exit first
+			if constexpr (idx == sizeof...(FiberTemplates)) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.is(fabric);
+			} else {
+				return caller;
+			}
+		}
+
 		auto& o(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
@@ -192,6 +205,19 @@ private:
 				} else {
 					return fiber;
 				}
+			}
+		}
+
+		auto& os(NthFiber<idx>& caller) {
+			// Warning: Requires that caller is fiber at idx
+			auto& fabric = get_fabric<idx>(caller);
+
+			// Check for exit first
+			if constexpr (idx == 1) {
+				// inside shuttle of last fiber, exit
+				return fabric.ext_fabric.os(fabric);
+			} else {
+				return caller;
 			}
 		}
 	};
