@@ -212,54 +212,6 @@ private:
 				}
 			}
 		}
-
-		template<typename... Args>
-		int did_dial(NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
-				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_dial(fabric, std::forward<Args>(args)...);
-			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_dial(std::forward<Args>(args)...);
-			}
-		}
-
-		template<typename... Args>
-		int did_send(NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
-				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_send(fabric, std::forward<Args>(args)...);
-			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_send(std::forward<Args>(args)...);
-			}
-		}
-
-		template<typename... Args>
-		int send(NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == 1) {
-				// inside shuttle of first fiber, exit
-				return fabric.ext_fabric.send(fabric, std::forward<Args>(args)...);
-			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx-1>(fabric.fibers);
-				return next_fiber.send(std::forward<Args>(args)...);
-			}
-		}
 	};
 
 public:
@@ -290,18 +242,6 @@ public:
 		requires (!is_open)
 	int dial(core::SocketAddress addr, auto&&... args) {
 		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
-	}
-
-	template<
-		typename IMT = InnerMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the inner side
-			is_inner_open
-		)
-	int send(InnerMessageType&& buf, core::SocketAddress addr) {
-		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
 	}
 
 	auto& i(auto&&) {
