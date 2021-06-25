@@ -17,7 +17,7 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	int did_recv(Buffer&& buf, SocketAddress addr) {
+	int did_recv(auto&&, Buffer&& buf, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		return 0;
 	}
@@ -25,7 +25,7 @@ struct Terminal {
 	template<typename FiberType>
 	int did_dial(FiberType& fabric, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did dial: {}", addr.to_string());
-		fabric.send(Buffer({0,0,0,0,0}, 5), addr);
+		fabric.send(0, Buffer({0,0,0,0,0}, 5), addr);
 		return 0;
 	}
 
