@@ -14,8 +14,7 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	template<typename FiberType>
-	int did_recv(FiberType&, Buffer&&) {
+	int did_recv(Buffer&&) {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
@@ -47,7 +46,7 @@ struct Fiber {
 
 	int did_recv(Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		return ext_fabric.did_recv(*this, std::move(buf));
+		return ext_fabric.i(*this).did_recv(std::move(buf));
 	}
 };
 
