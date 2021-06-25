@@ -163,7 +163,7 @@ private:
 					f.i(*this);
 				}) {
 					return fiber.i(*this);
-			} else {
+				} else {
 					return fiber;
 				}
 			} else {
@@ -195,9 +195,9 @@ private:
 					f.o(*this);
 				}) {
 					return fiber.o(*this);
-			} else {
+				} else {
 					return fiber;
-			}
+				}
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx-1>(fabric.fibers);
@@ -207,7 +207,7 @@ private:
 					f.o(*this);
 				}) {
 					return fiber.o(*this);
-			} else {
+				} else {
 					return fiber;
 				}
 			}
@@ -273,18 +273,6 @@ public:
 	// 0						call on external fabric
 	// [1,len(Fibers)]			call on fiber
 	// len(Fibers)+1			call on external fabric
-
-	template<
-		typename OMT = OuterMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the outer side
-			is_outer_open
-		)
-	int did_recv(OMT&& buf, Args&&... args) {
-		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
-	}
 
 	template<bool is_open = is_outer_open>
 		requires (!is_open)
