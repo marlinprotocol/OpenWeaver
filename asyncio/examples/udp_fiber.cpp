@@ -34,14 +34,6 @@ struct Terminal {
 		SPDLOG_INFO("Terminal: Did send: {} bytes", buf.size());
 		return 0;
 	}
-
-	Terminal& i(auto&&...) {
-		return *this;
-	}
-
-	Terminal& o(auto&&...) {
-		return *this;
-	}
 };
 
 
