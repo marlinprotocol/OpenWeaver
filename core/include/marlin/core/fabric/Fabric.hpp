@@ -156,10 +156,28 @@ private:
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates)) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.i(fabric);
+				auto& fiber = fabric.ext_fabric.i(fabric);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.i(*this);
+				}) {
+					return fiber.i(*this);
 			} else {
-				// Transition to next fiber
-				return std::get<idx+1>(fabric.fibers);
+					return fiber;
+				}
+			} else {
+				// transition to next fiber
+				auto& fiber = std::get<idx+1>(fabric.fibers);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.i(*this);
+				}) {
+					return fiber.i(*this);
+				} else {
+					return fiber;
+				}
 			}
 		}
 
@@ -170,26 +188,28 @@ private:
 			// Check for exit first
 			if constexpr (idx == 1) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.o(fabric);
+				auto& fiber = fabric.ext_fabric.o(fabric);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.o(*this);
+				}) {
+					return fiber.o(*this);
 			} else {
-				// Transition to next fiber
-				return std::get<idx-1>(fabric.fibers);
+					return fiber;
 			}
-		}
-
-		template<typename... Args>
-		int did_recv(NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
-				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_recv(fabric, std::forward<Args>(args)...);
 			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_recv(std::forward<Args>(args)...);
+				// transition to next fiber
+				auto& fiber = std::get<idx-1>(fabric.fibers);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.o(*this);
+				}) {
+					return fiber.o(*this);
+			} else {
+					return fiber;
+				}
 			}
 		}
 
@@ -297,11 +317,29 @@ public:
 	}
 
 	auto& i(auto&&) {
-		return std::get<1>(fibers);
+		auto& fiber = std::get<1>(fibers);
+
+		// recursive check
+		if constexpr (requires (decltype(fiber) f) {
+			f.i(*this);
+		}) {
+			return fiber.i(*this);
+		} else {
+			return fiber;
+		}
 	}
 
 	auto& o(auto&&) {
-		return std::get<sizeof...(FiberTemplates)>(fibers);
+		auto& fiber = std::get<sizeof...(FiberTemplates)>(fibers);
+
+		// recursive check
+		if constexpr (requires (decltype(fiber) f) {
+			f.o(*this);
+		}) {
+			return fiber.o(*this);
+		} else {
+			return fiber;
+		}
 	}
 };
 
