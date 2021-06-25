@@ -134,13 +134,13 @@ public:
 			}
 		}
 
-		ext_fabric.i(*this).did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+		ext_fabric.i(*this).did_dial(ext_fabric.is(*this), addr, std::forward<decltype(args)>(args)...);
 
 		return 0;
 	}
 
 	int did_recv(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
-		return ext_fabric.i(*this).did_recv(*this, std::move(buf), addr);
+		return ext_fabric.i(*this).did_recv(ext_fabric.is(*this), std::move(buf), addr);
 	}
 
 	static void send_cb(
@@ -171,7 +171,7 @@ public:
 	}
 
 	int did_send(auto&&, core::Buffer&& buf) {
-		return ext_fabric.i(*this).did_send(*this, std::move(buf));
+		return ext_fabric.i(*this).did_send(ext_fabric.is(*this), std::move(buf));
 	}
 
 	[[nodiscard]] int send(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
