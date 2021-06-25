@@ -296,14 +296,12 @@ public:
 		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
 	}
 
-	// Stub
-	SelfType& i(auto&&...) {
-		return *this;
+	auto& i(auto&&) {
+		return std::get<1>(fibers);
 	}
 
-	// Stub
-	SelfType& o(auto&&...) {
-		return *this;
+	auto& o(auto&&) {
+		return std::get<sizeof...(FiberTemplates)>(fibers);
 	}
 };
 
