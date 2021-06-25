@@ -63,7 +63,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(1)
 	));
-	f_simplest.did_recv(Buffer(5));
+	f_simplest.o(0).did_recv(Buffer(5));
 
 	// Multiple fibers fabric
 	Fabric<
@@ -83,7 +83,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(5)
 	));
-	f_multiple.did_recv(Buffer(5));
+	f_multiple.o(0).did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -95,7 +95,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested.did_recv(Buffer(5));
+	f_nested.o(0).did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -115,7 +115,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested2.did_recv(Buffer(5));
+	f_nested2.o(0).did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -135,7 +135,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested3.did_recv(Buffer(5));
+	f_nested3.o(0).did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -155,7 +155,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested4.did_recv(Buffer(5));
+	f_nested4.o(0).did_recv(Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -179,7 +179,7 @@ int main() {
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
 		std::make_tuple(4)
 	));
-	f_nested5.did_recv(Buffer(5));
+	f_nested5.o(0).did_recv(Buffer(5));
 
 	return 0;
 }
