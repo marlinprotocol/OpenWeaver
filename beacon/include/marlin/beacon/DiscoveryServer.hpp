@@ -62,24 +62,6 @@ private:
 	FiberType fiber;
 	FiberType h_fiber;
 
-public:
-	auto& i(auto&) {
-		return *this;
-	}
-
-	auto& o(auto&) {
-		return *this;
-	}
-
-	auto& is(auto& fiber) {
-		return fiber;
-	}
-
-	auto& os(auto& fiber) {
-		return fiber;
-	}
-
-private:
 	// Discovery protocol
 	void did_recv_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
 	void send_LISTPROTO(FiberType& fiber, core::SocketAddress addr);
