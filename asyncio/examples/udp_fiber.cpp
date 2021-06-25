@@ -25,7 +25,7 @@ struct Terminal {
 	template<typename FiberType>
 	int did_dial(FiberType& fabric, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did dial: {}", addr.to_string());
-		fabric.send(0, Buffer({0,0,0,0,0}, 5), addr);
+		fabric.o(*this).send(0, Buffer({0,0,0,0,0}, 5), addr);
 		return 0;
 	}
 
