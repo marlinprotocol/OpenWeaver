@@ -58,7 +58,7 @@ public:
 			// Validation failure
 			return -1;
 		}
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
+		return ext_fabric.i(*this).did_recv(std::move(buf), addr);
 	}
 
 	int did_dial(SocketAddress addr, auto&&... args) {

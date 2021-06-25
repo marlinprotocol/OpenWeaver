@@ -17,8 +17,7 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	template<typename FiberType>
-	int did_recv(FiberType&, Buffer&& buf, SocketAddress addr) {
+	int did_recv(Buffer&& buf, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		return 0;
 	}
@@ -34,6 +33,14 @@ struct Terminal {
 	int did_send(FiberType&, Buffer&& buf) {
 		SPDLOG_INFO("Terminal: Did send: {} bytes", buf.size());
 		return 0;
+	}
+
+	Terminal& i(auto&&...) {
+		return *this;
+	}
+
+	Terminal& o(auto&&...) {
+		return *this;
 	}
 };
 

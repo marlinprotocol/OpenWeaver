@@ -139,7 +139,7 @@ public:
 	}
 
 	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
+		return ext_fabric.i(*this).did_recv(std::move(buf), addr);
 	}
 
 	static void send_cb(
