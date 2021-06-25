@@ -156,25 +156,16 @@ private:
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates)) {
 				// inside shuttle of last fiber, exit
-				auto& fiber = fabric.ext_fabric.i(fabric);
-
-				// recursive check
-				if constexpr (requires (decltype(fiber) f) {
-					f.i(*this);
-				}) {
-					return fiber.i(*this);
-				} else {
-					return fiber;
-				}
+				return fabric.ext_fabric.i(fabric);
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx+1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
-					f.i(*this);
+					f.i(caller);
 				}) {
-					return fiber.i(*this);
+					return fiber.i(caller);
 				} else {
 					return fiber;
 				}
@@ -188,25 +179,16 @@ private:
 			// Check for exit first
 			if constexpr (idx == 1) {
 				// inside shuttle of last fiber, exit
-				auto& fiber = fabric.ext_fabric.o(fabric);
-
-				// recursive check
-				if constexpr (requires (decltype(fiber) f) {
-					f.o(*this);
-				}) {
-					return fiber.o(*this);
-				} else {
-					return fiber;
-				}
+				return fabric.ext_fabric.o(fabric);
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx-1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
-					f.o(*this);
+					f.o(caller);
 				}) {
-					return fiber.o(*this);
+					return fiber.o(caller);
 				} else {
 					return fiber;
 				}
