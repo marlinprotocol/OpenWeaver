@@ -18,14 +18,6 @@ struct Terminal {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
-
-	Terminal& i(auto&&...) {
-		return *this;
-	}
-
-	Terminal& o(auto&&...) {
-		return *this;
-	}
 };
 
 template<typename ExtFabric>
