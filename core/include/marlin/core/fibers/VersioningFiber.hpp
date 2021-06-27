@@ -50,8 +50,8 @@ public:
 		Buffer
 	>;
 
-	using InnerMessageType = typename FiberScaffoldType::InnerMessageType;
-	using OuterMessageType = typename FiberScaffoldType::OuterMessageType;
+	using typename FiberScaffoldType::InnerMessageType;
+	using typename FiberScaffoldType::OuterMessageType;
 
 	using FiberScaffoldType::FiberScaffoldType;
 
