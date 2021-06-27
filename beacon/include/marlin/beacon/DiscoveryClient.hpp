@@ -135,7 +135,7 @@ void DISCOVERYCLIENT::send_DISCPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPROTO(), addr);
+	fiber.o(*this).send(*this, DISCPROTO(), addr);
 }
 
 
@@ -165,7 +165,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 	assert(protocols.size() < 100);
 
-	fiber.send(
+	fiber.o(*this).send(*this,
 		LISTPROTO(protocols.size())
 		.set_protocols(protocols.begin(), protocols.end()),
 		addr
@@ -201,7 +201,7 @@ void DISCOVERYCLIENT::send_DISCPEER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPEER(), addr);
+	fiber.o(*this).send(*this, DISCPEER(), addr);
 }
 
 /*!
@@ -236,7 +236,7 @@ void DISCOVERYCLIENT::send_HEARTBEAT(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(HEARTBEAT().set_key(static_pk), addr);
+	fiber.o(*this).send(*this, HEARTBEAT().set_key(static_pk), addr);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
@@ -255,7 +255,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 	p.data()[43] = name_size;
 	std::memcpy(p.data()+44, name.c_str(), name_size);
 
-	fiber.send(std::move(m), addr);
+	fiber.o(*this).send(*this, std::move(m), addr);
 }
 
 /*!

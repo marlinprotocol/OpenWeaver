@@ -102,6 +102,7 @@ public:
 		auto& fiber = *(SelfType*)(handle->data);
 
 		fiber.did_recv(
+			fiber,
 			core::Buffer((uint8_t*)buf->base, nread),
 			addr
 		);
@@ -133,13 +134,13 @@ public:
 			}
 		}
 
-		ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+		ext_fabric.i(*this).did_dial(ext_fabric.is(*this), addr, std::forward<decltype(args)>(args)...);
 
 		return 0;
 	}
 
-	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
+	int did_recv(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
+		return ext_fabric.i(*this).did_recv(ext_fabric.is(*this), std::move(buf), addr);
 	}
 
 	static void send_cb(
@@ -161,6 +162,7 @@ public:
 			);
 		} else {
 			fiber.did_send(
+				fiber,
 				std::move(req->extra_data)
 			);
 		}
@@ -168,11 +170,11 @@ public:
 		delete req;
 	}
 
-	int did_send(core::Buffer&& buf) {
-		return ext_fabric.did_send(*this, std::move(buf));
+	int did_send(auto&&, core::Buffer&& buf) {
+		return ext_fabric.i(*this).did_send(ext_fabric.is(*this), std::move(buf));
 	}
 
-	[[nodiscard]] int send(core::Buffer&& buf, core::SocketAddress addr) {
+	[[nodiscard]] int send(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
 		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
 		req->data = this;
 

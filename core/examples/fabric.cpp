@@ -14,8 +14,7 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	template<typename FiberType>
-	int did_recv(FiberType&, Buffer&&) {
+	int did_recv(auto&&, Buffer&&) {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
@@ -37,9 +36,9 @@ struct Fiber {
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
-	int did_recv(Buffer&& buf) {
+	int did_recv(auto&&, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		return ext_fabric.did_recv(*this, std::move(buf));
+		return ext_fabric.i(*this).did_recv(*this, std::move(buf));
 	}
 };
 
@@ -55,7 +54,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(1)
 	));
-	f_simplest.did_recv(Buffer(5));
+	f_simplest.i(0).did_recv(0, Buffer(5));
 
 	// Multiple fibers fabric
 	Fabric<
@@ -75,7 +74,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(5)
 	));
-	f_multiple.did_recv(Buffer(5));
+	f_multiple.i(0).did_recv(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -87,7 +86,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested.did_recv(Buffer(5));
+	f_nested.i(0).did_recv(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -107,7 +106,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested2.did_recv(Buffer(5));
+	f_nested2.i(0).did_recv(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -127,7 +126,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested3.did_recv(Buffer(5));
+	f_nested3.i(0).did_recv(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -147,7 +146,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested4.did_recv(Buffer(5));
+	f_nested4.i(0).did_recv(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -171,7 +170,7 @@ int main() {
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
 		std::make_tuple(4)
 	));
-	f_nested5.did_recv(Buffer(5));
+	f_nested5.i(0).did_recv(0, Buffer(5));
 
 	return 0;
 }

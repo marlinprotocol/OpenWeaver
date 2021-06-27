@@ -53,24 +53,24 @@ public:
 		ext_fabric(std::get<0>(init_tuple)) {
 	}
 
-	int did_recv(InnerMessageType&& buf, SocketAddress addr) {
+	int did_recv(auto&&, InnerMessageType&& buf, SocketAddress addr) {
 		if(!buf.validate()) {
 			// Validation failure
 			return -1;
 		}
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
+		return ext_fabric.i(*this).did_recv(ext_fabric.is(*this), std::move(buf), addr);
 	}
 
-	int did_dial(SocketAddress addr, auto&&... args) {
-		return ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+	int did_dial(auto&&, SocketAddress addr, auto&&... args) {
+		return ext_fabric.i(*this).did_dial(ext_fabric.is(*this), addr, std::forward<decltype(args)>(args)...);
 	}
 
-	int send(InnerMessageType&& buf, SocketAddress addr) {
-		return ext_fabric.send(*this, std::move(buf), addr);
+	int send(auto&&, InnerMessageType&& buf, SocketAddress addr) {
+		return ext_fabric.o(*this).send(ext_fabric.os(*this), std::move(buf), addr);
 	}
 
-	int did_send(InnerMessageType&& buf) {
-		return ext_fabric.did_send(*this, std::move(buf));
+	int did_send(auto&&, InnerMessageType&& buf) {
+		return ext_fabric.i(*this).did_send(ext_fabric.is(*this), std::move(buf));
 	}
 };
 

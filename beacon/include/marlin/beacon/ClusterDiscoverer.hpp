@@ -136,7 +136,7 @@ void CLUSTERDISCOVERER::send_DISCPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPROTO(), addr);
+	fiber.o(*this).send(*this, DISCPROTO(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -168,7 +168,7 @@ void CLUSTERDISCOVERER::send_DISCPEER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPEER(), addr);
+	fiber.o(*this).send(*this, DISCPEER(), addr);
 }
 
 /*!
@@ -231,7 +231,7 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCCLUSTER(), addr);
+	fiber.o(*this).send(*this, DISCCLUSTER(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -261,7 +261,7 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER2(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCCLUSTER2(), addr);
+	fiber.o(*this).send(*this, DISCCLUSTER2(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
