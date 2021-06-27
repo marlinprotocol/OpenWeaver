@@ -2,6 +2,7 @@
 #define MARLIN_CORE_FIBERS_FIBERSCAFFOLD_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
 
 namespace marlin {
 namespace core {
@@ -12,8 +13,8 @@ class FiberScaffold {
 private:
     using Fiber = FiberTemplate<ExtFabric>;
 public:
-	static constexpr bool is_outer_open = true;
-	static constexpr bool is_inner_open = true;
+	static constexpr bool is_inner_open = !std::is_same_v<IMT, void>;
+	static constexpr bool is_outer_open = !std::is_same_v<OMT, void>;
 
 	using InnerMessageType = IMT;
 	using OuterMessageType = OMT;
