@@ -2,6 +2,7 @@
 #define MARLIN_CORE_FIBERS_VERSIONINGFIBER_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/fibers/FiberScaffold.hpp>
 
 namespace marlin {
 namespace core {
@@ -34,43 +35,32 @@ struct VersionedMessage {
 
 
 template<typename ExtFabric>
-class VersioningFiber {
+class VersioningFiber : public FiberScaffold<
+	VersioningFiber,
+	ExtFabric,
+	VersionedMessage<Buffer>,
+	Buffer
+> {
 public:
 	using SelfType = VersioningFiber<ExtFabric>;
+	using FiberScaffoldType = FiberScaffold<
+		VersioningFiber,
+		ExtFabric,
+		VersionedMessage<Buffer>,
+		Buffer
+	>;
 
-	static constexpr bool is_outer_open = true;
-	static constexpr bool is_inner_open = true;
+	using typename FiberScaffoldType::InnerMessageType;
+	using typename FiberScaffoldType::OuterMessageType;
 
-	using OuterMessageType = Buffer;
-	using InnerMessageType = VersionedMessage<Buffer>;
-
-private:
-	[[no_unique_address]] ExtFabric ext_fabric;
-
-public:
-	template<typename ExtTupleType>
-	VersioningFiber(std::tuple<ExtTupleType>&& init_tuple) :
-		ext_fabric(std::get<0>(init_tuple)) {
-	}
+	using FiberScaffoldType::FiberScaffoldType;
 
 	int did_recv(auto&&, InnerMessageType&& buf, SocketAddress addr) {
 		if(!buf.validate()) {
 			// Validation failure
 			return -1;
 		}
-		return ext_fabric.i(*this).did_recv(ext_fabric.is(*this), std::move(buf), addr);
-	}
-
-	int did_dial(auto&&, SocketAddress addr, auto&&... args) {
-		return ext_fabric.i(*this).did_dial(ext_fabric.is(*this), addr, std::forward<decltype(args)>(args)...);
-	}
-
-	int send(auto&&, InnerMessageType&& buf, SocketAddress addr) {
-		return ext_fabric.o(*this).send(ext_fabric.os(*this), std::move(buf), addr);
-	}
-
-	int did_send(auto&&, InnerMessageType&& buf) {
-		return ext_fabric.i(*this).did_send(ext_fabric.is(*this), std::move(buf));
+		return FiberScaffoldType::did_recv(*this, std::move(buf), addr);
 	}
 };
 
