@@ -12,6 +12,7 @@ endif()
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 option(COVERAGE "Code coverage" OFF)
+message("Code coverage: ${COVERAGE}")
 if(COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(--coverage)
 	add_link_options(--coverage)

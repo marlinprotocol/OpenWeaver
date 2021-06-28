@@ -19,6 +19,13 @@ struct Terminal {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
+
+	template<typename FiberType>
+	int did_recv(std::vector <int> &indices, FiberType&, Buffer&&) {
+		indices.push_back(-1);
+		SPDLOG_INFO("Did recv: Terminal");
+		return 0;
+	}
 };
 
 template<typename ExtFabric>
@@ -41,11 +48,18 @@ struct Fiber {
 		SPDLOG_INFO("Did recv: {}", idx);
 		return ext_fabric.did_recv(*this, std::move(buf));
 	}
+
+	int did_recv(std::vector <int> &indices, Buffer&& buf) {
+		SPDLOG_INFO("Did recv: {}", idx);
+		indices.push_back(idx);
+		return ext_fabric.did_recv(indices, *this, std::move(buf));
+	}
 };
 
 
 int main() {
 	// Simplest fabric
+
 	Fabric<
 		Terminal,
 		Fiber
@@ -56,6 +70,7 @@ int main() {
 		std::make_tuple(1)
 	));
 	f_simplest.did_recv(Buffer(5));
+
 
 	// Multiple fibers fabric
 	Fabric<
