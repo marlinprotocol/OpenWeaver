@@ -136,3 +136,30 @@ TEST(FabricTest, MessageOrder4) {
 	f.did_recv(indices, Buffer(5));
 	EXPECT_EQ(indices, std::vector <int> ({1, 2, 3, 4, 1, 2, -1}));
 }
+
+TEST(FabricTest, MessageOrder5) {
+	std::vector <int> indices;
+	Fabric<
+		Terminal,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(), 0),
+		// Other fibers
+		std::make_tuple(1),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(2),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(3),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(4)
+	));
+	f.did_recv(indices, Buffer(5)); 
+	EXPECT_EQ(indices, std::vector <int> ({1, 1, 2, 2, 1, 2, 3, 1, 2, 4, -1}));
+}
