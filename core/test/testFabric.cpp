@@ -62,3 +62,16 @@ struct Fiber {
 		return ext_fabric.did_recv(indices, *this, std::move(buf));
 	}
 };
+
+TEST(FabricTest, MessageOrder1) {
+	std::vector <int> indices;
+	Fabric <
+		Terminal, 
+		Fiber
+	> f(std::make_tuple(
+		std::make_tuple(std::make_tuple(), 0),
+		std::make_tuple(1)
+	));
+	f.did_recv(indices, Buffer(5));
+	EXPECT_EQ(indices, std::vector<int>({1, -1}));
+}
