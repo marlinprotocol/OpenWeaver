@@ -290,8 +290,20 @@ public:
 
 	template<bool is_open = is_outer_open>
 		requires (!is_open)
+	int bind(std::vector <int> &indices, SocketAddress const& addr) {
+		return std::get<1>(fibers).bind(indices, addr);
+	}
+
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
 	int listen() {
 		return std::get<1>(fibers).listen();
+	}
+
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
+	int listen(std::vector <int> &indices) {
+		return std::get<1>(fibers).listen(indices);
 	}
 
 	template<bool is_open = is_outer_open>
@@ -300,6 +312,12 @@ public:
 		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
 	}
 
+	template<bool is_open = is_outer_open>
+		requires (!is_open)
+	int dial(std::vector <int> &indices, core::SocketAddress addr, auto&&... args) {
+		return std::get<1>(fibers).dial(indices, addr, std::forward<decltype(args)>(args)...);
+	}
+	
 	// template<bool is_open = is_outer_open>
 	// 	requires (!is_open)
 	// int dial(core::SocketAddress addr, auto&&... args) {
