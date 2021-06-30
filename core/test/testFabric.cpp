@@ -106,12 +106,12 @@ struct FiberOuterClose {
 		idx(std::get<1>(init_tuple)) {}
 
 	int dial(std::vector <int> &indices, SocketAddress, auto&& ...) {
-		std::cout << idx << std::endl;
 		indices.push_back(idx);
 		return 0;
 	}
 
 	int bind(std::vector <int> &indices, SocketAddress) {
+		std::cout << idx << std::endl;
 		indices.push_back(idx);
 		return 0;
 	}
@@ -276,6 +276,34 @@ TEST(FabricTest, dialFunction) {
 		std::make_tuple(4)
 	));
 	f.dial(indices, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
+	EXPECT_EQ(indices, std::vector <int> ({1}));
+}
+
+
+TEST(FabricTest, bindFunction) {
+	std::vector <int> indices;
+	Fabric<	
+		Terminal,
+		FiberOuterClose,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(), 0),
+		// Other fibers
+		std::make_tuple(1),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(2),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(3),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(4)
+	));
+	f.bind(indices, SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(indices, std::vector <int> ({1}));
 }
 
