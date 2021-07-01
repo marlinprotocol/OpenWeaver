@@ -77,17 +77,17 @@ struct Fiber {
 	}
 
 	int dial(SocketAddress, auto&& ...) {
-		(*indices).push_back(idx);
+		// (*indices).push_back(idx);
 		return 0;
 	}
 
 	int bind(SocketAddress) {
-		(*indices).push_back(idx);
+		// (*indices).push_back(idx);
 		return 0;
 	}
 
 	int listen() {
-		(*indices).push_back(idx);
+		// (*indices).push_back(idx);
 		return 0;
 	}
 
