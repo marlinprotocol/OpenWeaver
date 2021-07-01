@@ -103,18 +103,18 @@ struct FiberOuterClose {
 
 
 
-// TEST(FabricTest, MessageOrder1) {
-// 	std::vector <int> *indices = new std::vector <int>();
-// 	Fabric <
-// 		Terminal, 
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		std::make_tuple(std::make_tuple(-1, indices)),
-// 		std::make_tuple(std::make_tuple(1, indices))
-// 	));
-// 	f.did_recv(Buffer(5));
-// 	EXPECT_EQ(*indices, std::vector <int> ({1, -1}));
-// }
+TEST(FabricTest, MessageOrder1) {
+	std::vector <int> *indices = new std::vector <int>();
+	Fabric <
+		Terminal, 
+		Fiber
+	> f(std::make_tuple(
+		std::make_tuple(std::make_tuple(-1, indices)),
+		std::make_tuple(std::make_tuple(1, indices))
+	));
+	f.did_recv(Buffer(5));
+	EXPECT_EQ(*indices, std::vector <int> ({1, -1}));
+}
 
 // TEST(FabricTest, MessageOrder2) {
 // 	std::vector <int> indices;
