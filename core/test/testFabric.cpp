@@ -33,6 +33,11 @@ struct Terminal {
 		(*indices).push_back(-1);
 		return 0;
 	}
+
+	template<typename FiberType>
+	int send(FiberType&, Buffer&&, SocketAddress) {
+		return 0;
+	}
 };
 
 template<typename ExtFabric>
@@ -64,6 +69,11 @@ struct Fiber {
 		(*indices).push_back(idx);
 		// SPDLOG_INFO("Did recv: {}", idx);
 		return ext_fabric.did_recv(*this, std::move(buf));
+	}
+
+	int send(InnerMessageType &&buf, SocketAddress addr) {
+		(*indices).push_back(idx);
+		return ext_fabric.send(*this, std::move(buf), addr);
 	}
 
 };
@@ -212,32 +222,35 @@ TEST(FabricTest, MessageOrder5) {
 	EXPECT_EQ(*indices, std::vector <int> ({1, 1, 2, 2, 1, 2, 3, 1, 2, 4, -1}));
 }
 
-// TEST(FabricTest, sendFunction) {
-// 	std::vector <int> indices;
-// 	Fabric<	
-// 		Terminal,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		// Terminal
-// 		std::make_tuple(std::make_tuple(), 0),
-// 		// Other fibers
-// 		std::make_tuple(1),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(2),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(3),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(4)
-// 	));
-// 	f.send(indices, Buffer(5), SocketAddress::from_string("0:0:0:0:3000"));
-// 	EXPECT_EQ(indices, std::vector <int> ({4, 2, 1, 3, 2, 1, 2, 2, 1, 1}));
-// }
+TEST(FabricTest, sendFunction) {
+	std::vector <int> *indices = new std::vector <int> ();
+	Fabric<
+		Terminal,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(-1, indices)),
+		// Other fibers
+		std::make_tuple(std::make_tuple(1, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(2, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(3, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(4, indices))
+	));
+	f.send(Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
+	EXPECT_EQ(*indices, std::vector <int> ({4, 2, 1, 3, 2, 1, 2, 2, 1, 1}));
+}
 
 // TEST(FabricTest, dialFunction) {
 // 	std::vector <int> indices;
