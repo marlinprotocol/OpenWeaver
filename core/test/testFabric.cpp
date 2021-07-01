@@ -18,17 +18,19 @@ struct Terminal {
 	using InnerMessageType = Buffer;
 	using OuterMessageType = Buffer;
 
-	template<typename... Args>
-	Terminal(Args&&...) {}
+	// template<typename... Args>
+	// Terminal(Args&&... args) {}
+
+	int idx;
+	std::vector <int> *indices;
+
+	Terminal(std::tuple <std::tuple<int, std::vector <int>*>> &&init_tuple) :
+		idx(std::get<0>(std::get<0> (init_tuple))),
+		indices(std::get<1>(std::get<0>(init_tuple))) {}
 
 	template<typename FiberType>
 	int did_recv(FiberType&, Buffer&&) {
-		// SPDLOG_INFO("Did recv: Terminal");
-		return 0;
-	}
-
-	template<typename FiberType>
-	int send(std::vector <int> &, FiberType&, Buffer&&, SocketAddress) {
+		(*indices).push_back(-1);
 		return 0;
 	}
 };
@@ -59,7 +61,7 @@ struct Fiber {
 		idx(std::get<1>(init_tuple)) {}
 
 	int did_recv(Buffer&& buf) {
-		// (*indices).push_back(idx);
+		(*indices).push_back(idx);
 		// SPDLOG_INFO("Did recv: {}", idx);
 		return ext_fabric.did_recv(*this, std::move(buf));
 	}
@@ -102,16 +104,16 @@ struct FiberOuterClose {
 
 
 // TEST(FabricTest, MessageOrder1) {
-// 	std::vector <int> *indices = new std::vector <int>(0);
+// 	std::vector <int> *indices = new std::vector <int>();
 // 	Fabric <
 // 		Terminal, 
 // 		Fiber
 // 	> f(std::make_tuple(
-// 		std::make_tuple(std::make_tuple(), 0),
+// 		std::make_tuple(std::make_tuple(-1, indices)),
 // 		std::make_tuple(std::make_tuple(1, indices))
 // 	));
 // 	f.did_recv(Buffer(5));
-// 	EXPECT_EQ(*indices, std::vector <int> ({1}));
+// 	EXPECT_EQ(*indices, std::vector <int> ({1, -1}));
 // }
 
 // TEST(FabricTest, MessageOrder2) {
