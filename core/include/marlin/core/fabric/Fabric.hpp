@@ -166,22 +166,6 @@ private:
 		}
 
 		template<typename... Args>
-		int did_recv(std::vector <int> &indices, NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
-				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_recv(indices, fabric, std::forward<Args>(args)...);
-			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_recv(indices, std::forward<Args>(args)...);
-			}
-		}
-
-		template<typename... Args>
 		int did_dial(NthFiber<idx>& caller, Args&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
@@ -228,22 +212,6 @@ private:
 				return next_fiber.send(std::forward<Args>(args)...);
 			}
 		}
-
-		template<typename... Args>
-		int send(std::vector <int> &indices, NthFiber<idx>& caller, Args&&... args) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == 1) {
-				// inside shuttle of first fiber, exit
-				return fabric.ext_fabric.send(indices, fabric, std::forward<Args>(args)...);
-			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx-1>(fabric.fibers);
-				return next_fiber.send(indices, std::forward<Args>(args)...);
-			}
-		}
 	};
 
 public:
@@ -270,28 +238,10 @@ public:
 		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
 	}
 
-	template<
-		typename OMT = OuterMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the outer side
-			is_outer_open
-		)
-	int did_recv(std::vector <int> &indices, OMT&& buf, Args&&... args) {
-		return std::get<1>(fibers).did_recv(indices, std::move(buf), std::forward<Args>(args)...);
-	}
-
 	template<bool is_open = is_outer_open>
 		requires (!is_open)
 	int bind(SocketAddress const& addr) {
 		return std::get<1>(fibers).bind(addr);
-	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int bind(std::vector <int> &indices, SocketAddress const& addr) {
-		return std::get<1>(fibers).bind(indices, addr);
 	}
 
 	template<bool is_open = is_outer_open>
@@ -302,27 +252,9 @@ public:
 
 	template<bool is_open = is_outer_open>
 		requires (!is_open)
-	int listen(std::vector <int> &indices) {
-		return std::get<1>(fibers).listen(indices);
-	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
 	int dial(core::SocketAddress addr, auto&&... args) {
 		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
 	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int dial(std::vector <int> &indices, core::SocketAddress addr, auto&&... args) {
-		return std::get<1>(fibers).dial(indices, addr, std::forward<decltype(args)>(args)...);
-	}
-	
-	// template<bool is_open = is_outer_open>
-	// 	requires (!is_open)
-	// int dial(core::SocketAddress addr, auto&&... args) {
-	// 	return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
-	// }
 
 	template<
 		typename IMT = InnerMessageType,
@@ -336,17 +268,6 @@ public:
 		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
 	}
 
-	template<
-		typename IMT = InnerMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the inner side
-			is_inner_open
-		)
-	int send(std::vector <int> &indices, InnerMessageType&& buf, core::SocketAddress addr) {
-		return std::get<sizeof...(FiberTemplates)>(fibers).send(indices, std::move(buf), addr);
-	}
 };
 
 
