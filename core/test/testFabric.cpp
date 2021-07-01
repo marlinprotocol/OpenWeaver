@@ -86,6 +86,11 @@ struct Fiber {
 		return 0;
 	}
 
+	int listen() {
+		(*indices).push_back(idx);
+		return 0;
+	}
+
 };
 
 template<typename ExtFabric>
@@ -122,8 +127,8 @@ struct FiberOuterClose {
 		return 0;
 	}
 
-	int listen(std::vector <int> &indices) {
-		indices.push_back(idx);
+	int listen() {
+		(*indices).push_back(idx);
 		return 0;
 	}
 };
@@ -331,55 +336,32 @@ TEST(FabricTest, bindFunction) {
 
 }
 
-// TEST(FabricTest, listenFunction) {
-// 	std::vector <int> indices;
-// 	Fabric<	
-// 		Terminal,
-// 		FiberOuterClose,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		// Terminal
-// 		std::make_tuple(std::make_tuple(), 0),
-// 		// Other fibers
-// 		std::make_tuple(1),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(2),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(3),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(4)
-// 	));
-// 	f.listen(indices);
-// 	EXPECT_EQ(indices, std::vector <int> ({1}));
-// }
-
-// TEST(FabricTest, sendFunction) {
-// 	std::vector <int> indices;
-// 	Fabric<	
-// 		Terminal,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		// Terminal
-// 		std::make_tuple(std::make_tuple(), 0),
-// 		// Other fibers
-// 		std::make_tuple(1),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(2),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(3),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(4)
-// 	));
-	
-// }
+TEST(FabricTest, listenFunction) {
+	std::vector <int> *indices = new std::vector <int> ();
+	Fabric<	
+		Terminal,
+		FiberOuterClose,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(-1, indices)),
+		// Other fibers
+		std::make_tuple(std::make_tuple(1, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(2, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(3, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(4, indices))
+	));
+	f.listen();
+	EXPECT_EQ(*indices, std::vector <int> ({1}));
+}
