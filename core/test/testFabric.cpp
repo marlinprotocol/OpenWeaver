@@ -307,6 +307,33 @@ TEST(FabricTest, bindFunction) {
 	EXPECT_EQ(indices, std::vector <int> ({1}));
 }
 
+TEST(FabricTest, listenFunction) {
+	std::vector <int> indices;
+	Fabric<	
+		Terminal,
+		FiberOuterClose,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(), 0),
+		// Other fibers
+		std::make_tuple(1),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(2),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(3),
+		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
+		std::make_tuple(4)
+	));
+	f.listen(indices);
+	EXPECT_EQ(indices, std::vector <int> ({1}));
+}
+
 // TEST(FabricTest, sendFunction) {
 // 	std::vector <int> indices;
 // 	Fabric<	
