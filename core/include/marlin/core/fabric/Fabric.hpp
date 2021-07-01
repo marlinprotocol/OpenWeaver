@@ -102,7 +102,7 @@ private:
 		Shuttle,
 		FiberTemplates...
 	>::type fibers;
-
+	
 
 	// Private constructor
 	template<typename ExtTupleType, typename... TupleTypes, size_t... Is>
