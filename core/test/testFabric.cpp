@@ -76,6 +76,11 @@ struct Fiber {
 		return ext_fabric.send(*this, std::move(buf), addr);
 	}
 
+	int dial(SocketAddress, auto&& ...) {
+		(*indices).push_back(idx);
+		return 0;
+	}
+
 };
 
 template<typename ExtFabric>
@@ -88,14 +93,22 @@ struct FiberOuterClose {
 
 	[[no_unique_address]] ExtFabric ext_fabric;
 	int idx = 0;
+	std::vector <int> *indices;
+
+	template<typename ExtTupleType>
+	FiberOuterClose(std::tuple<ExtTupleType, std::tuple<int, std::vector<int>*>>&& init_tuple) :
+		ext_fabric(std::get<0>(init_tuple)),
+		idx(std::get<0>(std::get<1>(init_tuple))),
+		indices(std::get<1>(std::get<1>(init_tuple))) 
+		{}
 
 	template<typename ExtTupleType>
 	FiberOuterClose(std::tuple<ExtTupleType, int>&& init_tuple) :
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
-	int dial(std::vector <int> &indices, SocketAddress, auto&& ...) {
-		indices.push_back(idx);
+	int dial(SocketAddress, auto&& ...) {
+		(*indices).push_back(idx);
 		return 0;
 	}
 
@@ -252,32 +265,35 @@ TEST(FabricTest, sendFunction) {
 	EXPECT_EQ(*indices, std::vector <int> ({4, 2, 1, 3, 2, 1, 2, 2, 1, 1}));
 }
 
-// TEST(FabricTest, dialFunction) {
-// 	std::vector <int> indices;
-// 	Fabric<	
-// 		Terminal,
-// 		FiberOuterClose,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		// Terminal
-// 		std::make_tuple(std::make_tuple(), 0),
-// 		// Other fibers
-// 		std::make_tuple(1),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(2),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(3),
-// 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
-// 		std::make_tuple(4)
-// 	));
-// 	f.dial(indices, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
-// 	EXPECT_EQ(indices, std::vector <int> ({1}));
-// }
+TEST(FabricTest, dialFunction) {
+	std::vector <int> *indices = new std::vector <int> ();
+	Fabric<	
+		Terminal,
+		FiberOuterClose,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber,
+		FabricF<Fiber, Fiber>::type,
+		Fiber
+	> f(std::make_tuple(
+		// Terminal
+		std::make_tuple(std::make_tuple(-1, indices)),
+		// Other fibers
+		std::make_tuple(std::make_tuple(1, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(2, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(3, indices)),
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+						std::make_tuple(std::make_tuple(2, indices))),
+		std::make_tuple(std::make_tuple(4, indices))
+	));
+	f.dial(SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
+	EXPECT_EQ(*indices, std::vector <int> ({1}));
+}
 
 
 // TEST(FabricTest, bindFunction) {
