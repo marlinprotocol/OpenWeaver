@@ -102,7 +102,7 @@ private:
 		Shuttle,
 		FiberTemplates...
 	>::type fibers;
-	
+
 
 	// Private constructor
 	template<typename ExtTupleType, typename... TupleTypes, size_t... Is>
@@ -267,7 +267,6 @@ public:
 	int send(InnerMessageType&& buf, core::SocketAddress addr) {
 		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
 	}
-
 };
 
 
