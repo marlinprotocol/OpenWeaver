@@ -328,7 +328,7 @@ TEST(FabricTest, bindFunction) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.dial(SocketAddress::from_string("0.0.0.0:3000"));
+	f.bind(SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <int> ({1}));
 
 }
