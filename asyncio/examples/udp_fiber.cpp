@@ -49,8 +49,8 @@ int main() {
 		std::make_tuple(),
 		std::make_tuple()
 	));
-	server.bind(SocketAddress::from_string("127.0.0.1:8000"));
-	server.listen();
+	(void)server.i(server).bind(SocketAddress::from_string("127.0.0.1:8000"));
+	(void)server.i(server).listen();
 
 	Fabric<
 		Terminal,
@@ -63,8 +63,8 @@ int main() {
 		std::make_tuple(),
 		std::make_tuple()
 	));
-	client.bind(SocketAddress::from_string("127.0.0.1:9000"));
-	client.dial(SocketAddress::from_string("127.0.0.1:8000"));
+	(void)client.i(server).bind(SocketAddress::from_string("127.0.0.1:9000"));
+	(void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
