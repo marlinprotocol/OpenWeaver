@@ -34,22 +34,12 @@ struct TupleCat<T, std::tuple<TupleTypes...>> {
 template<size_t idx, size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper {
 	using base = typename TupleHelper<idx+1, total, Shuttle, FiberTemplates...>::type;
-	using type = typename TupleCat<FiberTemplate<Shuttle<idx-1>>, base>::type;
-};
-
-template<size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-struct TupleHelper<0, total, Shuttle, FiberTemplate, FiberTemplates...> {
-	struct Empty {
-		template<typename... Args>
-		Empty(Args&&...) {}
-	};
-	using base = typename TupleHelper<1, total, Shuttle, FiberTemplate, FiberTemplates...>::type;
-	using type = base;
+	using type = typename TupleCat<FiberTemplate<Shuttle<idx>>, base>::type;
 };
 
 template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper<idx, idx, Shuttle, FiberTemplate, FiberTemplates...> {
-	using type = std::tuple<FiberTemplate<Shuttle<idx-1>>>;
+	using type = std::tuple<FiberTemplate<Shuttle<idx>>>;
 };
 
 }
@@ -92,10 +82,9 @@ private:
 	// External fabric
 	[[no_unique_address]] ExtFabric ext_fabric;
 
-	// Important: Not zero indexed!
 	[[no_unique_address]] typename TupleHelper<
 		0,
-		sizeof...(FiberTemplates),
+		sizeof...(FiberTemplates)-1,
 		Shuttle,
 		FiberTemplates...
 	>::type fibers;
