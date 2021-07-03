@@ -2,6 +2,7 @@
 #define MARLIN_SIMULATION_FIBERS_SIMULATIONFIBER_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/fibers/FiberScaffold.hpp>
 #include <marlin/core/SocketAddress.hpp>
 #include <marlin/simulator/network/NetworkInterface.hpp>
 
@@ -14,19 +15,25 @@ template<
 	typename NetworkInterfaceType,
 	typename EventManager
 >
-class SimulationFiber : public NetworkListener<NetworkInterfaceType> {
+class SimulationFiber : public core::FiberScaffold<
+	SimulationFiber<ExtFabric, NetworkInterfaceType, EventManager>,
+	ExtFabric,
+	core::Buffer,
+	void
+>, public NetworkListener<NetworkInterfaceType> {
 public:
 	using SelfType = SimulationFiber<ExtFabric, NetworkInterfaceType, EventManager>;
+	using FiberScaffoldType = core::FiberScaffold<
+		SelfType,
+		ExtFabric,
+		core::Buffer,
+		void
+	>;
 
-	static constexpr bool is_outer_open = false;
-	static constexpr bool is_inner_open = true;
-
-	using OuterMessageType = core::Buffer;
-	using InnerMessageType = core::Buffer;
+	using typename FiberScaffoldType::InnerMessageType;
+	using typename FiberScaffoldType::OuterMessageType;
 
 private:
-	[[no_unique_address]] ExtFabric ext_fabric;
-
 	NetworkInterfaceType& interface;
 	EventManager& manager;
 
@@ -37,7 +44,7 @@ public:
 
 	template<typename ExtTupleType>
 	SimulationFiber(std::tuple<ExtTupleType, NetworkInterfaceType&, EventManager&>&& init_tuple) :
-		ext_fabric(std::get<0>(init_tuple)),
+		FiberScaffoldType(std::forward_as_tuple(std::get<0>(init_tuple))),
 		interface(std::get<1>(init_tuple)),
 		manager(std::get<2>(init_tuple)) {
 	}
@@ -61,7 +68,7 @@ public:
 			}
 		}
 
-		ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+		FiberScaffoldType::did_dial(*this, addr, std::forward<decltype(args)>(args)...);
 
 		return 0;
 	}
@@ -79,11 +86,7 @@ public:
 		if(buf.size() == 0) {
 			return 0;
 		}
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
-	}
-
-	int did_dial(core::SocketAddress addr, auto&&... args) {
-		return ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+		return FiberScaffoldType::did_recv(*this, std::move(buf), addr);
 	}
 
 	int send(InnerMessageType&& buf, core::SocketAddress addr) {
@@ -93,10 +96,6 @@ public:
 			addr,
 			std::move(buf)
 		);
-	}
-
-	int did_send(InnerMessageType&& buf) {
-		return ext_fabric.did_send(*this, std::move(buf));
 	}
 
 	void did_close() override {}
