@@ -65,10 +65,8 @@ private:
 	template<size_t idx>
 	struct Shuttle;
 
-	// Important: Not zero indexed!
 	template<size_t idx>
-		//requires (idx <= sizeof...(FiberTemplates))
-	using NthFiber = typename NthFiberHelper<idx-1, FiberTemplates...>::template type<Shuttle<idx>>;
+	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx+1>>;
 
 	template<typename FiberOuter, typename FiberInner>
 	static constexpr bool fits_binary() {
@@ -85,7 +83,7 @@ private:
 	template<size_t... Is>
 	static constexpr bool fits(std::index_sequence<Is...>) {
 		// fold expression
-		return (... && fits_binary<NthFiber<Is+1>, NthFiber<Is+2>>());
+		return (... && fits_binary<NthFiber<Is>, NthFiber<Is+1>>());
 	}
 
 	// Assert that all fibers fit well together
@@ -131,7 +129,7 @@ private:
 	// Warning: Potentially very brittle
 	// Calculate offset of fabric from reference to fiber
 	template<size_t idx>
-	static constexpr SelfType& get_fabric(NthFiber<idx>& fiber_ptr) {
+	static constexpr SelfType& get_fabric(NthFiber<idx-1>& fiber_ptr) {
 		// Type cast from nullptr
 		// Other option is to declare local var, but forces default constructible
 		auto* ref_fabric_ptr = (SelfType*)nullptr;
@@ -148,7 +146,7 @@ private:
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
-		auto& i(NthFiber<idx>& caller) {
+		auto& i(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
@@ -178,7 +176,7 @@ private:
 			}
 		}
 
-		auto& is(NthFiber<idx>& caller) {
+		auto& is(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
@@ -198,7 +196,7 @@ private:
 			}
 		}
 
-		auto& o(NthFiber<idx>& caller) {
+		auto& o(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
@@ -228,7 +226,7 @@ private:
 			}
 		}
 
-		auto& os(NthFiber<idx>& caller) {
+		auto& os(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
@@ -250,11 +248,11 @@ private:
 	};
 
 public:
-	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
-	using InnerMessageType = typename NthFiber<sizeof...(FiberTemplates)>::InnerMessageType;
+	using OuterMessageType = typename NthFiber<0>::OuterMessageType;
+	using InnerMessageType = typename NthFiber<sizeof...(FiberTemplates)-1>::InnerMessageType;
 
-	static constexpr bool is_outer_open = NthFiber<1>::is_outer_open;
-	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)>::is_inner_open;
+	static constexpr bool is_outer_open = NthFiber<0>::is_outer_open;
+	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)-1>::is_inner_open;
 
 	auto& i(auto&&) {
 		auto& fiber = std::get<1>(fibers);
