@@ -11,14 +11,13 @@ namespace core {
 namespace {
 
 template<size_t idx, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-	requires (idx != 0)
 struct NthFiberHelper {
 	template<typename T>
 	using type = typename NthFiberHelper<idx-1, FiberTemplates...>::template type<T>;
 };
 
 template<template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-struct NthFiberHelper<1, FiberTemplate, FiberTemplates...> {
+struct NthFiberHelper<0, FiberTemplate, FiberTemplates...> {
 	template<typename T>
 	using type = FiberTemplate<T>;
 };
@@ -69,7 +68,7 @@ private:
 	// Important: Not zero indexed!
 	template<size_t idx>
 		//requires (idx <= sizeof...(FiberTemplates))
-	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx>>;
+	using NthFiber = typename NthFiberHelper<idx-1, FiberTemplates...>::template type<Shuttle<idx>>;
 
 	template<typename FiberOuter, typename FiberInner>
 	static constexpr bool fits_binary() {
