@@ -12,7 +12,7 @@ namespace asyncio {
 
 template<typename ExtFabric>
 class UdpFiber : public core::FiberScaffold<
-	UdpFiber,
+	UdpFiber<ExtFabric>,
 	ExtFabric,
 	core::Buffer,
 	void
@@ -20,7 +20,7 @@ class UdpFiber : public core::FiberScaffold<
 public:
 	using SelfType = UdpFiber<ExtFabric>;
 	using FiberScaffoldType = core::FiberScaffold<
-		UdpFiber,
+		SelfType,
 		ExtFabric,
 		core::Buffer,
 		void
