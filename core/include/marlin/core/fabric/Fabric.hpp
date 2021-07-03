@@ -129,11 +129,11 @@ private:
 	// Warning: Potentially very brittle
 	// Calculate offset of fabric from reference to fiber
 	template<size_t idx>
-	static constexpr SelfType& get_fabric(NthFiber<idx-1>& fiber_ptr) {
+	static constexpr SelfType& get_fabric(NthFiber<idx>& fiber_ptr) {
 		// Type cast from nullptr
 		// Other option is to declare local var, but forces default constructible
 		auto* ref_fabric_ptr = (SelfType*)nullptr;
-		auto* ref_fiber_ptr = &std::get<idx>(ref_fabric_ptr->fibers);
+		auto* ref_fiber_ptr = &std::get<idx+1>(ref_fabric_ptr->fibers);
 
 		return *(SelfType*)((uint8_t*)&fiber_ptr - ((uint8_t*)ref_fiber_ptr - (uint8_t*)ref_fabric_ptr));
 	}
@@ -148,7 +148,7 @@ private:
 
 		auto& i(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
+			auto& fabric = get_fabric<idx-1>(caller);
 
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates)) {
@@ -178,7 +178,7 @@ private:
 
 		auto& is(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
+			auto& fabric = get_fabric<idx-1>(caller);
 
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates)) {
@@ -198,7 +198,7 @@ private:
 
 		auto& o(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
+			auto& fabric = get_fabric<idx-1>(caller);
 
 			// Check for exit first
 			if constexpr (idx == 1) {
@@ -228,7 +228,7 @@ private:
 
 		auto& os(NthFiber<idx-1>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
+			auto& fabric = get_fabric<idx-1>(caller);
 
 			// Check for exit first
 			if constexpr (idx == 1) {
