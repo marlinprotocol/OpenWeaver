@@ -44,7 +44,7 @@ struct TupleHelper<0, total, Shuttle, FiberTemplate, FiberTemplates...> {
 		Empty(Args&&...) {}
 	};
 	using base = typename TupleHelper<1, total, Shuttle, FiberTemplate, FiberTemplates...>::type;
-	using type = typename TupleCat<std::tuple<Empty>, base>::type;
+	using type = base;
 };
 
 template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
@@ -106,9 +106,6 @@ private:
 	Fabric(std::tuple<ExtTupleType, TupleTypes...>&& init_tuple, std::index_sequence<Is...>) :
 		ext_fabric(std::forward<ExtTupleType>(std::get<0>(init_tuple))),
 		fibers(
-			// Empty
-			std::make_tuple(),
-			// Other fibers
 			std::move(std::tuple_cat(
 				// Shuttle
 				std::make_tuple(std::make_tuple()),
@@ -133,7 +130,7 @@ private:
 		// Type cast from nullptr
 		// Other option is to declare local var, but forces default constructible
 		auto* ref_fabric_ptr = (SelfType*)nullptr;
-		auto* ref_fiber_ptr = &std::get<idx+1>(ref_fabric_ptr->fibers);
+		auto* ref_fiber_ptr = &std::get<idx>(ref_fabric_ptr->fibers);
 
 		return *(SelfType*)((uint8_t*)&fiber_ptr - ((uint8_t*)ref_fiber_ptr - (uint8_t*)ref_fabric_ptr));
 	}
@@ -163,7 +160,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx+2>(fabric.fibers);
+				auto& fiber = std::get<idx+1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -213,7 +210,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx>(fabric.fibers);
+				auto& fiber = std::get<idx-1>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -255,7 +252,7 @@ public:
 	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)-1>::is_inner_open;
 
 	auto& i(auto&&) {
-		auto& fiber = std::get<1>(fibers);
+		auto& fiber = std::get<0>(fibers);
 
 		// recursive check
 		if constexpr (requires (decltype(fiber) f) {
@@ -268,7 +265,7 @@ public:
 	}
 
 	auto& o(auto&&) {
-		auto& fiber = std::get<sizeof...(FiberTemplates)>(fibers);
+		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
 
 		// recursive check
 		if constexpr (requires (decltype(fiber) f) {
