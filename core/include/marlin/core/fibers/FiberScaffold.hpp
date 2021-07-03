@@ -8,10 +8,8 @@ namespace marlin {
 namespace core {
 
 
-template<template<typename> typename FiberTemplate, typename ExtFabric, typename IMT = Buffer, typename OMT = Buffer>
+template<typename Fiber, typename ExtFabric, typename IMT = Buffer, typename OMT = Buffer>
 class FiberScaffold {
-private:
-    using Fiber = FiberTemplate<ExtFabric>;
 public:
 	static constexpr bool is_inner_open = !std::is_same_v<IMT, void>;
 	static constexpr bool is_outer_open = !std::is_same_v<OMT, void>;

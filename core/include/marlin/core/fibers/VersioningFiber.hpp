@@ -36,7 +36,7 @@ struct VersionedMessage {
 
 template<typename ExtFabric>
 class VersioningFiber : public FiberScaffold<
-	VersioningFiber,
+	VersioningFiber<ExtFabric>,
 	ExtFabric,
 	VersionedMessage<Buffer>,
 	Buffer
@@ -44,7 +44,7 @@ class VersioningFiber : public FiberScaffold<
 public:
 	using SelfType = VersioningFiber<ExtFabric>;
 	using FiberScaffoldType = FiberScaffold<
-		VersioningFiber,
+		SelfType,
 		ExtFabric,
 		VersionedMessage<Buffer>,
 		Buffer
