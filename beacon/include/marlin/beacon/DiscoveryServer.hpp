@@ -608,11 +608,11 @@ DISCOVERYSERVER::DiscoveryServer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), heartbeat_timer(this) {
-	fiber.bind(baddr);
-	fiber.listen();
+	(void)fiber.i(*this).bind(baddr);
+	(void)fiber.i(*this).listen();
 
-	h_fiber.bind(haddr);
-	h_fiber.listen();
+	(void)h_fiber.i(*this).bind(haddr);
+	(void)h_fiber.i(*this).listen();
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 
@@ -657,7 +657,7 @@ DISCOVERYSERVER::DiscoveryServer(
 	}
 
 	if(raddr.has_value()) {
-		fiber.dial(*raddr);
+		(void)fiber.i(*this).dial(*raddr);
 	}
 }
 

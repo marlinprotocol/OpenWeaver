@@ -191,7 +191,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 		beacon_map[peer_addr] = std::make_pair(addr, asyncio::EventLoop::now());
-		fiber.dial(peer_addr, 0);
+		(void)fiber.i(*this).dial(peer_addr, 0);
 	}
 }
 
@@ -202,7 +202,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::beacon_timer_cb() {
 	// Discover clusters
 	for(auto& addr : discovery_addrs) {
-		fiber.dial(addr, 3);
+		(void)fiber.i(*this).dial(addr, 3);
 	}
 
 	// Prune clusters
@@ -252,7 +252,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 
-		fiber.dial(cluster_addr, 1);
+		(void)fiber.i(*this).dial(cluster_addr, 1);
 	}
 }
 
@@ -292,7 +292,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 		cluster_map[cluster_addr].address = cluster_client_key;
-		fiber.dial(cluster_addr, 1);
+		(void)fiber.i(*this).dial(cluster_addr, 1);
 	}
 }
 
@@ -431,8 +431,8 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), beacon_timer(this), heartbeat_timer(this) {
-	fiber.bind(addr);
-	fiber.listen();
+	(void)fiber.i(*this).bind(addr);
+	(void)fiber.i(*this).listen();
 
 	if(sodium_init() == -1) {
 		throw;
