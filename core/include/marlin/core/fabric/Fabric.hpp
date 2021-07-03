@@ -34,7 +34,7 @@ struct TupleCat<T, std::tuple<TupleTypes...>> {
 template<size_t idx, size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper {
 	using base = typename TupleHelper<idx+1, total, Shuttle, FiberTemplates...>::type;
-	using type = typename TupleCat<FiberTemplate<Shuttle<idx>>, base>::type;
+	using type = typename TupleCat<FiberTemplate<Shuttle<idx-1>>, base>::type;
 };
 
 template<size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
@@ -49,7 +49,7 @@ struct TupleHelper<0, total, Shuttle, FiberTemplate, FiberTemplates...> {
 
 template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
 struct TupleHelper<idx, idx, Shuttle, FiberTemplate, FiberTemplates...> {
-	using type = std::tuple<FiberTemplate<Shuttle<idx>>>;
+	using type = std::tuple<FiberTemplate<Shuttle<idx-1>>>;
 };
 
 }
@@ -66,7 +66,7 @@ private:
 	struct Shuttle;
 
 	template<size_t idx>
-	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx+1>>;
+	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx>>;
 
 	template<typename FiberOuter, typename FiberInner>
 	static constexpr bool fits_binary() {
@@ -141,17 +141,17 @@ private:
 	// Shuttle for properly transitioning between fibers
 	template<size_t idx>
 	struct Shuttle {
-		static_assert(idx != 0 && idx <= sizeof...(FiberTemplates));
+		static_assert(idx < sizeof...(FiberTemplates));
 
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
-		auto& i(NthFiber<idx-1>& caller) {
+		auto& i(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx-1>(caller);
+			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
 				// recursive check
 				if constexpr (requires (decltype(fabric.ext_fabric) f) {
@@ -163,7 +163,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx+1>(fabric.fibers);
+				auto& fiber = std::get<idx+2>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -176,12 +176,12 @@ private:
 			}
 		}
 
-		auto& is(NthFiber<idx-1>& caller) {
+		auto& is(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx-1>(caller);
+			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
 				// recursive check
 				if constexpr (requires (decltype(fabric.ext_fabric) f) {
@@ -196,12 +196,12 @@ private:
 			}
 		}
 
-		auto& o(NthFiber<idx-1>& caller) {
+		auto& o(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx-1>(caller);
+			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == 1) {
+			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
 				// recursive check
 				if constexpr (requires (decltype(fabric.ext_fabric) f) {
@@ -213,7 +213,7 @@ private:
 				}
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx-1>(fabric.fibers);
+				auto& fiber = std::get<idx>(fabric.fibers);
 
 				// recursive check
 				if constexpr (requires (decltype(fiber) f) {
@@ -226,12 +226,12 @@ private:
 			}
 		}
 
-		auto& os(NthFiber<idx-1>& caller) {
+		auto& os(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx-1>(caller);
+			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == 1) {
+			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
 				// recursive check
 				if constexpr (requires (decltype(fabric.ext_fabric) f) {
