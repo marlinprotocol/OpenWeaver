@@ -257,29 +257,6 @@ public:
 	static constexpr bool is_outer_open = NthFiber<1>::is_outer_open;
 	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)>::is_inner_open;
 
-	// Guide to fiber index
-	// 0						call on external fabric
-	// [1,len(Fibers)]			call on fiber
-	// len(Fibers)+1			call on external fabric
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int bind(SocketAddress const& addr) {
-		return std::get<1>(fibers).bind(addr);
-	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int listen() {
-		return std::get<1>(fibers).listen();
-	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int dial(core::SocketAddress addr, auto&&... args) {
-		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
-	}
-
 	auto& i(auto&&) {
 		auto& fiber = std::get<1>(fibers);
 

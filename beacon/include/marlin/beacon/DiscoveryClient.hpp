@@ -224,7 +224,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 
-		fiber.dial(peer_addr, 0);
+		(void)fiber.i(*this).dial(peer_addr, 0);
 	}
 }
 
@@ -264,7 +264,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::beacon_timer_cb() {
 	for(auto& addr : discovery_addrs) {
-		fiber.dial(addr, 1);
+		(void)fiber.i(*this).dial(addr, 1);
 	}
 }
 
@@ -274,7 +274,7 @@ void DISCOVERYCLIENT::beacon_timer_cb() {
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::heartbeat_timer_cb() {
 	for(auto& addr : heartbeat_addrs) {
-		fiber.dial(addr, 2);
+		(void)fiber.i(*this).dial(addr, 2);
 	}
 }
 
@@ -404,8 +404,8 @@ DISCOVERYCLIENT::DiscoveryClient(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), beacon_timer(this), heartbeat_timer(this) {
-	fiber.bind(addr);
-	fiber.listen();
+	(void)fiber.i(*this).bind(addr);
+	(void)fiber.i(*this).listen();
 
 	if(sodium_init() == -1) {
 		throw;

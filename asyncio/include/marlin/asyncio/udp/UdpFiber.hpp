@@ -33,7 +33,14 @@ private:
 	uvpp::UdpE* udp_handle = nullptr;
 
 public:
-	using FiberScaffoldType::FiberScaffoldType;
+	UdpFiber(auto&&... args) :
+		FiberScaffoldType(std::forward<decltype(args)>(args)...) {
+		udp_handle = new uvpp::UdpE();
+		udp_handle->data = this;
+	}
+
+	UdpFiber(UdpFiber const&) = delete;
+	UdpFiber(UdpFiber&&) = delete;
 
 	[[nodiscard]] int bind(core::SocketAddress const& addr) {
 		int res = uv_udp_init(uv_default_loop(), udp_handle);
