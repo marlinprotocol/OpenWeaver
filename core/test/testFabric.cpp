@@ -137,10 +137,10 @@ struct FiberOuterClose {
 
 
 	template <typename... Args>
-	int dial(SocketAddress, Args&& ...) {
+	int dial(SocketAddress, Args&& ... args) {
 		(*indices).push_back("foc_d_" + std::to_string(idx));
-		// return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
-		return 0;
+		return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
+		// return 0;
 	}
 
 	int bind(SocketAddress) {
