@@ -32,9 +32,6 @@
 [submodule "vendor/libbase58"]
 	path = vendor/libbase58
 	url = https://github.com/bitcoin/libbase58
-[submodule "vendor/libwebsockets"]
-	path = vendor/libwebsockets
-	url = https://github.com/warmcat/libwebsockets
 [submodule "vendor/abseil-cpp"]
 	path = vendor/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp
