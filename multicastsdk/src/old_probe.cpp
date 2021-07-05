@@ -2,7 +2,8 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/pubsub/attestation/SigAttester.hpp>
+#include <marlin/pubsub/attestation/EmptyAttester.hpp>
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
 
 #include <structopt/app.hpp>
 
@@ -16,7 +17,7 @@
 #endif
 
 #ifndef MARLIN_PROBE_DEFAULT_NETWORK_ID
-#define MARLIN_PROBE_DEFAULT_NETWORK_ID ""
+#define MARLIN_PROBE_DEFAULT_NETWORK_ID "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4"
 #endif
 
 #ifndef MARLIN_PROBE_DEFAULT_MASK
@@ -38,29 +39,12 @@ using namespace marlin::asyncio;
 using namespace marlin::stream;
 
 
-struct MaskCosmosv1 {
-	static uint64_t mask(
-		WeakBuffer buf
-	) {
-		// msg type
-		auto type = buf.read_uint8_unsafe(1);
-
-		// block check
-		if(type == 0x90) {
-			return 0x0;
-		}
-
-		return 0xff;
-	}
-};
-
-
 class MulticastDelegate;
 
 using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
-	SigAttester,
-	LpfBloomWitnesser,
+	EmptyAttester,
+	BloomWitnesser,
 	CONCAT(Mask, MARLIN_PROBE_DEFAULT_MASK)
 >;
 
@@ -68,8 +52,8 @@ class MulticastDelegate {
 public:
 	DefaultMulticastClientType* multicastClient;
 
-	MulticastDelegate(DefaultMulticastClientOptions clop, uint8_t* key) {
-		multicastClient = new DefaultMulticastClientType (clop, key);
+	MulticastDelegate(DefaultMulticastClientOptions clop, uint8_t*) {
+		multicastClient = new DefaultMulticastClientType (clop);
 		multicastClient->delegate = this;
 	}
 

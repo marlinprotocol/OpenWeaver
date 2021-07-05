@@ -89,9 +89,9 @@ function(bridge_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAUL
 	)
 endfunction()
 
-bridge_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" 0x0)
-bridge_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" 0xff)
-bridge_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" 0xff)
+bridge_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" All)
+bridge_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" Cosmosv1)
+bridge_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" Cosmosv1)
 
 function(sc_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NETWORK_ID DEFAULT_MASK)
 	set(EXE_NAME ${EXE_PREFIX}_sc)
@@ -112,9 +112,9 @@ function(sc_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NE
 	)
 endfunction()
 
-sc_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" 0x0)
-sc_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" 0xff)
-sc_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" 0xff)
+sc_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" All)
+sc_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" Cosmosv1)
+sc_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" Cosmosv1)
 
 function(probe_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_NETWORK_ID DEFAULT_MASK)
 	set(EXE_NAME ${EXE_PREFIX}_probe)
@@ -133,9 +133,15 @@ function(probe_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_NETWORK_ID DEF
 	)
 endfunction()
 
-probe_exe(dot 20700 20702 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" 0x0)
-probe_exe(iris 21700 21702 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" 0xff)
-probe_exe(cosmos 22200 22202 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" 0xff)
+probe_exe(dot 20700 20702 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" All)
+probe_exe(iris 21700 21702 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" Cosmosv1)
+probe_exe(cosmos 22200 22202 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" Cosmosv1)
+
+add_executable(eth_probe
+	src/old_probe.cpp
+)
+target_link_libraries(eth_probe PUBLIC multicastsdk)
+target_link_libraries(eth_probe PUBLIC structopt::structopt)
 
 add_executable(msggen
 	examples/msggen.cpp

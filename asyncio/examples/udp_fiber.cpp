@@ -17,8 +17,7 @@ struct Terminal {
 	template<typename... Args>
 	Terminal(Args&&...) {}
 
-	template<typename FiberType>
-	int did_recv(FiberType&, Buffer&& buf, SocketAddress addr) {
+	int did_recv(auto&&, Buffer&& buf, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		return 0;
 	}
@@ -26,7 +25,7 @@ struct Terminal {
 	template<typename FiberType>
 	int did_dial(FiberType& fabric, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did dial: {}", addr.to_string());
-		fabric.send(Buffer({0,0,0,0,0}, 5), addr);
+		fabric.o(*this).send(0, Buffer({0,0,0,0,0}, 5), addr);
 		return 0;
 	}
 
@@ -50,8 +49,8 @@ int main() {
 		std::make_tuple(),
 		std::make_tuple()
 	));
-	server.bind(SocketAddress::from_string("127.0.0.1:8000"));
-	server.listen();
+	(void)server.i(server).bind(SocketAddress::from_string("127.0.0.1:8000"));
+	(void)server.i(server).listen();
 
 	Fabric<
 		Terminal,
@@ -64,8 +63,8 @@ int main() {
 		std::make_tuple(),
 		std::make_tuple()
 	));
-	client.bind(SocketAddress::from_string("127.0.0.1:9000"));
-	client.dial(SocketAddress::from_string("127.0.0.1:8000"));
+	(void)client.i(server).bind(SocketAddress::from_string("127.0.0.1:9000"));
+	(void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
 
 	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

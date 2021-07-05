@@ -160,7 +160,7 @@ void DISCOVERYSERVER::send_LISTPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(LISTPROTO(), addr);
+	fiber.o(*this).send(*this, LISTPROTO(), addr);
 }
 
 
@@ -198,7 +198,7 @@ void DISCOVERYSERVER::send_LISTPEER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.send(LISTPEER(150).set_peers(t_begin, t_end), addr);
+		fiber.o(*this).send(*this, LISTPEER(150).set_peers(t_begin, t_end), addr);
 	}
 }
 
@@ -354,7 +354,7 @@ void DISCOVERYSERVER::heartbeat_timer_cb() {
 			auto reg = m.payload_buffer();
 			reg.data()[0] = 7;
 
-			fiber.send(std::move(m), *raddr);
+			fiber.o(*this).send(*this, std::move(m), *raddr);
 		} else {
 			BaseMessageType m(74);
 			auto reg = m.payload_buffer();
@@ -394,7 +394,7 @@ void DISCOVERYSERVER::heartbeat_timer_cb() {
 
 			reg.data()[73] = (uint8_t)recid;
 
-			fiber.send(std::move(m), *raddr);
+			fiber.o(*this).send(*this, std::move(m), *raddr);
 		}
 	}
 }
@@ -426,7 +426,7 @@ void DISCOVERYSERVER::send_LISTCLUSTER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.send(LISTCLUSTER(150).set_clusters(t_begin, t_end), addr);
+		fiber.o(*this).send(*this, LISTCLUSTER(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
@@ -457,7 +457,7 @@ void DISCOVERYSERVER::send_LISTCLUSTER2(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.send(LISTCLUSTER2(150).set_clusters(t_begin, t_end), addr);
+		fiber.o(*this).send(*this, LISTCLUSTER2(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
@@ -608,11 +608,11 @@ DISCOVERYSERVER::DiscoveryServer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), heartbeat_timer(this) {
-	fiber.bind(baddr);
-	fiber.listen();
+	(void)fiber.i(*this).bind(baddr);
+	(void)fiber.i(*this).listen();
 
-	h_fiber.bind(haddr);
-	h_fiber.listen();
+	(void)h_fiber.i(*this).bind(haddr);
+	(void)h_fiber.i(*this).listen();
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 
@@ -657,7 +657,7 @@ DISCOVERYSERVER::DiscoveryServer(
 	}
 
 	if(raddr.has_value()) {
-		fiber.dial(*raddr);
+		(void)fiber.i(*this).dial(*raddr);
 	}
 }
 
