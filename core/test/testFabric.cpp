@@ -137,10 +137,10 @@ struct FiberOuterClose {
 
 
 	template <typename... Args>
-	int dial(SocketAddress, Args&& ... args) {
+	int dial(SocketAddress, Args&& ...) {
 		(*indices).push_back("foc_d_" + std::to_string(idx));
-		return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
-		// return 0;
+		// return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
+		return 0;
 	}
 
 	int bind(SocketAddress) {
@@ -385,34 +385,3 @@ TEST(FabricTest, listenFunction) {
 	f.listen();
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_l_1"}));
 }
-
-// TEST(FabricTest, didDialFunction) {
-// 	std::vector <std::string> *indices = new std::vector <std::string> ();
-// 	Fabric<
-// 		Terminal,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber,
-// 		FabricF<Fiber, Fiber>::type,
-// 		Fiber
-// 	> f(std::make_tuple(
-// 		// Terminal
-// 		std::make_tuple(std::make_tuple(-1, indices)),
-// 		// Other fibers
-// 		std::make_tuple(std::make_tuple(1, indices)),
-// 		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
-// 						std::make_tuple(std::make_tuple(2, indices))),
-// 		std::make_tuple(std::make_tuple(2, indices)),
-// 		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
-// 						std::make_tuple(std::make_tuple(2, indices))),
-// 		std::make_tuple(std::make_tuple(3, indices)),
-// 		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
-// 						std::make_tuple(std::make_tuple(2, indices))),
-// 		std::make_tuple(std::make_tuple(4, indices))
-// 	));
-// 	f.did_dial(Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
-// 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_4", "f_dr_2", "f_dr_1", "f_dr_3", "f_dr_2", "f_dr_1", "f_dr_2", "f_dr_2", "f_dr_1", "t_dr"}));
-
-// }
