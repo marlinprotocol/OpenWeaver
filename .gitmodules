@@ -35,3 +35,6 @@
 [submodule "vendor/abseil-cpp"]
 	path = vendor/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp
+[submodule "vendor/libwebsockets"]
+	path = vendor/libwebsockets
+	url = https://github.com/warmcat/libwebsockets
