@@ -34,12 +34,6 @@ struct Terminal {
 		return 0;
 	}
 
-	// int did_dial(Buffer&& ...) {
-	// 	(*indices).push_back("t_dd");
-	// 	return 0;
-	// }
-
-
 	template<typename FiberType>
 	int send(FiberType&, Buffer&&, SocketAddress) {
 		(*indices).push_back("t_s");
@@ -74,7 +68,6 @@ struct Fiber {
 
 	int did_recv(auto&&, Buffer&& buf) {
 		(*indices).push_back("f_dr_" + std::to_string(idx));
-		// SPDLOG_INFO("Did recv: {}", idx);
 		return ext_fabric.i(*this).did_recv(*this, std::move(buf));
 	}
 
@@ -82,24 +75,6 @@ struct Fiber {
 		(*indices).push_back("f_s_" + std::to_string(idx));
 		return ext_fabric.o(*this).send(*this, std::move(buf), addr);
 	}
-
-	// int dial(SocketAddress, auto&& ...) {
-	// 	return 0;
-	// }
-
-	// template <typename... Args>
-	// int did_dial(Args&&... args) {
-	// 	(*indices).push_back("f_dd_" + std::to_string(idx));
-	// 	return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
-	// }
-
-	// int bind(SocketAddress) {
-	// 	return 0;
-	// }
-
-	// int listen() {
-	// 	return 0;
-	// }
 
 };
 
@@ -128,17 +103,9 @@ struct FiberOuterClose {
 		idx(std::get<1>(init_tuple)) {}
 
 
-	// template <typename... Args>
-	// int did_dial(auto&&, Args&&... args) {
-	// 	(*indices).push_back("f_dd_" + std::to_string(idx));
-	// 	return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
-	// }
-
-
 	template <typename... Args>
 	int dial(auto&&, SocketAddress, Args&& ...) {
 		(*indices).push_back("foc_d_" + std::to_string(idx));
-		// return ext_fabric.did_dial(*this, std::forward<Args>(args)...);
 		return 0;
 	}
 
