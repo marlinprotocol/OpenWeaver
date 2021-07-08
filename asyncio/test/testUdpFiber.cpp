@@ -24,19 +24,9 @@ struct Terminal {
 	Terminal(std::tuple <bool*> &&init_tuple) :
 		received(std::get<0>(init_tuple)) {}
 
-	Terminal(std::tuple <std::tuple<bool*, uv_udp_t**>> &&init_tuple) :
-		received(std::get<0>(std::get<0> (init_tuple))),
-		loop(*std::get<1>(std::get<0>(init_tuple))) {}
-
-
-	static void close_cb(uv_handle_t*) {
-		// delete handle;
-	}
-
 	int did_recv(auto&&, Buffer&& buf, SocketAddress addr) {
 		SPDLOG_INFO("Terminal: Did recv: {} bytes from {}", buf.size(), addr.to_string());
 		*received = true;
-		// uv_close((uv_handle_t*)loop, close_cb);
 		return 0;
 	}
 
@@ -74,15 +64,12 @@ TEST(UdpFiber, FiberProperty) {
 	EXPECT_EQ(*received, true);
 }
 
-void close_cb(uv_handle_t*) {
-
+void close_cb(uv_handle_t* handle) {
+	delete handle;
 }
 
 TEST(UdpFiber, CanDialListen) {
 	// std::vector <std::string> *indices = new std::vector <std::string>();
-
-	auto *loop = new uv_udp_t();
-	uv_udp_init(uv_default_loop(), loop);
 
 	bool *received = (bool*)malloc(sizeof *received);
 	*received = false;
@@ -93,7 +80,7 @@ TEST(UdpFiber, CanDialListen) {
 		VersioningFiber
 	> server(std::make_tuple(
 		// terminal
-		std::make_tuple(std::make_tuple(received, &loop)),
+		std::make_tuple(received),
 		// udp fiber
 		std::make_tuple(),
 		std::make_tuple()
@@ -107,7 +94,7 @@ TEST(UdpFiber, CanDialListen) {
 		VersioningFiber
 	> client(std::make_tuple(
 		// terminal
-		std::make_tuple(std::make_tuple(received, &loop)),
+		std::make_tuple(received),
 		// udp fiber
 		std::make_tuple(),
 		std::make_tuple()
@@ -115,7 +102,6 @@ TEST(UdpFiber, CanDialListen) {
 	(void)client.i(server).bind(SocketAddress::from_string("127.0.0.1:9000"));
 	(void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
 	uv_run(uv_default_loop(), UV_RUN_NOWAIT);
-	// uv_close((uv_handle_t*)uv_default_loop(), close_cb);
-	// free(loop);
+
 	EXPECT_TRUE(*received);
 }
