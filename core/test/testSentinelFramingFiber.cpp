@@ -193,3 +193,85 @@ TEST(SentinelFramingFiber, MultipleBufferOneSentinel2) {
 	EXPECT_EQ(sentinel_calls, 1);
 }
 
+TEST(SentinelFramingFiber, MultipleBufferMultipleSentinels) {
+	Source s;
+	Terminal t;
+
+	Buffer msg1(11);
+	msg1.write_unsafe(0, (uint8_t const*)"hello\nworld", 11);
+	Buffer msg2(6);
+	msg2.write_unsafe(0, (uint8_t const*)"\nlorem", 6);
+	Buffer msg3(6);
+	msg3.write_unsafe(0, (uint8_t const*)"ipsum\n", 6);
+	Buffer msg4(1);
+	msg4.write_unsafe(0, (uint8_t const*)"\n", 1);
+
+	SentinelFramingFiber<Terminal&, '\n'> f(std::forward_as_tuple(t));
+
+	size_t bytes_calls = 0;
+	size_t sentinel_calls = 0;
+	t.did_recv_impl = [&](Buffer&& buf, SocketAddress addr) {
+		EXPECT_LT(bytes_calls, 6);
+		if(bytes_calls == 0) {
+			EXPECT_EQ(sentinel_calls, 0);
+			EXPECT_EQ(buf.size(), 6);
+			EXPECT_EQ(std::memcmp(buf.data(), "hello\n", 6), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(bytes_calls == 1) {
+			EXPECT_EQ(sentinel_calls, 1);
+			EXPECT_EQ(buf.size(), 5);
+			EXPECT_EQ(std::memcmp(buf.data(), "world", 5), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(bytes_calls == 2) {
+			EXPECT_EQ(sentinel_calls, 1);
+			EXPECT_EQ(buf.size(), 1);
+			EXPECT_EQ(std::memcmp(buf.data(), "\n", 1), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(bytes_calls == 3) {
+			EXPECT_EQ(sentinel_calls, 2);
+			EXPECT_EQ(buf.size(), 5);
+			EXPECT_EQ(std::memcmp(buf.data(), "lorem", 5), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(bytes_calls == 4) {
+			EXPECT_EQ(sentinel_calls, 2);
+			EXPECT_EQ(buf.size(), 6);
+			EXPECT_EQ(std::memcmp(buf.data(), "ipsum\n", 6), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(bytes_calls == 5) {
+			EXPECT_EQ(sentinel_calls, 3);
+			EXPECT_EQ(buf.size(), 1);
+			EXPECT_EQ(std::memcmp(buf.data(), "\n", 1), 0);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		}
+		bytes_calls++;
+
+		return 0;
+	};
+	t.did_recv_sentinel_impl = [&](SocketAddress addr) {
+		if(sentinel_calls == 0) {
+			EXPECT_EQ(bytes_calls, 1);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(sentinel_calls == 1) {
+			EXPECT_EQ(bytes_calls, 3);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(sentinel_calls == 2) {
+			EXPECT_EQ(bytes_calls, 5);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		} else if(sentinel_calls == 3) {
+			EXPECT_EQ(bytes_calls, 6);
+			EXPECT_EQ(addr.to_string(), "192.168.0.1:8000");
+		}
+		sentinel_calls++;
+
+		return 0;
+	};
+
+	f.did_recv(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.did_recv(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.did_recv(s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.did_recv(s, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
+
+	EXPECT_EQ(bytes_calls, 6);
+	EXPECT_EQ(sentinel_calls, 4);
+}
+
