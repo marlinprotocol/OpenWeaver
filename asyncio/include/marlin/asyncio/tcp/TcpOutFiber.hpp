@@ -177,9 +177,10 @@ public:
 
 	void close() {
 		uv_close((uv_handle_t*)tcp_handle, [](uv_handle_t* handle) {
+			auto& fiber = *(SelfType*)handle->data;
+			fiber.did_close(fiber);
 			delete handle;
 		});
-		// delegate->did_close(*this);
 	}
 };
 
