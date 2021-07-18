@@ -41,6 +41,10 @@ public:
 	int did_send(auto&&, InnerMessageType&& buf) {
 		return ext_fabric.i(*(Fiber*)this).did_send(ext_fabric.is(*(Fiber*)this), std::move(buf));
 	}
+
+	int did_close(auto&&) {
+		return ext_fabric.i(*(Fiber*)this).did_close(ext_fabric.is(*(Fiber*)this));
+	}
 };
 
 }  // namespace core
