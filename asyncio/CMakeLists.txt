@@ -91,6 +91,7 @@ endforeach(TEST_SOURCE)
 ##########################################################
 
 set(EXAMPLE_SOURCES
+	examples/graph.cpp
 	examples/udp.cpp
 	examples/udp_fiber.cpp
 	examples/tcp.cpp
