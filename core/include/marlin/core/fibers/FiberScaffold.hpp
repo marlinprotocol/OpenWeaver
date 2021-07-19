@@ -42,6 +42,10 @@ public:
 		return ext_fabric.i(*(Fiber*)this).did_send(ext_fabric.is(*(Fiber*)this), std::move(buf));
 	}
 
+	void close() {
+		return ext_fabric.o(*(Fiber*)this).close();
+	}
+
 	int did_close(auto&&) {
 		return ext_fabric.i(*(Fiber*)this).did_close(ext_fabric.is(*(Fiber*)this));
 	}
