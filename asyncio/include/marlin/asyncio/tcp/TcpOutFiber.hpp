@@ -92,7 +92,7 @@ public:
 		auto& fiber = *(SelfType*)req->data;
 		delete req;
 
-		SPDLOG_INFO("TcpOutFiber: Status: {}", status);
+		SPDLOG_DEBUG("TcpOutFiber: Status: {}", status);
 		if(status < 0) {
 			fiber.close();
 			return;

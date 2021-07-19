@@ -51,7 +51,7 @@ public:
 
 	template<size_t idx>
 	auto& transform(auto&&... args) {
-		SPDLOG_INFO("Transform: {}", idx);
+		SPDLOG_DEBUG("Transform: {}", idx);
 		return fibers.template emplace<idx>(std::forward_as_tuple(*this, args...));
 	}
 

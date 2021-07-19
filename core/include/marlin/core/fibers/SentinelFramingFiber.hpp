@@ -4,6 +4,8 @@
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace marlin {
 namespace core {
 
@@ -29,6 +31,7 @@ public:
 	using FiberScaffoldType::FiberScaffoldType;
 
 	int did_recv(auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
+		SPDLOG_DEBUG("SFF: did_recv: {} bytes", bytes.size());
 		// get idx of sentinel if present
 		size_t sentinel_idx = std::find(
 			bytes.data(),

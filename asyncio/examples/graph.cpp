@@ -38,7 +38,7 @@ struct Grapher {
 	SocketAddress dst;
 
 	void query_cb() {
-		SPDLOG_INFO("Timer hit: {}", dst.to_string());
+		SPDLOG_DEBUG("Timer hit: {}", dst.to_string());
 		auto& fiber = *new FiberType(std::forward_as_tuple(
 			*this,
 			std::make_tuple(),
@@ -58,8 +58,8 @@ struct Grapher {
 	size_t state = 0;
 	size_t length = 0;
 
-	int did_recv(auto&& fiber, Buffer&& buf, SocketAddress addr) {
-		SPDLOG_INFO("Grapher: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
+	int did_recv(auto&& fiber, Buffer&& buf, SocketAddress addr [[maybe_unused]]) {
+		SPDLOG_DEBUG("Grapher: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
 
 		if(state == 0) {
 			// headers
@@ -84,6 +84,7 @@ struct Grapher {
 			fiber.o(*this).reset(1000);
 		} else {
 			// body
+			SPDLOG_INFO("{}", std::string((char*)buf.data(), buf.size()));
 			fiber.o(*this).close();
 		}
 
@@ -91,8 +92,8 @@ struct Grapher {
 	}
 
 	template<typename FiberType>
-	int did_dial(FiberType& fiber, SocketAddress addr) {
-		SPDLOG_INFO("Grapher: Did dial: {}", addr.to_string());
+	int did_dial(FiberType& fiber, SocketAddress addr [[maybe_unused]]) {
+		SPDLOG_DEBUG("Grapher: Did dial: {}", addr.to_string());
 		fiber.o(*this).reset(1000);
 		auto query = Buffer(283).write_unsafe(
 			0,
@@ -104,13 +105,13 @@ struct Grapher {
 	}
 
 	template<typename FiberType>
-	int did_send(FiberType&, Buffer&& buf) {
-		SPDLOG_INFO("Grapher: Did send: {} bytes", buf.size());
+	int did_send(FiberType&, Buffer&& buf [[maybe_unused]]) {
+		SPDLOG_DEBUG("Grapher: Did send: {} bytes", buf.size());
 		return 0;
 	}
 
 	int did_close(auto& fiber) {
-		SPDLOG_INFO("Did close");
+		SPDLOG_DEBUG("Did close");
 		delete &fiber;
 		return 0;
 	}
