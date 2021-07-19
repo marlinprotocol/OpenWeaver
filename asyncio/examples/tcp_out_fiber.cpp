@@ -69,6 +69,10 @@ struct Terminal {
 		SPDLOG_INFO("Terminal: Did send: {} bytes", buf.size());
 		return 0;
 	}
+
+	int did_close(auto&&) {
+		return 0;
+	}
 };
 
 
