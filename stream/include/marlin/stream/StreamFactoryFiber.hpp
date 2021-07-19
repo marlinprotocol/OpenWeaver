@@ -21,25 +21,28 @@ class StreamFactoryFiber : public FiberScaffold<
 	Buffer
 >  {
 public:
-	static constexpr bool is_inner_open = true;
-	static constexpr bool is_outer_open = true;
-
 	using SelfType = StreamFactoryFiber<ExtFabric>;
+	using FiberScaffoldType = FiberScaffold<
+		SelfType,
+		ExtFabric,
+		Buffer,
+		Buffer
+	>;
 
-	using InnerMessageType = Buffer;
-	using OuterMessageType = Buffer;
+	using typename FiberScaffoldType::InnerMessageType;
+	using typename FiberScaffoldType::OuterMessageType;
 
-	[[no_unique_address]] ExtFabric ext_fabric;
+	using FiberScaffoldType::FiberScaffoldType;
 
-	// template<typename... Args>
-	// StreamFactoryFiber(Args&&...) {}
 
 	int did_recv(
 		auto &&,	// id of the Stream
-		Buffer&&,
+		InnerMessageType&&,
 		SocketAddress
 	) {
 		// Process
+		SPDLOG_INFO("Received something in stream factory fiber.");
+		return 0;
 	}
 };
 
