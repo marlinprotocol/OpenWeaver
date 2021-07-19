@@ -140,6 +140,17 @@ target_compile_definitions(${TEST_NAME} PRIVATE MARLIN_ASYNCIO_SIMULATOR)
 target_compile_options(stream_simulated_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
 target_compile_features(stream_simulated_example PRIVATE cxx_std_17)
 
+add_executable(stream_fiber_example
+	examples/stream_fiber.cpp
+)
+add_dependencies(stream_examples stream_fiber_example)
+
+target_link_libraries(stream_fiber_example PUBLIC stream marlin::simulator)
+target_compile_definitions(${TEST_NAME} PRIVATE MARLIN_ASYNCIO_SIMULATOR)
+target_compile_options(stream_fiber_example PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+target_compile_features(stream_fiber_example PRIVATE cxx_std_17)
+
+
 
 ##########################################################
 # All

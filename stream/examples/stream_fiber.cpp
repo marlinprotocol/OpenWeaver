@@ -1,0 +1,52 @@
+#include <marlin/stream/StreamFactoryFiber.hpp>
+#include <marlin/core/fabric/Fabric.hpp>
+#include <marlin/asyncio/udp/UdpFiber.hpp>
+#include <spdlog/spdlog.h>
+#include <marlin/core/fibers/VersioningFiber.hpp>
+
+using namespace marlin::core;
+using namespace marlin::asyncio;
+using namespace marlin::stream;
+
+struct Terminal {
+	static constexpr bool is_outer_open = false;
+	static constexpr bool is_inner_open = false;
+
+	using InnerMessageType = Buffer;
+	using OuterMessageType = Buffer;
+
+	template<typename... Args>
+	Terminal(Args&&...) {}
+
+};
+
+int main() {
+	Fabric <
+		Terminal,
+		UdpFiber,
+		StreamFactoryFiber
+	> server(std::make_tuple(
+		// terminal
+		std::make_tuple(),
+		// udp fiber
+		std::make_tuple(),
+		std::make_tuple()
+	));
+	(void)server.i(server).bind(SocketAddress::from_string("127.0.0.1:8000"));
+	(void)server.i(server).listen();
+
+	Fabric<
+		Terminal,
+		UdpFiber,
+		VersioningFiber
+	> client(std::make_tuple(
+		// terminal
+		std::make_tuple(),
+		// udp fiber
+		std::make_tuple(),
+		std::make_tuple()
+	));
+	(void)client.i(server).bind(SocketAddress::from_string("127.0.0.1:9000"));
+	(void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
+
+}
