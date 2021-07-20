@@ -111,7 +111,7 @@ public:
 		auto& addr = *reinterpret_cast<core::SocketAddress const*>(_addr);
 		auto& fiber = *(SelfType*)(handle->data);
 
-		SPDLOG_INFO("dsfdsf");
+		SPDLOG_INFO("Udp recv messages from {}", addr.to_string());
 		fiber.did_recv(
 			fiber,
 			core::Buffer((uint8_t*)buf->base, nread),

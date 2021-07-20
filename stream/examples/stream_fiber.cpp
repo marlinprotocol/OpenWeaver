@@ -3,6 +3,7 @@
 #include <marlin/asyncio/udp/UdpFiber.hpp>
 #include <spdlog/spdlog.h>
 #include <marlin/core/fibers/VersioningFiber.hpp>
+#include <marlin/core/SocketAddress.hpp>
 
 using namespace marlin::core;
 using namespace marlin::asyncio;
@@ -65,8 +66,10 @@ int main() {
 		std::make_tuple()
 	));
 	(void)client.i(server).bind(SocketAddress::from_string("127.0.0.1:9000"));
-	(void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
+	// (void)client.i(server).dial(SocketAddress::from_string("127.0.0.1:8000"));
 
+	SPDLOG_INFO("test if new stream fiber is built");
+	(void)server.i(server).did_recv(0, Buffer({0,0,0,0,0}, 5), SocketAddress::from_string(std::string("192.168.100.100:2000")));
 	return uv_run(uv_default_loop(), UV_RUN_ONCE);
 
 }
