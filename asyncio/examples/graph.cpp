@@ -28,12 +28,6 @@ struct Grapher {
 		>::type
 	>;
 
-	static constexpr bool is_outer_open = false;
-	static constexpr bool is_inner_open = false;
-
-	using InnerMessageType = Buffer;
-	using OuterMessageType = Buffer;
-
 	Timer t;
 	SocketAddress dst;
 
