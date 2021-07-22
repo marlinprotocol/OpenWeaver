@@ -1,4 +1,4 @@
-#include <marlin/stream/StreamFactoryFiber.hpp>
+#include <marlin/stream/SwitchFiber.hpp>
 #include <marlin/core/fabric/Fabric.hpp>
 #include <marlin/asyncio/udp/UdpFiber.hpp>
 #include <spdlog/spdlog.h>
@@ -43,7 +43,7 @@ int main() {
 	Fabric <
 		Terminal,
 		UdpFiber,
-		StreamFactoryFiber
+		SwitchFiber
 	> server(std::make_tuple(
 		// terminal
 		std::make_tuple(),

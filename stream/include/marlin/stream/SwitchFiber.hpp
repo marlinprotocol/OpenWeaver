@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <marlin/core/fibers/FiberScaffold.hpp>
 #include <absl/container/flat_hash_map.h>
+#include "StreamFiber.hpp"
 
 using namespace marlin::core;
 
@@ -13,33 +14,36 @@ namespace marlin {
 namespace stream {
 
 template <typename ExtFabric>
-class StreamFactoryFiber : public FiberScaffold<
-	StreamFactoryFiber<ExtFabric>,
+class SwitchFiber : public FiberScaffold<
+	SwitchFiber<ExtFabric>,
 	ExtFabric,
 	Buffer,
 	Buffer
 >  {
+
+	using SelfType = SwitchFiber<ExtFabric>;
+	using BaseTransport = StreamFiber<SelfType>;
+
 	absl::flat_hash_map<
 		SocketAddress,
-		uint16_t
+		BaseTransport*
 	> transport_map;
 
 	/// Get transport with a given destination address,
 	/// creating one if not found
 	template<class... Args>
-	uint16_t get_or_create(
+	BaseTransport *get_or_create(
 		SocketAddress const &addr
 		// Args&&... args
 	) {
 		auto res = transport_map.try_emplace(
 			addr,
-			addr.get_port()
+			new BaseTransport(addr)
 		);
 		return res.first->second;
 	}
 
 public:
-	using SelfType = StreamFactoryFiber<ExtFabric>;
 	using FiberScaffoldType = FiberScaffold<
 		SelfType,
 		ExtFabric,
@@ -55,12 +59,14 @@ public:
 
 	int did_recv(
 		auto &&,	// id of the Stream
-		InnerMessageType&&,
+		InnerMessageType&& buf,
 		SocketAddress &sock
 	) {
 		// Process
-		uint16_t num = get_or_create(sock);
-		SPDLOG_INFO("Received something in stream factory fiber. num={}, sock_addr={}, port={}", num, sock.to_string(), sock.get_port());
+		auto *dummy = get_or_create(sock);
+		SPDLOG_INFO("Received something in stream factory fiber. sock_addr={}, port={}", sock.to_string(), sock.get_port());
+
+		dummy->did_recv(std::move(buf));
 		return 0;
 	}
 };
