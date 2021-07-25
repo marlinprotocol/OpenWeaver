@@ -98,6 +98,7 @@ set(TEST_SOURCES
 	test/testLengthBufferFiber.cpp
 	test/testSentinelFramingFiber.cpp
 	test/testSentinelBufferFiber.cpp
+	test/testFabric.cpp
 )
 
 add_custom_target(core_tests)
