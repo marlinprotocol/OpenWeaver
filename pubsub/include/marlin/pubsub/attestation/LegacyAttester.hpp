@@ -3,12 +3,16 @@
 
 #include <stdint.h>
 #include <marlin/core/WeakBuffer.hpp>
+#include <marlin/core/Buffer.hpp>
 #include <ctime>
 #include <optional>
 
 #include <secp256k1_recovery.h>
 #include <cryptopp/keccak.h>
 #include <cryptopp/osrng.h>
+
+
+#include <spdlog/spdlog.h>
 
 
 namespace marlin {
