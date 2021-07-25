@@ -3,6 +3,7 @@
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
 #include <marlin/cosmos/Abci.hpp>
+#include <marlin/eth/Abci.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
 
 #include <structopt/app.hpp>
@@ -35,6 +36,10 @@
 #define MARLIN_SC_DEFAULT_MASK All
 #endif
 
+#ifndef MARLIN_SC_DEFAULT_CHAIN
+#define MARLIN_SC_DEFAULT_CHAIN nil
+#endif
+
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
@@ -46,7 +51,6 @@
 using namespace marlin::multicast;
 using namespace marlin::pubsub;
 using namespace marlin::core;
-using namespace marlin::cosmos;
 
 
 struct MaskCosmosv1 {
@@ -78,11 +82,11 @@ using DefaultMulticastClientType = DefaultMulticastClient<
 class MulticastDelegate {
 public:
 	DefaultMulticastClientType multicastClient;
-	using AbciType = Abci<MulticastDelegate, uint64_t>;
+	using AbciType = marlin::MARLIN_SC_DEFAULT_CHAIN::Abci<MulticastDelegate, uint64_t>;
 	AbciType abci;
 
 	MulticastDelegate(DefaultMulticastClientOptions clop, std::string abci_addr, uint8_t* key) :
-		abci(SocketAddress::from_string(abci_addr)),
+		abci(abci_addr),
 		multicastClient(clop, key) {
 		multicastClient.delegate = this;
 
@@ -186,9 +190,6 @@ int main(int argc, char** argv) {
 		auto pubsub_addr = SocketAddress::from_string(
 			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_SC_DEFAULT_PUBSUB_PORT))
 		);
-		auto listen_addr = SocketAddress::from_string(
-			options.listen_addr.value_or("127.0.0.1:" STR(MARLIN_SC_DEFAULT_LISTEN_PORT))
-		);
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
@@ -207,7 +208,7 @@ int main(int argc, char** argv) {
 			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			listen_addr.to_string(),
+			options.listen_addr.value_or("nil"),
 			beacon_addr.to_string()
 		);
 
@@ -272,7 +273,7 @@ int main(int argc, char** argv) {
 			STR(MARLIN_SC_DEFAULT_NETWORK_ID)
 		};
 
-		MulticastDelegate del(clop, listen_addr.to_string(), (uint8_t*)key.data());
+		MulticastDelegate del(clop, options.listen_addr.value_or("127.0.0.1:8002"), (uint8_t*)key.data());
 
 		return DefaultMulticastClientType::run_event_loop();
 	} catch (structopt::exception& e) {

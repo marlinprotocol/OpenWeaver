@@ -34,12 +34,20 @@ public:
 		return ext_fabric.i(*(Fiber*)this).did_dial(ext_fabric.is(*(Fiber*)this), addr, std::forward<decltype(args)>(args)...);
 	}
 
-	int send(auto&&, InnerMessageType&& buf, SocketAddress addr) {
-		return ext_fabric.o(*(Fiber*)this).send(ext_fabric.os(*(Fiber*)this), std::move(buf), addr);
+	int send(auto&&, InnerMessageType&& buf, auto&&... args) {
+		return ext_fabric.o(*(Fiber*)this).send(ext_fabric.os(*(Fiber*)this), std::move(buf), std::forward<decltype(args)>(args)...);
 	}
 
 	int did_send(auto&&, InnerMessageType&& buf) {
 		return ext_fabric.i(*(Fiber*)this).did_send(ext_fabric.is(*(Fiber*)this), std::move(buf));
+	}
+
+	void close() {
+		return ext_fabric.o(*(Fiber*)this).close();
+	}
+
+	int did_close(auto&&) {
+		return ext_fabric.i(*(Fiber*)this).did_close(ext_fabric.is(*(Fiber*)this));
 	}
 };
 

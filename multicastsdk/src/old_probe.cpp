@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/pubsub/attestation/EmptyAttester.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/attestation/LegacyAttester.hpp>
+#include <marlin/pubsub/witness/LegacyWitnesser.hpp>
 
 #include <structopt/app.hpp>
 
@@ -43,8 +43,8 @@ class MulticastDelegate;
 
 using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
-	EmptyAttester,
-	BloomWitnesser,
+	LegacyAttester,
+	LegacyWitnesser,
 	CONCAT(Mask, MARLIN_PROBE_DEFAULT_MASK)
 >;
 
