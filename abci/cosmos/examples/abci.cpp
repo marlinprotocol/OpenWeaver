@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("abci").parse<Options>(argc, argv);
 
-		Abci<Delegate, uint64_t> abci(SocketAddress::from_string(options.dst));
+		Abci<Delegate, uint64_t> abci(options.dst);
 
 		return EventLoop::run();
 	} catch (structopt::exception& e) {

@@ -33,7 +33,6 @@ private:
 
 	uint64_t id = 0;
 	std::unordered_map<uint64_t, std::tuple<core::Buffer, MetadataTypes...>> block_store;
-	uint8_t key[32];
 
 	uint8_t counter = 0;
 	uint64_t resp_id = 0;
@@ -41,32 +40,9 @@ public:
 	DelegateType* delegate;
 	core::SocketAddress dst;
 
-	Abci(core::SocketAddress dst) : connect_timer(this), dst(dst) {
+	Abci(std::string dst) : connect_timer(this), dst(core::SocketAddress::from_string(dst)) {
 		tcp.delegate = this;
 		connect_timer_cb();
-
-		if(boost::filesystem::exists("./.marlin/keys/abci/cosmos")) {
-			// Load existing keypair
-			std::ifstream sk("./.marlin/keys/abci/cosmos", std::ios::binary);
-			if(!sk.read((char*)key, 32)) {
-				throw;
-			}
-		} else {
-			// Generate a valid key pair
-			auto* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-			do {
-				CryptoPP::OS_GenerateRandomBlock(false, key, 32);
-			} while(
-				secp256k1_ec_seckey_verify(ctx, key) != 1
-			);
-			secp256k1_context_destroy(ctx);
-
-			// Store for reuse
-			boost::filesystem::create_directories("./.marlin/keys/abci");
-			std::ofstream sk("./.marlin/keys/abci/cosmos", std::ios::binary);
-
-			sk.write((char*)key, 32);
-		}
 	}
 
 	// Delegate
@@ -78,8 +54,6 @@ public:
 	void close() {
 		tcp.close();
 	}
-
-	uint8_t* get_key() { return key; }
 
 	void get_block_number();
 	template<typename... MT>
