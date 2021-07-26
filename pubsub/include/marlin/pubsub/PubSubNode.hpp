@@ -236,8 +236,6 @@ struct StakeRequester {
 				}
 			}
 			}
-
-			fiber.o(*this).close();
 		}
 
 		return 0;
