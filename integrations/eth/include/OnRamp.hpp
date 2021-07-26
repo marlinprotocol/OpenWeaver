@@ -2,8 +2,8 @@
 #define MARLIN_ONRAMP_ETH_ONRAMP_HPP
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/pubsub/attestation/SigAttester.hpp>
-#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
+#include <marlin/pubsub/attestation/EmptyAttester.hpp>
+#include <marlin/pubsub/witness/BloomWitnesser.hpp>
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 #include <cryptopp/blake2.h>
 
@@ -17,7 +17,8 @@ using namespace marlin::multicast;
 
 class OnRamp {
 public:
-	DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> multicastClient;
+	using DefaultMulticastClientType = DefaultMulticastClient<OnRamp, EmptyAttester, BloomWitnesser>;
+	DefaultMulticastClientType multicastClient;
 	RlpxTransport<OnRamp> *rlpxt = nullptr;
 	RlpxTransportFactory<OnRamp, OnRamp> f;
 
@@ -25,7 +26,7 @@ public:
 		return {};
 	}
 
-	OnRamp(DefaultMulticastClientOptions clop, uint8_t* key) : multicastClient(clop, key), header(0) {
+	OnRamp(DefaultMulticastClientOptions clop, uint8_t*) : multicastClient(clop), header(0) {
 		multicastClient.delegate = this;
 		f.bind(SocketAddress::loopback_ipv4(12121));
 		f.listen(*this);
@@ -33,7 +34,7 @@ public:
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		Buffer &&message,
 		T,
 		uint16_t channel,
@@ -62,12 +63,12 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		uint16_t
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		uint16_t
 	) {}
 

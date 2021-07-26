@@ -89,10 +89,14 @@ struct Grapher {
 	int did_dial(FiberType& fiber, SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did dial: {}", addr.to_string());
 		fiber.o(*this).reset(1000);
-		auto query = Buffer(283).write_unsafe(
+		auto query = Buffer(296).write_unsafe(
 			0,
-			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking HTTP/1.0\r\nContent-Type: application/json\r\nContent-Length: 174\r\n\r\n{\"query\": \"query { clusters(where: {networkId: \\\"0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}",
-			283
+			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking HTTP/1.0\r\n"
+			"Content-Type: application/json\r\n"
+			"Content-Length: 187\r\n"
+			"\r\n"
+			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}",
+			296
 		);
 		fiber.o(*this).send(*this, std::move(query));
 		return 0;

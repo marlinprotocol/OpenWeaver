@@ -6,6 +6,12 @@
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
 #include <marlin/asyncio/core/Timer.hpp>
+#include <marlin/asyncio/tcp/TcpOutFiber.hpp>
+#include <marlin/core/fibers/DynamicFramingFiber.hpp>
+#include <marlin/core/fibers/SentinelFramingFiber.hpp>
+#include <marlin/core/fibers/SentinelBufferFiber.hpp>
+#include <marlin/core/fibers/LengthFramingFiber.hpp>
+#include <marlin/core/fibers/LengthBufferFiber.hpp>
 #include <marlin/asyncio/udp/UdpTransportFactory.hpp>
 #include <marlin/asyncio/tcp/TcpTransportFactory.hpp>
 #include <marlin/stream/StreamTransportFactory.hpp>
@@ -22,7 +28,6 @@
 #include <unordered_set>
 #include <tuple>
 
-#include <libwebsockets.h>
 #include <secp256k1_recovery.h>
 #include <cryptopp/keccak.h>
 #include <spdlog/fmt/fmt.h>
@@ -65,166 +70,108 @@ namespace pubsub {
 
 int status;
 
+template<typename X>
+using SentinelFramingFiberHelper = core::SentinelFramingFiber<X, '\n'>;
+
 template<typename DelegateType>
 struct StakeRequester {
-	lws_context_creation_info info;
-	lws_protocols protocols[2] = {
-		{ "http", http_handler, 0, 0, 0, 0, 0 },
-		{ nullptr, nullptr, 0, 0, 0, 0, 0 }
-	};
-	void* loop = uv_default_loop();
+	using FiberType = core::Fabric<
+		StakeRequester&,
+		asyncio::TcpOutFiber,
+		core::DynamicFramingFiberHelper<
+			core::FabricF<SentinelFramingFiberHelper, core::SentinelBufferFiber>::type,
+			core::FabricF<core::LengthFramingFiber, core::LengthBufferFiber>::type
+		>::type
+	>;
+
 	DelegateType* delegate = nullptr;
 
 	std::string staking_url;
 	std::string network_id;
 
-	StakeRequester(StakeRequester const&) = delete;
-	StakeRequester(StakeRequester&&) = delete;
+	asyncio::Timer t;
+	asyncio::Timer dns_timer;
+	core::SocketAddress dst;
 
-	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
-
-	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), refresh_timer(this) {
-		lws_set_log_level(1, NULL);
-
-		std::memset(&info, 0, sizeof(info));  // prevents some issues with garbage values
-		info.foreign_loops = &loop;
-		info.port = CONTEXT_PORT_NO_LISTEN;
-		info.options = LWS_SERVER_OPTION_LIBUV | LWS_SERVER_OPTION_UV_NO_SIGSEGV_SIGFPE_SPIN;
-		info.connect_timeout_secs = 5;
-		info.protocols = protocols;
-		info.user = this;
-
-		refresh_timer.template start<StakeRequester, &StakeRequester::refresh>(0, 30000);
-	}
-
-	std::unordered_map<std::array<uint8_t, 20>, uint64_t> stakes;
-	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> cumulative_weights;
-
-	uint64_t request(std::array<uint8_t, 20> client_key) {
-		auto iter = stakes.find(client_key);
-		if(iter == stakes.end()) {
-			return 0;
-		}
-		return iter->second;
-	}
-
-	std::vector<std::array<uint8_t, 20>> sample(uint64_t n = 1) {
-		std::vector<std::array<uint8_t, 20>> samples;
-		samples.reserve(n);
-
-		if(cumulative_weights.size() <= n) {
-			for(auto iter = cumulative_weights.begin(); iter != cumulative_weights.end(); iter++) {
-				samples.push_back(iter->second);
-			}
-			return samples;
-		}
-
-		std::random_device rd;
-		std::uniform_int_distribution<uint64_t> dist(0, cumulative_weights.back().first);
-
-		while(samples.size() != 5) {
-			auto rnd = dist(rd);
-			auto iter = std::lower_bound(
-				cumulative_weights.begin(),
-				cumulative_weights.end(),
-				rnd,
-				[](std::pair<uint64_t, std::array<uint8_t, 20>> p, uint64_t v) { return p.first < v; }
-			);
-
-			if(std::find(samples.begin(), samples.end(), iter->second) != samples.end()) {
-				continue;
-			} else {
-				samples.push_back(iter->second);
-			}
-		}
-
-		return samples;
-	}
-
-	asyncio::Timer refresh_timer;
-
-	void refresh() {
-		auto* context = lws_create_context(&info);
-		if(context == nullptr) {
-			SPDLOG_ERROR("Failed to init libws context");
+	void query_cb() {
+		SPDLOG_DEBUG("Timer hit: {}", dst.to_string());
+		if(dst == core::SocketAddress()) {
 			return;
 		}
-
-		lws_client_connect_info connect_info = lws_client_connect_info();
-		std::memset(&connect_info, 0, sizeof(connect_info));  // prevents some issues with garbage values
-		connect_info.context = context;
-		connect_info.address = "graph.marlin.pro";
-		connect_info.port = 80;
-		connect_info.ssl_connection = 0;
-		connect_info.method = "POST";
-		connect_info.protocol = "http";
-		connect_info.alpn = "http/1.1";
-		connect_info.path = staking_url.c_str();
-		connect_info.host = connect_info.address;
-		connect_info.origin = connect_info.address;
-
-		auto* conn = lws_client_connect_via_info(&connect_info);
-		(void)conn;
-
-		return;
+		auto& fiber = *new FiberType(std::forward_as_tuple(
+			*this,
+			std::make_tuple(),
+			std::make_tuple(std::make_tuple(
+				std::make_tuple(),
+				std::make_tuple()
+			))
+		));
+		(void)fiber.i(*this).dial(dst);
 	}
 
-	uint8_t resp[1000000];
-	uint64_t size = 0;
+	void dns_cb() {
+		SPDLOG_DEBUG("DNS timer hit: {}", dst.to_string());
+		uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
+		req->data = this;
+		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* req, int, addrinfo* res) {
+			auto& sr = *(StakeRequester<DelegateType>*)req->data;
+			if(res != nullptr) {
+				auto& addr = *reinterpret_cast<core::SocketAddress*>(res->ai_addr);
 
-	static int http_handler(lws* conn, lws_callback_reasons reason, void* user, void* in, size_t len) {
-		auto& req = *(StakeRequester<DelegateType>*)lws_context_user(lws_get_context(conn));
-		switch (reason) {
-		case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
-			SPDLOG_ERROR("lws conn error: {}", in ? (char*)in : "<unknown>");
+				SPDLOG_DEBUG("DNS result: {}", addr.to_string());
 
-			req.size = 0;
-
-			break;
-		case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP:
-			SPDLOG_DEBUG("lws conn established");
-			char buf[256];
-			lws_get_peer_simple(conn, buf, sizeof(buf));
-			status = lws_http_client_http_response(conn);
-
-			SPDLOG_DEBUG("lws conn: {}, http response: {}", buf, status);
-			break;
-		case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ:
-			SPDLOG_DEBUG("lws read");
-			SPDLOG_DEBUG("lws read: {} bytes: {}", len, std::string((char const*)in, (char const*)in+len));
-
-			if(req.size + len > 1000000) {
-				return -1;
+				sr.dst = addr;
 			}
-			SPDLOG_DEBUG("lws copy");
-			std::memcpy(req.resp+req.size, in, len);
-			req.size += len;
 
-			return 0; /* don't passthru */
-		case LWS_CALLBACK_RECEIVE_CLIENT_HTTP:
-			{
-				char buffer[1024 + LWS_PRE];
-				char *px = buffer + LWS_PRE;
-				int lenx = sizeof(buffer) - LWS_PRE;
+			uv_freeaddrinfo(res);
+			delete req;
+		}, "graph.marlin.pro", "http", nullptr);
+		if(res != 0) {
+			SPDLOG_ERROR("DNS lookup error: {}", res);
+		}
+	}
 
-				if (lws_http_client_read(conn, &px, &lenx) < 0)
+	size_t state = 0;
+	size_t length = 0;
+
+	int did_recv(auto&& fiber, core::Buffer&& buf, core::SocketAddress addr [[maybe_unused]]) {
+		SPDLOG_DEBUG("StakeRequester: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
+
+		if(state == 0) {
+			// headers
+			if(buf.size() == 2) {
+				// empty
+				if(length == 0) {
+					// still do not have length
+					fiber.o(*this).close();
 					return -1;
-			}
-			return 0; /* don't passthru */
+				}
 
-		case LWS_CALLBACK_COMPLETED_CLIENT_HTTP:
-			SPDLOG_DEBUG("lws conn completed: {}", status);
+				// go to next phase
+				state = 1;
+				fiber.o(*this).template transform<1>(std::make_tuple(), std::make_tuple());
+				fiber.o(*this).reset(length);
+				return 0;
+			} else if(std::memcmp(buf.data(), u8"content-length: ", 16) == 0) {
+				// parse length
+				auto length_str = std::string((char*)buf.data()+16, buf.size() - 18);
+				length = std::stol(length_str);
+			}
+			fiber.o(*this).reset(1000);
+		} else {
+			// body
+			SPDLOG_DEBUG("{}", std::string((char*)buf.data(), buf.size()));
 			{
 			rapidjson::Document d;
-			d.Parse((char*)req.resp, req.size);
+			d.Parse((char*)buf.data(), buf.size());
 
 			if(!d.HasParseError()) {
 				SPDLOG_DEBUG("Parsed");
 				// TODO: Better validation
 
 				// Reset stake data
-				req.stakes.clear();
-				req.cumulative_weights.clear();
+				stakes.clear();
+				cumulative_weights.clear();
 
 				// Iterate through clusters
 				auto& clusters = d["data"]["clusters"];
@@ -276,71 +223,110 @@ struct StakeRequester {
 						}
 
 						SPDLOG_DEBUG("Client key: 0x{:spn}, Stake: {}", spdlog::to_hex(addr.data(), addr.data()+addr.size()), total_amount);
-						req.stakes[addr] = total_amount;
+						stakes[addr] = total_amount;
 					}
 				}
 
 				uint64_t total = 0;
-				req.cumulative_weights.reserve(req.stakes.size());
-				for(auto iter = req.stakes.begin(); iter != req.stakes.end(); iter++) {
+				cumulative_weights.reserve(stakes.size());
+				for(auto iter = stakes.begin(); iter != stakes.end(); iter++) {
 					total += (uint64_t)std::sqrt(iter->second);
-					req.cumulative_weights.push_back(std::make_pair(total, iter->first));
+					cumulative_weights.push_back(std::make_pair(total, iter->first));
 					SPDLOG_DEBUG("Cumulative: {}", total);
 				}
 			}
 			}
-
-			req.size = 0;
-
-			lws_cancel_service(lws_get_context(conn)); /* abort poll wait */
-			break;
-
-		case LWS_CALLBACK_CLOSED_CLIENT_HTTP:
-			SPDLOG_DEBUG("lws conn closed: {}", status);
-
-			req.size = 0;
-
-			lws_cancel_service(lws_get_context(conn)); /* abort poll wait */
-			break;
-
-		case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER:
-			SPDLOG_DEBUG("lws adding header: {}", status);
-			if (lws_http_is_redirected_to_get(conn)) {
-				break;
-			}
-			if (lws_add_http_header_by_name(conn, (uint8_t*)"Content-Type:", (uint8_t*)"application/json", 16, (uint8_t**)in, (*(uint8_t**)in)+len)) {
-				return -1;
-			}
-			if (lws_add_http_header_by_name(conn, (uint8_t*)"Content-Length:", (uint8_t*)"174", 3, (uint8_t**)in, (*(uint8_t**)in)+len)) {
-				return -1;
-			}
-			lws_client_http_body_pending(conn, 1);
-			lws_callback_on_writable(conn);
-			break;
-
-		case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE:
-			SPDLOG_DEBUG("lws writing body: {}", status);
-			if (lws_http_is_redirected_to_get(conn)) {
-				break;
-			}
-
-			lws_client_http_body_pending(conn, 0);
-
-			{
-				// auto& requester = *(StakeRequester<DelegateType>*)user;
-				auto body = std::string("{\"query\": \"query { clusters(where: {networkId: \\\"" + req.network_id + "\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}");
-
-				if (lws_write(conn, (uint8_t*)body.c_str(), 174, LWS_WRITE_HTTP) != 174)
-					return -1;
-			}
-
-			return 0;
-		default:
-			break;
 		}
 
-		return lws_callback_http_dummy(conn, reason, user, in, len);
+		return 0;
 	}
+
+	template<typename FiberType>
+	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
+		using namespace std::string_literals;
+		SPDLOG_DEBUG("StakeRequester: Did dial: {}", addr.to_string());
+		fiber.o(*this).reset(1000);
+		auto query_str = "POST "s;
+		query_str += staking_url;
+		query_str += " HTTP/1.0\r\n"
+			"Content-Type: application/json\r\n"
+			"Content-Length: 187\r\n"
+			"\r\n"
+			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"";
+		query_str += network_id;
+		query_str += "\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}"s;
+		auto query = core::Buffer(query_str.size()).write_unsafe(
+			0,
+			(uint8_t*)query_str.c_str(),
+			query_str.size()
+		);
+		fiber.o(*this).send(*this, std::move(query));
+		return 0;
+	}
+
+	template<typename FiberType>
+	int did_send(FiberType&, core::Buffer&& buf [[maybe_unused]]) {
+		SPDLOG_DEBUG("StakeRequester: Did send: {} bytes", buf.size());
+		return 0;
+	}
+
+	int did_close(auto& fiber) {
+		SPDLOG_DEBUG("Did close");
+		delete &fiber;
+		return 0;
+	}
+
+	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
+
+	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), t(this), dns_timer(this) {
+		t.template start<StakeRequester, &StakeRequester::query_cb>(2000, 60000);
+		dns_timer.template start<StakeRequester, &StakeRequester::dns_cb>(0, 60000);
+	}
+
+	std::unordered_map<std::array<uint8_t, 20>, uint64_t> stakes;
+	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> cumulative_weights;
+
+	uint64_t request(std::array<uint8_t, 20> client_key) {
+		auto iter = stakes.find(client_key);
+		if(iter == stakes.end()) {
+			return 0;
+		}
+		return iter->second;
+	}
+
+	std::vector<std::array<uint8_t, 20>> sample(uint64_t n = 1) {
+		std::vector<std::array<uint8_t, 20>> samples;
+		samples.reserve(n);
+
+		if(cumulative_weights.size() <= n) {
+			for(auto iter = cumulative_weights.begin(); iter != cumulative_weights.end(); iter++) {
+				samples.push_back(iter->second);
+			}
+			return samples;
+		}
+
+		std::random_device rd;
+		std::uniform_int_distribution<uint64_t> dist(0, cumulative_weights.back().first);
+
+		while(samples.size() != 5) {
+			auto rnd = dist(rd);
+			auto iter = std::lower_bound(
+				cumulative_weights.begin(),
+				cumulative_weights.end(),
+				rnd,
+				[](std::pair<uint64_t, std::array<uint8_t, 20>> p, uint64_t v) { return p.first < v; }
+			);
+
+			if(std::find(samples.begin(), samples.end(), iter->second) != samples.end()) {
+				continue;
+			} else {
+				samples.push_back(iter->second);
+			}
+		}
+
+		return samples;
+	}
+
 };
 
 struct MessageHeader {
