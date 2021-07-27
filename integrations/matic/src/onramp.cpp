@@ -47,10 +47,10 @@ int main(int argc, char** argv) {
 			}
 		}
 		auto discovery_addr = SocketAddress::from_string(
-			options.discovery_addr.value_or("0.0.0.0:15002")
+			options.discovery_addr.value_or("0.0.0.0:22702")
 		);
 		auto pubsub_addr = SocketAddress::from_string(
-			options.pubsub_addr.value_or("0.0.0.0:15000")
+			options.pubsub_addr.value_or("0.0.0.0:22700")
 		);
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
