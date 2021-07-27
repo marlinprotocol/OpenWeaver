@@ -1,5 +1,5 @@
-#ifndef MARLIN_ONRAMP_ETH_ONRAMP_HPP
-#define MARLIN_ONRAMP_ETH_ONRAMP_HPP
+#ifndef MARLIN_ONRAMP_MATIC_ONRAMP_HPP
+#define MARLIN_ONRAMP_MATIC_ONRAMP_HPP
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
@@ -330,4 +330,4 @@ public:
 	}
 };
 
-#endif // MARLIN_ONRAMP_ETH_ONRAMP_HPP
+#endif // MARLIN_ONRAMP_MATIC_ONRAMP_HPP
