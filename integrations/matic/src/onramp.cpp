@@ -1,4 +1,6 @@
 #include "OnRamp.hpp"
+#include <unistd.h>
+
 #include <structopt/app.hpp>
 #include <cryptopp/scrypt.h>
 #include <cryptopp/modes.h>
@@ -7,7 +9,7 @@
 #include <cryptopp/aes.h>
 #include <rapidjson/document.h>
 #include <boost/filesystem.hpp>
-#include <unistd.h>
+
 
 using namespace marlin::core;
 using namespace marlin::asyncio;
@@ -21,15 +23,16 @@ struct CliOptions {
 	std::optional<std::string> beacon_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
+	enum class Contracts { mainnet, kovan };
+	std::optional<Contracts> contracts;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, keystore_path, keystore_pass_path);
-
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, keystore_path, keystore_pass_path, contracts);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
 int main(int argc, char** argv) {
 	try {
-		auto options = structopt::app("onramp-matic").parse<CliOptions>(argc, argv);
+		auto options = structopt::app("gateway").parse<CliOptions>(argc, argv);
 		std::string key;
 		if(options.beacon_addr.has_value()) {
 			if(options.keystore_path.has_value() && options.keystore_pass_path.has_value()) {
@@ -50,16 +53,71 @@ int main(int argc, char** argv) {
 			options.pubsub_addr.value_or("0.0.0.0:15000")
 		);
 		auto beacon_addr = SocketAddress::from_string(
-			options.beacon_addr.value_or("0.0.0.0:9002")
+			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
 
+		std::string staking_url;
+		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
+		case CliOptions::Contracts::mainnet:
+			staking_url = "/subgraphs/name/marlinprotocol/staking";
+			break;
+		case CliOptions::Contracts::kovan:
+			staking_url = "/subgraphs/name/marlinprotocol/staking-kovan";
+			break;
+		};
+
 		SPDLOG_INFO(
-			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}, addr: 0x{:spn}",
+			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			beacon_addr.to_string(),
-			spdlog::to_hex(key.data(), key.data()+key.size())
+			beacon_addr.to_string()
 		);
+
+		{
+			if(key.size() == 0) {
+				SPDLOG_INFO("Bridge: No identity key provided");
+			} else if(key.size() == 32) {
+				auto* ctx_signer = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+				auto* ctx_verifier = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+				if(secp256k1_ec_seckey_verify(ctx_verifier, (uint8_t*)key.c_str()) != 1) {
+					SPDLOG_ERROR("Bridge: failed to verify key", key.size());
+					secp256k1_context_destroy(ctx_verifier);
+					secp256k1_context_destroy(ctx_signer);
+					return -1;
+				}
+
+				secp256k1_pubkey pubkey;
+				auto res = secp256k1_ec_pubkey_create(
+					ctx_signer,
+					&pubkey,
+					(uint8_t*)key.c_str()
+				);
+				(void)res;
+
+				uint8_t pubkeyser[65];
+				size_t len = 65;
+				secp256k1_ec_pubkey_serialize(
+					ctx_signer,
+					pubkeyser,
+					&len,
+					&pubkey,
+					SECP256K1_EC_UNCOMPRESSED
+				);
+
+				// Get address
+				uint8_t hash[32];
+				CryptoPP::Keccak_256 hasher;
+				hasher.CalculateTruncatedDigest(hash, 32, pubkeyser+1, 64);
+				// address is in hash[12..31]
+
+				SPDLOG_INFO("Bridge: Identity is 0x{:spn}", spdlog::to_hex(hash+12, hash+32));
+
+				secp256k1_context_destroy(ctx_verifier);
+				secp256k1_context_destroy(ctx_signer);
+			} else {
+				SPDLOG_ERROR("Bridge: failed to load key: {}", key.size());
+			}
+		}
 
 		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
 		uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
@@ -71,10 +129,12 @@ int main(int argc, char** argv) {
 			std::vector<uint16_t>({0, 1}),
 			beacon_addr.to_string(),
 			discovery_addr.to_string(),
-			pubsub_addr.to_string()
+			pubsub_addr.to_string(),
+			staking_url,
 		};
 
 		OnRamp onramp(clop, (uint8_t*)key.data());
+
 		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
