@@ -18,9 +18,11 @@ private:
 	SocketAddress addr;
 
 public:
-
+	using OuterMessageType = Buffer;
+	using InnerMessageType = Buffer;
 	StreamFiber() {}
-
+	template <typename Args>
+	StreamFiber(Args&&...) {}
 	StreamFiber(SocketAddress addr) : addr(addr) {}
 
 	int did_recv(Buffer &&buf) {

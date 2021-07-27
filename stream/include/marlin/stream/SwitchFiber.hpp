@@ -7,38 +7,43 @@
 #include <marlin/core/fibers/FiberScaffold.hpp>
 #include <absl/container/flat_hash_map.h>
 #include "StreamFiber.hpp"
+#include "EmptyTerminal.hpp"
 
 using namespace marlin::core;
 
 namespace marlin {
 namespace stream {
 
-template <typename ExtFabric>
+template <typename ExtFabric, template<typename...> typename STFabric>
 class SwitchFiber : public FiberScaffold<
-	SwitchFiber<ExtFabric>,
+	SwitchFiber<ExtFabric, STFabric>,
 	ExtFabric,
 	Buffer,
 	Buffer
 >  {
 
-	using SelfType = SwitchFiber<ExtFabric>;
-	using BaseTransport = StreamFiber<SelfType>;
+	using SelfType = SwitchFiber<ExtFabric, STFabric>;
+	using STFabricType = STFabric<EmptyTerminal>;
+
 
 	absl::flat_hash_map<
 		SocketAddress,
-		BaseTransport*
+		STFabricType*
 	> transport_map;
 
 	/// Get transport with a given destination address,
 	/// creating one if not found
 	template<class... Args>
-	BaseTransport *get_or_create(
+	STFabricType *get_or_create(
 		SocketAddress const &addr
 		// Args&&... args
 	) {
 		auto res = transport_map.try_emplace(
 			addr,
-			new BaseTransport(addr)
+			new STFabricType(std::make_tuple(
+				std::make_tuple(),
+				std::make_tuple()
+			))
 		);
 		return res.first->second;
 	}
@@ -56,6 +61,8 @@ public:
 
 	using FiberScaffoldType::FiberScaffoldType;
 
+	SwitchFiber() {}
+	SwitchFiber(SocketAddress) {}
 
 	int did_recv(
 		auto &&,	// id of the Stream
@@ -66,7 +73,7 @@ public:
 		auto *dummy = get_or_create(sock);
 		SPDLOG_INFO("Received something in stream factory fiber. sock_addr={}, port={}", sock.to_string(), sock.get_port());
 
-		dummy->did_recv(std::move(buf));
+		dummy->i(0).did_recv(std::move(buf));
 		return 0;
 	}
 };

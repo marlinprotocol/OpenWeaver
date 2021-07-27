@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <marlin/core/fibers/VersioningFiber.hpp>
 #include <marlin/core/SocketAddress.hpp>
+// #include <marlin/stream/ConnSMFiber.hpp>
 
 using namespace marlin::core;
 using namespace marlin::asyncio;
@@ -39,11 +40,14 @@ struct Terminal {
 
 };
 
+template <typename ExtFabric>
+using StreamSwitchFiber = SwitchFiber<ExtFabric, FabricF <StreamFiber>::type>;
+
 int main() {
 	Fabric <
 		Terminal,
 		UdpFiber,
-		SwitchFiber
+		StreamSwitchFiber
 	> server(std::make_tuple(
 		// terminal
 		std::make_tuple(),
