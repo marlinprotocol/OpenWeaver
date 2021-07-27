@@ -58,6 +58,11 @@ struct Delegate {
 	void did_close(FiberType&, uint16_t) {
 		SPDLOG_INFO("Did close");
 	}
+
+	auto& i(auto&&) { return *this; }
+	auto& o(auto&&) { return *this; }
+	auto& is(auto& f) { return f; }
+	auto& os(auto& f) { return f; }
 };
 
 int main() {

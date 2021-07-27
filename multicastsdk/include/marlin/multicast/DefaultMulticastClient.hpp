@@ -24,10 +24,20 @@ struct DefaultMulticastClientOptions {
 	size_t max_conn = 2;
 };
 
-template<typename Delegate, typename AttesterType = pubsub::EmptyAttester, typename WitnesserType = pubsub::LpfBloomWitnesser, uint8_t log_mask = 0x0>
+
+struct MaskAll {
+	static uint64_t mask(
+		core::WeakBuffer
+	) {
+		return 0x0;
+	}
+};
+
+
+template<typename Delegate, typename AttesterType = pubsub::EmptyAttester, typename WitnesserType = pubsub::LpfBloomWitnesser, typename LogMask = MaskAll>
 class DefaultMulticastClient {
 public:
-	using Self = DefaultMulticastClient<Delegate, AttesterType, WitnesserType, log_mask>;
+	using Self = DefaultMulticastClient<Delegate, AttesterType, WitnesserType, LogMask>;
 	using PubSubNodeType = pubsub::PubSubNode<
 		Self,
 		false,
@@ -101,9 +111,9 @@ public:
 		core::SocketAddress taddr,
 		typename PubSubNodeType::ClientKey baddr,
 		uint64_t message_id,
-		core::WeakBuffer
+		core::WeakBuffer message
 	) {
-		if((message_id & log_mask) == 0) {
+		if((message_id & LogMask::mask(message)) == 0) {
 			SPDLOG_INFO(
 				"Msg log: {}, cluster: 0x{:spn}, relay: {}",
 				message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()

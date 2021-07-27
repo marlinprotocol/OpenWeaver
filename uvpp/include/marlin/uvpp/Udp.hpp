@@ -9,7 +9,7 @@
 namespace marlin {
 namespace uvpp {
 
-struct Empty {};
+struct UdpEmpty {};
 
 template<typename ExtraData>
 class Udp : public uv_udp_t {
@@ -67,8 +67,8 @@ public:
 	//-------- Rule of five end --------//
 };
 
-using UdpE = Udp<Empty>;
-using UdpSendReqE = UdpSendReq<Empty>;
+using UdpE = Udp<UdpEmpty>;
+using UdpSendReqE = UdpSendReq<UdpEmpty>;
 
 }  // namespace uvpp
 }  // namespace marlin

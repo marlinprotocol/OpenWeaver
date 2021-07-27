@@ -2,6 +2,7 @@
 #define MARLIN_ASYNCIO_UDP_UDPFIBER_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/fibers/FiberScaffold.hpp>
 #include <marlin/uvpp/Udp.hpp>
 
 #include <spdlog/spdlog.h>
@@ -10,27 +11,36 @@ namespace marlin {
 namespace asyncio {
 
 template<typename ExtFabric>
-class UdpFiber {
+class UdpFiber : public core::FiberScaffold<
+	UdpFiber<ExtFabric>,
+	ExtFabric,
+	core::Buffer,
+	void
+> {
 public:
 	using SelfType = UdpFiber<ExtFabric>;
+	using FiberScaffoldType = core::FiberScaffold<
+		SelfType,
+		ExtFabric,
+		core::Buffer,
+		void
+	>;
 
-	static constexpr bool is_outer_open = false;
-	static constexpr bool is_inner_open = true;
-
-	using OuterMessageType = void;
-	using InnerMessageType = core::Buffer;
+	using typename FiberScaffoldType::InnerMessageType;
+	using typename FiberScaffoldType::OuterMessageType;
 
 private:
-	[[no_unique_address]] ExtFabric ext_fabric;
 	uvpp::UdpE* udp_handle = nullptr;
 
 public:
-	template<typename ExtTupleType>
-	UdpFiber(std::tuple<ExtTupleType>&& init_tuple) :
-		ext_fabric(std::get<0>(init_tuple)) {
+	UdpFiber(auto&&... args) :
+		FiberScaffoldType(std::forward<decltype(args)>(args)...) {
 		udp_handle = new uvpp::UdpE();
 		udp_handle->data = this;
 	}
+
+	UdpFiber(UdpFiber const&) = delete;
+	UdpFiber(UdpFiber&&) = delete;
 
 	[[nodiscard]] int bind(core::SocketAddress const& addr) {
 		int res = uv_udp_init(uv_default_loop(), udp_handle);
@@ -102,6 +112,7 @@ public:
 		auto& fiber = *(SelfType*)(handle->data);
 
 		fiber.did_recv(
+			fiber,
 			core::Buffer((uint8_t*)buf->base, nread),
 			addr
 		);
@@ -133,13 +144,9 @@ public:
 			}
 		}
 
-		ext_fabric.did_dial(*this, addr, std::forward<decltype(args)>(args)...);
+		FiberScaffoldType::did_dial(*this, addr, std::forward<decltype(args)>(args)...);
 
 		return 0;
-	}
-
-	int did_recv(core::Buffer&& buf, core::SocketAddress addr) {
-		return ext_fabric.did_recv(*this, std::move(buf), addr);
 	}
 
 	static void send_cb(
@@ -161,6 +168,7 @@ public:
 			);
 		} else {
 			fiber.did_send(
+				fiber,
 				std::move(req->extra_data)
 			);
 		}
@@ -168,11 +176,7 @@ public:
 		delete req;
 	}
 
-	int did_send(core::Buffer&& buf) {
-		return ext_fabric.did_send(*this, std::move(buf));
-	}
-
-	[[nodiscard]] int send(core::Buffer&& buf, core::SocketAddress addr) {
+	[[nodiscard]] int send(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
 		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
 		req->data = this;
 

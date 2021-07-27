@@ -94,6 +94,11 @@ set(TEST_SOURCES
 	test/testBuffer.cpp
 	test/testEndian.cpp
 	test/testSocketAddress.cpp
+	test/testLengthFramingFiber.cpp
+	test/testLengthBufferFiber.cpp
+	test/testSentinelFramingFiber.cpp
+	test/testSentinelBufferFiber.cpp
+	test/testFabric.cpp
 )
 
 add_custom_target(core_tests)

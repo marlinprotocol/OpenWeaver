@@ -2,8 +2,8 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/pubsub/attestation/EmptyAttester.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/attestation/LegacyAttester.hpp>
+#include <marlin/pubsub/witness/LegacyWitnesser.hpp>
 
 #include <structopt/app.hpp>
 
@@ -21,12 +21,15 @@
 #endif
 
 #ifndef MARLIN_PROBE_DEFAULT_MASK
-#define MARLIN_PROBE_DEFAULT_MASK 0x0
+#define MARLIN_PROBE_DEFAULT_MASK All
 #endif
 
 // Pfff, of course macros make total sense!
 #define STRH(X) #X
 #define STR(X) STRH(X)
+
+#define CONCATH(A, B) A ## B
+#define CONCAT(A, B) CONCATH(A, B)
 
 
 using namespace marlin::multicast;
@@ -40,9 +43,9 @@ class MulticastDelegate;
 
 using DefaultMulticastClientType = DefaultMulticastClient<
 	MulticastDelegate,
-	EmptyAttester,
-	BloomWitnesser,
-	MARLIN_PROBE_DEFAULT_MASK
+	LegacyAttester,
+	LegacyWitnesser,
+	CONCAT(Mask, MARLIN_PROBE_DEFAULT_MASK)
 >;
 
 class MulticastDelegate {

@@ -39,7 +39,7 @@ include(ExternalProject)
 ExternalProject_Add(libbase58
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libbase58
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libbase58 CFLAGS=-fPIC
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && make -j8
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && make install
 )
 add_library(base58 STATIC IMPORTED GLOBAL)
@@ -83,7 +83,7 @@ include(ExternalProject)
 ExternalProject_Add(libcryptopp
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && $(MAKE)
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && CXX=${CMAKE_CXX_COMPILER} $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make install PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cryptopp
 )
 

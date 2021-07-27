@@ -11,14 +11,13 @@ namespace core {
 namespace {
 
 template<size_t idx, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-	requires (idx != 0)
 struct NthFiberHelper {
 	template<typename T>
 	using type = typename NthFiberHelper<idx-1, FiberTemplates...>::template type<T>;
 };
 
 template<template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-struct NthFiberHelper<1, FiberTemplate, FiberTemplates...> {
+struct NthFiberHelper<0, FiberTemplate, FiberTemplates...> {
 	template<typename T>
 	using type = FiberTemplate<T>;
 };
@@ -36,16 +35,6 @@ template<size_t idx, size_t total, template<size_t> typename Shuttle, template<t
 struct TupleHelper {
 	using base = typename TupleHelper<idx+1, total, Shuttle, FiberTemplates...>::type;
 	using type = typename TupleCat<FiberTemplate<Shuttle<idx>>, base>::type;
-};
-
-template<size_t total, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
-struct TupleHelper<0, total, Shuttle, FiberTemplate, FiberTemplates...> {
-	struct Empty {
-		template<typename... Args>
-		Empty(Args&&...) {}
-	};
-	using base = typename TupleHelper<1, total, Shuttle, FiberTemplate, FiberTemplates...>::type;
-	using type = typename TupleCat<std::tuple<Empty>, base>::type;
 };
 
 template<size_t idx, template<size_t> typename Shuttle, template<typename> typename FiberTemplate, template<typename> typename... FiberTemplates>
@@ -66,9 +55,7 @@ private:
 	template<size_t idx>
 	struct Shuttle;
 
-	// Important: Not zero indexed!
 	template<size_t idx>
-		//requires (idx <= sizeof...(FiberTemplates))
 	using NthFiber = typename NthFiberHelper<idx, FiberTemplates...>::template type<Shuttle<idx>>;
 
 	template<typename FiberOuter, typename FiberInner>
@@ -86,7 +73,7 @@ private:
 	template<size_t... Is>
 	static constexpr bool fits(std::index_sequence<Is...>) {
 		// fold expression
-		return (... && fits_binary<NthFiber<Is+1>, NthFiber<Is+2>>());
+		return (... && fits_binary<NthFiber<Is>, NthFiber<Is+1>>());
 	}
 
 	// Assert that all fibers fit well together
@@ -95,10 +82,9 @@ private:
 	// External fabric
 	[[no_unique_address]] ExtFabric ext_fabric;
 
-	// Important: Not zero indexed!
 	[[no_unique_address]] typename TupleHelper<
 		0,
-		sizeof...(FiberTemplates),
+		sizeof...(FiberTemplates)-1,
 		Shuttle,
 		FiberTemplates...
 	>::type fibers;
@@ -109,9 +95,6 @@ private:
 	Fabric(std::tuple<ExtTupleType, TupleTypes...>&& init_tuple, std::index_sequence<Is...>) :
 		ext_fabric(std::forward<ExtTupleType>(std::get<0>(init_tuple))),
 		fibers(
-			// Empty
-			std::make_tuple(),
-			// Other fibers
 			std::move(std::tuple_cat(
 				// Shuttle
 				std::make_tuple(std::make_tuple()),
@@ -144,128 +127,143 @@ private:
 	// Shuttle for properly transitioning between fibers
 	template<size_t idx>
 	struct Shuttle {
-		static_assert(idx != 0 && idx <= sizeof...(FiberTemplates));
+		static_assert(idx < sizeof...(FiberTemplates));
 
 		template<typename... Args>
 		Shuttle(Args&&...) {}
 
-		template<typename... Args>
-		int did_recv(NthFiber<idx>& caller, Args&&... args) {
+		auto& i(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_recv(fabric, std::forward<Args>(args)...);
+				// recursive check
+				if constexpr (requires (decltype(fabric.ext_fabric) f) {
+					f.i(fabric);
+				}) {
+					return fabric.ext_fabric.i(fabric);
+				} else {
+					return fabric.ext_fabric;
+				}
 			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_recv(std::forward<Args>(args)...);
+				// transition to next fiber
+				auto& fiber = std::get<idx+1>(fabric.fibers);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.i(caller);
+				}) {
+					return fiber.i(caller);
+				} else {
+					return fiber;
+				}
 			}
 		}
 
-		template<typename... Args>
-		int did_dial(NthFiber<idx>& caller, Args&&... args) {
+		auto& is(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_dial(fabric, std::forward<Args>(args)...);
+				// recursive check
+				if constexpr (requires (decltype(fabric.ext_fabric) f) {
+					f.is(fabric);
+				}) {
+					return fabric.ext_fabric.is(fabric);
+				} else {
+					return fabric;
+				}
 			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_dial(std::forward<Args>(args)...);
+				return caller;
 			}
 		}
 
-		template<typename... Args>
-		int did_send(NthFiber<idx>& caller, Args&&... args) {
+		auto& o(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates)) {
+			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.did_send(fabric, std::forward<Args>(args)...);
+				// recursive check
+				if constexpr (requires (decltype(fabric.ext_fabric) f) {
+					f.o(fabric);
+				}) {
+					return fabric.ext_fabric.o(fabric);
+				} else {
+					return fabric.ext_fabric;
+				}
 			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx+1>(fabric.fibers);
-				return next_fiber.did_send(std::forward<Args>(args)...);
+				// transition to next fiber
+				auto& fiber = std::get<idx-1>(fabric.fibers);
+
+				// recursive check
+				if constexpr (requires (decltype(fiber) f) {
+					f.o(caller);
+				}) {
+					return fiber.o(caller);
+				} else {
+					return fiber;
+				}
 			}
 		}
 
-		template<typename... Args>
-		int send(NthFiber<idx>& caller, Args&&... args) {
+		auto& os(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == 1) {
-				// inside shuttle of first fiber, exit
-				return fabric.ext_fabric.send(fabric, std::forward<Args>(args)...);
+			if constexpr (idx == 0) {
+				// inside shuttle of last fiber, exit
+				// recursive check
+				if constexpr (requires (decltype(fabric.ext_fabric) f) {
+					f.os(fabric);
+				}) {
+					return fabric.ext_fabric.os(fabric);
+				} else {
+					return fabric;
+				}
 			} else {
-				// Transition to next fiber
-				auto& next_fiber = std::get<idx-1>(fabric.fibers);
-				return next_fiber.send(std::forward<Args>(args)...);
+				return caller;
 			}
 		}
 	};
 
 public:
-	using OuterMessageType = typename NthFiber<1>::OuterMessageType;
-	using InnerMessageType = typename NthFiber<sizeof...(FiberTemplates)>::InnerMessageType;
+	using OuterMessageType = typename NthFiber<0>::OuterMessageType;
+	using InnerMessageType = typename NthFiber<sizeof...(FiberTemplates)-1>::InnerMessageType;
 
-	static constexpr bool is_outer_open = NthFiber<1>::is_outer_open;
-	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)>::is_inner_open;
+	static constexpr bool is_outer_open = NthFiber<0>::is_outer_open;
+	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)-1>::is_inner_open;
 
-	// Guide to fiber index
-	// 0						call on external fabric
-	// [1,len(Fibers)]			call on fiber
-	// len(Fibers)+1			call on external fabric
+	auto& i(auto&&) {
+		auto& fiber = std::get<0>(fibers);
 
-	template<
-		typename OMT = OuterMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the outer side
-			is_outer_open
-		)
-	int did_recv(OMT&& buf, Args&&... args) {
-		return std::get<1>(fibers).did_recv(std::move(buf), std::forward<Args>(args)...);
+		// recursive check
+		if constexpr (requires (decltype(fiber) f) {
+			f.i(*this);
+		}) {
+			return fiber.i(*this);
+		} else {
+			return fiber;
+		}
 	}
 
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int bind(SocketAddress const& addr) {
-		return std::get<1>(fibers).bind(addr);
-	}
+	auto& o(auto&&) {
+		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
 
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int listen() {
-		return std::get<1>(fibers).listen();
-	}
-
-	template<bool is_open = is_outer_open>
-		requires (!is_open)
-	int dial(core::SocketAddress addr, auto&&... args) {
-		return std::get<1>(fibers).dial(addr, std::forward<decltype(args)>(args)...);
-	}
-
-	template<
-		typename IMT = InnerMessageType,
-		typename... Args
-	>
-		requires (
-			// Should only be called if fabric is open on the inner side
-			is_inner_open
-		)
-	int send(InnerMessageType&& buf, core::SocketAddress addr) {
-		return std::get<sizeof...(FiberTemplates)>(fibers).send(std::move(buf), addr);
+		// recursive check
+		if constexpr (requires (decltype(fiber) f) {
+			f.o(*this);
+		}) {
+			return fiber.o(*this);
+		} else {
+			return fiber;
+		}
 	}
 };
 

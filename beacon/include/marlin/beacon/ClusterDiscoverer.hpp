@@ -136,7 +136,7 @@ void CLUSTERDISCOVERER::send_DISCPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPROTO(), addr);
+	fiber.o(*this).send(*this, DISCPROTO(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -168,7 +168,7 @@ void CLUSTERDISCOVERER::send_DISCPEER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCPEER(), addr);
+	fiber.o(*this).send(*this, DISCPEER(), addr);
 }
 
 /*!
@@ -191,7 +191,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 		beacon_map[peer_addr] = std::make_pair(addr, asyncio::EventLoop::now());
-		fiber.dial(peer_addr, 0);
+		(void)fiber.i(*this).dial(peer_addr, 0);
 	}
 }
 
@@ -202,7 +202,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::beacon_timer_cb() {
 	// Discover clusters
 	for(auto& addr : discovery_addrs) {
-		fiber.dial(addr, 3);
+		(void)fiber.i(*this).dial(addr, 3);
 	}
 
 	// Prune clusters
@@ -231,14 +231,14 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCCLUSTER(), addr);
+	fiber.o(*this).send(*this, DISCCLUSTER(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER&& packet,
-	core::SocketAddress
+	core::SocketAddress addr [[maybe_unused]]
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER <<< {}", addr.to_string());
 
@@ -252,7 +252,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 
-		fiber.dial(cluster_addr, 1);
+		(void)fiber.i(*this).dial(cluster_addr, 1);
 	}
 }
 
@@ -261,14 +261,14 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER2(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.send(DISCCLUSTER2(), addr);
+	fiber.o(*this).send(*this, DISCCLUSTER2(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 	FiberType& fiber [[maybe_unused]],
 	LISTCLUSTER2&& packet,
-	core::SocketAddress
+	core::SocketAddress addr [[maybe_unused]]
 ) {
 	SPDLOG_DEBUG("LISTCLUSTER2 <<< {}", addr.to_string());
 
@@ -292,7 +292,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 		cluster_map[cluster_addr].address = cluster_client_key;
-		fiber.dial(cluster_addr, 1);
+		(void)fiber.i(*this).dial(cluster_addr, 1);
 	}
 }
 
@@ -431,8 +431,8 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), beacon_timer(this), heartbeat_timer(this) {
-	fiber.bind(addr);
-	fiber.listen();
+	(void)fiber.i(*this).bind(addr);
+	(void)fiber.i(*this).listen();
 
 	if(sodium_init() == -1) {
 		throw;

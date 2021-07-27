@@ -1,10 +1,10 @@
-#include "marlin/cosmos/Abci.hpp"
+#include "marlin/eth/Abci.hpp"
 
 #include <marlin/asyncio/core/EventLoop.hpp>
 
 #include <structopt/app.hpp>
 
-using namespace marlin::cosmos;
+using namespace marlin::eth;
 using namespace marlin::asyncio;
 using namespace marlin::core;
 
@@ -43,15 +43,15 @@ struct Delegate {
 };
 
 struct Options {
-	std::string dst;
+	std::string abci_addr;
 };
-STRUCTOPT(Options, dst);
+STRUCTOPT(Options, abci_addr);
 
 int main(int argc, char** argv) {
 	try {
 		auto options = structopt::app("abci").parse<Options>(argc, argv);
 
-		Abci<Delegate, uint64_t> abci(options.dst);
+		Abci<Delegate, uint64_t> abci(options.abci_addr);
 
 		return EventLoop::run();
 	} catch (structopt::exception& e) {
