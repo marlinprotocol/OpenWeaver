@@ -3,6 +3,7 @@
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 #include <cryptopp/blake2.h>
 
@@ -16,7 +17,8 @@ using namespace marlin::multicast;
 
 class OnRamp {
 public:
-	DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> multicastClient;
+	using DefaultMulticastClientType = DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser>;
+	DefaultMulticastClientType multicastClient;
 	RlpxTransport<OnRamp> *rlpxt = nullptr;
 	RlpxTransportFactory<OnRamp, OnRamp> f;
 
@@ -32,7 +34,7 @@ public:
 
 	template<typename T> // TODO: Code smell, remove later
 	void did_recv(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		Buffer &&message,
 		T,
 		uint16_t channel,
@@ -61,12 +63,12 @@ public:
 	}
 
 	void did_subscribe(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		uint16_t
 	) {}
 
 	void did_unsubscribe(
-		DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser> &,
+		DefaultMulticastClientType &,
 		uint16_t
 	) {}
 
