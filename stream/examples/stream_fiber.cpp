@@ -4,7 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <marlin/core/fibers/VersioningFiber.hpp>
 #include <marlin/core/SocketAddress.hpp>
-// #include <marlin/stream/ConnSMFiber.hpp>
+#include <marlin/stream/StreamTransportDivision/ConnSMFiber.hpp>
 
 using namespace marlin::core;
 using namespace marlin::asyncio;
@@ -41,7 +41,7 @@ struct Terminal {
 };
 
 template <typename ExtFabric>
-using StreamSwitchFiber = SwitchFiber<ExtFabric, FabricF <StreamFiber>::type>;
+using StreamSwitchFiber = SwitchFiber<ExtFabric, FabricF <ConnSMFiber>::type>;
 
 int main() {
 	Fabric <
