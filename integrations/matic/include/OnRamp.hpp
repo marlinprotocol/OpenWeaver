@@ -41,9 +41,9 @@ public:
 	}
 
 	template<typename... Args>
-	OnRamp(DefaultMulticastClientOptions clop, std::optional<std::string> spamcheck_addr, Args&&... args) : multicastClient(clop, std::forward<Args>(args)...), header(0) {
+	OnRamp(DefaultMulticastClientOptions clop, core::SocketAddress listen_addr, std::optional<std::string> spamcheck_addr, Args&&... args) : multicastClient(clop, std::forward<Args>(args)...), header(0) {
 		multicastClient.delegate = this;
-		f.bind(SocketAddress::from_string("0.0.0.0:22900"));
+		f.bind(listen_addr);
 		f.listen(*this);
 
 		if(spamcheck_addr.has_value()) {

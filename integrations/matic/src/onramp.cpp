@@ -21,6 +21,7 @@ struct CliOptions {
 	std::optional<std::string> discovery_addr;
 	std::optional<std::string> pubsub_addr;
 	std::optional<std::string> beacon_addr;
+	std::optional<std::string> listen_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
 	enum class Contracts { mainnet, kovan };
@@ -57,6 +58,9 @@ int main(int argc, char** argv) {
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
+		auto listen_addr = SocketAddress::from_string(
+			options.listen_addr.value_or("0.0.0.0:22900")
+		);
 
 		std::string staking_url;
 		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
@@ -69,10 +73,11 @@ int main(int argc, char** argv) {
 		};
 
 		SPDLOG_INFO(
-			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}, spamcheck: {}",
+			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}, listen: {}, spamcheck: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			beacon_addr.to_string(),
+			listen_addr.to_string(),
 			options.spamcheck_addr.value_or("none")
 		);
 
@@ -137,7 +142,7 @@ int main(int argc, char** argv) {
 			"0xa6a7de01e8b7ba6a4a61c782a73188d808fc1f3cf5743fadb68a02ed884b594"
 		};
 
-		OnRamp onramp(clop, options.spamcheck_addr, (uint8_t*)key.data());
+		OnRamp onramp(clop, listen_addr, options.spamcheck_addr, (uint8_t*)key.data());
 
 		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	} catch (structopt::exception& e) {
