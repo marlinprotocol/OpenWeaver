@@ -25,8 +25,10 @@ struct CliOptions {
 	std::optional<std::string> keystore_pass_path;
 	enum class Contracts { mainnet, kovan };
 	std::optional<Contracts> contracts;
+	// std::optional<SpamCheckMode> spamcheck;
+	std::optional<std::string> spamcheck_addr;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, keystore_path, keystore_pass_path, contracts);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, keystore_path, keystore_pass_path, contracts, spamcheck_addr);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
@@ -67,10 +69,11 @@ int main(int argc, char** argv) {
 		};
 
 		SPDLOG_INFO(
-			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}",
+			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}, spamcheck: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			beacon_addr.to_string()
+			beacon_addr.to_string(),
+			options.spamcheck_addr.value_or("none")
 		);
 
 		{
@@ -133,7 +136,7 @@ int main(int argc, char** argv) {
 			staking_url,
 		};
 
-		OnRamp onramp(clop, (uint8_t*)key.data());
+		OnRamp onramp(clop, options.spamcheck_addr, (uint8_t*)key.data());
 
 		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	} catch (structopt::exception& e) {
