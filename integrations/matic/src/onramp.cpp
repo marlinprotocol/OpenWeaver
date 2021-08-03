@@ -134,6 +134,7 @@ int main(int argc, char** argv) {
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			staking_url,
+			"0xa6a7de01e8b7ba6a4a61c782a73188d808fc1f3cf5743fadb68a02ed884b594"
 		};
 
 		OnRamp onramp(clop, options.spamcheck_addr, (uint8_t*)key.data());
