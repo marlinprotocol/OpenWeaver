@@ -49,6 +49,14 @@ public:
 	int did_close(auto&&) {
 		return ext_fabric.i(*(Fiber*)this).did_close(ext_fabric.is(*(Fiber*)this));
 	}
+
+	int did_connect(auto&&, auto&&... args) {
+		return ext_fabric.i(*(Fiber*)this).did_connect(ext_fabric.is(*(Fiber*)this), std::forward<decltype(args)>(args)...);
+	}
+
+	int did_disconnect(auto&&, auto&&... args) {
+		return ext_fabric.i(*(Fiber*)this).did_disconnect(ext_fabric.is(*(Fiber*)this), std::forward<decltype(args)>(args)...);
+	}
 };
 
 }  // namespace core
