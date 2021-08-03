@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include <marlin/multicast/DefaultMulticastClient.hpp>
+#include <marlin/matic/Abci.hpp>
 #include <marlin/cosmos/Abci.hpp>
 #include <marlin/eth/Abci.hpp>
 #include <marlin/pubsub/attestation/SigAttester.hpp>
