@@ -44,3 +44,7 @@ target_link_libraries(onramp-matic PUBLIC spdlog::spdlog_header_only)
 
 # structopt
 target_link_libraries(onramp-matic PUBLIC structopt::structopt)
+
+# abci
+target_link_libraries(onramp-matic PUBLIC marlin::abci_matic)
+
