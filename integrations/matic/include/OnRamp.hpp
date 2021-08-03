@@ -6,6 +6,7 @@
 #include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/rlpx/RlpxTransportFactory.hpp>
 #include <cryptopp/blake2.h>
+#include <marlin/matic/Abci.hpp>
 
 using namespace marlin;
 using namespace marlin::core;
@@ -15,6 +16,12 @@ using namespace marlin::pubsub;
 using namespace marlin::rlpx;
 using namespace marlin::multicast;
 
+
+// enum class SpamCheckMode {
+// 	none,
+// 	precheck
+// };
+
 class OnRamp {
 public:
 	using DefaultMulticastClientType = DefaultMulticastClient<OnRamp, SigAttester, LpfBloomWitnesser>;
@@ -22,14 +29,27 @@ public:
 	RlpxTransport<OnRamp> *rlpxt = nullptr;
 	RlpxTransportFactory<OnRamp, OnRamp> f;
 
+	using AbciType = marlin::matic::Abci<
+		OnRamp,
+		uint64_t
+	>;
+	AbciType* abci = nullptr;
+	bool is_connected = false;
+
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {};
 	}
+
 	template<typename... Args>
-	OnRamp(DefaultMulticastClientOptions clop, Args&&... args) : multicastClient(clop, std::forward<Args>(args)...), header(0) {
+	OnRamp(DefaultMulticastClientOptions clop, std::optional<std::string> spamcheck_addr, Args&&... args) : multicastClient(clop, std::forward<Args>(args)...), header(0) {
 		multicastClient.delegate = this;
 		f.bind(SocketAddress::from_string("0.0.0.0:22900"));
 		f.listen(*this);
+
+		if(spamcheck_addr.has_value()) {
+			abci = new AbciType(spamcheck_addr.value());
+			abci->delegate = this;
+		}
 	}
 
 	template<typename T> // TODO: Code smell, remove later
@@ -55,10 +75,18 @@ public:
 		}
 
 		if (rlpxt != nullptr) {
-			SPDLOG_DEBUG(
-				"Sending to blockchain client"
-			);
-			rlpxt->send(std::move(message));
+			if(abci != nullptr && is_connected) {
+				if(is_connected) {
+					abci->analyze_block(std::move(message), message_id);
+				} else {
+					SPDLOG_ERROR("Abci not active, dropping msg: {}", message_id);
+				}
+			} else {
+				SPDLOG_DEBUG(
+					"Sending to blockchain client"
+				);
+				rlpxt->send(std::move(message));
+			}
 		}
 	}
 
@@ -329,6 +357,23 @@ public:
 
 	void did_close(RlpxTransport<OnRamp> &, uint16_t) {
 		rlpxt = nullptr;
+	}
+
+	void did_connect(AbciType&) {
+		is_connected = true;
+	}
+
+	void did_disconnect(AbciType&) {
+		is_connected = false;
+	}
+
+	void did_close(AbciType&) {}
+
+	void did_analyze_block(AbciType&, Buffer&& message, std::string, std::string, WeakBuffer, uint64_t message_id) {
+		SPDLOG_INFO("Spamchecked message {}", message_id);
+		if(rlpxt != nullptr) {
+			rlpxt->send(std::move(message));
+		}
 	}
 };
 
