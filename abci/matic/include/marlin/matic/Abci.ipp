@@ -159,6 +159,7 @@ void ABCI::get_block_number() {
 
 	core::Buffer req(fmt::formatted_size(
 		"POST / HTTP/1.1\r\n"
+		"Host: 0.0.0.0\r\n"
 		"Content-Type: application/json\r\n"
 		"Content-Length: {}\r\n"
 		"\r\n"
@@ -170,6 +171,7 @@ void ABCI::get_block_number() {
 		req.data(),
 		req.size(),
 		"POST / HTTP/1.1\r\n"
+		"Host: 0.0.0.0\r\n"
 		"Content-Type: application/json\r\n"
 		"Content-Length: {}\r\n"
 		"\r\n"
