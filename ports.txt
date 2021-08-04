@@ -63,3 +63,13 @@ cosmos
 		22202	discovery
 		22400	gateway
 		22401	tcp
+
+matic
+	relay
+		22500	pubsub
+		22502	discovery
+	gateway
+		22700	pubsub
+		22702	discovery
+		22900	gateway
+

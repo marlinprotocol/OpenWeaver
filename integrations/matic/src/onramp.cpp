@@ -1,11 +1,5 @@
-#include <sodium.h>
+#include "OnRamp.hpp"
 #include <unistd.h>
-
-#include <marlin/multicast/DefaultMulticastClient.hpp>
-#include <marlin/matic/Abci.hpp>
-#include <marlin/cosmos/Abci.hpp>
-#include <marlin/eth/Abci.hpp>
-#include <marlin/pubsub/attestation/SigAttester.hpp>
 
 #include <structopt/app.hpp>
 #include <cryptopp/scrypt.h>
@@ -17,143 +11,11 @@
 #include <boost/filesystem.hpp>
 
 
-#ifndef MARLIN_SC_DEFAULT_PUBSUB_PORT
-#define MARLIN_SC_DEFAULT_PUBSUB_PORT 15000
-#endif
-
-#ifndef MARLIN_SC_DEFAULT_DISC_PORT
-#define MARLIN_SC_DEFAULT_DISC_PORT 15002
-#endif
-
-#ifndef MARLIN_SC_DEFAULT_LISTEN_PORT
-#define MARLIN_SC_DEFAULT_LISTEN_PORT 15003
-#endif
-
-#ifndef MARLIN_SC_DEFAULT_NETWORK_ID
-#define MARLIN_SC_DEFAULT_NETWORK_ID ""
-#endif
-
-#ifndef MARLIN_SC_DEFAULT_MASK
-#define MARLIN_SC_DEFAULT_MASK All
-#endif
-
-#ifndef MARLIN_SC_DEFAULT_CHAIN
-#define MARLIN_SC_DEFAULT_CHAIN nil
-#endif
-
-// Pfff, of course macros make total sense!
-#define STRH(X) #X
-#define STR(X) STRH(X)
-
-#define CONCATH(A, B) A ## B
-#define CONCAT(A, B) CONCATH(A, B)
-
-
-using namespace marlin::multicast;
-using namespace marlin::pubsub;
 using namespace marlin::core;
-
-
-struct MaskCosmosv1 {
-	static uint64_t mask(
-		WeakBuffer buf
-	) {
-		// msg type
-		auto type = buf.read_uint8_unsafe(1);
-
-		// block check
-		if(type == 0x90) {
-			return 0x0;
-		}
-
-		return 0xff;
-	}
-};
-
-
-struct MulticastDelegate;
-
-using DefaultMulticastClientType = DefaultMulticastClient<
-	MulticastDelegate,
-	SigAttester,
-	LpfBloomWitnesser,
-	CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)
->;
-
-class MulticastDelegate {
-public:
-	DefaultMulticastClientType multicastClient;
-	using AbciType = marlin::MARLIN_SC_DEFAULT_CHAIN::Abci<MulticastDelegate, uint64_t>;
-	AbciType abci;
-
-	MulticastDelegate(DefaultMulticastClientOptions clop, std::string abci_addr, uint8_t* key) :
-		abci(abci_addr),
-		multicastClient(clop, key) {
-		multicastClient.delegate = this;
-
-		abci.delegate = this;
-	}
-
-	bool is_connected = false;
-
-	void did_connect(AbciType& abci) {
-		is_connected = true;
-	}
-
-	void did_disconnect(AbciType&) {
-		is_connected = false;
-	}
-
-	void did_close(AbciType&) {
-		// Should not happen
-		std::terminate();
-	}
-
-	void did_analyze_block(
-		AbciType&,
-		Buffer&&,
-		std::string,
-		std::string,
-		WeakBuffer,
-		uint64_t message_id
-	) {
-		SPDLOG_INFO(
-			"Spam checked message: {}", message_id
-		);
-	}
-
-	void did_recv(
-		DefaultMulticastClientType &,
-		Buffer &&message,
-		auto&&,
-		uint16_t,
-		uint64_t message_id
-	) {
-		SPDLOG_DEBUG(
-			"Did recv from multicast, message-id: {}",
-			message_id
-		);
-
-		if(!is_connected) {
-			SPDLOG_ERROR("Abci not active, dropping block");
-			return;
-		}
-
-		if((message_id & CONCAT(Mask, MARLIN_SC_DEFAULT_MASK)::mask(message)) == 0) {
-			abci.analyze_block(std::move(message), message_id);
-		}
-	}
-
-	void did_subscribe(
-		DefaultMulticastClientType &client,
-		uint16_t channel
-	) {}
-
-	void did_unsubscribe(
-		DefaultMulticastClientType &client,
-		uint16_t channel
-	) {}
-};
+using namespace marlin::asyncio;
+using namespace marlin::beacon;
+using namespace marlin::pubsub;
+using namespace marlin::rlpx;
 
 struct CliOptions {
 	std::optional<std::string> discovery_addr;
@@ -164,14 +26,16 @@ struct CliOptions {
 	std::optional<std::string> keystore_pass_path;
 	enum class Contracts { mainnet, kovan };
 	std::optional<Contracts> contracts;
+	// std::optional<SpamCheckMode> spamcheck;
+	std::optional<std::string> spamcheck_addr;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, keystore_path, keystore_pass_path, contracts, spamcheck_addr);
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
 int main(int argc, char** argv) {
 	try {
-		auto options = structopt::app("bridge").parse<CliOptions>(argc, argv);
+		auto options = structopt::app("gateway").parse<CliOptions>(argc, argv);
 		std::string key;
 		if(options.beacon_addr.has_value()) {
 			if(options.keystore_path.has_value() && options.keystore_pass_path.has_value()) {
@@ -186,13 +50,16 @@ int main(int argc, char** argv) {
 			}
 		}
 		auto discovery_addr = SocketAddress::from_string(
-			options.discovery_addr.value_or("0.0.0.0:" STR(MARLIN_SC_DEFAULT_DISC_PORT))
+			options.discovery_addr.value_or("0.0.0.0:22702")
 		);
 		auto pubsub_addr = SocketAddress::from_string(
-			options.pubsub_addr.value_or("0.0.0.0:" STR(MARLIN_SC_DEFAULT_PUBSUB_PORT))
+			options.pubsub_addr.value_or("0.0.0.0:22700")
 		);
 		auto beacon_addr = SocketAddress::from_string(
 			options.beacon_addr.value_or("127.0.0.1:8002")
+		);
+		auto listen_addr = SocketAddress::from_string(
+			options.listen_addr.value_or("0.0.0.0:22900")
 		);
 
 		std::string staking_url;
@@ -206,11 +73,12 @@ int main(int argc, char** argv) {
 		};
 
 		SPDLOG_INFO(
-			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}",
+			"Starting gateway with discovery: {}, pubsub: {}, beacon: {}, listen: {}, spamcheck: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			options.listen_addr.value_or("nil"),
-			beacon_addr.to_string()
+			beacon_addr.to_string(),
+			listen_addr.to_string(),
+			options.spamcheck_addr.value_or("none")
 		);
 
 		{
@@ -271,12 +139,12 @@ int main(int argc, char** argv) {
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			staking_url,
-			STR(MARLIN_SC_DEFAULT_NETWORK_ID)
+			"0xa6a7de01e8b7ba6a4a61c782a73188d808fc1f3cf5743fadb68a02ed884b594"
 		};
 
-		MulticastDelegate del(clop, options.listen_addr.value_or("127.0.0.1:8002"), (uint8_t*)key.data());
+		OnRamp onramp(clop, listen_addr, options.spamcheck_addr, (uint8_t*)key.data());
 
-		return DefaultMulticastClientType::run_event_loop();
+		return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	} catch (structopt::exception& e) {
 		SPDLOG_ERROR("{}", e.what());
 		SPDLOG_ERROR("{}", e.help());
@@ -288,10 +156,10 @@ int main(int argc, char** argv) {
 std::string string_to_hex(const std::string& input)
 {
     std::string output;
-    CryptoPP::StringSource ss2( input, true,
-	    new CryptoPP::HexEncoder(
-		new CryptoPP::StringSink( output )
-		)); // HexEncoder
+	CryptoPP::StringSource ss2( input, true,
+    new CryptoPP::HexEncoder(
+        new CryptoPP::StringSink( output )
+    )); // HexEncoder
     return output;
 }
 
@@ -300,7 +168,7 @@ std::string hex_to_string(const std::string& input)
 	std::string output;
 	CryptoPP::StringSource ss2( input, true,
     new CryptoPP::HexDecoder(
-	new CryptoPP::StringSink( output )
+        new CryptoPP::StringSink( output )
     )); // HexDecoder
     return output;
 }
@@ -424,3 +292,4 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	SPDLOG_INFO("decrypted keystore");
 	return decrypted;
 }
+

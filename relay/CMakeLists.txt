@@ -75,4 +75,5 @@ endfunction()
 relay_exe(dot 20500 20502)
 relay_exe(iris 21500 21502)
 relay_exe(cosmos 22000 22002)
+relay_exe(maticbor 22500 22502)
 
