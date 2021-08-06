@@ -44,9 +44,6 @@ target_link_libraries(pubsub INTERFACE cryptopp::CryptoPP)
 # secp256k1
 target_link_libraries(pubsub INTERFACE secp256k1::secp256k1)
 
-# lws
-target_link_libraries(pubsub INTERFACE websockets)
-
 # rapidjson
 target_link_libraries(pubsub INTERFACE rapidjson)
 
