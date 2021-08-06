@@ -41,7 +41,10 @@ struct Terminal {
 };
 
 template <typename ExtFabric>
-using StreamSwitchFiber = SwitchFiber<ExtFabric, FabricF <ConnSMFiber>::type>;
+using ConnSMFiberType = ConnSMFiber<ExtFabric, SwitchFiber>;
+
+template <typename ExtFabric>
+using StreamSwitchFiber = SwitchFiber<ExtFabric, FabricF <ConnSMFiberType>::type>;
 
 int main() {
 	Fabric <

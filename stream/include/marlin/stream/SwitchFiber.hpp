@@ -1,5 +1,5 @@
-#ifndef MARLIN_ASYNCIO_UDP_STREAMFACTORYFIBER_HPP
-#define MARLIN_ASYNCIO_UDP_STREAMFACTORYFIBER_HPP
+#ifndef MARLIN_ASYNCIO_UDP_SWITCHFIBER_HPP
+#define MARLIN_ASYNCIO_UDP_SWITCHFIBER_HPP
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/SocketAddress.hpp>
@@ -42,7 +42,7 @@ class SwitchFiber : public FiberScaffold<
 			addr,
 			new STFabricType(std::make_tuple(
 				std::make_tuple(),
-				std::make_tuple()
+				std::make_tuple(this)
 			))
 		);
 		return res.first->second;
