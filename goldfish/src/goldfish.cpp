@@ -3,8 +3,8 @@
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <unistd.h>
 #include <marlin/pubsub/EmptyAbci.hpp>
-#include <marlin/pubsub/attestation/LegacyAttester.hpp>
-#include <marlin/pubsub/witness/LegacyWitnesser.hpp>
+#include <marlin/pubsub/attestation/LpfAttester.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 
 #include <structopt/app.hpp>
 #include <cryptopp/scrypt.h>
@@ -32,8 +32,8 @@ public:
 		true,
 		true,
 		true,
-		LegacyAttester,
-		LegacyWitnesser,
+		LpfAttester,
+		LpfBloomWitnesser,
 		EmptyAbci
 	>;
 
