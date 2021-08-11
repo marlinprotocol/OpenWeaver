@@ -2,8 +2,8 @@
 #include "NameGenerator.hpp"
 #include <marlin/bsc/Abci.hpp>
 #include <marlin/pubsub/EmptyAbci.hpp>
-#include <marlin/pubsub/attestation/LegacyAttester.hpp>
-#include <marlin/pubsub/witness/LegacyWitnesser.hpp>
+#include <marlin/pubsub/attestation/LpfAttester.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 
 #include <structopt/app.hpp>
 
@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 			discovery_port
 		);
 
-		Relay<true, true, true, EmptyAbci, LegacyAttester, LegacyWitnesser> relay(
+		Relay<true, true, true, EmptyAbci, LpfAttester, LpfBloomWitnesser> relay(
 			MASTER_PUBSUB_PROTOCOL_NUMBER,
 			pubsub_port,
 			SocketAddress::from_string(options.interface.value_or(std::string("0.0.0.0")).append(":").append(std::to_string(pubsub_port))),

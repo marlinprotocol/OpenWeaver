@@ -3,7 +3,7 @@
 #include <cstring>
 #include <algorithm>
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/pubsub/attestation/EmptyAttester.hpp>
 #include <sodium.h>
 
@@ -15,7 +15,7 @@ using namespace std;
 
 class PubSubNodeDelegate {
 private:
-	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>;
+	using PubSubNodeType = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, LpfBloomWitnesser>;
 
 public:
 	std::vector<uint16_t> channels = {100, 101};
@@ -68,7 +68,7 @@ int main() {
 
 	auto addr = SocketAddress::from_string("127.0.0.1:8000");
 
-	using PBNT = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, BloomWitnesser>;
+	using PBNT = PubSubNode<PubSubNodeDelegate, true, true, true, EmptyAttester, LpfBloomWitnesser>;
 
 	auto b = new PBNT(addr, max_sol_conn, max_unsol_conn, static_sk, std::forward_as_tuple("", ""), {}, std::tie(static_pk));
 	b->delegate = &b_del;

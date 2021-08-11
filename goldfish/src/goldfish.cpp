@@ -2,8 +2,9 @@
 #include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 #include <unistd.h>
+#include <marlin/pubsub/EmptyAbci.hpp>
 #include <marlin/pubsub/attestation/LpfAttester.hpp>
-#include <marlin/pubsub/witness/LpfWitnesser.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 
 #include <structopt/app.hpp>
 #include <cryptopp/scrypt.h>
@@ -32,13 +33,18 @@ public:
 		true,
 		true,
 		LpfAttester,
-		LpfWitnesser
+		LpfBloomWitnesser,
+		EmptyAbci
 	>;
+
+	uint16_t ps_port;
+
+	Goldfish(uint16_t port = 10000) {
+		ps_port = port;
+	}
 
 	DiscoveryClient<Goldfish> *b;
 	PubSubNodeType *ps;
-
-	uint16_t ps_port = 10000;
 
 	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
 		return {
@@ -53,6 +59,7 @@ public:
 		uint16_t
 	) {
 		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
+			SPDLOG_INFO("New peer: {}, {:spn}", addr.to_string(), spdlog::to_hex(static_pk, static_pk+32));
 			ps->subscribe(addr, static_pk);
 		}
 	}
@@ -114,10 +121,12 @@ STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, key
 std::string get_key(std::string keystore_path, std::string keystore_pass_path);
 
 int main(int argc, char **argv) {
+	if(sodium_init() == -1) {
+		return -1;
+	}
+
 	std::string beacon_addr("127.0.0.1:9002"),
-				heartbeat_addr("127.0.0.1:9003"),
-				discovery_addr("127.0.0.1:10002"),
-				pubsub_addr("127.0.0.1:10000");
+				heartbeat_addr("127.0.0.1:9003");
 
 	char c;
 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
@@ -125,32 +134,24 @@ int main(int argc, char **argv) {
 			case 'b':
 			beacon_addr = std::string(optarg);
 			break;
-			case 'd':
-			discovery_addr = std::string(optarg);
-			break;
-			case 'p':
-			pubsub_addr = std::string(optarg);
-			break;
 			default:
 			return 1;
 		}
 	}
 
 	SPDLOG_INFO(
-		"Beacon: {}, Discovery: {}, PubSub: {}",
-		beacon_addr,
-		discovery_addr,
-		pubsub_addr
+		"Beacon: {}",
+		beacon_addr
 	);
 
-	Goldfish g;
+	Goldfish g(20000);
 
 	std::string cbaddr("127.0.0.1:7002"), chaddr("127.0.0.1:7003");
 	DiscoveryServer<Goldfish> cb(SocketAddress::from_string(cbaddr), SocketAddress::from_string(chaddr));
 	cb.delegate = &g;
 
 	// Beacon
-	auto key = get_key("/home/roshanr/Downloads/nitinkeystore", "/home/roshanr/Downloads/nitinpass");
+	auto key = get_key("/home/roshan/Downloads/nitinkeystore", "/home/roshan/Downloads/nitinpass");
 	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr), SocketAddress::from_string(chaddr), key);
 	b.delegate = &g;
 
@@ -159,17 +160,35 @@ int main(int argc, char **argv) {
 	crypto_box_keypair(static_pk, static_sk);
 
 	// Pubsub
-	Goldfish::PubSubNodeType ps(SocketAddress::from_string(pubsub_addr), 1000, 1000, static_sk, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""));
+	Goldfish::PubSubNodeType ps(SocketAddress::from_string("127.0.0.1:20000"), 1000, 1000, static_sk, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), std::make_tuple(), std::make_tuple(static_pk));
 	ps.delegate = &g;
 	g.ps = &ps;
 
 	// Discovery client
-	DiscoveryClient<Goldfish> dc(SocketAddress::from_string(discovery_addr), static_sk);
+	DiscoveryClient<Goldfish> dc(SocketAddress::from_string("127.0.0.1:10002"), static_sk);
 	dc.delegate = &g;
 	dc.is_discoverable = true;
 	g.b = &dc;
 
+	Goldfish g2(21000);
+
+	uint8_t static_sk2[crypto_box_SECRETKEYBYTES];
+	uint8_t static_pk2[crypto_box_PUBLICKEYBYTES];
+	crypto_box_keypair(static_pk2, static_sk2);
+
+	// Pubsub
+	Goldfish::PubSubNodeType ps2(SocketAddress::from_string("127.0.0.1:21000"), 1000, 1000, static_sk2, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), std::make_tuple(), std::make_tuple(static_pk2));
+	ps2.delegate = &g2;
+	g2.ps = &ps2;
+
+	// Discovery client
+	DiscoveryClient<Goldfish> dc2(SocketAddress::from_string("127.0.0.1:11002"), static_sk2);
+	dc2.delegate = &g2;
+	dc2.is_discoverable = true;
+	g2.b = &dc2;
+
 	dc.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
+	dc2.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
 
 	return EventLoop::run();
 }

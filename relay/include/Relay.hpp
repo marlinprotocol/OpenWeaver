@@ -2,7 +2,7 @@
 #define MARLIN_RELAY_RELAY_HPP
 
 #include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/pubsub/witness/BloomWitnesser.hpp>
+#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
 #include <marlin/beacon/DiscoveryClient.hpp>
 
 #include <boost/filesystem.hpp>
@@ -23,7 +23,7 @@ template<
 	bool enable_relay = false,
 	template<typename, typename...> class AbciTemplate = DefaultAbci,
 	typename AttesterType = EmptyAttester,
-	typename WitnesserType = BloomWitnesser,
+	typename WitnesserType = LpfBloomWitnesser,
 	uint8_t log_mask = 0x0
 >
 class Relay {

@@ -97,7 +97,6 @@ set(EXAMPLE_SOURCES
 	examples/tcp.cpp
 	examples/tcp_out_fiber.cpp
 	examples/timer.cpp
-	examples/ws.cpp
 )
 
 add_custom_target(asyncio_examples)
@@ -111,7 +110,6 @@ foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
 	add_dependencies(asyncio_examples ${EXAMPLE_NAME}_example)
 endforeach(EXAMPLE_SOURCE)
 
-target_link_libraries(ws_example PUBLIC websockets)
 
 ##########################################################
 # All

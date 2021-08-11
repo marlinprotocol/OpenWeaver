@@ -34,16 +34,6 @@ target_link_libraries(relay INTERFACE marlin::beacon)
 # boost::filesystem
 target_link_libraries(relay INTERFACE Boost::filesystem)
 
-add_executable(relayexec
-	src/relay_exec.cpp
-)
-add_executable(masterexec
-	src/master_exec.cpp
-)
-
-target_link_libraries(relayexec PUBLIC relay)
-target_link_libraries(masterexec PUBLIC relay)
-
 add_executable(bsc_relay
 	src/bsc_relay.cpp
 )
