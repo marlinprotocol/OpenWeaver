@@ -117,7 +117,7 @@ sc_exe(dot 20700 20702 20901 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a
 sc_exe(iris 21700 21702 21901 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" Cosmosv1 cosmos)
 sc_exe(cosmos 22200 22202 22401 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" Cosmosv1 cosmos)
 sc_exe(eth 15200 15202 15401 "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4" All eth)
-sc_exe(matic 27200 22702 22901 "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4" All matic)
+sc_exe(matic 27200 22702 22901 "0xa6a7de01e8b7ba6a4a61c782a73188d808fc1f3cf5743fadb68a02ed884b594" All matic)
 
 function(legacy_sc_exe EXE_PREFIX DEFAULT_PUBSUB DEFAULT_DISC DEFAULT_LISTEN DEFAULT_NETWORK_ID DEFAULT_MASK DEFAULT_CHAIN)
 	set(EXE_NAME ${EXE_PREFIX}_legacy_sc)
@@ -160,6 +160,7 @@ endfunction()
 probe_exe(dot 20700 20702 "0x9bd00430e53a5999c7c603cfc04cbdaf68bdbc180f300e4a2067937f57a0534f" All)
 probe_exe(iris 21700 21702 "0x400c11d24cbc493052ef2bdd6a364730aa6ad3883b7e7d99ba40b34062cf1701" Cosmosv1)
 probe_exe(cosmos 22200 22202 "0xa7afb7207c63764e77fd8c26e89627207accddd4b033d7d0cd3b669b62d6af4f" Cosmosv1)
+probe_exe(matic 22700 22702 "0xa6a7de01e8b7ba6a4a61c782a73188d808fc1f3cf5743fadb68a02ed884b594" All)
 
 add_executable(eth_probe
 	src/old_probe.cpp
