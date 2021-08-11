@@ -769,7 +769,7 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_DIAL(
 		}
 
 		uint8_t pt[pt_len];
-		auto res = crypto_box_seal_open(pt, packet.payload() + 10, ct_len, static_pk, static_sk);
+		auto res = crypto_box_seal_open(pt, packet.payload(), ct_len, static_pk, static_sk);
 		if (res < 0) {
 			SPDLOG_DEBUG(
 				"Stream transport {{ Src: {}, Dst: {} }}: DIAL: Unseal failure: {}",
