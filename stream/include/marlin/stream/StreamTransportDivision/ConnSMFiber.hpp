@@ -16,10 +16,7 @@ using namespace marlin::core;
 namespace marlin {
 namespace stream {
 
-template <
-	typename ExtFabric,
-	typename SwitchFiberTemplate
->
+template <typename ExtFabric>
 class ConnSMFiber {
 private:
 	enum struct ConnectionState {

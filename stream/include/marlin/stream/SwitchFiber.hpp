@@ -14,7 +14,7 @@ using namespace marlin::core;
 namespace marlin {
 namespace stream {
 
-template <typename ExtFabric, template<typename...> typename STFabric>
+template <typename ExtFabric, template<typename> typename STFabric>
 class SwitchFiber : public FiberScaffold<
 	SwitchFiber<ExtFabric, STFabric>,
 	ExtFabric,
@@ -66,15 +66,22 @@ public:
 
 	int did_recv(
 		auto &&,	// id of the Stream
-		InnerMessageType&& buf,
-		SocketAddress &sock
+		InnerMessageType&& ,
+		SocketAddress &
 	) {
+		SPDLOG_INFO("Something something");
 		// Process
-		auto *dummy = get_or_create(sock);
-		SPDLOG_INFO("Received something in stream factory fiber. sock_addr={}, port={}", sock.to_string(), sock.get_port());
+		// auto *dummy = get_or_create(sock);
 
-		dummy->i(0).did_recv(std::move(buf));
+		// dummy->i(0).did_recv(std::move(buf));
 		return 0;
+	}
+
+	auto& i(auto&&, SocketAddress addr) {
+		// Branching logic: should return the fiber.
+		auto* stFabric = get_or_create(addr);
+		SPDLOG_INFO("Received something in stream factory fiber. sock_addr={}, port={}", addr.to_string(), addr.get_port());
+		return stFabric->i(this);
 	}
 };
 

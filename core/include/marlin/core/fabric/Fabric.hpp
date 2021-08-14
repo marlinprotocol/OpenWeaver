@@ -162,6 +162,34 @@ private:
 			}
 		}
 
+		template <typename... Args>
+		auto& i(NthFiber<idx>& caller, Args... args) {
+			auto& fabric = get_fabric<idx>(caller);
+
+			if constexpr (idx == sizeof ...(FiberTemplates) - 1) {
+
+				if constexpr (requires (decltype(fabric.ext_fabric) f) {
+					f.i(fabric, std::forward <Args> (args)...);
+				}) {
+					return fabric.ext_fabric.i(fabric, std::forward <Args> (args)...);
+				} else {
+					return fabric.ext_fabric;
+				}
+			} else {
+
+				auto& fiber = std::get <idx + 1> (fabric.fibers);
+				SPDLOG_INFO("SOmething");
+				if constexpr (requires (decltype(fiber) f) {
+					f.i(fabric, std::forward <Args> (args)...);
+				}) {
+					SPDLOG_INFO("going to .i of switch");
+					return fiber.i(fabric, std::forward <Args> (args)...);
+				} else {
+					return fiber;
+				}
+			}
+		}
+
 		auto& is(NthFiber<idx>& caller) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);

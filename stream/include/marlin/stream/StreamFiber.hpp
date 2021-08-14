@@ -25,7 +25,7 @@ public:
 	StreamFiber(Args&&...) {}
 	StreamFiber(SocketAddress addr) : addr(addr) {}
 
-	int did_recv(Buffer &&buf) {
+	int did_recv(auto&&, Buffer &&buf, SocketAddress addr) {
 		SPDLOG_INFO(
 			"Received in StreamFiber: {} , {}", 
 			buf.size(),

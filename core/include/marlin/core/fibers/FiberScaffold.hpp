@@ -27,7 +27,7 @@ public:
 	}
 
 	int did_recv(auto&&, InnerMessageType&& buf, SocketAddress addr) {
-		return ext_fabric.i(*(Fiber*)this).did_recv(ext_fabric.is(*(Fiber*)this), std::move(buf), addr);
+		return ext_fabric.i(*(Fiber*)this, addr).did_recv(ext_fabric.is(*(Fiber*)this), std::move(buf), addr);
 	}
 
 	int did_dial(auto&&, SocketAddress addr, auto&&... args) {
