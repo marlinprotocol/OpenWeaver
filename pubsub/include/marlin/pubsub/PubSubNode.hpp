@@ -161,6 +161,8 @@ struct StakeRequester {
 		} else {
 			// body
 			SPDLOG_DEBUG("{}", std::string((char*)buf.data(), buf.size()));
+			state = 0;
+			length = 0;
 			{
 			rapidjson::Document d;
 			d.Parse((char*)buf.data(), buf.size());
