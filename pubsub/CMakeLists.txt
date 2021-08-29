@@ -111,6 +111,14 @@ add_dependencies(pubsub_examples testclient)
 target_link_libraries(testclient PUBLIC pubsub)
 target_compile_options(testclient PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
 
+add_executable(teststakereq
+	examples/stakereq.cpp
+)
+add_dependencies(pubsub_examples teststakereq)
+
+target_link_libraries(teststakereq PUBLIC pubsub)
+target_compile_options(teststakereq PRIVATE -Werror -Wall -Wextra -pedantic-errors -ftemplate-backtrace-limit=0)
+
 
 ##########################################################
 # All
