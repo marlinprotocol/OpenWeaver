@@ -142,7 +142,7 @@ void RlpxTransport<DelegateType>::did_recv(
 				hello[35] = 0x05;
 				hello[36] = 0x8c;
 				std::memcpy(hello + 37, "Marlin/Alpha", 12);
-				std::memcpy(hello + 49, "\xc6\xc5\x83\x65\x74\x68\x41\x80\xb8", 9);
+				std::memcpy(hello + 49, "\xc6\xc5\x83\x65\x74\x68\x42\x80\xb8", 9);
 				crypto.get_static_public_key(hello + 58);
 				hello[58] = 0x40;
 
