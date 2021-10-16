@@ -126,6 +126,9 @@ add_subdirectory(boost)
 
 
 #-------- snappy --------#
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "snappy shared libs")
+set(SNAPPY_BUILD_TESTS OFF CACHE BOOL "snappy tests")
+set(SNAPPY_BUILD_BENCHMARKS OFF CACHE BOOL "snappy bench")
 add_subdirectory(snappy)
 
 
