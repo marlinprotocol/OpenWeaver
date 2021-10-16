@@ -4,6 +4,8 @@ add_library(GTest::GTest ALIAS gtest)
 target_compile_features(gtest PUBLIC cxx_std_17)
 add_library(GTest::Main ALIAS gtest_main)
 target_compile_features(gtest_main PUBLIC cxx_std_17)
+# note: this should ideally be fixed in abseil, have opened an issue
+add_library(GTest::gmock_main ALIAS gmock_main)
 
 
 #-------- libuv --------#
@@ -174,6 +176,8 @@ install(EXPORT rapidjson-export
 #-------- abseil --------#
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "absl shared libs")
-set(BUILD_TESTING OFF CACHE BOOL "absl testing")
+set(ABSL_USE_EXTERNAL_GOOGLETEST ON CACHE BOOL "absl ext gtest")
+set(ABSL_FIND_GOOGLETEST OFF CACHE BOOL "absl find gtest")
 set(ABSL_ENABLE_INSTALL ON CACHE BOOL "absl install")
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "absl prop")
 add_subdirectory(abseil-cpp)
