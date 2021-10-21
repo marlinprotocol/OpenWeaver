@@ -137,7 +137,7 @@ int SimulatedTransportFactory<
 	if(!is_listening) {
 		auto status = listen(delegate);
 		if(status < 0) {
-			SPDLOG_ERROR("SimulatedTransportFactory {}: Listen failure: {}", this->addr.to_string());
+			SPDLOG_ERROR("SimulatedTransportFactory {}: Listen failure: {}", this->addr.to_string(), status);
 			return status;
 		}
 	}

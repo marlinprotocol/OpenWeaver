@@ -56,6 +56,7 @@ struct Delegate {
 				"Transport {{ Src: {}, Dst: {} }}: Unknown message: {} bytes: {}",
 				transport.src_addr.to_string(),
 				transport.dst_addr.to_string(),
+				message.size(),
 				spdlog::to_hex(message.data(), message.data() + message.size())
 			);
 		}
