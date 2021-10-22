@@ -4,8 +4,6 @@ add_library(GTest::GTest ALIAS gtest)
 target_compile_features(gtest PUBLIC cxx_std_17)
 add_library(GTest::Main ALIAS gtest_main)
 target_compile_features(gtest_main PUBLIC cxx_std_17)
-# note: this should ideally be fixed in abseil, have opened an issue
-add_library(GTest::gmock_main ALIAS gmock_main)
 
 
 #-------- libuv --------#
