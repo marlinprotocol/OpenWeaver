@@ -124,6 +124,9 @@ add_subdirectory(boost)
 
 
 #-------- snappy --------#
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "snappy shared libs")
+set(SNAPPY_BUILD_TESTS OFF CACHE BOOL "snappy tests")
+set(SNAPPY_BUILD_BENCHMARKS OFF CACHE BOOL "snappy bench")
 add_subdirectory(snappy)
 
 
@@ -174,6 +177,8 @@ install(EXPORT rapidjson-export
 #-------- abseil --------#
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "absl shared libs")
-set(BUILD_TESTING OFF CACHE BOOL "absl testing")
+set(ABSL_USE_EXTERNAL_GOOGLETEST ON CACHE BOOL "absl ext gtest")
+set(ABSL_FIND_GOOGLETEST OFF CACHE BOOL "absl find gtest")
 set(ABSL_ENABLE_INSTALL ON CACHE BOOL "absl install")
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "absl prop")
 add_subdirectory(abseil-cpp)
