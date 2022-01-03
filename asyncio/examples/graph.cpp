@@ -78,6 +78,8 @@ struct Grapher {
 			fiber.o(*this).reset(1000);
 		} else {
 			// body
+			state = 0;
+			length = 0;
 			SPDLOG_INFO("{}", std::string((char*)buf.data(), buf.size()));
 			fiber.o(*this).close();
 		}
