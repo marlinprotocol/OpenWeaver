@@ -33,14 +33,14 @@ public:
 			// Skip zero
 			return;
 		}
-		// SPDLOG_INFO(
-		// 	"New peer: 0x{:spn}, {}, {:spn}, {}, {}",
-		// 	spdlog::to_hex(client_key.data(), client_key.data()+20),
-		// 	addr.to_string(),
-		// 	spdlog::to_hex(static_pk, static_pk+32),
-		// 	protocol,
-		// 	version
-		// );
+		SPDLOG_INFO(
+			"New peer: 0x{:spn}, {}, {:spn}, {}, {}",
+			spdlog::to_hex(client_key.data(), client_key.data()+20),
+			addr.to_string(),
+			spdlog::to_hex(static_pk, static_pk+32),
+			protocol,
+			version
+		);
 	}
 
 	void new_cluster(
@@ -51,11 +51,11 @@ public:
 			// Skip zero
 			return;
 		}
-		// SPDLOG_INFO(
-		// 	"New cluster: 0x{:spn}, {}",
-		// 	spdlog::to_hex(client_key.data(), client_key.data()+20),
-		// 	addr.to_string()
-		// );
+		SPDLOG_INFO(
+			"New cluster: 0x{:spn}, {}",
+			spdlog::to_hex(client_key.data(), client_key.data()+20),
+			addr.to_string()
+		);
 	}
 };
 
