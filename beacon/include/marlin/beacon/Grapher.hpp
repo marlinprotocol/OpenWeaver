@@ -19,20 +19,20 @@ namespace marlin{
 namespace beacon{
 
 template<typename X>
-using SentinelFramingFiberHelper = marlin::core::SentinelFramingFiber<X, '\n'>;
+using SentinelFramingFiberHelper = core::SentinelFramingFiber<X, '\n'>;
 
 struct Grapher {
-	using FiberType = marlin::core::Fabric<
+	using FiberType = core::Fabric<
 		Grapher&,
-		marlin::asyncio::TcpOutFiber,
-		marlin::core::DynamicFramingFiberHelper<
-			marlin::core::FabricF<SentinelFramingFiberHelper, marlin::core::SentinelBufferFiber>::type,
-			marlin::core::FabricF<marlin::core::LengthFramingFiber, marlin::core::LengthBufferFiber>::type
+		asyncio::TcpOutFiber,
+		core::DynamicFramingFiberHelper<
+			core::FabricF<SentinelFramingFiberHelper, core::SentinelBufferFiber>::type,
+			core::FabricF<core::LengthFramingFiber, core::LengthBufferFiber>::type
 		>::type
 	>;
 
-	marlin::asyncio::Timer t;
-	marlin::core::SocketAddress dst;
+	asyncio::Timer t;
+	core::SocketAddress dst;
 	std::map< std::string, std::string> MData;
 
 	void query_cb() {
@@ -57,7 +57,7 @@ struct Grapher {
 	size_t state = 0;
 	size_t length = 0;
 
-	int did_recv(auto&& fiber, marlin::core::Buffer&& buf, marlin::core::SocketAddress addr [[maybe_unused]]) {
+	int did_recv(auto&& fiber, core::Buffer&& buf, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
 
 		if(state == 0) {
@@ -103,10 +103,10 @@ struct Grapher {
 	}
 
 	template<typename FiberType>
-	int did_dial(FiberType& fiber, marlin::core::SocketAddress addr [[maybe_unused]]) {
+	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did dial: {}", addr.to_string());
 		fiber.o(*this).reset(1000);
-		auto query = marlin::core::Buffer(259).write_unsafe(
+		auto query = core::Buffer(259).write_unsafe(
 			0,
 			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking HTTP/1.0\r\n"
 			"Content-Type: application/json\r\n"
@@ -120,7 +120,7 @@ struct Grapher {
 	}
 
 	template<typename FiberType>
-	int did_send(FiberType&, marlin::core::Buffer&& buf [[maybe_unused]]) {
+	int did_send(FiberType&, core::Buffer&& buf [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did send: {} bytes", buf.size());
 		return 0;
 	}
@@ -131,28 +131,28 @@ struct Grapher {
 		return 0;
 	}
 
-    void query() {
-        uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
-	req->data = this;
-        auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* handle, int, addrinfo* res) {
-		if(res != nullptr) {
-		auto& addr = *reinterpret_cast<marlin::core::SocketAddress*>(res->ai_addr);
+	void query() {
+		uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
+		req->data = this;
+		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* handle, int, addrinfo* res) {
+			if(res != nullptr) {
+			auto& addr = *reinterpret_cast<core::SocketAddress*>(res->ai_addr);
 
-		SPDLOG_INFO("DNS result: {}", addr.to_string());
-				Grapher *grapher= (Grapher*)handle->data;
-		grapher->dst = addr;
-		grapher->query_cb();
-		// g.dst = SocketAddress::loopback_ipv4(18000);
+			SPDLOG_INFO("DNS result: {}", addr.to_string());
+					Grapher *grapher= (Grapher*)handle->data;
+			grapher->dst = addr;
+			grapher->query_cb();
+			// g.dst = SocketAddress::loopback_ipv4(18000);
+			}
+
+			uv_freeaddrinfo(res);
+		}, "graph.marlin.pro", "http", nullptr);
+		if(res != 0) {
+			SPDLOG_ERROR("DNS lookup error: {}", res);
 		}
 
-		uv_freeaddrinfo(res);
-        }, "graph.marlin.pro", "http", nullptr);
-        if(res != 0) {
-        	SPDLOG_ERROR("DNS lookup error: {}", res);
-        }
-
-	    // uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-    }   
+		// uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	}   
 
 };
 
