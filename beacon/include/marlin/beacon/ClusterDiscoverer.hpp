@@ -13,9 +13,11 @@
 #include "Messages.hpp"
 #include "PeerInfo.hpp"
 
-static uint8_t* hextoint(std::string s){
+template<size_t size>
+static std::array<uint8_t, size> hextoint(std::string s){
 	//hex strings starting with 0x//
-	uint8_t* res = new uint8_t[(s.length()-2)*2];
+	assert(size >= (s.length()-2)/2);
+	std::array<uint8_t, size> res;
 	for(int i=2;i<s.length();i+=2){
 		char tmp[2] = {s[i], s[i+1]};
 		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16); 
@@ -169,18 +171,14 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 
 		auto cluster_client_key = cluster_map[beacon_map[addr].first].address;
 		auto hexstring = fmt::format("0x{:spn}", spdlog::to_hex(cluster_client_key.data(), cluster_client_key.data()+20));
-		auto &MData = grapher.MData;
-		auto found = MData.find(hexstring);
-		if(found == MData.end()){
+		auto &clientkey_id_map = grapher.clientkey_id_map;
+		auto found = clientkey_id_map.find(hexstring);
+		if(found == clientkey_id_map.end()){
 			SPDLOG_INFO(
 			"not found: {}", hexstring
 			);
 		}else{
-			uint8_t* id = hextoint(found->second);
-			std::array<uint8_t, 20> cluster_id;
-			for(int i=0;i<20;i++){
-				cluster_id[i] = id[i];
-			}
+			std::array<uint8_t, 20> cluster_id = hextoint<20>(found->second);
 			delegate->new_peer_protocol(cluster_id, peer_addr, node_key_map[addr].data(), protocol, version);
 		}
 	}
@@ -314,18 +312,14 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 
 		if constexpr (has_new_cluster) {
 			auto hexstring = fmt::format("0x{:spn}", spdlog::to_hex(cluster_client_key.data(), cluster_client_key.data()+20));
-			auto &MData = grapher.MData;
-			auto found = MData.find(hexstring);
-			if(found == MData.end()){
+			auto &clientkey_id_map = grapher.clientkey_id_map;
+			auto found = clientkey_id_map.find(hexstring);
+			if(found == clientkey_id_map.end()){
 				SPDLOG_INFO(
 				"not found: {}", hexstring
 				);
 			}else{
-				uint8_t* id = hextoint(found->second);
-				std::array<uint8_t, 20> cluster_id;
-				for(int i=0;i<20;i++){
-					cluster_id[i] = id[i];
-				}
+				std::array<uint8_t, 20> cluster_id = hextoint<20>(found->second);
 				delegate->new_cluster(cluster_addr, cluster_id);
 			}
 		}

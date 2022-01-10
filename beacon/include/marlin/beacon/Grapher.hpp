@@ -33,9 +33,9 @@ struct Grapher {
 
 	asyncio::Timer t;
 	core::SocketAddress dst;
-	std::map< std::string, std::string> MData;
+	std::map< std::string, std::string> clientkey_id_map;
 
-	void query_cb() {
+	void query_subgraph() {
 		SPDLOG_DEBUG("Timer hit: {}", dst.to_string());
 		auto& fiber = *new FiberType(std::forward_as_tuple(
 			*this,
@@ -51,7 +51,7 @@ struct Grapher {
 	template<typename... Args>
 	Grapher(Args&&...) : t(this) {
 		//query();
-		t.template start<Grapher, &Grapher::query>(0, 3000000);
+		t.template start<Grapher, &Grapher::query>(0, 300000);
 	}
 
 	size_t state = 0;
@@ -91,7 +91,7 @@ struct Grapher {
 				auto& clusters = JData["data"]["clusters"];
 				for(rapidjson::SizeType i = 0; i < clusters.Size(); i++){
 					auto& cluster = clusters[i];
-					MData[cluster["clientKey"].GetString()] = cluster["id"].GetString();
+					clientkey_id_map[cluster["clientKey"].GetString()] = cluster["id"].GetString();
 					// SPDLOG_INFO("clientKey {}:id {}", cluster["clientKey"].GetString(), cluster["id"].GetString());
 				}
 			}else{
@@ -141,7 +141,8 @@ struct Grapher {
 			SPDLOG_INFO("DNS result: {}", addr.to_string());
 					Grapher *grapher= (Grapher*)handle->data;
 			grapher->dst = addr;
-			grapher->query_cb();
+			grapher->query_subgraph();
+			delete handle;
 			// g.dst = SocketAddress::loopback_ipv4(18000);
 			}
 
