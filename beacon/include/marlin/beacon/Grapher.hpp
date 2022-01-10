@@ -1,3 +1,4 @@
+#include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/tcp/TcpOutFiber.hpp>
 #include <marlin/core/fibers/DynamicFramingFiber.hpp>
 #include <marlin/core/fibers/SentinelFramingFiber.hpp>
@@ -30,6 +31,7 @@ struct Grapher {
 		>::type
 	>;
 
+	Timer t;
 	SocketAddress dst;
 	std::map< std::string, std::string> MData;
 
@@ -47,9 +49,9 @@ struct Grapher {
 	}
 
 	template<typename... Args>
-	Grapher(Args&&...) {
-		query();
-		//t.template start<Grapher, &Grapher::query_cb>(0, 5000);
+	Grapher(Args&&...) : t(this) {
+		//query();
+		t.template start<Grapher, &Grapher::query>(0, 3000000);
 	}
 
 	size_t state = 0;
@@ -82,7 +84,7 @@ struct Grapher {
 		} else {
 			// body
 			state = 0;
-			SPDLOG_INFO("{}", std::string((char*)buf.data(), buf.size()));
+			// SPDLOG_INFO("{}", std::string((char*)buf.data(), buf.size()));
 			rapidjson::Document JData;
 			JData.Parse((char*)buf.data(), buf.size());
 			if(!JData.HasParseError()){
@@ -90,7 +92,7 @@ struct Grapher {
 				for(rapidjson::SizeType i = 0; i < clusters.Size(); i++){
 					auto& cluster = clusters[i];
 					MData[cluster["clientKey"].GetString()] = cluster["id"].GetString();
-					SPDLOG_INFO("{}:{}", cluster["clientKey"].GetString(), cluster["id"].GetString());
+					// SPDLOG_INFO("clientKey {}:id {}", cluster["clientKey"].GetString(), cluster["id"].GetString());
 				}
 			}else{
 				SPDLOG_INFO("Not Parsed");
@@ -129,7 +131,7 @@ struct Grapher {
 		return 0;
 	}
 
-    int query() {
+    void query() {
         uv_getaddrinfo_t req;
 		req.data = this;
         auto res = uv_getaddrinfo(uv_default_loop(), &req, [](uv_getaddrinfo_t* handle, int, addrinfo* res) {
@@ -147,10 +149,10 @@ struct Grapher {
         }, "graph.marlin.pro", "http", nullptr);
         if(res != 0) {
             SPDLOG_ERROR("DNS lookup error: {}", res);
-            return -1;
         }
 
-	    return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	    // uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+		SPDLOG_INFO("debug prints");
     }   
 
 };
