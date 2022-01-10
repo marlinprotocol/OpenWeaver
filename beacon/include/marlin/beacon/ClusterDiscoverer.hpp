@@ -13,7 +13,7 @@
 #include "Messages.hpp"
 #include "PeerInfo.hpp"
 
-uint8_t* hextoint(std::string s){
+static uint8_t* hextoint(std::string s){
 	//hex strings starting with 0x//
 	uint8_t* res = new uint8_t[(s.length()-2)*2];
 	for(int i=2;i<s.length();i+=2){
