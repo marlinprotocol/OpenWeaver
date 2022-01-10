@@ -15,12 +15,12 @@
 
 uint8_t* hextoint(std::string s){
 	//hex strings starting with 0x//
-    uint8_t* res = new uint8_t[(s.length()-2)*2];
-    for(int i=2;i<s.length();i+=2){
-        char tmp[2] = {s[i], s[i+1]};
-        res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16); 
-    }
-    return res;
+	uint8_t* res = new uint8_t[(s.length()-2)*2];
+	for(int i=2;i<s.length();i+=2){
+		char tmp[2] = {s[i], s[i+1]};
+		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16); 
+	}
+	return res;
 }
 
 namespace marlin {

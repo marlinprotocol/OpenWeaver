@@ -15,6 +15,8 @@
 
 
 
+namespace marlin{
+namespace beacon{
 
 template<typename X>
 using SentinelFramingFiberHelper = marlin::core::SentinelFramingFiber<X, '\n'>;
@@ -131,22 +133,22 @@ struct Grapher {
 
     void query() {
         uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
-		req->data = this;
+	req->data = this;
         auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* handle, int, addrinfo* res) {
-            if(res != nullptr) {
-                auto& addr = *reinterpret_cast<marlin::core::SocketAddress*>(res->ai_addr);
+		if(res != nullptr) {
+		auto& addr = *reinterpret_cast<marlin::core::SocketAddress*>(res->ai_addr);
 
-                SPDLOG_INFO("DNS result: {}", addr.to_string());
+		SPDLOG_INFO("DNS result: {}", addr.to_string());
 				Grapher *grapher= (Grapher*)handle->data;
-                grapher->dst = addr;
-                grapher->query_cb();
-                // g.dst = SocketAddress::loopback_ipv4(18000);
-            }
+		grapher->dst = addr;
+		grapher->query_cb();
+		// g.dst = SocketAddress::loopback_ipv4(18000);
+		}
 
-            uv_freeaddrinfo(res);
+		uv_freeaddrinfo(res);
         }, "graph.marlin.pro", "http", nullptr);
         if(res != 0) {
-            SPDLOG_ERROR("DNS lookup error: {}", res);
+        	SPDLOG_ERROR("DNS lookup error: {}", res);
         }
 
 	    // uv_run(uv_default_loop(), UV_RUN_DEFAULT);
@@ -154,4 +156,5 @@ struct Grapher {
 
 };
 
-
+}
+}
