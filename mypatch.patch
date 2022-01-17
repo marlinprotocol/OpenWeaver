@@ -1,0 +1,326 @@
+diff --git a/core/CMakeLists.txt b/core/CMakeLists.txt
+index f343019..b44a498 100644
+--- a/core/CMakeLists.txt
++++ b/core/CMakeLists.txt
+@@ -13,7 +13,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+ 
+ add_library(core STATIC
+ 	src/messages/BaseMessage.cpp
+-	src/BN.cpp
+ 	src/CidrBlock.cpp
+ 	src/Buffer.cpp
+ 	src/SocketAddress.cpp
+@@ -90,7 +89,6 @@ add_custom_target(core_docs
+ enable_testing()
+ 
+ set(TEST_SOURCES
+-	test/testBN.cpp
+ 	test/testBuffer.cpp
+ 	test/testEndian.cpp
+ 	test/testSocketAddress.cpp
+diff --git a/core/include/marlin/core/BN.hpp b/core/include/marlin/core/BN.hpp
+deleted file mode 100644
+index 0dae352..0000000
+--- a/core/include/marlin/core/BN.hpp
++++ /dev/null
+@@ -1,60 +0,0 @@
+-/*! \file BN.hpp
+-*/
+-
+-#ifndef MARLIN_CORE_BN_HPP
+-#define MARLIN_CORE_BN_HPP
+-
+-#include <stdint.h>
+-#include <x86intrin.h>
+-#include "marlin/core/Endian.hpp"
+-
+-
+-namespace marlin {
+-namespace core {
+-
+-/// @brief 256-bit number
+-/// @headerfile BN.hpp <marlin/core/BN.hpp>
+-struct alignas(32) uint256_t {
+-private:
+-#if MARLIN_CORE_ENDIANNESS == MARLIN_CORE_BIG_ENDIAN
+-	uint64_t hi;
+-	uint64_t hilo;
+-	uint64_t lohi;
+-	uint64_t lo;
+-#else
+-	uint64_t lo;
+-	uint64_t lohi;
+-	uint64_t hilo;
+-	uint64_t hi;
+-#endif
+-public:
+-	/// Default constructor
+-	uint256_t() = default;
+-	/// Copy constructor
+-	uint256_t(uint256_t const& other) = default;
+-	/// Construct from four 64-bit numbers
+-	uint256_t(
+-		uint64_t const& lo,
+-		uint64_t const& lohi = 0,
+-		uint64_t const& hilo = 0,
+-		uint64_t const& hi = 0
+-	);
+-
+-	/// Addition
+-	uint256_t operator+(uint256_t const& other) const;
+-	/// Compound assignment - addition
+-	uint256_t& operator+=(uint256_t const& other);
+-	/// Subtraction
+-	uint256_t operator-(uint256_t const& other) const;
+-	/// Compound assignment - subtraction
+-	uint256_t& operator-=(uint256_t const& other);
+-	/// Equality
+-	bool operator==(uint256_t const& other) const;
+-	/// Comparison
+-	bool operator<(uint256_t const& other) const;
+-} __attribute__((packed));
+-
+-} // namespace core
+-} // namespace marlin
+-
+-#endif // MARLIN_CORE_BN_HPP
+diff --git a/core/src/BN.cpp b/core/src/BN.cpp
+deleted file mode 100644
+index 9fbc1b5..0000000
+--- a/core/src/BN.cpp
++++ /dev/null
+@@ -1,67 +0,0 @@
+-#include "marlin/core/BN.hpp"
+-
+-
+-namespace marlin {
+-namespace core {
+-
+-uint256_t::uint256_t(
+-	uint64_t const& lo,
+-	uint64_t const& lohi,
+-	uint64_t const& hilo,
+-	uint64_t const& hi
+-) : lo(lo), lohi(lohi), hilo(hilo), hi(hi) {}
+-
+-uint256_t uint256_t::operator+(uint256_t const& other) const {
+-	uint256_t temp;
+-	bool carry = false;
+-	carry = _addcarry_u64(carry, this->lo, other.lo, (unsigned long long*)&temp.lo);
+-	carry = _addcarry_u64(carry, this->lohi, other.lohi, (unsigned long long*)&temp.lohi);
+-	carry = _addcarry_u64(carry, this->hilo, other.hilo, (unsigned long long*)&temp.hilo);
+-	carry = _addcarry_u64(carry, this->hi, other.hi, (unsigned long long*)&temp.hi);
+-	return temp;
+-}
+-
+-uint256_t& uint256_t::operator+=(uint256_t const& other) {
+-	bool carry = false;
+-	carry = _addcarry_u64(carry, this->lo, other.lo, (unsigned long long*)&this->lo);
+-	carry = _addcarry_u64(carry, this->lohi, other.lohi, (unsigned long long*)&this->lohi);
+-	carry = _addcarry_u64(carry, this->hilo, other.hilo, (unsigned long long*)&this->hilo);
+-	carry = _addcarry_u64(carry, this->hi, other.hi, (unsigned long long*)&this->hi);
+-	return *this;
+-}
+-
+-uint256_t uint256_t::operator-(uint256_t const& other) const {
+-	uint256_t temp;
+-	bool carry = false;
+-	carry = _subborrow_u64(carry, this->lo, other.lo, (unsigned long long*)&temp.lo);
+-	carry = _subborrow_u64(carry, this->lohi, other.lohi, (unsigned long long*)&temp.lohi);
+-	carry = _subborrow_u64(carry, this->hilo, other.hilo, (unsigned long long*)&temp.hilo);
+-	carry = _subborrow_u64(carry, this->hi, other.hi, (unsigned long long*)&temp.hi);
+-	return temp;
+-}
+-
+-uint256_t& uint256_t::operator-=(uint256_t const& other) {
+-	bool carry = false;
+-	carry = _subborrow_u64(carry, this->lo, other.lo, (unsigned long long*)&this->lo);
+-	carry = _subborrow_u64(carry, this->lohi, other.lohi, (unsigned long long*)&this->lohi);
+-	carry = _subborrow_u64(carry, this->hilo, other.hilo, (unsigned long long*)&this->hilo);
+-	carry = _subborrow_u64(carry, this->hi, other.hi, (unsigned long long*)&this->hi);
+-	return *this;
+-}
+-
+-bool uint256_t::operator==(uint256_t const& other) const {
+-	return this->hi == other.hi && this->lohi == other.lohi && this->hilo == other.hilo && this->lo == other.lo;
+-}
+-
+-bool uint256_t::operator<(uint256_t const& other) const {
+-	uint256_t temp;
+-	bool carry = false;
+-	carry = _subborrow_u64(carry, this->lo, other.lo, (unsigned long long*)&temp.lo);
+-	carry = _subborrow_u64(carry, this->lohi, other.lohi, (unsigned long long*)&temp.lohi);
+-	carry = _subborrow_u64(carry, this->hilo, other.hilo, (unsigned long long*)&temp.hilo);
+-	carry = _subborrow_u64(carry, this->hi, other.hi, (unsigned long long*)&temp.hi);
+-	return carry;
+-}
+-
+-} // namespace core
+-} // namespace marlin
+diff --git a/core/test/testBN.cpp b/core/test/testBN.cpp
+deleted file mode 100644
+index 3a35ac3..0000000
+--- a/core/test/testBN.cpp
++++ /dev/null
+@@ -1,129 +0,0 @@
+-#include "gtest/gtest.h"
+-#include "marlin/core/BN.hpp"
+-
+-#include <cstring>
+-
+-using namespace marlin::core;
+-
+-
+-struct StubBN {
+-#if MARLIN_CORE_ENDIANNESS == MARLIN_CORE_BIG_ENDIAN
+-	int8_t direction = -1;
+-	uint8_t low = 31;
+-#else
+-	int8_t direction = 1;
+-	uint8_t low = 0;
+-#endif
+-	uint8_t mem[32] = {};
+-
+-	uint8_t& operator[](uint8_t offset) {
+-		return mem[low+direction*offset];
+-	}
+-};
+-
+-TEST(uint256Construct, uint8Constructible) {
+-	uint256_t n((uint8_t)0x12);
+-
+-	StubBN e;
+-	e[0] = 0x12;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint16Constructible) {
+-	uint256_t n((uint16_t)0x1234);
+-
+-	StubBN e;
+-	e[1] = 0x12;
+-	e[0] = 0x34;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint32Constructible) {
+-	uint256_t n((uint32_t)0x12345678);
+-
+-	StubBN e;
+-	e[3] = 0x12;
+-	e[2] = 0x34;
+-	e[1] = 0x56;
+-	e[0] = 0x78;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint64Constructible) {
+-	uint256_t n((uint64_t)0x123456789abcdef0);
+-
+-	StubBN e;
+-	e[7] = 0x12;
+-	e[6] = 0x34;
+-	e[5] = 0x56;
+-	e[4] = 0x78;
+-	e[3] = 0x9a;
+-	e[2] = 0xbc;
+-	e[1] = 0xde;
+-	e[0] = 0xf0;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint64x2Constructible) {
+-	uint256_t n(
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0
+-	);
+-
+-	StubBN e;
+-	e[15] = e[7] = 0x12;
+-	e[14] = e[6] = 0x34;
+-	e[13] = e[5] = 0x56;
+-	e[12] = e[4] = 0x78;
+-	e[11] = e[3] = 0x9a;
+-	e[10] = e[2] = 0xbc;
+-	e[9] = e[1] = 0xde;
+-	e[8] = e[0] = 0xf0;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint64x3Constructible) {
+-	uint256_t n(
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0
+-	);
+-
+-	StubBN e;
+-	e[23] = e[15] = e[7] = 0x12;
+-	e[22] = e[14] = e[6] = 0x34;
+-	e[21] = e[13] = e[5] = 0x56;
+-	e[20] = e[12] = e[4] = 0x78;
+-	e[19] = e[11] = e[3] = 0x9a;
+-	e[18] = e[10] = e[2] = 0xbc;
+-	e[17] = e[9] = e[1] = 0xde;
+-	e[16] = e[8] = e[0] = 0xf0;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+-
+-TEST(uint256Construct, uint64x4Constructible) {
+-	uint256_t n(
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0,
+-		(uint64_t)0x123456789abcdef0
+-	);
+-
+-	StubBN e;
+-	e[31] = e[23] = e[15] = e[7] = 0x12;
+-	e[30] = e[22] = e[14] = e[6] = 0x34;
+-	e[29] = e[21] = e[13] = e[5] = 0x56;
+-	e[28] = e[20] = e[12] = e[4] = 0x78;
+-	e[27] = e[19] = e[11] = e[3] = 0x9a;
+-	e[26] = e[18] = e[10] = e[2] = 0xbc;
+-	e[25] = e[17] = e[9] = e[1] = 0xde;
+-	e[24] = e[16] = e[8] = e[0] = 0xf0;
+-
+-	EXPECT_TRUE(std::memcmp((uint8_t*)&n, e.mem, 32) == 0);
+-}
+diff --git a/goldfish/src/goldfish.cpp b/goldfish/src/goldfish.cpp
+index 8a317e4..0d3b07d 100644
+--- a/goldfish/src/goldfish.cpp
++++ b/goldfish/src/goldfish.cpp
+@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
+ 	std::string beacon_addr("127.0.0.1:9002"),
+ 				heartbeat_addr("127.0.0.1:9003");
+ 
+-	char c;
++	int c;
+ 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
+ 		switch (c) {
+ 			case 'b':
+diff --git a/integrations/bsc/src/onramp.cpp b/integrations/bsc/src/onramp.cpp
+index 26f0915..f70dff8 100644
+--- a/integrations/bsc/src/onramp.cpp
++++ b/integrations/bsc/src/onramp.cpp
+@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
+ 	std::string discovery_addr = "0.0.0.0:20202";
+ 	std::string pubsub_addr = "0.0.0.0:20200";
+ 
+-	char c;
++	int c;
+ 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
+ 		switch (c) {
+ 			case 'b':
+diff --git a/vendor/libbase58 b/vendor/libbase58
+--- a/vendor/libbase58
++++ b/vendor/libbase58
+@@ -1 +1 @@
+-Subproject commit b1dd03fa8d1be4be076bb6152325c6b5cf64f678
++Subproject commit b1dd03fa8d1be4be076bb6152325c6b5cf64f678-dirty

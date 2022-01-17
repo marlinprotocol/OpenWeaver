@@ -13,7 +13,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 add_library(core STATIC
 	src/messages/BaseMessage.cpp
-	src/BN.cpp
 	src/CidrBlock.cpp
 	src/Buffer.cpp
 	src/SocketAddress.cpp
@@ -90,7 +89,6 @@ add_custom_target(core_docs
 enable_testing()
 
 set(TEST_SOURCES
-	test/testBN.cpp
 	test/testBuffer.cpp
 	test/testEndian.cpp
 	test/testSocketAddress.cpp

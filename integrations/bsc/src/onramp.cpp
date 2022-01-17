@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 	std::string discovery_addr = "0.0.0.0:20202";
 	std::string pubsub_addr = "0.0.0.0:20200";
 
-	char c;
+	int c;
 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
 		switch (c) {
 			case 'b':
