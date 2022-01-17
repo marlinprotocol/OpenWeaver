@@ -5,6 +5,7 @@
 #include <marlin/asyncio/udp/UdpFiber.hpp>
 #include <marlin/core/fibers/VersioningFiber.hpp>
 #include <marlin/core/fabric/Fabric.hpp>
+#include <marlin/beacon/Grapher.hpp>
 #include <map>
 
 #include <sodium.h>
@@ -12,6 +13,17 @@
 #include "Messages.hpp"
 #include "PeerInfo.hpp"
 
+template<size_t size>
+static std::array<uint8_t, size> hextoint(std::string s){
+	//hex strings starting with 0x//
+	assert(size >= (s.length()-2)/2);
+	std::array<uint8_t, size> res;
+	for(size_t i = 2; i < s.length(); i += 2){
+		char tmp[2] = {s[i], s[i+1]};
+		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16);
+	}
+	return res;
+}
 
 namespace marlin {
 namespace beacon {
@@ -48,6 +60,7 @@ private:
 	using LISTCLUSTER2 = LISTCLUSTER2Wrapper<BaseMessageType>;
 
 	FiberType fiber;
+	Grapher grapher;
 
 	// Discovery protocol
 	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
@@ -156,7 +169,18 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 		core::SocketAddress peer_addr(addr);
 		peer_addr.set_port(port);
 
-		delegate->new_peer_protocol(cluster_map[beacon_map[addr].first].address, peer_addr, node_key_map[addr].data(), protocol, version);
+		auto cluster_client_key = cluster_map[beacon_map[addr].first].address;
+		auto hexstring = fmt::format("0x{:spn}", spdlog::to_hex(cluster_client_key.data(), cluster_client_key.data()+20));
+		auto &clientkey_id_map = grapher.clientkey_id_map;
+		auto found = clientkey_id_map.find(hexstring);
+		if(found == clientkey_id_map.end()){
+			SPDLOG_INFO(
+			"not found: {}", hexstring
+			);
+		}else{
+			std::array<uint8_t, 20> cluster_id = hextoint<20>(found->second);
+			delegate->new_peer_protocol(cluster_id, peer_addr, node_key_map[addr].data(), protocol, version);
+		}
 	}
 }
 
@@ -287,7 +311,17 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 		auto cluster_client_key = std::get<1>(*iter);
 
 		if constexpr (has_new_cluster) {
-			delegate->new_cluster(cluster_addr, cluster_client_key);
+			auto hexstring = fmt::format("0x{:spn}", spdlog::to_hex(cluster_client_key.data(), cluster_client_key.data()+20));
+			auto &clientkey_id_map = grapher.clientkey_id_map;
+			auto found = clientkey_id_map.find(hexstring);
+			if(found == clientkey_id_map.end()){
+				SPDLOG_INFO(
+				"not found: {}", hexstring
+				);
+			}else{
+				std::array<uint8_t, 20> cluster_id = hextoint<20>(found->second);
+				delegate->new_cluster(cluster_addr, cluster_id);
+			}
 		}
 
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
