@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
 	std::string beacon_addr("127.0.0.1:9002"),
 				heartbeat_addr("127.0.0.1:9003");
 
-	char c;
+	int c;
 	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
 		switch (c) {
 			case 'b':
