@@ -972,60 +972,64 @@ int PUBSUBNODETYPE::did_recv_MESSAGE(
 
 	SPDLOG_DEBUG("PUBSUBNODE did_recv_MESSAGE ### message id: {}, channel: {}", message_id, channel);
 
+	bytes.cover_unsafe(10);
+	MessageHeaderType header = {};
+
+	auto att_opt = attester.parse_size(bytes, 0);
+	if(!att_opt.has_value()) {
+		SPDLOG_ERROR("Attestation size parse failure");
+		transport.close();
+		return -1;
+	}
+
+	header.attestation_data = bytes.data();
+	header.attestation_size = att_opt.value();
+	auto res = bytes.cover(header.attestation_size);
+
+	if(!res) {
+		SPDLOG_ERROR("Attestation too long: {}", header.attestation_size);
+		transport.close();
+		return -1;
+	}
+
+	auto wit_opt = witnesser.parse_size(bytes, 0);
+	if(!wit_opt.has_value()) {
+		SPDLOG_ERROR("Witness size parse failure");
+		transport.close();
+		return -1;
+	}
+
+	header.witness_data = bytes.data();
+	header.witness_size = wit_opt.value();
+	res = bytes.cover(header.witness_size);
+
+	if(!res) {
+		SPDLOG_ERROR("Witness too long: {}", header.witness_size);
+		transport.close();
+		return -1;
+	}
+
+	bool verify;
+	std::array<uint8_t, 20> address;
+	std::tie(verify, address) = attester.verify(message_id, channel, bytes.data(), bytes.size(), header);
+
+	if(!verify) {
+		SPDLOG_ERROR("Attestation verification failed");
+		transport.close();
+		return -1;
+	}
+
 	constexpr bool has_msg_log = requires(
 		PubSubDelegate& d
 	) {
-		d.msg_log(core::SocketAddress(), std::array<uint8_t, 20>(), message_id, bytes);
+		d.msg_log(core::SocketAddress(), std::array<uint8_t, 20>(), std::array<uint8_t, 20>(), message_id, bytes);
 	};
 	if constexpr(has_msg_log) {
-		delegate->msg_log(transport.dst_addr, beacon_map[transport.dst_addr], message_id, bytes);
+		delegate->msg_log(transport.dst_addr, beacon_map[transport.dst_addr], address, message_id, bytes);
 	}
 
 	// Send it onward
 	if(message_id_set.find(message_id) == message_id_set.end()) { // Deduplicate message
-		bytes.cover_unsafe(10);
-		MessageHeaderType header = {};
-
-		auto att_opt = attester.parse_size(bytes, 0);
-		if(!att_opt.has_value()) {
-			SPDLOG_ERROR("Attestation size parse failure");
-			transport.close();
-			return -1;
-		}
-
-		header.attestation_data = bytes.data();
-		header.attestation_size = att_opt.value();
-		auto res = bytes.cover(header.attestation_size);
-
-		if(!res) {
-			SPDLOG_ERROR("Attestation too long: {}", header.attestation_size);
-			transport.close();
-			return -1;
-		}
-
-		auto wit_opt = witnesser.parse_size(bytes, 0);
-		if(!wit_opt.has_value()) {
-			SPDLOG_ERROR("Witness size parse failure");
-			transport.close();
-			return -1;
-		}
-
-		header.witness_data = bytes.data();
-		header.witness_size = wit_opt.value();
-		res = bytes.cover(header.witness_size);
-
-		if(!res) {
-			SPDLOG_ERROR("Witness too long: {}", header.witness_size);
-			transport.close();
-			return -1;
-		}
-
-		if(!attester.verify(message_id, channel, bytes.data(), bytes.size(), header)) {
-			SPDLOG_ERROR("Attestation verification failed");
-			transport.close();
-			return -1;
-		}
-
 		message_id_set.insert(message_id);
 		message_id_events[message_id_idx].push_back(message_id);
 
@@ -1853,7 +1857,11 @@ int PUBSUBNODETYPE::cut_through_recv_bytes(
 			spdlog::to_hex(header.witness_data, header.witness_data + header.witness_size)
 		);
 
-		if(!attester.verify(message_id, channel, bytes.data() + offset, bytes.size() - offset, header)) {
+		bool verify;
+		std::array<uint8_t, 20> address;
+		std::tie(verify, address) = attester.verify(message_id, channel, bytes.data() + offset, bytes.size() - offset, header);
+
+		if(!verify) {
 			SPDLOG_ERROR("Attestation verification failed");
 			transport.close();
 			return -1;
