@@ -11,7 +11,7 @@ namespace core {
 
 /// @brief Byte buffer implementation with modifiable bounds and memory ownership
 /// @headerfile Buffer.hpp <marlin/core/Buffer.hpp>
-class Buffer : public BaseBuffer<Buffer> {
+class [[clang::trivial_abi]] Buffer : public BaseBuffer<Buffer> {
 public:
 	using BaseBuffer<Buffer>::BaseBuffer;
 

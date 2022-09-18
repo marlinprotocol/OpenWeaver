@@ -27,6 +27,8 @@ protected:
 	size_t end_index;
 
 public:
+	BaseBuffer() = default;
+
 	/// @brief Construct from uint8_t array
 	/// @param buf Pointer to bytes
 	/// @param size Size of bytes

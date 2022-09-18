@@ -3,6 +3,8 @@
 
 #include <cstring>
 
+#include <spdlog/spdlog.h>
+
 using namespace marlin::core;
 
 namespace marlin {
@@ -10,6 +12,18 @@ namespace core {
 // Explicit instantiation hack for accurate coverage of templates
 template class BaseBuffer<Buffer>;
 }
+}
+
+TEST(BufferTrivial, Trivial) {
+	EXPECT_TRUE(std::is_trivial_v<BaseBuffer<WeakBuffer>>);
+	EXPECT_TRUE(std::is_trivial_v<BaseBuffer<Buffer>>);
+	EXPECT_TRUE(std::is_trivial_v<WeakBuffer>);
+}
+
+TEST(BufferConstruct, DefaultConstructible) {
+	auto buf = Buffer();
+
+	EXPECT_EQ(buf.size(), 0);
 }
 
 TEST(BufferConstruct, SizeConstructible) {
