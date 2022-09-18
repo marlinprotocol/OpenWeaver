@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 			beacon_addr.to_string(),
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			"/subgraphs/name/marlinprotocol/staking",
+			"/subgraphs/name/marlinprotocol/staking-arb1",
 			STR(MARLIN_PROBE_DEFAULT_NETWORK_ID)
 		};
 

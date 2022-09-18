@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
 		std::string staking_url;
 		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
 		case CliOptions::Contracts::mainnet:
-			staking_url = "/subgraphs/name/marlinprotocol/staking";
+			staking_url = "/subgraphs/name/marlinprotocol/staking-arb1";
 			break;
 		case CliOptions::Contracts::kovan:
 			staking_url = "/subgraphs/name/marlinprotocol/staking-kovan";

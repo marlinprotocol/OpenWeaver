@@ -106,14 +106,14 @@ struct Grapher {
 	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did dial: {}", addr.to_string());
 		fiber.o(*this).reset(1000);
-		auto query = core::Buffer(259).write_unsafe(
+		auto query = core::Buffer(264).write_unsafe(
 			0,
-			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking HTTP/1.0\r\n"
+			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking-arb1 HTTP/1.0\r\n"
 			"Content-Type: application/json\r\n"
 			"Content-Length: 150\r\n"
 			"\r\n"
 			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, id}}\"}",
-			259
+			264
 		);
 		fiber.o(*this).send(*this, std::move(query));
 		return 0;
@@ -153,7 +153,7 @@ struct Grapher {
 		}
 
 		// uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-	}   
+	}
 
 };
 

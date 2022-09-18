@@ -19,7 +19,7 @@ struct DefaultMulticastClientOptions {
 	std::string beacon_addr = "127.0.0.1:9002";
 	std::string discovery_addr = "127.0.0.1:8002";
 	std::string pubsub_addr = "127.0.0.1:8000";
-	std::string staking_url = "/subgraphs/name/marlinprotocol/staking";
+	std::string staking_url = "/subgraphs/name/marlinprotocol/staking-arb1";
 	std::string network_id = "0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4";
 	size_t max_conn = 2;
 };
