@@ -1,12 +1,7 @@
-#include <marlin/pubsub/PubSubNode.hpp>
-#include <marlin/beacon/DiscoveryServer.hpp>
-#include <marlin/beacon/DiscoveryClient.hpp>
-#include <unistd.h>
-#include <marlin/pubsub/EmptyAbci.hpp>
-#include <marlin/pubsub/attestation/LpfAttester.hpp>
-#include <marlin/pubsub/witness/LpfBloomWitnesser.hpp>
+#ifndef MARLIN_CORE_KEYSTORE_HPP
+#define MARLIN_CORE_KEYSTORE_HPP
 
-#include <structopt/app.hpp>
+#include <spdlog/spdlog.h>
 #include <cryptopp/scrypt.h>
 #include <cryptopp/modes.h>
 #include <cryptopp/keccak.h>
@@ -17,185 +12,9 @@
 
 #include <fstream>
 
-
-using namespace marlin;
-using namespace marlin::core;
-using namespace marlin::asyncio;
-using namespace marlin::beacon;
-using namespace marlin::pubsub;
-
-#define PUBSUB_PROTOCOL_NUMBER 0x10000000
-
-class Goldfish {
-public:
-	using Self = Goldfish;
-	using PubSubNodeType = PubSubNode<
-		Self,
-		true,
-		true,
-		true,
-		LpfAttester,
-		LpfBloomWitnesser,
-		EmptyAbci
-	>;
-
-	uint16_t ps_port;
-
-	Goldfish(uint16_t port = 10000) {
-		ps_port = port;
-	}
-
-	DiscoveryClient<Goldfish> *b;
-	PubSubNodeType *ps;
-
-	std::vector<std::tuple<uint32_t, uint16_t, uint16_t>> get_protocols() {
-		return {
-			std::make_tuple(PUBSUB_PROTOCOL_NUMBER, 0, ps_port)
-		};
-	}
-
-	void new_peer_protocol(
-		core::SocketAddress const &addr,
-		uint8_t const* static_pk,
-		uint32_t protocol,
-		uint16_t
-	) {
-		if(protocol == PUBSUB_PROTOCOL_NUMBER) {
-			SPDLOG_INFO("New peer: {}, {:spn}", addr.to_string(), spdlog::to_hex(static_pk, static_pk+32));
-			ps->subscribe(addr, static_pk);
-		}
-	}
-
-	std::vector<uint16_t> channels = {0};
-
-	void did_unsubscribe(
-		PubSubNodeType &,
-		uint16_t channel [[maybe_unused]]
-	) {
-		SPDLOG_DEBUG("Did unsubscribe: {}", channel);
-	}
-
-	void did_subscribe(
-		PubSubNodeType &,
-		uint16_t channel [[maybe_unused]]
-	) {
-		SPDLOG_DEBUG("Did subscribe: {}", channel);
-	}
-
-	void did_recv(
-		PubSubNodeType &,
-		Buffer &&,
-		typename PubSubNodeType::MessageHeaderType,
-		uint16_t channel [[maybe_unused]],
-		uint64_t message_id [[maybe_unused]]
-	) {
-		SPDLOG_INFO(
-			"Received message {} on channel {}",
-			message_id,
-			channel
-		);
-	}
-
-	bool should_accept(SocketAddress const &) {
-		return true;
-	}
-
-	void manage_subscriptions(
-		typename PubSubNodeType::ClientKey,
-		size_t,
-		typename PubSubNodeType::TransportSet&,
-		typename PubSubNodeType::TransportSet&) {
-	}
-};
-
-struct CliOptions {
-	std::optional<std::string> discovery_addr;
-	std::optional<std::string> pubsub_addr;
-	std::optional<std::string> beacon_addr;
-	std::optional<std::string> listen_addr;
-	std::optional<std::string> keystore_path;
-	std::optional<std::string> keystore_pass_path;
-	enum class Contracts { mainnet, kovan };
-	std::optional<Contracts> contracts;
-};
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
-
-std::string get_key(std::string keystore_path, std::string keystore_pass_path);
-
-int main(int argc, char **argv) {
-	if(sodium_init() == -1) {
-		return -1;
-	}
-
-	std::string beacon_addr("127.0.0.1:9002"),
-				heartbeat_addr("127.0.0.1:9003");
-
-	int c;
-	while ((c = getopt (argc, argv, "b::d::p::")) != -1) {
-		switch (c) {
-			case 'b':
-			beacon_addr = std::string(optarg);
-			break;
-			default:
-			return 1;
-		}
-	}
-
-	SPDLOG_INFO(
-		"Beacon: {}",
-		beacon_addr
-	);
-
-	Goldfish g(20000);
-
-	std::string cbaddr("127.0.0.1:7002"), chaddr("127.0.0.1:7003");
-	DiscoveryServer<Goldfish> cb(SocketAddress::from_string(cbaddr), SocketAddress::from_string(chaddr));
-	cb.delegate = &g;
-
-	// Beacon
-	auto key = get_key("/home/roshan/Downloads/nitinkeystore", "/home/roshan/Downloads/nitinpass");
-	DiscoveryServer<Goldfish> b(SocketAddress::from_string(beacon_addr), SocketAddress::from_string(heartbeat_addr), SocketAddress::from_string(chaddr), key);
-	b.delegate = &g;
-
-	uint8_t static_sk[crypto_box_SECRETKEYBYTES];
-	uint8_t static_pk[crypto_box_PUBLICKEYBYTES];
-	crypto_box_keypair(static_pk, static_sk);
-
-	// Pubsub
-	Goldfish::PubSubNodeType ps(SocketAddress::from_string("127.0.0.1:20000"), 1000, 1000, static_sk, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), std::make_tuple(), std::make_tuple(static_pk));
-	ps.delegate = &g;
-	g.ps = &ps;
-
-	// Discovery client
-	DiscoveryClient<Goldfish> dc(SocketAddress::from_string("127.0.0.1:10002"), static_sk);
-	dc.delegate = &g;
-	dc.is_discoverable = true;
-	g.b = &dc;
-
-	Goldfish g2(21000);
-
-	uint8_t static_sk2[crypto_box_SECRETKEYBYTES];
-	uint8_t static_pk2[crypto_box_PUBLICKEYBYTES];
-	crypto_box_keypair(static_pk2, static_sk2);
-
-	// Pubsub
-	Goldfish::PubSubNodeType ps2(SocketAddress::from_string("127.0.0.1:21000"), 1000, 1000, static_sk2, std::forward_as_tuple("/subgraphs/name/marlinprotocol/staking", ""), std::make_tuple(), std::make_tuple(static_pk2));
-	ps2.delegate = &g2;
-	g2.ps = &ps2;
-
-	// Discovery client
-	DiscoveryClient<Goldfish> dc2(SocketAddress::from_string("127.0.0.1:11002"), static_sk2);
-	dc2.delegate = &g2;
-	dc2.is_discoverable = true;
-	g2.b = &dc2;
-
-	dc.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
-	dc2.start_discovery({SocketAddress::from_string(beacon_addr)},{SocketAddress::from_string(heartbeat_addr)});
-
-	return EventLoop::run();
-}
-
-
+namespace marlin {
+namespace core {
+namespace {
 std::string string_to_hex(const std::string& input)
 {
     std::string output;
@@ -292,6 +111,7 @@ void load_string_file(std::string const& p, std::string& str) {
 	if (sz > 0u)
 		file.read(&str[0], static_cast< std::streamsize >(sz));
 }
+}
 
 std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	std::string _pass;
@@ -345,3 +165,9 @@ std::string get_key(std::string keystore_path, std::string keystore_pass_path) {
 	SPDLOG_INFO("decrypted keystore");
 	return decrypted;
 }
+
+
+} // namespace core
+} // namespace marlin
+
+#endif // MARLIN_CORE_KEYSTORE_HPP

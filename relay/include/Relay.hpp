@@ -6,6 +6,7 @@
 #include <marlin/beacon/DiscoveryClient.hpp>
 
 #include <boost/filesystem.hpp>
+#include <fstream>
 
 using namespace marlin;
 using namespace marlin::core;
