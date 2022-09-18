@@ -125,21 +125,25 @@ public:
 			}
 
 			// Get header
-			Buffer headermsg(38);
+			Buffer headermsg(40);
 			headermsg.write_uint8_unsafe(0, 0x13);
-			headermsg.write_uint8_unsafe(1, 0xe4);
-			headermsg.write_unsafe(2, message.data() + 3, 33);
-			headermsg.write_uint8_unsafe(35, 1);
-			headermsg.write_uint8_unsafe(36, 0x80);
-			headermsg.write_uint8_unsafe(37, 0x80);
+			headermsg.write_uint8_unsafe(1, 0xe6);
+			headermsg.write_uint8_unsafe(2, 0x80);
+			headermsg.write_uint8_unsafe(3, 0xe4);
+			headermsg.write_unsafe(4, message.data() + 3, 33);
+			headermsg.write_uint8_unsafe(37, 1);
+			headermsg.write_uint8_unsafe(38, 0x80);
+			headermsg.write_uint8_unsafe(39, 0x80);
 
 			transport.send(std::move(headermsg));
 
 			// Get body
-			Buffer bodymsg(35);
+			Buffer bodymsg(37);
 			bodymsg.write_uint8_unsafe(0, 0x15);
-			bodymsg.write_uint8_unsafe(1, 0xe1);
-			bodymsg.write_unsafe(2, message.data() + 3, 33);
+			bodymsg.write_uint8_unsafe(1, 0xe3);
+			bodymsg.write_uint8_unsafe(2, 0x80);
+			bodymsg.write_uint8_unsafe(3, 0xe1);
+			bodymsg.write_unsafe(4, message.data() + 3, 33);
 
 			transport.send(std::move(bodymsg));
 		} else if(message.data()[0] == 0x13) { // eth63 GetBlockHeaders
@@ -149,7 +153,19 @@ public:
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			transport.send(Buffer({0x14, 0xc0}, 2));
+
+			uint64_t len = 1;
+			if(message.data()[2] > 0x80) {
+				len = 1 + message.data()[2] - 0x80;
+			}
+
+			Buffer msg(1 + 1 + len + 1);
+			msg.write_uint8_unsafe(0, 0x14);
+			msg.write_uint8_unsafe(1, 0xc0 + len + 1);
+			msg.write_unsafe(2, message.data() + 2, len);
+			msg.write_uint8_unsafe(2 + len, 0xc0);
+
+			transport.send(std::move(msg));
 		} else if(message.data()[0] == 0x14) { // eth63 BlockHeaders
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: BlockHeaders message: {} bytes",
@@ -165,7 +181,19 @@ public:
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			transport.send(Buffer({0x16, 0xc0}, 2));
+
+			uint64_t len = 1;
+			if(message.data()[2] > 0x80) {
+				len = 1 + message.data()[2] - 0x80;
+			}
+
+			Buffer msg(1 + 1 + len + 1);
+			msg.write_uint8_unsafe(0, 0x16);
+			msg.write_uint8_unsafe(1, 0xc0 + len + 1);
+			msg.write_unsafe(2, message.data() + 2, len);
+			msg.write_uint8_unsafe(2 + len, 0xc0);
+
+			transport.send(std::move(msg));
 		} else if(message.data()[0] == 0x16) { // eth63 BlockBodies
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: BlockBodies message: {} bytes",
@@ -175,7 +203,7 @@ public:
 			);
 
 			auto&& header = std::move(this->header);
-			header.cover_unsafe(1);
+			header.cover_unsafe(3);
 			if(header.size() <= 56) {
 				header.cover_unsafe(1);
 			} else {
@@ -183,7 +211,7 @@ public:
 				header.cover_unsafe(1 + hll);
 			}
 
-			message.cover_unsafe(1);
+			message.cover_unsafe(3);
 			if(message.size() <= 56) {
 				message.cover_unsafe(1);
 			} else {
@@ -260,7 +288,19 @@ public:
 				transport.dst_addr.to_string(),
 				message.size()
 			);
-			transport.send(Buffer({0x1e, 0xc0}, 2));
+
+			uint64_t len = 1;
+			if(message.data()[2] > 0x80) {
+				len = 1 + message.data()[2] - 0x80;
+			}
+
+			Buffer msg(1 + 1 + len + 1);
+			msg.write_uint8_unsafe(0, 0x1e);
+			msg.write_uint8_unsafe(1, 0xc0 + len + 1);
+			msg.write_unsafe(2, message.data() + 2, len);
+			msg.write_uint8_unsafe(2 + len, 0xc0);
+
+			transport.send(std::move(msg));
 		} else if(message.data()[0] == 0x12) { // eth63 Transactions
 			SPDLOG_DEBUG(
 				"Transport {{ Src: {}, Dst: {} }}: Transactions message: {} bytes",
@@ -293,6 +333,12 @@ public:
 			);
 		} else if(message.data()[0] == 0x18) { // eth65 PooledTransactions
 			// Nothing
+			SPDLOG_INFO(
+				"Transport {{ Src: {}, Dst: {} }}: PooledTransactions message: {} bytes",
+				transport.src_addr.to_string(),
+				transport.dst_addr.to_string(),
+				message.size()
+			);
 		} else {
 			SPDLOG_INFO(
 				"Transport {{ Src: {}, Dst: {} }}: Unknown message: {} bytes: {}",
