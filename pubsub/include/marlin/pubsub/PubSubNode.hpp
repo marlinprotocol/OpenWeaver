@@ -73,7 +73,6 @@ int status;
 template<typename X>
 using SentinelFramingFiberHelper = core::SentinelFramingFiber<X, '\n'>;
 
-template<typename DelegateType>
 struct StakeRequester {
 	using FiberType = core::Fabric<
 		StakeRequester&,
@@ -83,8 +82,6 @@ struct StakeRequester {
 			core::FabricF<core::LengthFramingFiber, core::LengthBufferFiber>::type
 		>::type
 	>;
-
-	DelegateType* delegate = nullptr;
 
 	std::string staking_url;
 	std::string network_id;
@@ -114,7 +111,7 @@ struct StakeRequester {
 		uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
 		req->data = this;
 		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* req, int, addrinfo* res) {
-			auto& sr = *(StakeRequester<DelegateType>*)req->data;
+			auto& sr = *(StakeRequester*)req->data;
 			if(res != nullptr) {
 				auto& addr = *reinterpret_cast<core::SocketAddress*>(res->ai_addr);
 
@@ -411,7 +408,7 @@ public:
 		BaseTransport*
 	>;
 private:
-	StakeRequester<Self> streq;
+	StakeRequester streq;
 	AttesterType attester;
 	WitnesserType witnesser;
 	bool is_abci_active = false;
