@@ -3,6 +3,8 @@
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
+#include <marlin/core/SocketAddress.hpp>
+
 
 namespace marlin {
 namespace core {
@@ -28,19 +30,43 @@ public:
 
 	using FiberScaffoldType::FiberScaffoldType;
 
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "reset"_tag) {
+			return reset(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
 	uint64_t bytes_remaining = 0;
 
 	void reset(uint64_t length) {
 		bytes_remaining = length;
 	}
 
-	int did_recv(auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
+	int did_recv(auto&&, auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
 		// check if entire frame available
 		if(bytes.size() < bytes_remaining) {
 			// nope, forward entirely
 			bytes_remaining -= bytes.size();
-			return this->ext_fabric.i(*this).did_recv(
-				this->ext_fabric.is(*this),
+			return this->ext_fabric.template inner_call<"did_recv"_tag>(
+				*this,
+				*this,
 				std::move(bytes),
 				bytes_remaining,
 				addr
@@ -55,8 +81,9 @@ public:
 		bytes_remaining = 0;
 
 		// send
-		auto res = this->ext_fabric.i(*this).did_recv(
-			this->ext_fabric.is(*this),
+		auto res = this->ext_fabric.template inner_call<"did_recv"_tag>(
+			*this,
+			*this,
 			std::move(bytes),
 			bytes_remaining,
 			addr
@@ -66,11 +93,11 @@ public:
 		}
 
 		// notify full frame
-		this->ext_fabric.i(*this).did_recv_frame(this->ext_fabric.is(*this), addr);
+		this->ext_fabric.template inner_call<"did_recv_frame"_tag>(*this, *this, addr);
 
 		// report leftover if any
 		if(num_leftover > 0) {
-			return source.leftover(*this, std::move(leftover), addr);
+			return source.template inner_call<"leftover"_tag>(*this, std::move(leftover), addr);
 		}
 
 		return 0;
