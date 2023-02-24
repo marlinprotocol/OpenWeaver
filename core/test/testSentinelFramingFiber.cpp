@@ -4,26 +4,48 @@
 using namespace marlin::core;
 
 struct Source {
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "leftover"_tag) {
+			return leftover(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
 	int leftover(auto&& source, auto&& buf, SocketAddress addr) {
-		return source.did_recv(*this, std::move(buf), addr);
+		return source.template inner_call<"did_recv"_tag>(*this, *this, std::move(buf), addr);
 	}
 };
 
 struct Terminal {
 	Terminal(auto&&...) {}
 
-	auto& i(auto&&) { return *this; }
-	auto& o(auto&&) { return *this; }
-	auto& is(auto& f) { return f; }
-	auto& os(auto& f) { return f; }
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv_sentinel"_tag) {
+			return did_recv_sentinel(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
 
 	std::function<int(Buffer&&, SocketAddress)> did_recv_impl;
-	int did_recv(auto&&, Buffer&& buf, SocketAddress addr) {
+	std::function<int(SocketAddress)> did_recv_sentinel_impl;
+
+private:
+	int did_recv(auto&&, auto&&, Buffer&& buf, SocketAddress addr) {
 		return did_recv_impl(std::move(buf), addr);
 	}
 
-	std::function<int(SocketAddress)> did_recv_sentinel_impl;
-	int did_recv_sentinel(auto&&, SocketAddress addr) {
+	int did_recv_sentinel(auto&&, auto&&, SocketAddress addr) {
 		return did_recv_sentinel_impl(addr);
 	}
 };
@@ -51,7 +73,7 @@ TEST(SentinelFramingFiber, SingleBufferNoSentinels) {
 
 		return 0;
 	};
-	f.did_recv(s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
 	EXPECT_EQ(calls, 1);
 }
 
@@ -89,7 +111,7 @@ TEST(SentinelFramingFiber, SingleBufferOneSentinel) {
 
 		return 0;
 	};
-	f.did_recv(s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
 	EXPECT_EQ(bytes_calls, 2);
 	EXPECT_EQ(sentinel_calls, 1);
 }
@@ -135,8 +157,8 @@ TEST(SentinelFramingFiber, MultipleBufferOneSentinel1) {
 		return 0;
 	};
 
-	f.did_recv(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 3);
 	EXPECT_EQ(sentinel_calls, 1);
@@ -185,9 +207,9 @@ TEST(SentinelFramingFiber, MultipleBufferOneSentinel2) {
 		return 0;
 	};
 
-	f.did_recv(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 3);
 	EXPECT_EQ(sentinel_calls, 1);
@@ -266,10 +288,10 @@ TEST(SentinelFramingFiber, MultipleBufferMultipleSentinels) {
 		return 0;
 	};
 
-	f.did_recv(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(s, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.inner_call<"did_recv"_tag>(s, s, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 6);
 	EXPECT_EQ(sentinel_calls, 4);
