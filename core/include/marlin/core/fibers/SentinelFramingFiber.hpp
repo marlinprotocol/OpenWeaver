@@ -33,7 +33,7 @@ public:
 	using FiberScaffoldType::FiberScaffoldType;
 
 	template<uint32_t tag>
-	auto inner_call(auto&&... args) {
+	auto outer_call(auto&&... args) {
 		if constexpr (tag == "did_recv"_tag) {
 			return did_recv(std::forward<decltype(args)>(args)...);
 		} else {
@@ -55,25 +55,25 @@ private:
 
 		if(sentinel_idx == bytes.size()) {
 			// sentinel not found, just forward
-			return FiberScaffoldType::template inner_call<"did_recv"_tag>(*this, *this, std::move(bytes), addr);
+			return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(bytes), addr);
 		}
 
 		// sentinel found
 		// copy and send
 		core::Buffer n_bytes(sentinel_idx+1);
 		bytes.read_unsafe(0, n_bytes.data(), sentinel_idx+1);
-		auto res = FiberScaffoldType::template inner_call<"did_recv"_tag>(*this, *this, std::move(n_bytes), addr);
+		auto res = FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(n_bytes), addr);
 		if(res < 0) {
 			return res;
 		}
 
 		// notify sentinel
-		FiberScaffoldType::template inner_call<"did_recv_sentinel"_tag>(*this, *this, addr);
+		FiberScaffoldType::template outer_call<"did_recv_sentinel"_tag>(*this, *this, addr);
 
 		// report leftover if any
 		bytes.cover_unsafe(sentinel_idx+1);
 		if(bytes.size() > 0) {
-			return source.template outer_call<"leftover"_tag>(*this, std::move(bytes), addr);
+			return source.template inner_call<"leftover"_tag>(*this, std::move(bytes), addr);
 		}
 
 		return 0;

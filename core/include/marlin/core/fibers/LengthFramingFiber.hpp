@@ -31,7 +31,7 @@ public:
 	using FiberScaffoldType::FiberScaffoldType;
 
 	template<uint32_t tag>
-	auto inner_call(auto&&... args) {
+	auto outer_call(auto&&... args) {
 		if constexpr (tag == "did_recv"_tag) {
 			return did_recv(std::forward<decltype(args)>(args)...);
 		} else {
@@ -42,7 +42,7 @@ public:
 	}
 
 	template<uint32_t tag>
-	auto outer_call(auto&&... args) {
+	auto inner_call(auto&&... args) {
 		if constexpr (tag == "reset"_tag) {
 			return reset(std::forward<decltype(args)>(args)...);
 		} else {
@@ -64,7 +64,7 @@ private:
 		if(bytes.size() < bytes_remaining) {
 			// nope, forward entirely
 			bytes_remaining -= bytes.size();
-			return this->ext_fabric.template inner_call<"did_recv"_tag>(
+			return this->ext_fabric.template outer_call<"did_recv"_tag>(
 				*this,
 				*this,
 				std::move(bytes),
@@ -81,7 +81,7 @@ private:
 		bytes_remaining = 0;
 
 		// send
-		auto res = this->ext_fabric.template inner_call<"did_recv"_tag>(
+		auto res = this->ext_fabric.template outer_call<"did_recv"_tag>(
 			*this,
 			*this,
 			std::move(bytes),
@@ -93,7 +93,7 @@ private:
 		}
 
 		// notify full frame
-		this->ext_fabric.template inner_call<"did_recv_frame"_tag>(*this, *this, addr);
+		this->ext_fabric.template outer_call<"did_recv_frame"_tag>(*this, *this, addr);
 
 		// report leftover if any
 		if(num_leftover > 0) {

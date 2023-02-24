@@ -137,12 +137,12 @@ private:
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == 0) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
 				return fabric.ext_fabric.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx-1>(fabric.fibers);
+				auto& fiber = std::get<idx+1>(fabric.fibers);
 				return fiber.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			}
 		}
@@ -153,12 +153,12 @@ private:
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
+			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
 				return fabric.ext_fabric.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			} else {
 				// transition to next fiber
-				auto& fiber = std::get<idx+1>(fabric.fibers);
+				auto& fiber = std::get<idx-1>(fabric.fibers);
 				return fiber.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			}
 		}
@@ -173,14 +173,14 @@ public:
 
 	template<uint32_t tag>
 	auto outer_call(auto&&, auto&& source, auto&&... args) {
-		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
+		auto& fiber = std::get<0>(fibers);
 
 		return fiber.template outer_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 	}
 
 	template<uint32_t tag>
 	auto inner_call(auto&&, auto&& source, auto&&... args) {
-		auto& fiber = std::get<0>(fibers);
+		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
 
 		return fiber.template inner_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 	}

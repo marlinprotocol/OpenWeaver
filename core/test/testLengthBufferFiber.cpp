@@ -11,7 +11,7 @@ struct Terminal {
 	std::function<int(Buffer&&, SocketAddress)> did_recv_impl;
 
 	template<uint32_t tag>
-	auto inner_call(auto&&... args) {
+	auto outer_call(auto&&... args) {
 		if constexpr (tag == "did_recv"_tag) {
 			return did_recv(std::forward<decltype(args)>(args)...);
 		} else {
@@ -22,7 +22,7 @@ struct Terminal {
 	}
 
 	template<uint32_t tag>
-	auto outer_call(auto&&... args) {
+	auto inner_call(auto&&... args) {
 		if constexpr (tag == "reset"_tag) {
 			return reset(std::forward<decltype(args)>(args)...);
 		} else {
@@ -35,7 +35,7 @@ struct Terminal {
 private:
 	int did_recv(auto&&, auto&& src, Buffer&& buf, SocketAddress addr) {
 		auto res = did_recv_impl(std::move(buf), addr);
-		src.template outer_call<"reset"_tag>(++c);
+		src.template inner_call<"reset"_tag>(++c);
 		return res;
 	}
 
@@ -83,17 +83,17 @@ TEST(LengthBufferFiber, MultipleBuffers) {
 		return 0;
 	};
 
-	f.template outer_call<"reset"_tag>(1);
-	f.template inner_call<"did_recv"_tag>(0, 0, std::move(msg1), 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv"_tag>(0, 0, std::move(msg2), 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv"_tag>(0, 0, std::move(msg3), 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv"_tag>(0, 0, std::move(msg4), 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv"_tag>(0, 0, std::move(msg5), 0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.template inner_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template inner_call<"reset"_tag>(1);
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg1), 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg2), 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg3), 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg4), 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg5), 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_frame"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(calls, 5);
 }
