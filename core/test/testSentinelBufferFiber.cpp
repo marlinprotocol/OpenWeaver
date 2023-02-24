@@ -6,15 +6,23 @@ using namespace marlin::core;
 struct Terminal {
 	Terminal(auto&&...) {}
 
-	auto& i(auto&&) { return *this; }
-	auto& o(auto&&) { return *this; }
-	auto& is(auto& f) { return f; }
-	auto& os(auto& f) { return f; }
-
 	std::function<int(Buffer&&, SocketAddress)> did_recv_impl;
-	int did_recv(auto&& src, Buffer&& buf, SocketAddress addr) {
+
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int did_recv(auto&&, auto&& src, Buffer&& buf, SocketAddress addr) {
 		auto res = did_recv_impl(std::move(buf), addr);
-		src.reset(100);
+		src.template inner_call<"reset"_tag>(100);
 		return res;
 	}
 };
@@ -55,13 +63,13 @@ TEST(SentinelBufferFiber, MultipleBuffers) {
 		return 0;
 	};
 
-	f.reset(100);
-	f.did_recv(0, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(0, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv_sentinel(0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(0, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv_sentinel(0, SocketAddress::from_string("192.168.0.1:8000"));
-	f.did_recv(0, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
+	f.template inner_call<"reset"_tag>(100);
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_sentinel"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv_sentinel"_tag>(0, 0, SocketAddress::from_string("192.168.0.1:8000"));
+	f.template outer_call<"did_recv"_tag>(0, 0, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(calls, 2);
 }

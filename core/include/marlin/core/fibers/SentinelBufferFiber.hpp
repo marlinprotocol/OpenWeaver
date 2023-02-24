@@ -3,6 +3,8 @@
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
+#include <marlin/core/SocketAddress.hpp>
+
 
 namespace marlin {
 namespace core {
@@ -28,6 +30,31 @@ public:
 
 	using FiberScaffoldType::FiberScaffoldType;
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv_sentinel"_tag) {
+			return did_recv_sentinel(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "reset"_tag) {
+			return reset(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
 	core::Buffer buf = core::Buffer(0);
 
 	void reset(uint64_t max_len) {
@@ -35,7 +62,7 @@ public:
 		buf.truncate_unsafe(max_len);
 	}
 
-	int did_recv(auto&&, InnerMessageType&& bytes, SocketAddress) {
+	int did_recv(auto&&, auto&&, InnerMessageType&& bytes, SocketAddress) {
 		auto idx = buf.size();
 		// expand and check if there is enough room to copy
 		if(!buf.expand(bytes.size())) {
@@ -49,9 +76,9 @@ public:
 		return 0;
 	}
 
-	int did_recv_sentinel(auto&&, SocketAddress addr) {
+	int did_recv_sentinel(auto&&, auto&&, SocketAddress addr) {
 		// pass on msg
-		return FiberScaffoldType::did_recv(*this, std::move(buf), addr);
+		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(buf), addr);
 	}
 };
 
