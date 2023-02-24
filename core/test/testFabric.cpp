@@ -1,16 +1,13 @@
 #include <gtest/gtest.h>
 #include "marlin/core/fabric/Fabric.hpp"
+#include <marlin/core/fibers/FiberScaffold.hpp>
 
 #include <cstring>
 #include <string>
 
+
 using namespace marlin::core;
 
-// namespace marlin {
-// namespace core {
-
-// }
-// }
 
 struct Terminal {
 	static constexpr bool is_outer_open = false;
@@ -29,13 +26,35 @@ struct Terminal {
 		idx(std::get<0>(std::get<0> (init_tuple))),
 		indices(std::get<1>(std::get<0>(init_tuple))) {}
 
-	int did_recv(auto&&, Buffer&&) {
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int did_recv(auto&&, auto&&, Buffer&&) {
 		(*indices).push_back("t_dr");
 		return 0;
 	}
 
-	template<typename FiberType>
-	int send(FiberType&, Buffer&&, SocketAddress) {
+	int send(auto&&, auto&&, Buffer&&, SocketAddress) {
 		(*indices).push_back("t_s");
 		return 0;
 	}
@@ -58,7 +77,7 @@ struct Fiber {
 	Fiber(std::tuple<ExtTupleType, std::tuple<int, std::vector <std::string>*>>&& init_tuple) :
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<0>(std::get<1>(init_tuple))),
-		indices(std::get<1>(std::get<1>(init_tuple))) 
+		indices(std::get<1>(std::get<1>(init_tuple)))
 		{}
 
 	template<typename ExtTupleType>
@@ -66,16 +85,38 @@ struct Fiber {
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
-	int did_recv(auto&&, Buffer&& buf) {
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int did_recv(auto&&, auto&&, Buffer&& buf) {
 		(*indices).push_back("f_dr_" + std::to_string(idx));
-		return ext_fabric.i(*this).did_recv(*this, std::move(buf));
+		return ext_fabric.template outer_call<"did_recv"_tag>(*this, *this, std::move(buf));
 	}
 
-	int send(auto&&, InnerMessageType &&buf, SocketAddress addr) {
+	int send(auto&&, auto&&, InnerMessageType &&buf, SocketAddress addr) {
 		(*indices).push_back("f_s_" + std::to_string(idx));
-		return ext_fabric.o(*this).send(*this, std::move(buf), addr);
+		return ext_fabric.template inner_call<"send"_tag>(*this, *this, std::move(buf), addr);
 	}
-
 };
 
 template<typename ExtFabric>
@@ -94,7 +135,7 @@ struct FiberOuterClose {
 	FiberOuterClose(std::tuple<ExtTupleType, std::tuple<int, std::vector <std::string>*>>&& init_tuple) :
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<0>(std::get<1>(init_tuple))),
-		indices(std::get<1>(std::get<1>(init_tuple))) 
+		indices(std::get<1>(std::get<1>(init_tuple)))
 		{}
 
 	template<typename ExtTupleType>
@@ -102,19 +143,44 @@ struct FiberOuterClose {
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "dial"_tag) {
+			return dial(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "bind"_tag) {
+			return bind(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "listen"_tag) {
+			return listen(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
 
-	template <typename... Args>
-	int dial(auto&&, SocketAddress, Args&& ...) {
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int dial(auto&&, auto&&, SocketAddress, auto&& ...) {
 		(*indices).push_back("foc_d_" + std::to_string(idx));
 		return 0;
 	}
 
-	int bind(auto&&, SocketAddress) {
+	int bind(auto&&, auto&&, SocketAddress) {
 		(*indices).push_back("foc_b_" + std::to_string(idx));
 		return 0;
 	}
 
-	int listen(auto&&) {
+	int listen(auto&&, auto&&) {
 		(*indices).push_back("foc_l_" + std::to_string(idx));
 		return 0;
 	}
@@ -125,13 +191,13 @@ struct FiberOuterClose {
 TEST(FabricTest, MessageOrder1) {
 	std::vector <std::string> *indices = new std::vector <std::string>();
 	Fabric <
-		Terminal, 
+		Terminal,
 		Fiber
 	> f(std::make_tuple(
 		std::make_tuple(std::make_tuple(-1, indices)),
 		std::make_tuple(std::make_tuple(1, indices))
 	));
-	f.i(0).did_recv(0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "t_dr"}));
 }
 
@@ -154,13 +220,13 @@ TEST(FabricTest, MessageOrder2) {
 		std::make_tuple(std::make_tuple(4, indices)),
 		std::make_tuple(std::make_tuple(5, indices))
 	));
-	f.i(0).did_recv(0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string>({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_5", "t_dr"}));
 }
 
 TEST(FabricTest, MessageOrder3) {
 	std::vector <std::string> *indices = new std::vector <std::string>();
-	Fabric<	
+	Fabric<
 		Terminal,
 		FabricF<Fiber, Fiber>::type
 	> f(std::make_tuple(
@@ -173,7 +239,7 @@ TEST(FabricTest, MessageOrder3) {
 			std::make_tuple(2, indices)
 		))
 	));
-	f.i(0).did_recv(0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "t_dr"}));
 }
 
@@ -194,10 +260,10 @@ TEST(FabricTest, MessageOrder4) {
 		std::make_tuple(std::make_tuple(2, indices)),
 		std::make_tuple(std::make_tuple(3, indices)),
 		std::make_tuple(std::make_tuple(4, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices)))
 	));
-	f.i(0).did_recv(0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_1", "f_dr_2", "t_dr"}));
 }
 
@@ -217,17 +283,17 @@ TEST(FabricTest, MessageOrder5) {
 		std::make_tuple(std::make_tuple(-1, indices)),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(2, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(3, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.i(0).did_recv(0, Buffer(5)); 
+	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_1", "f_dr_2", "f_dr_2", "f_dr_1", "f_dr_2", "f_dr_3", "f_dr_1", "f_dr_2", "f_dr_4", "t_dr"}));
 }
 
@@ -247,23 +313,23 @@ TEST(FabricTest, sendFunction) {
 		std::make_tuple(std::make_tuple(-1, indices)),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(2, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(3, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.o(0).send(0, Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
+	f.template inner_call<"send"_tag>(0, 0, Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_s_4", "f_s_2", "f_s_1", "f_s_3", "f_s_2", "f_s_1", "f_s_2", "f_s_2", "f_s_1", "f_s_1", "t_s"}));
 }
 
 TEST(FabricTest, dialFunction) {
 	std::vector <std::string> *indices = new std::vector <std::string> ();
-	Fabric<	
+	Fabric<
 		Terminal,
 		FiberOuterClose,
 		FabricF<Fiber, Fiber>::type,
@@ -283,18 +349,18 @@ TEST(FabricTest, dialFunction) {
 		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(3, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.i(0).dial(0, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
+	f.template outer_call<"dial"_tag>(0, 0, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_d_1"}));
 }
 
 
 TEST(FabricTest, bindFunction) {
 	std::vector <std::string> *indices = new std::vector <std::string> ();
-	Fabric<	
+	Fabric<
 		Terminal,
 		FiberOuterClose,
 		FabricF<Fiber, Fiber>::type,
@@ -308,23 +374,23 @@ TEST(FabricTest, bindFunction) {
 		std::make_tuple(std::make_tuple(-1, indices)),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(2, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(3, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.i(0).bind(0, SocketAddress::from_string("0.0.0.0:3000"));
+	f.template outer_call<"bind"_tag>(0, 0, SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_b_1"}));
 }
 
 TEST(FabricTest, listenFunction) {
 	std::vector <std::string> *indices = new std::vector <std::string> ();
-	Fabric<	
+	Fabric<
 		Terminal,
 		FiberOuterClose,
 		FabricF<Fiber, Fiber>::type,
@@ -338,16 +404,16 @@ TEST(FabricTest, listenFunction) {
 		std::make_tuple(std::make_tuple(-1, indices)),
 		// Other fibers
 		std::make_tuple(std::make_tuple(1, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(2, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(3, indices)),
-		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)), 
+		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.i(0).listen(0);
+	f.template outer_call<"listen"_tag>(0, 0);
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_l_1"}));
 }
