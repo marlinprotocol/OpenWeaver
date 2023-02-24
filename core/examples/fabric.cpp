@@ -1,4 +1,5 @@
 #include <marlin/core/fabric/Fabric.hpp>
+#include <marlin/core/fibers/FiberScaffold.hpp>
 #include <spdlog/spdlog.h>
 
 using namespace marlin::core;
@@ -11,10 +12,21 @@ struct Terminal {
 	using InnerMessageType = Buffer;
 	using OuterMessageType = Buffer;
 
-	template<typename... Args>
-	Terminal(Args&&...) {}
+	Terminal(auto&&...) {}
 
-	int did_recv(auto&&, Buffer&&) {
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int did_recv(auto&&, auto&&, Buffer&&) {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
@@ -36,9 +48,21 @@ struct Fiber {
 		ext_fabric(std::get<0>(init_tuple)),
 		idx(std::get<1>(init_tuple)) {}
 
-	int did_recv(auto&&, Buffer&& buf) {
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			// static_assert(false) always breaks compilation
+			// making it depend on a template parameter fixes it
+			static_assert(tag < 0);
+		}
+	}
+
+private:
+	int did_recv(auto&&, auto&&, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		return ext_fabric.i(*this).did_recv(*this, std::move(buf));
+		return ext_fabric.template inner_call<"did_recv"_tag>(*this, *this, std::move(buf));
 	}
 };
 
@@ -54,7 +78,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(1)
 	));
-	f_simplest.i(0).did_recv(0, Buffer(5));
+	f_simplest.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Multiple fibers fabric
 	Fabric<
@@ -74,7 +98,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(5)
 	));
-	f_multiple.i(0).did_recv(0, Buffer(5));
+	f_multiple.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -86,7 +110,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested.i(0).did_recv(0, Buffer(5));
+	f_nested.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -106,7 +130,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested2.i(0).did_recv(0, Buffer(5));
+	f_nested2.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -126,7 +150,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested3.i(0).did_recv(0, Buffer(5));
+	f_nested3.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -146,7 +170,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested4.i(0).did_recv(0, Buffer(5));
+	f_nested4.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -170,7 +194,7 @@ int main() {
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
 		std::make_tuple(4)
 	));
-	f_nested5.i(0).did_recv(0, Buffer(5));
+	f_nested5.inner_call<"did_recv"_tag>(0, 0, Buffer(5));
 
 	return 0;
 }

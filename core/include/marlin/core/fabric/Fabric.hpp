@@ -129,106 +129,37 @@ private:
 	struct Shuttle {
 		static_assert(idx < sizeof...(FiberTemplates));
 
-		template<typename... Args>
-		Shuttle(Args&&...) {}
+		Shuttle(auto&&...) {}
 
-		auto& i(NthFiber<idx>& caller) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
-				// inside shuttle of last fiber, exit
-				// recursive check
-				if constexpr (requires (decltype(fabric.ext_fabric) f) {
-					f.i(fabric);
-				}) {
-					return fabric.ext_fabric.i(fabric);
-				} else {
-					return fabric.ext_fabric;
-				}
-			} else {
-				// transition to next fiber
-				auto& fiber = std::get<idx+1>(fabric.fibers);
-
-				// recursive check
-				if constexpr (requires (decltype(fiber) f) {
-					f.i(caller);
-				}) {
-					return fiber.i(caller);
-				} else {
-					return fiber;
-				}
-			}
-		}
-
-		auto& is(NthFiber<idx>& caller) {
-			// Warning: Requires that caller is fiber at idx
-			auto& fabric = get_fabric<idx>(caller);
-
-			// Check for exit first
-			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
-				// inside shuttle of last fiber, exit
-				// recursive check
-				if constexpr (requires (decltype(fabric.ext_fabric) f) {
-					f.is(fabric);
-				}) {
-					return fabric.ext_fabric.is(fabric);
-				} else {
-					return fabric;
-				}
-			} else {
-				return caller;
-			}
-		}
-
-		auto& o(NthFiber<idx>& caller) {
+		template<uint32_t tag>
+		auto outer_call(NthFiber<idx>& caller, auto&& source, auto&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
 			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
-				// recursive check
-				if constexpr (requires (decltype(fabric.ext_fabric) f) {
-					f.o(fabric);
-				}) {
-					return fabric.ext_fabric.o(fabric);
-				} else {
-					return fabric.ext_fabric;
-				}
+				return fabric.ext_fabric.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx-1>(fabric.fibers);
-
-				// recursive check
-				if constexpr (requires (decltype(fiber) f) {
-					f.o(caller);
-				}) {
-					return fiber.o(caller);
-				} else {
-					return fiber;
-				}
+				return fiber.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			}
 		}
 
-		auto& os(NthFiber<idx>& caller) {
+		template<uint32_t tag>
+		auto inner_call(NthFiber<idx>& caller, auto&& source, auto&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
-			if constexpr (idx == 0) {
+			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
-				// recursive check
-				if constexpr (requires (decltype(fabric.ext_fabric) f) {
-					f.os(fabric);
-				}) {
-					return fabric.ext_fabric.os(fabric);
-				} else {
-					return fabric;
-				}
+				return fabric.ext_fabric.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			} else {
-				return caller;
+				// transition to next fiber
+				auto& fiber = std::get<idx+1>(fabric.fibers);
+				return fiber.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 			}
 		}
 	};
@@ -240,30 +171,18 @@ public:
 	static constexpr bool is_outer_open = NthFiber<0>::is_outer_open;
 	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)-1>::is_inner_open;
 
-	auto& i(auto&&) {
-		auto& fiber = std::get<0>(fibers);
-
-		// recursive check
-		if constexpr (requires (decltype(fiber) f) {
-			f.i(*this);
-		}) {
-			return fiber.i(*this);
-		} else {
-			return fiber;
-		}
-	}
-
-	auto& o(auto&&) {
+	template<uint32_t tag>
+	auto outer_call(auto&&, auto&& source, auto&&... args) {
 		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
 
-		// recursive check
-		if constexpr (requires (decltype(fiber) f) {
-			f.o(*this);
-		}) {
-			return fiber.o(*this);
-		} else {
-			return fiber;
-		}
+		return fiber.template outer_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&, auto&& source, auto&&... args) {
+		auto& fiber = std::get<0>(fibers);
+
+		return fiber.template inner_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
 	}
 };
 
