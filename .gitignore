@@ -44,3 +44,4 @@ latex
 .ccls-cache
 compile_commands.json
 
+.gitsigners
