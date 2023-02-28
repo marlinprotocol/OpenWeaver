@@ -42,7 +42,30 @@ public:
 	UdpFiber(UdpFiber const&) = delete;
 	UdpFiber(UdpFiber&&) = delete;
 
-	[[nodiscard]] int bind(core::SocketAddress const& addr) {
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "bind"_tag) {
+			return bind(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "listen"_tag) {
+			return listen(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "dial"_tag) {
+			return dial(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template outer_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+private:
+	[[nodiscard]] int bind(auto&&, core::SocketAddress const& addr) {
 		int res = uv_udp_init(uv_default_loop(), udp_handle);
 		if (res < 0) {
 			SPDLOG_ERROR(
@@ -111,14 +134,14 @@ public:
 		auto& addr = *reinterpret_cast<core::SocketAddress const*>(_addr);
 		auto& fiber = *(SelfType*)(handle->data);
 
-		fiber.did_recv(
+		fiber.ext_fabric.template outer_call<"did_recv"_tag>(
 			fiber,
 			core::Buffer((uint8_t*)buf->base, nread),
 			addr
 		);
 	}
 
-	[[nodiscard]] int listen() {
+	[[nodiscard]] int listen(auto&&) {
 		int res = uv_udp_recv_start(
 			udp_handle,
 			naive_alloc_cb,
@@ -135,18 +158,16 @@ public:
 		return 0;
 	}
 
-	[[nodiscard]] int dial(core::SocketAddress addr, auto&&... args) {
+	[[nodiscard]] int dial(auto&&, core::SocketAddress addr, auto&&... args) {
 		// listen if not already
 		if(!udp_handle->is_active()) {
-			auto status = listen();
+			auto status = listen(*this);
 			if(status < 0) {
 				return status;
 			}
 		}
 
-		FiberScaffoldType::did_dial(*this, addr, std::forward<decltype(args)>(args)...);
-
-		return 0;
+		return FiberScaffoldType::template outer_call<"did_dial"_tag>(*this, addr, std::forward<decltype(args)>(args)...);
 	}
 
 	static void send_cb(
@@ -167,7 +188,7 @@ public:
 				status
 			);
 		} else {
-			fiber.did_send(
+			fiber.ext_fabric.template outer_call<"did_send"_tag>(
 				fiber,
 				std::move(req->extra_data)
 			);
