@@ -49,12 +49,12 @@ struct Terminal {
 	}
 
 private:
-	int did_recv(auto&&, auto&&, Buffer&&) {
+	int did_recv(auto&&, Buffer&&) {
 		(*indices).push_back("t_dr");
 		return 0;
 	}
 
-	int send(auto&&, auto&&, Buffer&&, SocketAddress) {
+	int send(auto&&, Buffer&&, SocketAddress) {
 		(*indices).push_back("t_s");
 		return 0;
 	}
@@ -108,14 +108,14 @@ struct Fiber {
 	}
 
 private:
-	int did_recv(auto&&, auto&&, Buffer&& buf) {
+	int did_recv(auto&&, Buffer&& buf) {
 		(*indices).push_back("f_dr_" + std::to_string(idx));
-		return ext_fabric.template outer_call<"did_recv"_tag>(*this, *this, std::move(buf));
+		return ext_fabric.template outer_call<"did_recv"_tag>(*this, std::move(buf));
 	}
 
-	int send(auto&&, auto&&, InnerMessageType &&buf, SocketAddress addr) {
+	int send(auto&&, InnerMessageType &&buf, SocketAddress addr) {
 		(*indices).push_back("f_s_" + std::to_string(idx));
-		return ext_fabric.template inner_call<"send"_tag>(*this, *this, std::move(buf), addr);
+		return ext_fabric.template inner_call<"send"_tag>(*this, std::move(buf), addr);
 	}
 };
 
@@ -170,17 +170,17 @@ struct FiberOuterClose {
 	}
 
 private:
-	int dial(auto&&, auto&&, SocketAddress, auto&& ...) {
+	int dial(auto&&, SocketAddress, auto&& ...) {
 		(*indices).push_back("foc_d_" + std::to_string(idx));
 		return 0;
 	}
 
-	int bind(auto&&, auto&&, SocketAddress) {
+	int bind(auto&&, SocketAddress) {
 		(*indices).push_back("foc_b_" + std::to_string(idx));
 		return 0;
 	}
 
-	int listen(auto&&, auto&&) {
+	int listen(auto&&) {
 		(*indices).push_back("foc_l_" + std::to_string(idx));
 		return 0;
 	}
@@ -197,7 +197,7 @@ TEST(FabricTest, MessageOrder1) {
 		std::make_tuple(std::make_tuple(-1, indices)),
 		std::make_tuple(std::make_tuple(1, indices))
 	));
-	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "t_dr"}));
 }
 
@@ -220,7 +220,7 @@ TEST(FabricTest, MessageOrder2) {
 		std::make_tuple(std::make_tuple(4, indices)),
 		std::make_tuple(std::make_tuple(5, indices))
 	));
-	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string>({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_5", "t_dr"}));
 }
 
@@ -239,7 +239,7 @@ TEST(FabricTest, MessageOrder3) {
 			std::make_tuple(2, indices)
 		))
 	));
-	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "t_dr"}));
 }
 
@@ -263,7 +263,7 @@ TEST(FabricTest, MessageOrder4) {
 		std::make_tuple(std::make_tuple(std::make_tuple(1, indices)),
 						std::make_tuple(std::make_tuple(2, indices)))
 	));
-	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_1", "f_dr_2", "t_dr"}));
 }
 
@@ -293,7 +293,7 @@ TEST(FabricTest, MessageOrder5) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.template outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_1", "f_dr_2", "f_dr_2", "f_dr_1", "f_dr_2", "f_dr_3", "f_dr_1", "f_dr_2", "f_dr_4", "t_dr"}));
 }
 
@@ -323,7 +323,7 @@ TEST(FabricTest, sendFunction) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.template inner_call<"send"_tag>(0, 0, Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
+	f.template inner_call<"send"_tag>(0, Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_s_4", "f_s_2", "f_s_1", "f_s_3", "f_s_2", "f_s_1", "f_s_2", "f_s_2", "f_s_1", "f_s_1", "t_s"}));
 }
 
@@ -353,7 +353,7 @@ TEST(FabricTest, dialFunction) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.template outer_call<"dial"_tag>(0, 0, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
+	f.template outer_call<"dial"_tag>(0, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_d_1"}));
 }
 
@@ -384,7 +384,7 @@ TEST(FabricTest, bindFunction) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.template outer_call<"bind"_tag>(0, 0, SocketAddress::from_string("0.0.0.0:3000"));
+	f.template outer_call<"bind"_tag>(0, SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_b_1"}));
 }
 
@@ -414,6 +414,6 @@ TEST(FabricTest, listenFunction) {
 						std::make_tuple(std::make_tuple(2, indices))),
 		std::make_tuple(std::make_tuple(4, indices))
 	));
-	f.template outer_call<"listen"_tag>(0, 0);
+	f.template outer_call<"listen"_tag>(0);
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_l_1"}));
 }

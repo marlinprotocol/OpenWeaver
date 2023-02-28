@@ -57,12 +57,12 @@ public:
 private:
 	core::Buffer buf = core::Buffer(0);
 
-	void reset(uint64_t max_len) {
+	void reset(auto&&, uint64_t max_len) {
 		buf = core::Buffer(max_len);
 		buf.truncate_unsafe(max_len);
 	}
 
-	int did_recv(auto&&, auto&&, InnerMessageType&& bytes, SocketAddress) {
+	int did_recv(auto&&, InnerMessageType&& bytes, SocketAddress) {
 		auto idx = buf.size();
 		// expand and check if there is enough room to copy
 		if(!buf.expand(bytes.size())) {
@@ -76,9 +76,9 @@ private:
 		return 0;
 	}
 
-	int did_recv_sentinel(auto&&, auto&&, SocketAddress addr) {
+	int did_recv_sentinel(auto&&, SocketAddress addr) {
 		// pass on msg
-		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(buf), addr);
+		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(buf), addr);
 	}
 };
 

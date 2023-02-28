@@ -55,17 +55,16 @@ public:
 private:
 	uint64_t bytes_remaining = 0;
 
-	void reset(uint64_t length) {
+	void reset(auto&&, uint64_t length) {
 		bytes_remaining = length;
 	}
 
-	int did_recv(auto&&, auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
+	int did_recv(auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
 		// check if entire frame available
 		if(bytes.size() < bytes_remaining) {
 			// nope, forward entirely
 			bytes_remaining -= bytes.size();
 			return this->ext_fabric.template outer_call<"did_recv"_tag>(
-				*this,
 				*this,
 				std::move(bytes),
 				bytes_remaining,
@@ -83,7 +82,6 @@ private:
 		// send
 		auto res = this->ext_fabric.template outer_call<"did_recv"_tag>(
 			*this,
-			*this,
 			std::move(bytes),
 			bytes_remaining,
 			addr
@@ -93,7 +91,7 @@ private:
 		}
 
 		// notify full frame
-		this->ext_fabric.template outer_call<"did_recv_frame"_tag>(*this, *this, addr);
+		this->ext_fabric.template outer_call<"did_recv_frame"_tag>(*this, addr);
 
 		// report leftover if any
 		if(num_leftover > 0) {

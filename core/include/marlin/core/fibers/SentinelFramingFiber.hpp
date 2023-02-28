@@ -44,7 +44,7 @@ public:
 	}
 
 private:
-	int did_recv(auto&&, auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
+	int did_recv(auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
 		SPDLOG_DEBUG("SFF: did_recv: {} bytes", bytes.size());
 		// get idx of sentinel if present
 		size_t sentinel_idx = std::find(
@@ -55,20 +55,20 @@ private:
 
 		if(sentinel_idx == bytes.size()) {
 			// sentinel not found, just forward
-			return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(bytes), addr);
+			return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(bytes), addr);
 		}
 
 		// sentinel found
 		// copy and send
 		core::Buffer n_bytes(sentinel_idx+1);
 		bytes.read_unsafe(0, n_bytes.data(), sentinel_idx+1);
-		auto res = FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(n_bytes), addr);
+		auto res = FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(n_bytes), addr);
 		if(res < 0) {
 			return res;
 		}
 
 		// notify sentinel
-		FiberScaffoldType::template outer_call<"did_recv_sentinel"_tag>(*this, *this, addr);
+		FiberScaffoldType::template outer_call<"did_recv_sentinel"_tag>(*this, addr);
 
 		// report leftover if any
 		bytes.cover_unsafe(sentinel_idx+1);

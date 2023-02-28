@@ -132,34 +132,34 @@ private:
 		Shuttle(auto&&...) {}
 
 		template<uint32_t tag>
-		auto outer_call(NthFiber<idx>& caller, auto&& source, auto&&... args) {
+		auto outer_call(NthFiber<idx>& caller, auto&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
 			if constexpr (idx == sizeof...(FiberTemplates) - 1) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+				return fabric.ext_fabric.template outer_call<tag>(fabric, std::forward<decltype(args)>(args)...);
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx+1>(fabric.fibers);
-				return fiber.template outer_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+				return fiber.template outer_call<tag>(caller, std::forward<decltype(args)>(args)...);
 			}
 		}
 
 		template<uint32_t tag>
-		auto inner_call(NthFiber<idx>& caller, auto&& source, auto&&... args) {
+		auto inner_call(NthFiber<idx>& caller, auto&&... args) {
 			// Warning: Requires that caller is fiber at idx
 			auto& fabric = get_fabric<idx>(caller);
 
 			// Check for exit first
 			if constexpr (idx == 0) {
 				// inside shuttle of last fiber, exit
-				return fabric.ext_fabric.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+				return fabric.ext_fabric.template inner_call<tag>(fabric, std::forward<decltype(args)>(args)...);
 			} else {
 				// transition to next fiber
 				auto& fiber = std::get<idx-1>(fabric.fibers);
-				return fiber.template inner_call<tag>(fabric, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+				return fiber.template inner_call<tag>(caller, std::forward<decltype(args)>(args)...);
 			}
 		}
 	};
@@ -172,17 +172,17 @@ public:
 	static constexpr bool is_inner_open = NthFiber<sizeof...(FiberTemplates)-1>::is_inner_open;
 
 	template<uint32_t tag>
-	auto outer_call(auto&&, auto&& source, auto&&... args) {
+	auto outer_call(auto&&, auto&&... args) {
 		auto& fiber = std::get<0>(fibers);
 
-		return fiber.template outer_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+		return fiber.template outer_call<tag>(*this, std::forward<decltype(args)>(args)...);
 	}
 
 	template<uint32_t tag>
-	auto inner_call(auto&&, auto&& source, auto&&... args) {
+	auto inner_call(auto&&, auto&&... args) {
 		auto& fiber = std::get<sizeof...(FiberTemplates)-1>(fibers);
 
-		return fiber.template inner_call<tag>(*this, std::forward<decltype(source)>(source), std::forward<decltype(args)>(args)...);
+		return fiber.template inner_call<tag>(*this, std::forward<decltype(args)>(args)...);
 	}
 };
 

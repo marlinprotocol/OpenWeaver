@@ -17,7 +17,7 @@ struct Source {
 
 private:
 	int leftover(auto&& source, auto&& buf, SocketAddress addr) {
-		return source.template outer_call<"did_recv"_tag>(*this, *this, std::move(buf), addr);
+		return source.template outer_call<"did_recv"_tag>(*this, std::move(buf), addr);
 	}
 };
 
@@ -41,11 +41,11 @@ struct Terminal {
 	std::function<int(SocketAddress)> did_recv_sentinel_impl;
 
 private:
-	int did_recv(auto&&, auto&&, Buffer&& buf, SocketAddress addr) {
+	int did_recv(auto&&, Buffer&& buf, SocketAddress addr) {
 		return did_recv_impl(std::move(buf), addr);
 	}
 
-	int did_recv_sentinel(auto&&, auto&&, SocketAddress addr) {
+	int did_recv_sentinel(auto&&, SocketAddress addr) {
 		return did_recv_sentinel_impl(addr);
 	}
 };
@@ -73,7 +73,7 @@ TEST(SentinelFramingFiber, SingleBufferNoSentinels) {
 
 		return 0;
 	};
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
 	EXPECT_EQ(calls, 1);
 }
 
@@ -111,7 +111,7 @@ TEST(SentinelFramingFiber, SingleBufferOneSentinel) {
 
 		return 0;
 	};
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg), SocketAddress::from_string("192.168.0.1:8000"));
 	EXPECT_EQ(bytes_calls, 2);
 	EXPECT_EQ(sentinel_calls, 1);
 }
@@ -157,8 +157,8 @@ TEST(SentinelFramingFiber, MultipleBufferOneSentinel1) {
 		return 0;
 	};
 
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 3);
 	EXPECT_EQ(sentinel_calls, 1);
@@ -207,9 +207,9 @@ TEST(SentinelFramingFiber, MultipleBufferOneSentinel2) {
 		return 0;
 	};
 
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 3);
 	EXPECT_EQ(sentinel_calls, 1);
@@ -288,10 +288,10 @@ TEST(SentinelFramingFiber, MultipleBufferMultipleSentinels) {
 		return 0;
 	};
 
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
-	f.outer_call<"did_recv"_tag>(s, s, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg1), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg2), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg3), SocketAddress::from_string("192.168.0.1:8000"));
+	f.outer_call<"did_recv"_tag>(s, std::move(msg4), SocketAddress::from_string("192.168.0.1:8000"));
 
 	EXPECT_EQ(bytes_calls, 6);
 	EXPECT_EQ(sentinel_calls, 4);

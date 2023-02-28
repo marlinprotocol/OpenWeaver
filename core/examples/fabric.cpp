@@ -26,7 +26,7 @@ struct Terminal {
 	}
 
 private:
-	int did_recv(auto&&, auto&&, Buffer&&) {
+	int did_recv(auto&&, Buffer&&) {
 		SPDLOG_INFO("Did recv: Terminal");
 		return 0;
 	}
@@ -60,9 +60,9 @@ struct Fiber {
 	}
 
 private:
-	int did_recv(auto&&, auto&&, Buffer&& buf) {
+	int did_recv(auto&&, Buffer&& buf) {
 		SPDLOG_INFO("Did recv: {}", idx);
-		return ext_fabric.template outer_call<"did_recv"_tag>(*this, *this, std::move(buf));
+		return ext_fabric.template outer_call<"did_recv"_tag>(*this, std::move(buf));
 	}
 };
 
@@ -78,7 +78,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(1)
 	));
-	f_simplest.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_simplest.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Multiple fibers fabric
 	Fabric<
@@ -98,7 +98,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(5)
 	));
-	f_multiple.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_multiple.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -110,7 +110,7 @@ int main() {
 		// Other fibers
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_nested.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -130,7 +130,7 @@ int main() {
 		std::make_tuple(4),
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2))
 	));
-	f_nested2.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_nested2.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -150,7 +150,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested3.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_nested3.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -170,7 +170,7 @@ int main() {
 		std::make_tuple(3),
 		std::make_tuple(4)
 	));
-	f_nested4.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_nested4.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	// Nested fabric
 	Fabric<
@@ -194,7 +194,7 @@ int main() {
 		std::make_tuple(std::make_tuple(1), std::make_tuple(2)),
 		std::make_tuple(4)
 	));
-	f_nested5.outer_call<"did_recv"_tag>(0, 0, Buffer(5));
+	f_nested5.outer_call<"did_recv"_tag>(0, Buffer(5));
 
 	return 0;
 }

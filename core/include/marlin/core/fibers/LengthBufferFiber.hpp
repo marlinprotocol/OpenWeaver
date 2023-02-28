@@ -57,12 +57,12 @@ public:
 private:
 	core::Buffer buf = core::Buffer(0);
 
-	void reset(uint64_t max_len) {
+	void reset(auto&&, uint64_t max_len) {
 		buf = core::Buffer(max_len);
-		this->ext_fabric.template inner_call<"reset"_tag>(max_len);
+		this->ext_fabric.template inner_call<"reset"_tag>(*this, max_len);
 	}
 
-	int did_recv(auto&&, auto&&, InnerMessageType&& bytes, uint64_t bytes_remaining, SocketAddress) {
+	int did_recv(auto&&, InnerMessageType&& bytes, uint64_t bytes_remaining, SocketAddress) {
 		auto idx = buf.size() - bytes.size() - bytes_remaining;
 
 		// copy
@@ -71,9 +71,9 @@ private:
 		return 0;
 	}
 
-	int did_recv_frame(auto&&, auto&&, SocketAddress addr) {
+	int did_recv_frame(auto&&, SocketAddress addr) {
 		// pass on msg
-		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, *this, std::move(buf), addr);
+		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(buf), addr);
 	}
 };
 
