@@ -3,10 +3,12 @@
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
+#include <marlin/core/SocketAddress.hpp>
 
 #include <variant>
 
 #include <spdlog/spdlog.h>
+
 
 namespace marlin {
 namespace core {
@@ -37,22 +39,45 @@ public:
 		FiberScaffoldType(std::forward_as_tuple(std::get<0>(init_tuple))),
 		fibers(std::in_place_index_t<0>(), std::tuple_cat(std::forward_as_tuple(*this), std::get<1>(init_tuple))) {}
 
-	void reset(uint64_t max_len) {
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template outer_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "reset"_tag) {
+			return reset(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "leftover"_tag) {
+			return leftover(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "transform"_tag) {
+			return transform(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+private:
+	void reset(auto&&, uint64_t max_len) {
 		return std::visit([&](auto&& fiber) {
-			return fiber.o(*this).reset(max_len);
+			return fiber.template inner_call<"reset"_tag>(fiber, max_len);
 		}, fibers);
 	}
 
 	int leftover(auto&&, InnerMessageType&& bytes, SocketAddress addr) {
 		return std::visit([&](auto&& fiber) {
-			return fiber.i(*this).did_recv(*this, std::move(bytes), addr);
+			return fiber.template outer_call<"did_recv"_tag>(*this, std::move(bytes), addr);
 		}, fibers);
 	}
 
 	template<size_t idx>
-	auto& transform(auto&&... args) {
+	void transform(auto&&, std::integral_constant<size_t, idx>, auto&&... args) {
 		SPDLOG_DEBUG("Transform: {}", idx);
-		return fibers.template emplace<idx>(std::forward_as_tuple(*this, args...));
+		fibers.template emplace<idx>(std::forward_as_tuple(*this, args...));
 	}
 
 	int did_recv(auto&& src, InnerMessageType&& bytes, SocketAddress addr) {
@@ -64,11 +89,11 @@ public:
 
 		if(self) {
 			// escape
-			return FiberScaffoldType::did_recv(*this, std::move(bytes), addr);
+			return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(bytes), addr);
 		}
 
 		return std::visit([&](auto&& fiber) {
-			return fiber.i(*this).did_recv(*this, std::move(bytes), addr);
+			return fiber.template outer_call<"did_recv"_tag>(*this, std::move(bytes), addr);
 		}, fibers);
 	}
 };
