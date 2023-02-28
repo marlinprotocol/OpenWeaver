@@ -37,9 +37,7 @@ public:
 		if constexpr (tag == "did_recv"_tag) {
 			return did_recv(std::forward<decltype(args)>(args)...);
 		} else {
-			// static_assert(false) always breaks compilation
-			// making it depend on a template parameter fixes it
-			static_assert(tag < 0);
+			return FiberScaffoldType::template outer_call<tag>(std::forward<decltype(args)>(args)...);
 		}
 	}
 
