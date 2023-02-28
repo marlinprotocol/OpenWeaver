@@ -55,12 +55,35 @@ public:
 
 	using FiberScaffoldType::FiberScaffoldType;
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template outer_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+private:
 	int did_recv(auto&&, InnerMessageType&& buf, SocketAddress addr) {
 		if(!buf.validate()) {
 			// Validation failure
 			return -1;
 		}
-		return FiberScaffoldType::did_recv(*this, std::move(buf), addr);
+		return FiberScaffoldType::template outer_call<"did_recv"_tag>(*this, std::move(buf), addr);
+	}
+
+	int send(auto&&, InnerMessageType&& buf, SocketAddress addr) {
+		return FiberScaffoldType::template inner_call<"send"_tag>(*this, std::move(buf), addr);
 	}
 };
 
