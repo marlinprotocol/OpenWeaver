@@ -62,6 +62,11 @@ private:
 	FiberType fiber;
 	FiberType h_fiber;
 
+	// Transport delegate
+	int did_dial(FiberType& fiber, core::SocketAddress addr);
+	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer &&packet);
+
 	// Discovery protocol
 	void did_recv_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
 	void send_LISTPROTO(FiberType& fiber, core::SocketAddress addr);
@@ -95,11 +100,13 @@ private:
 		uint8_t zero[32] = {};
 		return std::memcmp(key, zero, 32) == 0;
 	}
+
 public:
-	// Transport delegate
-	int did_dial(FiberType& fiber, core::SocketAddress addr);
-	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
-	int did_send(FiberType& fiber, core::Buffer &&packet);
+	template<uint32_t tag>
+	auto outer_call(auto&&... args);
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args);
 
 private:
 	template<typename ...Args>
@@ -160,7 +167,7 @@ void DISCOVERYSERVER::send_LISTPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, LISTPROTO(), addr);
+	fiber.template inner_call<"send"_tag>(*this, LISTPROTO(), addr);
 }
 
 
@@ -198,7 +205,7 @@ void DISCOVERYSERVER::send_LISTPEER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.o(*this).send(*this, LISTPEER(150).set_peers(t_begin, t_end), addr);
+		fiber.template inner_call<"send"_tag>(*this, LISTPEER(150).set_peers(t_begin, t_end), addr);
 	}
 }
 
@@ -354,7 +361,7 @@ void DISCOVERYSERVER::heartbeat_timer_cb() {
 			auto reg = m.payload_buffer();
 			reg.data()[0] = 7;
 
-			fiber.o(*this).send(*this, std::move(m), *raddr);
+			fiber.template inner_call<"send"_tag>(*this, std::move(m), *raddr);
 		} else {
 			BaseMessageType m(74);
 			auto reg = m.payload_buffer();
@@ -394,7 +401,7 @@ void DISCOVERYSERVER::heartbeat_timer_cb() {
 
 			reg.data()[73] = (uint8_t)recid;
 
-			fiber.o(*this).send(*this, std::move(m), *raddr);
+			fiber.template inner_call<"send"_tag>(*this, std::move(m), *raddr);
 		}
 	}
 }
@@ -426,7 +433,7 @@ void DISCOVERYSERVER::send_LISTCLUSTER(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.o(*this).send(*this, LISTCLUSTER(150).set_clusters(t_begin, t_end), addr);
+		fiber.template inner_call<"send"_tag>(*this, LISTCLUSTER(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
@@ -457,7 +464,7 @@ void DISCOVERYSERVER::send_LISTCLUSTER2(
 	auto t_end = boost::make_transform_iterator(f_end, transformation);
 
 	while(t_begin != t_end) {
-		fiber.o(*this).send(*this, LISTCLUSTER2(150).set_clusters(t_begin, t_end), addr);
+		fiber.template inner_call<"send"_tag>(*this, LISTCLUSTER2(150).set_clusters(t_begin, t_end), addr);
 	}
 }
 
@@ -587,6 +594,21 @@ int DISCOVERYSERVER::did_send(
 	return 0;
 }
 
+
+template<DISCOVERYSERVER_TEMPLATE>
+template<uint32_t tag>
+auto DISCOVERYSERVER::outer_call(auto&&... args) {
+	if constexpr (tag == "did_recv"_tag) {
+		return did_recv(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_dial"_tag) {
+		return did_dial(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_send"_tag) {
+		return did_send(std::forward<decltype(args)>(args)...);
+	} else {
+		static_assert(tag < 0);
+	}
+}
+
 //---------------- Transport delegate functions end ----------------//
 
 template<DISCOVERYSERVER_TEMPLATE>
@@ -608,11 +630,11 @@ DISCOVERYSERVER::DiscoveryServer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), heartbeat_timer(this) {
-	(void)fiber.i(*this).bind(baddr);
-	(void)fiber.i(*this).listen();
+	(void)fiber.template outer_call<"bind"_tag>(*this, baddr);
+	(void)fiber.template outer_call<"listen"_tag>(*this);
 
-	(void)h_fiber.i(*this).bind(haddr);
-	(void)h_fiber.i(*this).listen();
+	(void)h_fiber.template outer_call<"bind"_tag>(*this, haddr);
+	(void)h_fiber.template outer_call<"listen"_tag>(*this);
 
 	heartbeat_timer.template start<Self, &Self::heartbeat_timer_cb>(0, 10000);
 
@@ -657,7 +679,7 @@ DISCOVERYSERVER::DiscoveryServer(
 	}
 
 	if(raddr.has_value()) {
-		(void)fiber.i(*this).dial(*raddr);
+		(void)fiber.template outer_call<"dial"_tag>(*this, *raddr);
 	}
 }
 
