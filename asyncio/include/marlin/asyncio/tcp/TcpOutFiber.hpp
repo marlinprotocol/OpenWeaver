@@ -50,6 +50,27 @@ public:
 	TcpOutFiber(TcpOutFiber const&) = delete;
 	TcpOutFiber(TcpOutFiber&&) = delete;
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "dial"_tag) {
+			return dial(std::forward<decltype(args)>(args)...);
+		} else {
+			FiberScaffoldType::template outer_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "send"_tag) {
+			return send(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "close"_tag) {
+			return close(std::forward<decltype(args)>(args)...);
+		} else {
+			FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+private:
 	static void recv_cb(
 		uv_stream_t* handle,
 		ssize_t nread,
@@ -81,7 +102,7 @@ public:
 			return;
 		}
 
-		fiber.did_recv(
+		fiber.ext_fabric.template outer_call<"did_recv"_tag>(
 			fiber,
 			core::Buffer((uint8_t*)buf->base, nread),
 			fiber.dst
@@ -94,7 +115,7 @@ public:
 
 		SPDLOG_DEBUG("TcpOutFiber: Status: {}", status);
 		if(status < 0) {
-			fiber.close();
+			fiber.template inner_call<"close"_tag>();
 			return;
 		}
 
@@ -119,10 +140,10 @@ public:
 			fiber.close();
 		}
 
-		fiber.did_dial(fiber, fiber.dst);
+		fiber.ext_fabric.template outer_call<"did_dial"_tag>(fiber, fiber.dst);
 	}
 
-	[[nodiscard]] int dial(core::SocketAddress dst) {
+	[[nodiscard]] int dial(auto&&, core::SocketAddress dst) {
 		if(this->dst != core::SocketAddress()) {
 			return -1;
 		}
@@ -154,19 +175,24 @@ public:
 			&buf,
 			1,
 			[](uv_write_t* req, int status) {
+				InnerMessageType bytes = std::move(((WriteReqType*)req)->extra_data);
+				auto& fiber = *(SelfType*)req->data;
 				delete (WriteReqType*)req;
 				if(status < 0) {
 					SPDLOG_ERROR(
-						"Abci: Send callback error: {}",
+						"TcpOutFiber: Send callback error: {}",
 						status
 					);
+					return;
 				}
+
+				fiber.template outer_call<"did_send"_tag>(fiber, std::move(bytes));
 			}
 		);
 
 		if (res < 0) {
 			SPDLOG_ERROR(
-				"Abci: Send error: {}",
+				"TcpOutFiber: Send error: {}",
 				res
 			);
 			this->close();
@@ -175,10 +201,10 @@ public:
 		return 0;
 	}
 
-	void close() {
+	void close(auto&&...) {
 		uv_close((uv_handle_t*)tcp_handle, [](uv_handle_t* handle) {
 			auto& fiber = *(SelfType*)handle->data;
-			fiber.did_close(fiber);
+			fiber.ext_fabric.template outer_call<"did_close"_tag>(fiber);
 			delete handle;
 		});
 	}
