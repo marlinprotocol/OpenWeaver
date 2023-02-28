@@ -3,6 +3,8 @@
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
+#include <marlin/core/SocketAddress.hpp>
+
 
 namespace marlin {
 namespace core {
@@ -28,8 +30,18 @@ public:
 
 	using FiberScaffoldType::FiberScaffoldType;
 
-	int leftover(auto&& source, InnerMessageType&& bytes, SocketAddress addr) {
-		return source.did_recv(this->ext_fabric.is(*this), std::move(bytes), addr);
+	template<uint32_t tag>
+	auto inner_call(auto&&... args) {
+		if constexpr (tag == "leftover"_tag) {
+			return reset(std::forward<decltype(args)>(args)...);
+		} else {
+			return FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
+		}
+	}
+
+private:
+	int leftover(auto&&, InnerMessageType&& bytes, SocketAddress addr) {
+		return source.template outer_call<"did_recv"_tag>(*this, std::move(bytes), addr);
 	}
 };
 
