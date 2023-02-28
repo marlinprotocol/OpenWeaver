@@ -1,6 +1,7 @@
 #ifndef MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 #define MARLIN_BEACON_CLUSTERDISCOVERER_HPP
 
+#include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/udp/UdpFiber.hpp>
 #include <marlin/core/fibers/VersioningFiber.hpp>
@@ -9,9 +10,12 @@
 #include <map>
 
 #include <sodium.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
 
 #include "Messages.hpp"
 #include "PeerInfo.hpp"
+
 
 template<size_t size>
 static std::array<uint8_t, size> hextoint(std::string s){
@@ -62,6 +66,11 @@ private:
 	FiberType fiber;
 	Grapher grapher;
 
+	// Transport delegate
+	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
+	int did_recv(FiberType& fiber, BaseMessageType&& packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer&& packet);
+
 	// Discovery protocol
 	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
 	void did_recv_LISTPROTO(FiberType& fiber, LISTPROTO&& packet, core::SocketAddress addr);
@@ -84,10 +93,11 @@ private:
 	asyncio::Timer heartbeat_timer;
 
 public:
-	// Transport delegate
-	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
-	int did_recv(FiberType& fiber, BaseMessageType&& packet, core::SocketAddress addr);
-	int did_send(FiberType& fiber, core::Buffer&& packet);
+	template<uint32_t tag>
+	auto outer_call(auto&&... args);
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args);
 
 	ClusterDiscoverer(
 		core::SocketAddress const& addr,
@@ -149,7 +159,7 @@ void CLUSTERDISCOVERER::send_DISCPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCPROTO(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCPROTO(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -192,7 +202,7 @@ void CLUSTERDISCOVERER::send_DISCPEER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCPEER(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCPEER(), addr);
 }
 
 /*!
@@ -215,7 +225,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 		beacon_map[peer_addr] = std::make_pair(addr, asyncio::EventLoop::now());
-		(void)fiber.i(*this).dial(peer_addr, 0);
+		(void)fiber.template outer_call<"dial"_tag>(*this, peer_addr, 0);
 	}
 }
 
@@ -226,7 +236,7 @@ template<CLUSTERDISCOVERER_TEMPLATE>
 void CLUSTERDISCOVERER::beacon_timer_cb() {
 	// Discover clusters
 	for(auto& addr : discovery_addrs) {
-		(void)fiber.i(*this).dial(addr, 3);
+		(void)fiber.template outer_call<"dial"_tag>(*this, addr, 3);
 	}
 
 	// Prune clusters
@@ -255,7 +265,7 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCCLUSTER(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCCLUSTER(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -276,7 +286,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER(
 		SPDLOG_DEBUG("Cluster: {}", cluster_addr.to_string());
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 
-		(void)fiber.i(*this).dial(cluster_addr, 1);
+		(void)fiber.template outer_call<"dial"_tag>(*this, cluster_addr, 1);
 	}
 }
 
@@ -285,7 +295,7 @@ void CLUSTERDISCOVERER::send_DISCCLUSTER2(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCCLUSTER2(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCCLUSTER2(), addr);
 }
 
 template<CLUSTERDISCOVERER_TEMPLATE>
@@ -326,7 +336,7 @@ void CLUSTERDISCOVERER::did_recv_LISTCLUSTER2(
 
 		cluster_map[cluster_addr].last_seen = asyncio::EventLoop::now();
 		cluster_map[cluster_addr].address = cluster_client_key;
-		(void)fiber.i(*this).dial(cluster_addr, 1);
+		(void)fiber.template outer_call<"dial"_tag>(*this, cluster_addr, 1);
 	}
 }
 
@@ -450,6 +460,20 @@ int CLUSTERDISCOVERER::did_send(
 	return 0;
 }
 
+template<CLUSTERDISCOVERER_TEMPLATE>
+template<uint32_t tag>
+auto CLUSTERDISCOVERER::outer_call(auto&&... args) {
+	if constexpr (tag == "did_recv"_tag) {
+		return did_recv(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_dial"_tag) {
+		return did_dial(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_send"_tag) {
+		return did_send(std::forward<decltype(args)>(args)...);
+	} else {
+		static_assert(tag < 0);
+	}
+}
+
 //---------------- Transport delegate functions end ----------------//
 
 
@@ -465,8 +489,8 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), beacon_timer(this), heartbeat_timer(this) {
-	(void)fiber.i(*this).bind(addr);
-	(void)fiber.i(*this).listen();
+	(void)fiber.template outer_call<"bind"_tag>(*this, addr);
+	(void)fiber.template outer_call<"listen"_tag>(*this);
 
 	if(sodium_init() == -1) {
 		throw;

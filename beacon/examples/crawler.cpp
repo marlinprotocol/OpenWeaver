@@ -1,6 +1,5 @@
 #include <iostream>
 
-#include <marlin/beacon/DiscoveryServer.hpp>
 #include <marlin/beacon/ClusterDiscoverer.hpp>
 #include <marlin/asyncio/core/EventLoop.hpp>
 #include <marlin/asyncio/udp/UdpFiber.hpp>
