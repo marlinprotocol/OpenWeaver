@@ -45,7 +45,7 @@ struct Grapher {
 				std::make_tuple()
 			))
 		));
-		(void)fiber.i(*this).dial(dst);
+		(void)fiber.template outer_call<"dial"_tag>(*this, dst);
 	}
 
 	template<typename... Args>
@@ -57,6 +57,22 @@ struct Grapher {
 	size_t state = 0;
 	size_t length = 0;
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_dial"_tag) {
+			return did_dial(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_send"_tag) {
+			return did_send(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_close"_tag) {
+			return did_close(std::forward<decltype(args)>(args)...);
+		} else {
+			static_assert(tag < 0);
+		}
+	}
+
+private:
 	int did_recv(auto&& fiber, core::Buffer&& buf, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
 
@@ -66,21 +82,21 @@ struct Grapher {
 				// empty
 				if(length == 0) {
 					// still do not have length
-					fiber.o(*this).close();
+					fiber.template inner_call<"close"_tag>(*this);
 					return -1;
 				}
 
 				// go to next phase
 				state = 1;
-				fiber.o(*this).template transform<1>(std::make_tuple(), std::make_tuple());
-				fiber.o(*this).reset(length);
+				fiber.template inner_call<"transform"_tag>(*this, std::integral_constant<size_t, 1>{}, std::make_tuple(), std::make_tuple());
+				fiber.template inner_call<"reset"_tag>(*this, length);
 				return 0;
 			} else if(std::memcmp(buf.data(), u8"content-length: ", 16) == 0) {
 				// parse length
 				auto length_str = std::string((char*)buf.data()+16, buf.size() - 18);
 				length = std::stol(length_str);
 			}
-			fiber.o(*this).reset(1000);
+			fiber.template inner_call<"reset"_tag>(*this, 1000);
 		} else {
 			// body
 			state = 0;
@@ -97,7 +113,7 @@ struct Grapher {
 			}else{
 				SPDLOG_INFO("Not Parsed");
 			}
-			fiber.o(*this).close();
+			fiber.template inner_call<"close"_tag>(*this);
 		}
 		return 0;
 	}
@@ -105,7 +121,7 @@ struct Grapher {
 	template<typename FiberType>
 	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("Grapher: Did dial: {}", addr.to_string());
-		fiber.o(*this).reset(1000);
+		fiber.template inner_call<"reset"_tag>(*this, 1000);
 		auto query = core::Buffer(264).write_unsafe(
 			0,
 			(uint8_t*)"POST /subgraphs/name/marlinprotocol/staking-arb1 HTTP/1.0\r\n"
@@ -115,7 +131,7 @@ struct Grapher {
 			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, id}}\"}",
 			264
 		);
-		fiber.o(*this).send(*this, std::move(query));
+		fiber.template inner_call<"send"_tag>(*this, std::move(query));
 		return 0;
 	}
 
