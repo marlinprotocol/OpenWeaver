@@ -48,6 +48,11 @@ private:
 
 	FiberType fiber;
 
+	// Transport delegate
+	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
+	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
+	int did_send(FiberType& fiber, core::Buffer &&packet);
+
 	// Discovery protocol
 	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
 	void did_recv_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
@@ -71,10 +76,11 @@ private:
 	asyncio::Timer heartbeat_timer;
 
 public:
-	// Transport delegate
-	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
-	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
-	int did_send(FiberType& fiber, core::Buffer &&packet);
+	template<uint32_t tag>
+	auto outer_call(auto&&... args);
+
+	template<uint32_t tag>
+	auto inner_call(auto&&... args);
 
 	DiscoveryClient(
 		core::SocketAddress const& addr,
@@ -135,7 +141,7 @@ void DISCOVERYCLIENT::send_DISCPROTO(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCPROTO(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCPROTO(), addr);
 }
 
 
@@ -165,7 +171,7 @@ void DISCOVERYCLIENT::send_LISTPROTO(
 	auto protocols = delegate->get_protocols();
 	assert(protocols.size() < 100);
 
-	fiber.o(*this).send(*this,
+	fiber.template inner_call<"send"_tag>(*this,
 		LISTPROTO(protocols.size())
 		.set_protocols(protocols.begin(), protocols.end()),
 		addr
@@ -201,7 +207,7 @@ void DISCOVERYCLIENT::send_DISCPEER(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, DISCPEER(), addr);
+	fiber.template inner_call<"send"_tag>(*this, DISCPEER(), addr);
 }
 
 /*!
@@ -224,7 +230,7 @@ void DISCOVERYCLIENT::did_recv_LISTPEER(
 		auto [peer_addr, key] = *iter;
 		node_key_map[peer_addr] = key;
 
-		(void)fiber.i(*this).dial(peer_addr, 0);
+		(void)fiber.template outer_call<"dial"_tag>(*this, peer_addr, 0);
 	}
 }
 
@@ -236,7 +242,7 @@ void DISCOVERYCLIENT::send_HEARTBEAT(
 	FiberType& fiber,
 	core::SocketAddress addr
 ) {
-	fiber.o(*this).send(*this, HEARTBEAT().set_key(static_pk), addr);
+	fiber.template inner_call<"send"_tag>(*this, HEARTBEAT().set_key(static_pk), addr);
 }
 
 template<DISCOVERYCLIENT_TEMPLATE>
@@ -255,7 +261,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 	p.data()[43] = name_size;
 	std::memcpy(p.data()+44, name.c_str(), name_size);
 
-	fiber.o(*this).send(*this, std::move(m), addr);
+	fiber.template inner_call<"send"_tag>(*this, std::move(m), addr);
 }
 
 /*!
@@ -264,7 +270,7 @@ void DISCOVERYCLIENT::did_recv_DISCADDR(
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::beacon_timer_cb() {
 	for(auto& addr : discovery_addrs) {
-		(void)fiber.i(*this).dial(addr, 1);
+		(void)fiber.template outer_call<"dial"_tag>(*this, addr, 1);
 	}
 }
 
@@ -274,7 +280,7 @@ void DISCOVERYCLIENT::beacon_timer_cb() {
 template<DISCOVERYCLIENT_TEMPLATE>
 void DISCOVERYCLIENT::heartbeat_timer_cb() {
 	for(auto& addr : heartbeat_addrs) {
-		(void)fiber.i(*this).dial(addr, 2);
+		(void)fiber.template outer_call<"dial"_tag>(*this, addr, 2);
 	}
 }
 
@@ -390,6 +396,20 @@ int DISCOVERYCLIENT::did_send(
 	return 0;
 }
 
+template<DISCOVERYCLIENT_TEMPLATE>
+template<uint32_t tag>
+auto DISCOVERYCLIENT::outer_call(auto&&... args) {
+	if constexpr (tag == "did_recv"_tag) {
+		return did_recv(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_dial"_tag) {
+		return did_dial(std::forward<decltype(args)>(args)...);
+	} else if constexpr (tag == "did_send"_tag) {
+		return did_send(std::forward<decltype(args)>(args)...);
+	} else {
+		static_assert(tag < 0);
+	}
+}
+
 //---------------- Transport delegate functions end ----------------//
 
 template<DISCOVERYCLIENT_TEMPLATE>
@@ -404,8 +424,8 @@ DISCOVERYCLIENT::DiscoveryClient(
 	// Internal fibers, simply forward
 	std::forward<Args>(args)...
 )), beacon_timer(this), heartbeat_timer(this) {
-	(void)fiber.i(*this).bind(addr);
-	(void)fiber.i(*this).listen();
+	(void)fiber.template outer_call<"bind"_tag>(*this, addr);
+	(void)fiber.template outer_call<"listen"_tag>(*this);
 
 	if(sodium_init() == -1) {
 		throw;
