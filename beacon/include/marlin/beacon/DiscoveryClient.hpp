@@ -51,7 +51,7 @@ private:
 	// Transport delegate
 	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
 	int did_recv(FiberType& fiber, BaseMessageType &&packet, core::SocketAddress addr);
-	int did_send(FiberType& fiber, core::Buffer &&packet);
+	int did_send(FiberType& fiber, core::Buffer &&packet, core::SocketAddress addr);
 
 	// Discovery protocol
 	void send_DISCPROTO(FiberType& fiber, core::SocketAddress addr);
@@ -365,7 +365,8 @@ int DISCOVERYCLIENT::did_recv(
 template<DISCOVERYCLIENT_TEMPLATE>
 int DISCOVERYCLIENT::did_send(
 	FiberType&,
-	core::Buffer &&packet
+	core::Buffer &&packet,
+	core::SocketAddress addr [[maybe_unused]]
 ) {
 	auto type = packet.read_uint8(1);
 	if(type == std::nullopt || packet.read_uint8_unsafe(0) != 0) {
