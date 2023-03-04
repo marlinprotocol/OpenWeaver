@@ -44,8 +44,8 @@ private:
 	}
 
 	template<typename FiberType>
-	int did_send(FiberType&, Buffer&& buf) {
-		SPDLOG_INFO("Terminal: Did send: {} bytes", buf.size());
+	int did_send(FiberType&, Buffer&& buf, SocketAddress addr) {
+		SPDLOG_INFO("Terminal: Did send: {} bytes to {}", buf.size(), addr.to_string());
 		return 0;
 	}
 };

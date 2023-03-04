@@ -3,6 +3,7 @@
 
 #include <marlin/core/Buffer.hpp>
 #include <marlin/core/fibers/FiberScaffold.hpp>
+#include <marlin/core/messages/BaseMessage.hpp>
 #include <marlin/uvpp/Udp.hpp>
 
 #include <spdlog/spdlog.h>
@@ -59,6 +60,8 @@ public:
 	auto inner_call(auto&&... args) {
 		if constexpr (tag == "send"_tag) {
 			return send(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "close"_tag) {
+			return close(std::forward<decltype(args)>(args)...);
 		} else {
 			return FiberScaffoldType::template inner_call<tag>(std::forward<decltype(args)>(args)...);
 		}
@@ -174,7 +177,7 @@ private:
 		uv_udp_send_t* _req,
 		int status
 	) {
-		auto* req = (uvpp::UdpSendReq<core::Buffer>*)_req;
+		auto* req = (uvpp::UdpSendReq<std::tuple<core::Buffer, core::SocketAddress>>*)_req;
 
 		if(req->data == nullptr) {
 			delete req;
@@ -190,18 +193,23 @@ private:
 		} else {
 			fiber.ext_fabric.template outer_call<"did_send"_tag>(
 				fiber,
-				std::move(req->extra_data)
+				std::move(std::get<0>(req->extra_data)),
+				std::get<1>(req->extra_data)
 			);
 		}
 
 		delete req;
 	}
 
+	[[nodiscard]] int send(auto&& src, core::BaseMessage&& buf, core::SocketAddress addr) {
+		return send(std::forward<decltype(src)>(src), std::move(buf.buf), addr);
+	}
+
 	[[nodiscard]] int send(auto&&, core::Buffer&& buf, core::SocketAddress addr) {
-		auto* req = new uvpp::UdpSendReq<core::Buffer>(std::move(buf));
+		auto* req = new uvpp::UdpSendReq<std::tuple<core::Buffer, core::SocketAddress>>(std::forward_as_tuple(std::move(buf), addr));
 		req->data = this;
 
-		auto uv_buf = uv_buf_init((char*)req->extra_data.data(), req->extra_data.size());
+		auto uv_buf = uv_buf_init((char*)std::get<0>(req->extra_data).data(), std::get<0>(req->extra_data).size());
 		int res = uv_udp_send(
 			req,
 			udp_handle,
@@ -221,6 +229,10 @@ private:
 		}
 
 		return 0;
+	}
+
+	void close(auto&&, auto&&... args) {
+		this->ext_fabric.template outer_call<"did_close"_tag>(*this, std::forward<decltype(args)>(args)...);
 	}
 };
 
