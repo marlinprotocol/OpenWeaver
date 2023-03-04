@@ -99,8 +99,8 @@ private:
 
 		fiber.template outer_call<"did_recv"_tag>(
 			fiber,
-			fiber.dst,
-			core::Buffer((uint8_t*)buf->base, nread)
+			core::Buffer((uint8_t*)buf->base, nread),
+			fiber.dst
 		);
 	}
 
@@ -157,7 +157,7 @@ private:
 					return;
 				}
 
-				fiber.template outer_call<"did_send"_tag>(fiber, fiber.dst, std::move(bytes));
+				fiber.template outer_call<"did_send"_tag>(fiber, std::move(bytes), fiber.dst);
 			}
 		);
 
