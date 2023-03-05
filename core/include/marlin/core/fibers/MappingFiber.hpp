@@ -33,28 +33,28 @@ public:
 
 	template<uint32_t tag>
 	auto outer_call(auto&&, Key key, auto&&... args) {
-		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, init_tuple))).first->second);
+		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, key, init_tuple))).first->second);
 
 		return fiber.template outer_call<tag>(*this, std::forward<decltype(args)>(args)..., key);
 	}
 
 	template<uint32_t tag>
 	auto inner_call(auto&&, Key key, auto&&... args) {
-		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, init_tuple))).first->second);
+		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, key, init_tuple))).first->second);
 
 		return fiber.template inner_call<tag>(*this, std::forward<decltype(args)>(args)..., key);
 	}
 
 	template<uint32_t tag>
 	auto outer_call(auto&&, auto&& payload, Key key, auto&&... args) {
-		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, init_tuple))).first->second);
+		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, key, init_tuple))).first->second);
 
 		return fiber.template outer_call<tag>(*this, std::forward<decltype(payload)>(payload), std::forward<decltype(args)>(args)..., key);
 	}
 
 	template<uint32_t tag>
 	auto inner_call(auto&&, auto&& payload, Key key, auto&&... args) {
-		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, init_tuple))).first->second);
+		auto& fiber = *(fibers.try_emplace(key, new FiberTemplate<Shuttle>(std::tuple(Shuttle{*this}, key, init_tuple))).first->second);
 
 		return fiber.template inner_call<tag>(*this, std::forward<decltype(payload)>(payload), std::forward<decltype(args)>(args)..., key);
 	}
