@@ -103,7 +103,7 @@ struct StakeRequester {
 				std::make_tuple()
 			))
 		));
-		(void)fiber.i(*this).dial(dst);
+		(void)fiber.template outer_call<"dial"_tag>(*this, dst);
 	}
 
 	void dns_cb() {
@@ -131,6 +131,30 @@ struct StakeRequester {
 	size_t state = 0;
 	size_t length = 0;
 
+	template<uint32_t tag>
+	auto outer_call(auto&&... args) {
+		if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_dial"_tag) {
+			return did_dial(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_send"_tag) {
+			return did_send(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_close"_tag) {
+			return did_close(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv"_tag) {
+			return did_recv(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv_skip_stream"_tag) {
+			return did_recv_skip_stream(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv_flush_stream"_tag) {
+			return did_recv_flush_stream(std::forward<decltype(args)>(args)...);
+		} else if constexpr (tag == "did_recv_flush_conf"_tag) {
+			return did_recv_flush_conf(std::forward<decltype(args)>(args)...);
+		} else {
+			static_assert(tag < 0);
+		}
+	}
+
+private:
 	int did_recv(auto&& fiber, core::Buffer&& buf, core::SocketAddress addr [[maybe_unused]]) {
 		SPDLOG_DEBUG("StakeRequester: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
 
@@ -140,21 +164,21 @@ struct StakeRequester {
 				// empty
 				if(length == 0) {
 					// still do not have length
-					fiber.o(*this).close();
+					fiber.template inner_call<"close"_tag>(*this);
 					return -1;
 				}
 
 				// go to next phase
 				state = 1;
-				fiber.o(*this).template transform<1>(std::make_tuple(), std::make_tuple());
-				fiber.o(*this).reset(length);
+				fiber.template inner_call<"transform"_tag>(*this, std::integral_constant<size_t, 1>{}, std::make_tuple(), std::make_tuple());
+				fiber.template inner_call<"reset"_tag>(*this, length);
 				return 0;
 			} else if(std::memcmp(buf.data(), u8"content-length: ", 16) == 0) {
 				// parse length
 				auto length_str = std::string((char*)buf.data()+16, buf.size() - 18);
 				length = std::stol(length_str);
 			}
-			fiber.o(*this).reset(1000);
+			fiber.template inner_call<"reset"_tag>(*this, 1000);
 		} else {
 			// body
 			SPDLOG_DEBUG("{}", std::string((char*)buf.data(), buf.size()));
@@ -203,7 +227,7 @@ struct StakeRequester {
 					}
 
 					if(mpondThreshold) {
-						std::string client_key_str = cluster["clientKey"].GetString();
+						std::string client_key_str = cluster["id"].GetString();
 						std::array<uint8_t, 20> addr;
 						for(uint i = 0; i < 20; i++) {
 							uint8_t b = 0;
@@ -244,22 +268,22 @@ struct StakeRequester {
 	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
 		using namespace std::string_literals;
 		SPDLOG_DEBUG("StakeRequester: Did dial: {}", addr.to_string());
-		fiber.o(*this).reset(1000);
+		fiber.template inner_call<"reset"_tag>(*this, 1000);
 		auto query_str = "POST "s;
 		query_str += staking_url;
 		query_str += " HTTP/1.0\r\n"
 			"Content-Type: application/json\r\n"
-			"Content-Length: 187\r\n"
+			"Content-Length: 180\r\n"
 			"\r\n"
 			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"";
 		query_str += network_id;
-		query_str += "\\\"}){clientKey, totalDelegations{token{tokenId} amount}}}\"}"s;
+		query_str += "\\\"}){id, totalDelegations{token{tokenId} amount}}}\"}"s;
 		auto query = core::Buffer(query_str.size()).write_unsafe(
 			0,
 			(uint8_t*)query_str.c_str(),
 			query_str.size()
 		);
-		fiber.o(*this).send(*this, std::move(query));
+		fiber.template inner_call<"send"_tag>(*this, std::move(query));
 		return 0;
 	}
 
@@ -275,6 +299,7 @@ struct StakeRequester {
 		return 0;
 	}
 
+public:
 	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
 
 	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), t(this), dns_timer(this) {
