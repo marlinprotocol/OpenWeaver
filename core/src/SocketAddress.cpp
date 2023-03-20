@@ -22,38 +22,38 @@ SocketAddress &SocketAddress::operator=(const SocketAddress &addr) {
 }
 
 SocketAddress::SocketAddress(const sockaddr_storage &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_storage));
 }
 
 SocketAddress &SocketAddress::operator=(const sockaddr_storage &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_storage));
 	return *this;
 }
 
 SocketAddress::SocketAddress(const sockaddr &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr));
 }
 
 SocketAddress &SocketAddress::operator=(const sockaddr &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr));
 	return *this;
 }
 
 SocketAddress::SocketAddress(const sockaddr_in &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_in));
 }
 
 SocketAddress &SocketAddress::operator=(const sockaddr_in &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_in));
 	return *this;
 }
 
 SocketAddress::SocketAddress(const sockaddr_in6 &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_in6));
 }
 
 SocketAddress &SocketAddress::operator=(const sockaddr_in6 &addr) {
-	memcpy(this, &addr, sizeof(SocketAddress));
+	memcpy(this, &addr, sizeof(sockaddr_in6));
 	return *this;
 }
 
