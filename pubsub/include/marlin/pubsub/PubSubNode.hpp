@@ -113,7 +113,7 @@ struct StakeRequester {
 		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* req, int, addrinfo* res) {
 			auto& sr = *(StakeRequester*)req->data;
 			if(res != nullptr) {
-				auto& addr = *reinterpret_cast<core::SocketAddress*>(res->ai_addr);
+				auto addr = core::SocketAddress(*res->ai_addr);
 
 				SPDLOG_DEBUG("DNS result: {}", addr.to_string());
 
