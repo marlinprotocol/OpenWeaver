@@ -118,7 +118,7 @@ private:
 	static constexpr SelfType& get_fabric(NthFiber<idx>& fiber_ptr) {
 		// Type cast from nullptr
 		// Other option is to declare local var, but forces default constructible
-		auto* ref_fabric_ptr = (SelfType*)nullptr;
+		auto* ref_fabric_ptr = (SelfType*)sizeof(SelfType);
 		auto* ref_fiber_ptr = &std::get<idx>(ref_fabric_ptr->fibers);
 
 		return *(SelfType*)((uint8_t*)&fiber_ptr - ((uint8_t*)ref_fiber_ptr - (uint8_t*)ref_fabric_ptr));
