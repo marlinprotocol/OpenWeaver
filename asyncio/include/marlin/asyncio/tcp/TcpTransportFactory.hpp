@@ -206,7 +206,7 @@ connection_cb(uv_stream_t *handle, int status) {
 		return;
 	}
 
-	auto &addr = *reinterpret_cast<core::SocketAddress const *>(&saddr);
+	auto addr = core::SocketAddress(saddr);
 
 	if(delegate.should_accept(addr)) {
 		auto *transport = factory.transport_manager.get_or_create(

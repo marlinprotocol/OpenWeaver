@@ -140,7 +140,7 @@ int main() {
 	uv_getaddrinfo_t req;
 	auto res = uv_getaddrinfo(uv_default_loop(), &req, [](uv_getaddrinfo_t*, int, addrinfo* res) {
 		if(res != nullptr) {
-			auto& addr = *reinterpret_cast<SocketAddress*>(res->ai_addr);
+			auto addr = SocketAddress(*res->ai_addr);
 
 			SPDLOG_INFO("DNS result: {}", addr.to_string());
 

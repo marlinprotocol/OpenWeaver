@@ -159,7 +159,7 @@ private:
 			return;
 		}
 
-		auto& addr = *reinterpret_cast<core::SocketAddress const*>(&saddr);
+		auto addr = core::SocketAddress(saddr);
 
 		fiber.template outer_call<"did_dial"_tag>(fiber, addr, client);
 	}
