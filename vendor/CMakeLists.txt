@@ -19,26 +19,26 @@ set_property(TARGET uv_a PROPERTY INTERFACE_INCLUDE_DIRECTORIES
 find_package(Threads REQUIRED COMPONENTS Threads)
 target_link_libraries(uv_a Threads::Threads)
 
-install(TARGETS uv_a
-	EXPORT libuv-export
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
+# install(TARGETS uv_a
+# 	EXPORT libuv-export
+# 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# )
 
-install(EXPORT libuv-export
-	FILE
-		LibuvTargets.cmake
-	NAMESPACE
-		libuv::
-	DESTINATION
-		${CMAKE_INSTALL_LIBDIR}/cmake/libuv
-)
+# install(EXPORT libuv-export
+# 	FILE
+# 		LibuvTargets.cmake
+# 	NAMESPACE
+# 		libuv::
+# 	DESTINATION
+# 		${CMAKE_INSTALL_LIBDIR}/cmake/libuv
+# )
 
 #-------- libbase58 --------#
 include(ExternalProject)
 ExternalProject_Add(libbase58
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libbase58
-	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libbase58 CFLAGS=-fPIC
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && ./autogen.sh -s && CC=${CMAKE_C_COMPILER} ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libbase58 CFLAGS=-fPIC CFLAGS=-O3
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && $(MAKE)
 	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libbase58 && make install
 )
@@ -62,9 +62,9 @@ add_subdirectory(spdlog)
 include(ExternalProject)
 ExternalProject_Add(libsodium
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/libsodium
-	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && ./autogen.sh -s && ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libsodium CFLAGS=-fPIC
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && ./autogen.sh -s && CC=${CMAKE_C_COMPILER} ./configure --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/libsodium CFLAGS=-fPIC CFLAGS=-O3
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && $(MAKE)
-	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && make install
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/libsodium && $(MAKE) install
 )
 
 add_library(sodium STATIC IMPORTED GLOBAL)
@@ -83,8 +83,8 @@ include(ExternalProject)
 ExternalProject_Add(libcryptopp
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/cryptopp
 	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp
-	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && CXX=${CMAKE_CXX_COMPILER} $(MAKE)
-	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && make install PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cryptopp
+	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} $(MAKE)
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/cryptopp && $(MAKE) install PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cryptopp
 )
 
 add_library(cryptopp STATIC IMPORTED GLOBAL)
@@ -102,9 +102,9 @@ set_target_properties(cryptopp PROPERTIES
 include(ExternalProject)
 ExternalProject_Add(libsecp256k1
 	SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/secp256k1
-	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && ./configure --with-bignum=no --enable-module-recovery --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
+	CONFIGURE_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && ./autogen.sh && CC=${CMAKE_C_COMPILER} ./configure --with-bignum=no --enable-module-recovery --enable-static --disable-pie --prefix=${CMAKE_CURRENT_BINARY_DIR}/secp256k1 CFLAGS=-fPIC
 	BUILD_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && $(MAKE)
-	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && make install
+	INSTALL_COMMAND cd ${CMAKE_CURRENT_LIST_DIR}/secp256k1 && $(MAKE) install
 )
 
 add_library(secp256k1 STATIC IMPORTED GLOBAL)
