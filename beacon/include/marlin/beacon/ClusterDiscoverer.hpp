@@ -23,7 +23,7 @@ static std::array<uint8_t, size> hextoint(std::string s){
 	assert(size >= (s.length()-2)/2);
 	std::array<uint8_t, size> res;
 	for(size_t i = 2; i < s.length(); i += 2){
-		char tmp[2] = {s[i], s[i+1]};
+		char tmp[3] = {s[i], s[i+1], '\0'};
 		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16);
 	}
 	return res;

@@ -152,14 +152,14 @@ private:
 		req->data = this;
 		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* handle, int, addrinfo* res) {
 			if(res != nullptr) {
-			auto& addr = *reinterpret_cast<core::SocketAddress*>(res->ai_addr);
+				auto addr = core::SocketAddress(*res->ai_addr);
 
-			SPDLOG_INFO("DNS result: {}", addr.to_string());
-					Grapher *grapher= (Grapher*)handle->data;
-			grapher->dst = addr;
-			grapher->query_subgraph();
-			delete handle;
-			// g.dst = SocketAddress::loopback_ipv4(18000);
+				SPDLOG_INFO("DNS result: {}", addr.to_string());
+				Grapher *grapher= (Grapher*)handle->data;
+				grapher->dst = addr;
+				grapher->query_subgraph();
+				delete handle;
+				// g.dst = SocketAddress::loopback_ipv4(18000);
 			}
 
 			uv_freeaddrinfo(res);
