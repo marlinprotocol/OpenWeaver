@@ -199,6 +199,8 @@ TEST(FabricTest, MessageOrder1) {
 	));
 	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "t_dr"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, MessageOrder2) {
@@ -222,6 +224,8 @@ TEST(FabricTest, MessageOrder2) {
 	));
 	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string>({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_5", "t_dr"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, MessageOrder3) {
@@ -241,6 +245,8 @@ TEST(FabricTest, MessageOrder3) {
 	));
 	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "t_dr"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, MessageOrder4) {
@@ -265,6 +271,8 @@ TEST(FabricTest, MessageOrder4) {
 	));
 	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_2", "f_dr_3", "f_dr_4", "f_dr_1", "f_dr_2", "t_dr"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, MessageOrder5) {
@@ -295,6 +303,8 @@ TEST(FabricTest, MessageOrder5) {
 	));
 	f.template outer_call<"did_recv"_tag>(0, Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_dr_1", "f_dr_1", "f_dr_2", "f_dr_2", "f_dr_1", "f_dr_2", "f_dr_3", "f_dr_1", "f_dr_2", "f_dr_4", "t_dr"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, sendFunction) {
@@ -325,6 +335,8 @@ TEST(FabricTest, sendFunction) {
 	));
 	f.template inner_call<"send"_tag>(0, Buffer(5), SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"f_s_4", "f_s_2", "f_s_1", "f_s_3", "f_s_2", "f_s_1", "f_s_2", "f_s_2", "f_s_1", "f_s_1", "t_s"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, dialFunction) {
@@ -355,6 +367,8 @@ TEST(FabricTest, dialFunction) {
 	));
 	f.template outer_call<"dial"_tag>(0, SocketAddress::from_string("0.0.0.0:3000"), Buffer(5));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_d_1"}));
+
+	delete indices;
 }
 
 
@@ -386,6 +400,8 @@ TEST(FabricTest, bindFunction) {
 	));
 	f.template outer_call<"bind"_tag>(0, SocketAddress::from_string("0.0.0.0:3000"));
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_b_1"}));
+
+	delete indices;
 }
 
 TEST(FabricTest, listenFunction) {
@@ -416,4 +432,6 @@ TEST(FabricTest, listenFunction) {
 	));
 	f.template outer_call<"listen"_tag>(0);
 	EXPECT_EQ(*indices, std::vector <std::string> ({"foc_l_1"}));
+
+	delete indices;
 }
