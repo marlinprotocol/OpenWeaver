@@ -110,13 +110,15 @@ public:
 	void msg_log(
 		core::SocketAddress taddr,
 		typename PubSubNodeType::ClientKey baddr,
+		std::array<uint8_t, 20> address,
 		uint64_t message_id,
 		core::WeakBuffer message
 	) {
 		if((message_id & LogMask::mask(message)) == 0) {
 			SPDLOG_INFO(
-				"Msg log: {}, cluster: 0x{:spn}, relay: {}",
-				message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string()
+				"Msg log: {}, cluster: 0x{:spn}, relay: {}, sender: 0x{:spn}",
+				message_id, spdlog::to_hex(baddr.data(), baddr.data()+baddr.size()), taddr.to_string(),
+				spdlog::to_hex(address.data(), address.data()+20)
 			);
 		}
 	}
