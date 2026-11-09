@@ -218,7 +218,7 @@ struct CliOptions {
 	std::optional<std::string> listen_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
-	enum class Contracts { mainnet, kovan };
+	enum class Contracts { arb1, mainnet, kovan };
 	std::optional<Contracts> contracts;
 };
 STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
@@ -254,7 +254,10 @@ int main(int argc, char** argv) {
 		);
 
 		std::string staking_url;
-		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
+		switch(options.contracts.value_or(CliOptions::Contracts::arb1)) {
+		case CliOptions::Contracts::arb1:
+			staking_url = "/subgraphs/name/marlinprotocol/staking-arb1";
+			break;
 		case CliOptions::Contracts::mainnet:
 			staking_url = "/subgraphs/name/marlinprotocol/staking";
 			break;
