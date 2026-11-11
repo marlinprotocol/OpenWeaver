@@ -24,7 +24,7 @@ $ git submodule update --init --recursive
 
 ## Building
 
-Prerequisites: cmake >= 3.13, autoconf, automake, libtool, g++/clang++ (must support C++17, newer versions preferable)
+Prerequisites: cmake >= 3.13, autoconf, automake, libtool, g++/clang++ (must support C++17, newer versions preferable), libcurl with TLS support (`libcurl4-openssl-dev` on Debian and Ubuntu)
 
 The codebase is a standard C++/CMake project.
 ```sh
@@ -41,6 +41,16 @@ After building, you can find the following binaries in the build directory:
 - `./relay/eth_relay` - Relay
 - `./goldfish/goldfish` - Toy network for local testing
 - `./multicastsdk/msggen` - Message flooding tool for testing/benchmarking
+- `./multicastsdk/eth_bridge` - Bridge between an Ethereum consensus client (prysm-gateway) and the network
+- `./multicastsdk/eth_probe` - Client that logs every message it receives, used by receivers
+
+## Staking subgraph
+
+Clients only connect to clusters registered in the Marlin staking subgraph on Arbitrum One, and the bridge weights clusters by their stake. `eth_bridge` and `eth_probe` take the subgraph URL with `--subgraph-url`, over http or https, for example the subgraph on The Graph network:
+```
+--subgraph-url https://gateway.thegraph.com/api/<api_key>/subgraphs/id/GUh83DEwZWMTkKaydusdkb46mLuAC7FTL4km1bcNjugc
+```
+Without the flag they query `http://graph.marlin.pro/subgraphs/name/marlinprotocol/staking-arb1`. Queries go through the proxy set in `https_proxy`/`http_proxy`, if any.
 
 ## Integrations
 
@@ -50,7 +60,7 @@ After building, you can find the following binaries in the build directory:
 
 After building,
 1. Set up a beacon - `./beacon/beacon`
-2. Set up a relay - `./relay/eth_relay "127.0.0.1:8002" "127.0.0.1:8003"`
+2. Set up a relay - `./relay/eth_relay "127.0.0.1:8002" "127.0.0.1:8003" ./relaydata` (the third argument, a data directory, is required but not used)
 
 You now have a local network running. In a production setting, you would want to run these in different instances as a globally distributed network.
 

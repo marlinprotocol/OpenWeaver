@@ -62,9 +62,10 @@ This will mount OpenWeaver onto container and start an interactive shell on the 
 The build commands such as 
 ```
 mkdir build && cd build
-cmake .. & make -j8
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
+make -j8 server eth_relay eth_bridge eth_probe
 ```
-should work now
+should work now. The release build uses LTO, which needs `lld`. cmake reports `install(EXPORT ...)` errors for the vendored boost but still writes the Makefile, so the build can continue after them.
 
 **TIP**: The container has a distinct shell prompt of the following form to easily distinguish it from the host machine
 ```

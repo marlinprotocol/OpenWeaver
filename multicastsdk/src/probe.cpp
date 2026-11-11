@@ -102,8 +102,9 @@ struct CliOptions {
 	std::optional<std::string> discovery_addr;
 	std::optional<std::string> pubsub_addr;
 	std::optional<std::string> beacon_addr;
+	std::optional<std::string> subgraph_url;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, subgraph_url);
 
 
 int main(int argc, char** argv) {
@@ -119,11 +120,17 @@ int main(int argc, char** argv) {
 			options.beacon_addr.value_or("127.0.0.1:8002")
 		);
 
+		if(options.subgraph_url.has_value()) {
+			marlin::asyncio::set_subgraph_url(options.subgraph_url.value());
+		}
+		auto subgraph_url = marlin::asyncio::resolve_subgraph_url("/subgraphs/name/marlinprotocol/staking-arb1");
+
 		SPDLOG_INFO(
-			"Starting probe with discovery: {}, pubsub: {}, beacon: {}",
+			"Starting probe with discovery: {}, pubsub: {}, beacon: {}, subgraph: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			beacon_addr.to_string()
+			beacon_addr.to_string(),
+			marlin::asyncio::redact_url(subgraph_url)
 		);
 
 		uint8_t static_sk[crypto_box_SECRETKEYBYTES];
@@ -137,7 +144,7 @@ int main(int argc, char** argv) {
 			beacon_addr.to_string(),
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
-			"/subgraphs/name/marlinprotocol/staking-arb1",
+			subgraph_url,
 			STR(MARLIN_PROBE_DEFAULT_NETWORK_ID)
 		};
 

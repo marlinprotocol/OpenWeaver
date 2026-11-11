@@ -36,6 +36,10 @@ target_link_libraries(asyncio INTERFACE libuv::uv_a)
 # spdlog
 target_link_libraries(asyncio INTERFACE spdlog::spdlog_header_only)
 
+# libcurl, used for subgraph queries over http and https
+find_package(CURL REQUIRED)
+target_link_libraries(asyncio INTERFACE CURL::libcurl)
+
 install(TARGETS asyncio
 	EXPORT marlin-asyncio-export
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
