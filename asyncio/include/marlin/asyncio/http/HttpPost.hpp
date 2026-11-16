@@ -20,6 +20,10 @@ struct HttpResponse {
 	std::string error;
 };
 
+/// Largest response body http_post accepts. A request whose response is
+/// larger fails with an error. Subgraph replies are a few tens of KB.
+constexpr size_t http_post_max_response_size = 16 * 1024 * 1024;
+
 namespace detail {
 
 struct HttpPostReq {
@@ -28,12 +32,21 @@ struct HttpPostReq {
 	std::string body;
 	std::function<void(HttpResponse&&)> cb;
 	HttpResponse res;
+	bool too_large = false;
 };
 
 inline size_t http_post_write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
-	auto& out = *(std::string*)userdata;
-	out.append(ptr, size * nmemb);
-	return size * nmemb;
+	auto& req = *(HttpPostReq*)userdata;
+	auto& out = req.res.body;
+	// libcurl passes size == 1 and at most CURL_MAX_WRITE_SIZE bytes
+	auto num = size * nmemb;
+	if(num > http_post_max_response_size - out.size()) {
+		// Returning less than num makes libcurl abort the transfer
+		req.too_large = true;
+		return 0;
+	}
+	out.append(ptr, num);
+	return num;
 }
 
 inline void http_post_global_init() {
@@ -92,7 +105,9 @@ inline void http_post(
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req.body.c_str());
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)req.body.size());
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, detail::http_post_write_cb);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &req.res.body);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &req);
+		// Refuses early when the server announces the size, the write callback covers the rest
+		curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE, (curl_off_t)http_post_max_response_size);
 		curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
@@ -100,7 +115,11 @@ inline void http_post(
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
 		auto code = curl_easy_perform(curl);
-		if(code != CURLE_OK) {
+		if(req.too_large || code == CURLE_FILESIZE_EXCEEDED) {
+			req.res.error = "response is larger than " + std::to_string(http_post_max_response_size) + " bytes";
+			req.res.body.clear();
+			req.res.body.shrink_to_fit();
+		} else if(code != CURLE_OK) {
 			req.res.error = errbuf[0] != 0 ? std::string(errbuf) : std::string(curl_easy_strerror(code));
 		} else {
 			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &req.res.status);
