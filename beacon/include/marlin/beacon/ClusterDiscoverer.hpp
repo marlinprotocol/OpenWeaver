@@ -18,11 +18,11 @@
 
 
 template<size_t size>
-static std::array<uint8_t, size> hextoint(std::string s){
+static std::array<uint8_t, size> hextoint(std::string const& s){
 	//hex strings starting with 0x//
-	assert(size >= (s.length()-2)/2);
-	std::array<uint8_t, size> res;
-	for(size_t i = 2; i < s.length(); i += 2){
+	//never writes more than size bytes, longer strings are cut and shorter ones are zero padded//
+	std::array<uint8_t, size> res = {};
+	for(size_t i = 2; i + 1 < s.length() && (i-2)/2 < size; i += 2){
 		char tmp[3] = {s[i], s[i+1], '\0'};
 		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16);
 	}

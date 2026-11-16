@@ -99,6 +99,21 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
 	add_dependencies(beacon_tests ${TEST_NAME})
 endforeach(TEST_SOURCE)
 
+# Tests which do not need the simulator
+set(UNIT_TEST_SOURCES
+	test/testGrapher.cpp
+)
+
+foreach(TEST_SOURCE ${UNIT_TEST_SOURCES})
+	get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+	add_executable(${TEST_NAME} ${TEST_SOURCE})
+	target_link_libraries(${TEST_NAME} PUBLIC GTest::GTest GTest::Main beacon)
+	target_compile_options(${TEST_NAME} PRIVATE -Werror -Wall -Wextra -pedantic-errors)
+	add_test(${TEST_NAME} ${TEST_NAME})
+
+	add_dependencies(beacon_tests ${TEST_NAME})
+endforeach(TEST_SOURCE)
+
 
 ##########################################################
 # Build examples
