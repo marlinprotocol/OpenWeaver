@@ -1416,6 +1416,14 @@ void StreamTransport<DelegateType, DatagramTransport>::did_recv_ACK(
 	) {
 		uint64_t range = *iter;
 
+		// A range can at most reach down to packet 0, i.e. hold high + 1 packets.
+		// A longer one makes high - range wrap around, after which the lower bound
+		// below is past the upper bound and the loop runs off the end of sent_packets.
+		if(range > 0 && range - 1 > high) {
+			SPDLOG_DEBUG("Stream transport {{ Src: {}, Dst: {} }}: ACK: Range {} is longer than the packets up to {}", src_addr.to_string(), dst_addr.to_string(), range, high);
+			break;
+		}
+
 		uint64_t low = high - range;
 
 		// Short circuit on gap range
