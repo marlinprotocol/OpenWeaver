@@ -91,28 +91,43 @@ struct StakeRequester {
 		});
 	}
 
-private:
-	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
-		if(!res.error.empty()) {
-			SPDLOG_ERROR("StakeRequester: subgraph query to {} failed: {}", asyncio::redact_url(url), res.error);
-			return;
+	//! Reads a decimal token amount from the subgraph and drops its last `decimals` digits.
+	//! Returns false if the amount is not a decimal number or the result does not fit in 64 bits.
+	//! Amounts with `decimals` digits or less are read as 0.
+	static bool parse_amount(std::string const& amount, size_t decimals, uint64_t& out) {
+		if(amount.empty()) {
+			return false;
 		}
-		if(res.status != 200) {
-			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned HTTP {}: {}", asyncio::redact_url(url), res.status, res.body.substr(0, 200));
-			return;
+		for(auto c : amount) {
+			if(c < '0' || c > '9') {
+				return false;
+			}
 		}
+		out = 0;
+		if(amount.size() <= decimals) {
+			return true;
+		}
+		// 19 digits always fit in a uint64_t, 20 may not
+		auto len = amount.size() - decimals;
+		if(len > 19) {
+			return false;
+		}
+		for(size_t i = 0; i < len; i++) {
+			out = out * 10 + (uint64_t)(amount[i] - '0');
+		}
+		return true;
+	}
 
+	//! Reads the stake of every cluster with at least 0.5 MPond delegated from a subgraph reply into out.
+	//! Clusters and delegations that are not well formed are skipped.
+	//! Returns false if the reply does not have a clusters array.
+	static bool parse_stakes(std::string const& body, std::unordered_map<std::array<uint8_t, 20>, uint64_t>& out) {
 		rapidjson::Document d;
-		d.Parse(res.body.data(), res.body.size());
+		d.Parse(body.data(), body.size());
 		if(d.HasParseError() || !d.IsObject() || !d.HasMember("data") || !d["data"].IsObject()
 			|| !d["data"].HasMember("clusters") || !d["data"]["clusters"].IsArray()) {
-			SPDLOG_ERROR("StakeRequester: unexpected subgraph response: {}", res.body.substr(0, 200));
-			return;
+			return false;
 		}
-
-		// Reset stake data
-		stakes.clear();
-		cumulative_weights.clear();
 
 		// Iterate through clusters
 		auto& clusters = d["data"]["clusters"];
@@ -133,25 +148,28 @@ private:
 					|| !delegation["token"].HasMember("tokenId") || !delegation["token"]["tokenId"].IsString()) {
 					continue;
 				}
-				std::string amount = delegation["amount"].GetString();
+				std::string amount(delegation["amount"].GetString(), delegation["amount"].GetStringLength());
 				std::string token_id = delegation["token"]["tokenId"].GetString();
+				uint64_t am = 0;
 				if(token_id == "0x1635815984abab0dbb9afd77984dad69c24bf3d711bc0ddb1e2d53ef2d523e5e") {
-					if(amount.size() > 12) {
-						auto am = std::stoull(amount.substr(0, amount.size() - 12));
-						total_amount += am;
-						if(am >= 500000) {
-							mpondThreshold = true;
-						}
+					if(!parse_amount(amount, 12, am)) {
+						SPDLOG_WARN("StakeRequester: skipping malformed MPond amount: {}", amount.substr(0, 50));
+						continue;
+					}
+					if(am >= 500000) {
+						mpondThreshold = true;
 					}
 				} else if(token_id == "0x5802add45f8ec0a524470683e7295faacc853f97cf4a8d3ffbaaf25ce0fd87c4") {
-					if(amount.size() > 18) {
-						auto am = std::stoull(amount.substr(0, amount.size() - 18));
-						total_amount += am;
+					if(!parse_amount(amount, 18, am)) {
+						SPDLOG_WARN("StakeRequester: skipping malformed POND amount: {}", amount.substr(0, 50));
+						continue;
 					}
 				}
+				// Saturate instead of wrapping around
+				total_amount = am > UINT64_MAX - total_amount ? UINT64_MAX : total_amount + am;
 			}
 
-			std::string client_key_str = cluster["id"].GetString();
+			std::string client_key_str(cluster["id"].GetString(), cluster["id"].GetStringLength());
 			if(mpondThreshold && client_key_str.size() == 42) {
 				std::array<uint8_t, 20> addr;
 				for(uint i = 0; i < 20; i++) {
@@ -171,9 +189,33 @@ private:
 				}
 
 				SPDLOG_DEBUG("Client key: 0x{:spn}, Stake: {}", spdlog::to_hex(addr.data(), addr.data()+addr.size()), total_amount);
-				stakes[addr] = total_amount;
+				out[addr] = total_amount;
 			}
 		}
+
+		return true;
+	}
+
+private:
+	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
+		if(!res.error.empty()) {
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} failed: {}", asyncio::redact_url(url), res.error);
+			return;
+		}
+		if(res.status != 200) {
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned HTTP {}: {}", asyncio::redact_url(url), res.status, res.body.substr(0, 200));
+			return;
+		}
+
+		std::unordered_map<std::array<uint8_t, 20>, uint64_t> new_stakes;
+		if(!parse_stakes(res.body, new_stakes)) {
+			SPDLOG_ERROR("StakeRequester: unexpected subgraph response: {}", res.body.substr(0, 200));
+			return;
+		}
+
+		// Reset stake data
+		stakes = std::move(new_stakes);
+		cumulative_weights.clear();
 
 		uint64_t total = 0;
 		cumulative_weights.reserve(stakes.size());

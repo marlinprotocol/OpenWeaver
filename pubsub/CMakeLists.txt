@@ -82,6 +82,7 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+	test/testStakeRequester.cpp
 )
 
 add_custom_target(pubsub_tests)
