@@ -79,6 +79,15 @@ struct StakeRequester {
 	std::string network_id;
 
 	asyncio::Timer t;
+	//! Request in flight, if any
+	asyncio::HttpPostHandle req;
+
+	StakeRequester(StakeRequester const&) = delete;
+	StakeRequester& operator=(StakeRequester const&) = delete;
+
+	~StakeRequester() {
+		req.cancel();
+	}
 
 	void query_cb() {
 		using namespace std::string_literals;
@@ -90,7 +99,9 @@ struct StakeRequester {
 		auto query_str = "{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\""s;
 		query_str += network_id;
 		query_str += "\\\"}){id, totalDelegations{token{tokenId} amount}}}\"}"s;
-		asyncio::http_post(url, std::move(query_str), [this, url](asyncio::HttpResponse&& res) {
+		// The callback captures this, the request is cancelled in the destructor
+		req.cancel();
+		req = asyncio::http_post(url, std::move(query_str), [this, url](asyncio::HttpResponse&& res) {
 			did_query(url, std::move(res));
 		});
 	}

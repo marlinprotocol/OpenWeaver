@@ -30,6 +30,8 @@ inline bool is_hex_address(std::string const& s) {
 //! Clusters whose client key is not in the subgraph are not connected to.
 struct Grapher {
 	asyncio::Timer t;
+	//! Request in flight, if any
+	asyncio::HttpPostHandle req;
 	std::map< std::string, std::string> clientkey_id_map;
 
 	//! Called after every successful update of clientkey_id_map
@@ -40,10 +42,19 @@ struct Grapher {
 		t.template start<Grapher, &Grapher::query>(0, 300000);
 	}
 
+	Grapher(Grapher const&) = delete;
+	Grapher& operator=(Grapher const&) = delete;
+
+	~Grapher() {
+		req.cancel();
+	}
+
 	void query() {
 		auto url = asyncio::resolve_subgraph_url("/subgraphs/name/marlinprotocol/staking-arb1");
 		SPDLOG_DEBUG("Grapher: querying {}", asyncio::redact_url(url));
-		asyncio::http_post(
+		// The callback captures this, the request is cancelled in the destructor
+		req.cancel();
+		req = asyncio::http_post(
 			url,
 			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"0xaaaebeba3810b1e6b70781f14b2d72c1cb89c0b2b320c43bb67ff79f562f5ff4\\\"}){clientKey, id}}\"}",
 			[this, url](asyncio::HttpResponse&& res) {

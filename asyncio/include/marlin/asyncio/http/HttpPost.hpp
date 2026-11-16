@@ -5,7 +5,9 @@
 #include <curl/curl.h>
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -18,6 +20,28 @@ struct HttpResponse {
 	long status = 0;
 	std::string body;
 	std::string error;
+};
+
+/// Handle of a request started with http_post.
+///
+/// An object whose callback captures `this` must keep the handle and call
+/// cancel() in its destructor, otherwise the callback runs on a destroyed
+/// object if the request is still in flight.
+class HttpPostHandle {
+	std::shared_ptr<std::atomic<bool>> cancelled;
+public:
+	HttpPostHandle() = default;
+	HttpPostHandle(std::shared_ptr<std::atomic<bool>> cancelled) : cancelled(std::move(cancelled)) {}
+
+	/// Cancels the request. Must be called on the loop thread. The callback
+	/// is not called after this, and the transfer is aborted if it is running.
+	/// Does nothing if the request has completed or the handle is empty.
+	void cancel() {
+		if(cancelled) {
+			cancelled->store(true);
+			cancelled.reset();
+		}
+	}
 };
 
 /// Largest response body http_post accepts. A request whose response is
@@ -33,7 +57,15 @@ struct HttpPostReq {
 	std::function<void(HttpResponse&&)> cb;
 	HttpResponse res;
 	bool too_large = false;
+	// Shared with the HttpPostHandle of the request
+	std::shared_ptr<std::atomic<bool>> cancelled = std::make_shared<std::atomic<bool>>(false);
 };
+
+inline int http_post_xferinfo_cb(void* userdata, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+	auto& req = *(HttpPostReq*)userdata;
+	// A non zero value makes libcurl abort the transfer
+	return req.cancelled->load() ? 1 : 0;
+}
 
 inline size_t http_post_write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
 	auto& req = *(HttpPostReq*)userdata;
@@ -73,7 +105,8 @@ inline std::string redact_url(std::string const& url) {
 /// POSTs a JSON body to an http or https URL. The request runs on the libuv
 /// thread pool and `cb` is called on the loop thread when it completes.
 /// Proxy environment variables (https_proxy etc.) are honoured by libcurl.
-inline void http_post(
+/// `cb` is not called if the request is cancelled through the returned handle.
+inline HttpPostHandle http_post(
 	std::string url,
 	std::string body,
 	std::function<void(HttpResponse&&)> cb,
@@ -86,9 +119,13 @@ inline void http_post(
 	req->url = std::move(url);
 	req->body = std::move(body);
 	req->cb = std::move(cb);
+	HttpPostHandle handle(req->cancelled);
 
 	auto res = uv_queue_work(loop, &req->work, [](uv_work_t* work) {
 		auto& req = *(detail::HttpPostReq*)work->data;
+		if(req.cancelled->load()) {
+			return;
+		}
 
 		CURL* curl = curl_easy_init();
 		if(curl == nullptr) {
@@ -122,6 +159,10 @@ inline void http_post(
 		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+		// Polled by libcurl about once a second and on activity, stops the transfer of a cancelled request
+		curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, detail::http_post_xferinfo_cb);
+		curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &req);
+		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 
 		auto code = curl_easy_perform(curl);
 		if(req.too_large || code == CURLE_FILESIZE_EXCEEDED) {
@@ -141,7 +182,10 @@ inline void http_post(
 		if(status != 0 && req->res.error.empty()) {
 			req->res.error = uv_strerror(status);
 		}
-		req->cb(std::move(req->res));
+		// The owner of the callback may be gone once the request is cancelled
+		if(!req->cancelled->load()) {
+			req->cb(std::move(req->res));
+		}
 		delete req;
 	});
 
@@ -151,7 +195,10 @@ inline void http_post(
 		auto cb = std::move(req->cb);
 		delete req;
 		cb(std::move(r));
+		return HttpPostHandle();
 	}
+
+	return handle;
 }
 
 /// URL of the Marlin staking subgraph set for this process. Empty until
