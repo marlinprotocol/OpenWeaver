@@ -2,6 +2,8 @@
 
 #include <marlin/pubsub/PubSubNode.hpp>
 
+#include "../../asyncio/test/HttpTestServer.hpp"
+
 #include <string>
 #include <tuple>
 #include <vector>
@@ -169,4 +171,87 @@ TEST(StakeRequesterParse, SkipsMalformedClusters) {
 
 	EXPECT_EQ(stakes.size(), 1u);
 	EXPECT_EQ(stakes[addr(0xb2)], 1000000u);
+}
+
+TEST(StakeRequesterQuery, KeepsLastGoodStakes) {
+	TestServer server("200 OK", 0);
+	server.set_reply("200 OK", reply(cluster(id1, delegation(mpond, one))));
+
+	{
+		StakeRequester req(server.url(), "0x00");
+
+		ASSERT_TRUE(run_loop_until([&]() { return req.stakes.size() == 1; }));
+		EXPECT_EQ(req.request(addr(0xa1)), 1000000u);
+		EXPECT_EQ(req.cumulative_weights.size(), 1u);
+		EXPECT_EQ(req.sample(5).size(), 1u);
+		EXPECT_EQ(req.failures, 0u);
+
+		// Well formed reply without clusters
+		server.set_reply("200 OK", reply(""));
+		req.query_cb();
+		ASSERT_TRUE(run_loop_until([&]() { return req.failures == 1; }));
+		EXPECT_EQ(req.request(addr(0xa1)), 1000000u);
+		EXPECT_EQ(req.sample(5).size(), 1u);
+
+		// HTTP error
+		server.set_reply("500 Internal Server Error", "EOF");
+		req.query_cb();
+		ASSERT_TRUE(run_loop_until([&]() { return req.failures == 2; }));
+		EXPECT_EQ(req.request(addr(0xa1)), 1000000u);
+
+		// Amounts which are not numbers
+		server.set_reply("200 OK", reply(cluster(id1, delegation(mpond, "abcdefghijklmnopqrstuvwxyz"))));
+		req.query_cb();
+		ASSERT_TRUE(run_loop_until([&]() { return req.failures == 3; }));
+		EXPECT_EQ(req.request(addr(0xa1)), 1000000u);
+		EXPECT_EQ(req.sample(5).size(), 1u);
+
+		// Good reply again
+		server.set_reply("200 OK", reply(cluster(id2, delegation(mpond, one + "0"))));
+		req.query_cb();
+		ASSERT_TRUE(run_loop_until([&]() { return req.request(addr(0xb2)) != 0; }));
+		EXPECT_EQ(req.failures, 0u);
+		EXPECT_EQ(req.stakes.size(), 1u);
+		EXPECT_EQ(req.request(addr(0xb2)), 10000000u);
+		EXPECT_EQ(req.request(addr(0xa1)), 0u);
+		EXPECT_EQ(req.cumulative_weights.size(), 1u);
+	}
+
+	// Closes the timer of the StakeRequester
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+}
+
+TEST(StakeRequesterQuery, EmptyUrlDoesNotQuery) {
+	TestServer server("200 OK", 0);
+	server.set_reply("200 OK", reply(cluster(id1, delegation(mpond, one))));
+	// Even a URL set for the process is not queried
+	marlin::asyncio::subgraph_url_override() = server.url();
+
+	{
+		StakeRequester req("", "");
+		req.query_cb();
+		// Runs until nothing is pending, the timer was never started
+		uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+		EXPECT_EQ(server.num_requests, 0);
+		EXPECT_TRUE(req.stakes.empty());
+		EXPECT_TRUE(req.sample(5).empty());
+		EXPECT_EQ(req.request(addr(0xa1)), 0u);
+	}
+
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	marlin::asyncio::subgraph_url_override() = "";
+}
+
+TEST(StakeRequesterQuery, DestroyedWhileQuerying) {
+	// The reply arrives 300 ms after the request, the StakeRequester is gone by then
+	TestServer server("200 OK", 0, true, 300);
+	server.set_reply("200 OK", reply(cluster(id1, delegation(mpond, one))));
+
+	{
+		StakeRequester req(server.url(), "0x00");
+		ASSERT_TRUE(run_loop_until([&]() { return server.num_requests == 1; }));
+	}
+	// Returns once the cancelled request is cleaned up
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }

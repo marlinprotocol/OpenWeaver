@@ -37,9 +37,14 @@ struct Grapher {
 	//! Called after every successful update of clientkey_id_map
 	std::function<void()> on_update;
 
+	//! Time between queries in ms
+	static constexpr uint64_t interval = 300000;
+	//! Number of queries in a row which did not return any cluster
+	uint64_t failures = 0;
+
 	template<typename... Args>
 	Grapher(Args&&...) : t(this) {
-		t.template start<Grapher, &Grapher::query>(0, 300000);
+		t.template start<Grapher, &Grapher::query>(0, interval);
 	}
 
 	Grapher(Grapher const&) = delete;
@@ -94,21 +99,39 @@ struct Grapher {
 	}
 
 private:
+	//! Keeps the clusters of the last good reply and queries again sooner than the normal interval
+	void did_fail() {
+		failures++;
+		auto delay = asyncio::subgraph_retry_delay(failures, interval);
+		SPDLOG_INFO("Grapher: keeping the {} clusters known so far, next query in {} s", clientkey_id_map.size(), delay / 1000);
+		t.template start<Grapher, &Grapher::query>(delay, interval);
+	}
+
 	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
 		if(!res.error.empty()) {
 			SPDLOG_ERROR("Grapher: subgraph query to {} failed: {}", asyncio::redact_url(url), res.error);
+			did_fail();
 			return;
 		}
 		if(res.status != 200) {
 			SPDLOG_ERROR("Grapher: subgraph query to {} returned HTTP {}: {}", asyncio::redact_url(url), res.status, res.body.substr(0, 200));
+			did_fail();
 			return;
 		}
 
 		std::map<std::string, std::string> m;
 		if(!parse_clusters(res.body, m)) {
 			SPDLOG_ERROR("Grapher: unexpected subgraph response: {}", res.body.substr(0, 200));
+			did_fail();
 			return;
 		}
+		if(m.empty()) {
+			// An indexer which is syncing again or a wrong network id, not a network without clusters
+			SPDLOG_ERROR("Grapher: subgraph query to {} returned no clusters", asyncio::redact_url(url));
+			did_fail();
+			return;
+		}
+		failures = 0;
 		clientkey_id_map = std::move(m);
 		SPDLOG_INFO("Grapher: {} clusters in the staking subgraph", clientkey_id_map.size());
 

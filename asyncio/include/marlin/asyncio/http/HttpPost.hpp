@@ -201,6 +201,17 @@ inline HttpPostHandle http_post(
 	return handle;
 }
 
+/// Delay before a failed subgraph query is tried again: 15 s after the
+/// first failure, doubled for each failure in a row, and never longer than
+/// the normal interval between queries. All values are in ms.
+inline uint64_t subgraph_retry_delay(uint64_t failures, uint64_t interval) {
+	uint64_t delay = 15000;
+	for(uint64_t i = 1; i < failures && delay < interval; i++) {
+		delay *= 2;
+	}
+	return delay < interval ? delay : interval;
+}
+
 /// URL of the Marlin staking subgraph set for this process. Empty until
 /// set_subgraph_url is called; while empty, callers fall back to their
 /// built-in graph.marlin.pro paths.
