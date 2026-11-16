@@ -161,6 +161,22 @@ TEST(HttpPost, ReportsConnectionErrors) {
 	EXPECT_NE(res.error, "");
 }
 
+TEST(HttpPost, RejectsOtherProtocols) {
+	for(std::string url : {"file:///etc/hostname", "ftp://127.0.0.1/", "gopher://127.0.0.1/", "dict://127.0.0.1/"}) {
+		int calls = 0;
+		HttpResponse res;
+		http_post(url, "{}", [&](HttpResponse&& r) {
+			calls++;
+			res = std::move(r);
+		});
+		uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+		EXPECT_EQ(calls, 1) << url;
+		EXPECT_NE(res.error, "") << url;
+		EXPECT_TRUE(res.body.empty()) << url;
+	}
+}
+
 TEST(HttpPost, AcceptsResponseOfMaxSize) {
 	TestServer server("200 OK", http_post_max_response_size, false);
 
