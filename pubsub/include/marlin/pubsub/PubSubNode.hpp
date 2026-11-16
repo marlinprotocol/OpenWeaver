@@ -73,6 +73,7 @@ int status;
 
 //! Periodically fetches the stake of every cluster from the staking subgraph.
 //! Only clusters with at least 0.5 MPond delegated are counted.
+//! Nodes which never weight clusters by stake, like the relay, pass an empty URL to turn it off.
 struct StakeRequester {
 	std::string staking_url;
 	std::string network_id;
@@ -81,6 +82,9 @@ struct StakeRequester {
 
 	void query_cb() {
 		using namespace std::string_literals;
+		if(staking_url.empty()) {
+			return;
+		}
 		auto url = asyncio::resolve_subgraph_url(staking_url);
 		SPDLOG_DEBUG("StakeRequester: querying {}", asyncio::redact_url(url));
 		auto query_str = "{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\""s;
@@ -230,7 +234,11 @@ private:
 public:
 	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
 
+	//! An empty staking_url means the stakes are not needed: nothing is queried and the stake table stays empty
 	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), t(this) {
+		if(this->staking_url.empty()) {
+			return;
+		}
 		t.template start<StakeRequester, &StakeRequester::query_cb>(0, 60000);
 	}
 
