@@ -489,8 +489,8 @@ private:
 	);
 
 	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
+	int did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
+	int did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
 		bool success,
@@ -814,14 +814,15 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 	\param bytes Buffer containing the channel name to remove the subscriber from
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
+int PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
 	// Bounds check
 	if(bytes.size() < 2) {
+		// close frees the streams of the transport, a negative value tells it to stop using them
 		transport.close();
-		return;
+		return -1;
 	}
 
 	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
@@ -834,6 +835,8 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 
 	// TODO
 	remove_conn(unsol_conns, transport);
+
+	return 0;
 }
 
 /*!
@@ -871,17 +874,18 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
     Callback on receipt of response
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_recv_RESPONSE(
+int PUBSUBNODETYPE::did_recv_RESPONSE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	bool success [[maybe_unused]] = bytes.data()[0];
-
 	// Bounds check on header
 	if(bytes.size() < 1) {
+		// close frees the streams of the transport, a negative value tells it to stop using them
 		transport.close();
-		return;
+		return -1;
 	}
+
+	bool success [[maybe_unused]] = bytes.data()[0];
 
 	// Hide success
 	bytes.cover_unsafe(1);
@@ -901,6 +905,8 @@ void PUBSUBNODETYPE::did_recv_RESPONSE(
 		success == 0 ? "ERROR" : "OK",
 		spdlog::to_hex(message.data(), message.data() + message.size())
 	);
+
+	return 0;
 }
 
 
@@ -1297,10 +1303,10 @@ int PUBSUBNODETYPE::did_recv(
 		case 0: return this->did_recv_SUBSCRIBE(transport, std::move(bytes));
 		break;
 		// UNSUBSCRIBE
-		case 1: this->did_recv_UNSUBSCRIBE(transport, std::move(bytes));
+		case 1: return this->did_recv_UNSUBSCRIBE(transport, std::move(bytes));
 		break;
 		// RESPONSE
-		case 2: this->did_recv_RESPONSE(transport, std::move(bytes));
+		case 2: return this->did_recv_RESPONSE(transport, std::move(bytes));
 		break;
 		// MESSAGE
 		case 3: return this->did_recv_MESSAGE(transport, std::move(bytes));
