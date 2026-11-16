@@ -102,6 +102,7 @@ endforeach(TEST_SOURCE)
 # Tests which do not need the simulator
 set(UNIT_TEST_SOURCES
 	test/testGrapher.cpp
+	test/testMessages.cpp
 )
 
 foreach(TEST_SOURCE ${UNIT_TEST_SOURCES})
