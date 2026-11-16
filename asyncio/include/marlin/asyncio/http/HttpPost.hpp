@@ -110,6 +110,15 @@ inline void http_post(
 		curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE, (curl_off_t)http_post_max_response_size);
 		curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
+		// libcurl may be built with file, ftp and more, the URL and redirects are limited to http and https
+#if LIBCURL_VERSION_NUM >= 0x075500
+		curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+		curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+		curl_easy_setopt(curl, CURLOPT_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+		curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, (long)(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
 		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
