@@ -219,15 +219,16 @@ void DISCOVERYSERVER::did_recv_HEARTBEAT(
 	HEARTBEAT &&bytes,
 	core::SocketAddress addr
 ) {
+	// The key is only there once the size is checked
+	if(!bytes.validate()) {
+		return;
+	}
+
 	SPDLOG_INFO(
 		"HEARTBEAT <<< {}, {:spn}",
 		addr.to_string(),
 		spdlog::to_hex(bytes.key(), bytes.key()+32)
 	);
-
-	if(!bytes.validate()) {
-		return;
-	}
 
 	// Allow only heartbeat addr transports to add themselves to the registry
 	if(&fiber != &this->h_fiber) {
@@ -276,14 +277,25 @@ void DISCOVERYSERVER::did_recv_REG(
 		// Hash message
 		hasher.CalculateTruncatedDigest(hash, 32, payload.data()+1, 8);
 
+		// secp256k1 aborts the process on a recovery id above 3
+		if(payload.data()[73] > 3) {
+			SPDLOG_ERROR("REG: Invalid recovery id: {}", payload.data()[73]);
+
+			return;
+		}
+
 		secp256k1_ecdsa_recoverable_signature sig;
 		// Parse signature
-		secp256k1_ecdsa_recoverable_signature_parse_compact(
+		if(secp256k1_ecdsa_recoverable_signature_parse_compact(
 			ctx_verifier,
 			&sig,
 			payload.data()+9,
 			payload.data()[73]
-		);
+		) == 0) {
+			SPDLOG_ERROR("REG: Invalid signature");
+
+			return;
+		}
 
 		// Verify signature
 		secp256k1_pubkey pubkey;
