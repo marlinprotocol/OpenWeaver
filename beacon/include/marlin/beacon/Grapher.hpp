@@ -12,6 +12,20 @@
 namespace marlin{
 namespace beacon{
 
+//! Checks that s is an address as the subgraph returns it: 0x followed by exactly 40 hex digits
+inline bool is_hex_address(std::string const& s) {
+	if(s.size() != 42 || s[0] != '0' || s[1] != 'x') {
+		return false;
+	}
+	for(size_t i = 2; i < s.size(); i++) {
+		auto c = s[i];
+		if(!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+			return false;
+		}
+	}
+	return true;
+}
+
 //! Periodically fetches the client keys of the clusters in the staking subgraph.
 //! Clusters whose client key is not in the subgraph are not connected to.
 struct Grapher {
@@ -38,6 +52,36 @@ struct Grapher {
 		);
 	}
 
+	//! Reads the clientKey -> id pairs of a subgraph reply into m.
+	//! Entries where either is not a 20 byte hex address are skipped, the ids are later decoded into 20 byte arrays.
+	//! Returns false if the reply does not have a clusters array.
+	static bool parse_clusters(std::string const& body, std::map<std::string, std::string>& m) {
+		rapidjson::Document JData;
+		JData.Parse(body.data(), body.size());
+		if(JData.HasParseError() || !JData.IsObject() || !JData.HasMember("data") || !JData["data"].IsObject()
+			|| !JData["data"].HasMember("clusters") || !JData["data"]["clusters"].IsArray()) {
+			return false;
+		}
+
+		auto& clusters = JData["data"]["clusters"];
+		for(rapidjson::SizeType i = 0; i < clusters.Size(); i++){
+			auto& cluster = clusters[i];
+			if(!cluster.IsObject() || !cluster.HasMember("clientKey") || !cluster["clientKey"].IsString()
+				|| !cluster.HasMember("id") || !cluster["id"].IsString()) {
+				continue;
+			}
+			std::string client_key(cluster["clientKey"].GetString(), cluster["clientKey"].GetStringLength());
+			std::string id(cluster["id"].GetString(), cluster["id"].GetStringLength());
+			if(!is_hex_address(client_key) || !is_hex_address(id)) {
+				SPDLOG_WARN("Grapher: skipping cluster with malformed clientKey or id: {}, {}", client_key.substr(0, 50), id.substr(0, 50));
+				continue;
+			}
+			m[client_key] = id;
+		}
+
+		return true;
+	}
+
 private:
 	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
 		if(!res.error.empty()) {
@@ -49,23 +93,10 @@ private:
 			return;
 		}
 
-		rapidjson::Document JData;
-		JData.Parse(res.body.data(), res.body.size());
-		if(JData.HasParseError() || !JData.IsObject() || !JData.HasMember("data") || !JData["data"].IsObject()
-			|| !JData["data"].HasMember("clusters") || !JData["data"]["clusters"].IsArray()) {
+		std::map<std::string, std::string> m;
+		if(!parse_clusters(res.body, m)) {
 			SPDLOG_ERROR("Grapher: unexpected subgraph response: {}", res.body.substr(0, 200));
 			return;
-		}
-
-		auto& clusters = JData["data"]["clusters"];
-		std::map<std::string, std::string> m;
-		for(rapidjson::SizeType i = 0; i < clusters.Size(); i++){
-			auto& cluster = clusters[i];
-			if(!cluster.IsObject() || !cluster.HasMember("clientKey") || !cluster["clientKey"].IsString()
-				|| !cluster.HasMember("id") || !cluster["id"].IsString()) {
-				continue;
-			}
-			m[cluster["clientKey"].GetString()] = cluster["id"].GetString();
 		}
 		clientkey_id_map = std::move(m);
 		SPDLOG_INFO("Grapher: {} clusters in the staking subgraph", clientkey_id_map.size());
