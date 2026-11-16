@@ -50,7 +50,7 @@ Clients only connect to clusters registered in the Marlin staking subgraph on Ar
 ```
 --subgraph-url https://gateway.thegraph.com/api/<api_key>/subgraphs/id/GUh83DEwZWMTkKaydusdkb46mLuAC7FTL4km1bcNjugc
 ```
-Without the flag they query `http://graph.marlin.pro/subgraphs/name/marlinprotocol/staking-arb1`. Queries go through the proxy set in `https_proxy`/`http_proxy`, if any.
+Without the flag they query `https://graph.marlin.pro/subgraphs/name/marlinprotocol/staking-arb1`. Queries go through the proxy set in `https_proxy`/`http_proxy`, if any.
 
 ## Integrations
 

@@ -153,7 +153,7 @@ inline std::string resolve_subgraph_url(std::string const& path_or_url) {
 	if(path_or_url.rfind("http://", 0) == 0 || path_or_url.rfind("https://", 0) == 0) {
 		return path_or_url;
 	}
-	return "http://graph.marlin.pro" + path_or_url;
+	return "https://graph.marlin.pro" + path_or_url;
 }
 
 }  // namespace asyncio
