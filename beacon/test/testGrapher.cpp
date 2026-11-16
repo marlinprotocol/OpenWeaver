@@ -2,6 +2,8 @@
 
 #include <marlin/beacon/ClusterDiscoverer.hpp>
 
+#include "../../asyncio/test/HttpTestServer.hpp"
+
 #include <map>
 #include <string>
 
@@ -141,4 +143,72 @@ TEST(GrapherHexToInt, ShortAndOddStrings) {
 	EXPECT_EQ(hextoint<2>("0x"), (std::array<uint8_t, 2>{0, 0}));
 	EXPECT_EQ(hextoint<2>("0xab"), (std::array<uint8_t, 2>{0xab, 0}));
 	EXPECT_EQ(hextoint<2>("0xabc"), (std::array<uint8_t, 2>{0xab, 0}));
+}
+
+TEST(GrapherQuery, KeepsLastGoodClusters) {
+	TestServer server("200 OK", 0);
+	server.set_reply("200 OK", reply(cluster(key1, id1)));
+	marlin::asyncio::subgraph_url_override() = server.url();
+
+	{
+		Grapher g;
+		int updates = 0;
+		g.on_update = [&]() { updates++; };
+
+		ASSERT_TRUE(run_loop_until([&]() { return updates == 1; }));
+		EXPECT_EQ(g.clientkey_id_map.size(), 1u);
+		EXPECT_EQ(g.clientkey_id_map[key1], id1);
+		EXPECT_EQ(g.failures, 0u);
+
+		// Well formed reply without clusters
+		server.set_reply("200 OK", reply(""));
+		g.query();
+		ASSERT_TRUE(run_loop_until([&]() { return g.failures == 1; }));
+		EXPECT_EQ(g.clientkey_id_map.size(), 1u);
+
+		// HTTP error
+		server.set_reply("500 Internal Server Error", "EOF");
+		g.query();
+		ASSERT_TRUE(run_loop_until([&]() { return g.failures == 2; }));
+		EXPECT_EQ(g.clientkey_id_map.size(), 1u);
+
+		// Not a subgraph reply
+		server.set_reply("200 OK", "{\"errors\":[{\"message\":\"auth error: API key not found\"}]}");
+		g.query();
+		ASSERT_TRUE(run_loop_until([&]() { return g.failures == 3; }));
+		EXPECT_EQ(g.clientkey_id_map.size(), 1u);
+		EXPECT_EQ(g.clientkey_id_map[key1], id1);
+		EXPECT_EQ(updates, 1);
+
+		// Good reply again
+		server.set_reply("200 OK", reply(cluster(key2, id2)));
+		g.query();
+		ASSERT_TRUE(run_loop_until([&]() { return updates == 2; }));
+		EXPECT_EQ(g.failures, 0u);
+		EXPECT_EQ(g.clientkey_id_map.size(), 1u);
+		EXPECT_EQ(g.clientkey_id_map[key2], id2);
+	}
+
+	// Closes the timer of the Grapher
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	marlin::asyncio::subgraph_url_override() = "";
+}
+
+TEST(GrapherQuery, DestroyedWhileQuerying) {
+	// The reply arrives 300 ms after the request, the Grapher is gone by then
+	TestServer server("200 OK", 0, true, 300);
+	server.set_reply("200 OK", reply(cluster(key1, id1)));
+	marlin::asyncio::subgraph_url_override() = server.url();
+
+	auto* updates = new int(0);
+	{
+		Grapher g;
+		g.on_update = [updates]() { (*updates)++; };
+		ASSERT_TRUE(run_loop_until([&]() { return server.num_requests == 1; }));
+	}
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+	EXPECT_EQ(*updates, 0);
+	delete updates;
+	marlin::asyncio::subgraph_url_override() = "";
 }

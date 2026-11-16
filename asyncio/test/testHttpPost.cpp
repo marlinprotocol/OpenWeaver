@@ -1,111 +1,13 @@
 #include "gtest/gtest.h"
 #include "marlin/asyncio/http/HttpPost.hpp"
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include "HttpTestServer.hpp"
 
-#include <atomic>
 #include <chrono>
 #include <string>
 #include <thread>
 
 using namespace marlin::asyncio;
-
-namespace {
-
-// HTTP server on a loopback port which answers every request with the
-// same status line and a body of body_size bytes, after delay_ms.
-struct TestServer {
-	int fd = -1;
-	uint16_t port = 0;
-	std::string status;
-	size_t body_size;
-	bool send_length;
-	int delay_ms;
-	std::atomic<int> num_requests{0};
-	std::thread thread;
-
-	TestServer(
-		std::string status,
-		size_t body_size,
-		bool send_length = true,
-		int delay_ms = 0
-	) : status(status), body_size(body_size), send_length(send_length), delay_ms(delay_ms) {
-		fd = socket(AF_INET, SOCK_STREAM, 0);
-		EXPECT_GE(fd, 0);
-
-		sockaddr_in addr = {};
-		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-		addr.sin_port = 0;
-		EXPECT_EQ(bind(fd, (sockaddr*)&addr, sizeof(addr)), 0);
-		EXPECT_EQ(listen(fd, 16), 0);
-
-		socklen_t len = sizeof(addr);
-		EXPECT_EQ(getsockname(fd, (sockaddr*)&addr, &len), 0);
-		port = ntohs(addr.sin_port);
-
-		thread = std::thread([this]() { serve(); });
-	}
-
-	~TestServer() {
-		// Unblocks accept
-		shutdown(fd, SHUT_RDWR);
-		thread.join();
-		close(fd);
-	}
-
-	std::string url() const {
-		return "http://127.0.0.1:" + std::to_string(port) + "/subgraphs/name/test";
-	}
-
-	void serve() {
-		while(true) {
-			int conn = accept(fd, nullptr, nullptr);
-			if(conn < 0) {
-				return;
-			}
-			num_requests++;
-
-			// Read the request up to the end of the headers, the body is short and not needed
-			std::string req;
-			char buf[4096];
-			while(req.find("\r\n\r\n") == std::string::npos) {
-				auto n = recv(conn, buf, sizeof(buf), 0);
-				if(n <= 0) {
-					break;
-				}
-				req.append(buf, n);
-			}
-
-			if(delay_ms > 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
-			}
-
-			std::string head = "HTTP/1.1 " + status + "\r\nContent-Type: application/json\r\nConnection: close\r\n";
-			if(send_length) {
-				head += "Content-Length: " + std::to_string(body_size) + "\r\n";
-			}
-			head += "\r\n";
-			(void)!send(conn, head.data(), head.size(), MSG_NOSIGNAL);
-
-			std::string chunk(65536, 'a');
-			size_t sent = 0;
-			while(sent < body_size) {
-				auto n = send(conn, chunk.data(), std::min(chunk.size(), body_size - sent), MSG_NOSIGNAL);
-				if(n <= 0) {
-					break;
-				}
-				sent += n;
-			}
-			close(conn);
-		}
-	}
-};
-
-}
 
 TEST(HttpPost, ReturnsStatusAndBody) {
 	TestServer server("200 OK", 1000);
@@ -282,4 +184,24 @@ TEST(HttpPost, CancelAfterCompletionDoesNothing) {
 	HttpPostHandle().cancel();
 	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	EXPECT_EQ(calls, 1);
+}
+
+TEST(HttpPost, RetryDelay) {
+	// Grapher interval
+	EXPECT_EQ(subgraph_retry_delay(1, 300000), 15000u);
+	EXPECT_EQ(subgraph_retry_delay(2, 300000), 30000u);
+	EXPECT_EQ(subgraph_retry_delay(3, 300000), 60000u);
+	EXPECT_EQ(subgraph_retry_delay(4, 300000), 120000u);
+	EXPECT_EQ(subgraph_retry_delay(5, 300000), 240000u);
+	EXPECT_EQ(subgraph_retry_delay(6, 300000), 300000u);
+	EXPECT_EQ(subgraph_retry_delay(7, 300000), 300000u);
+	EXPECT_EQ(subgraph_retry_delay(UINT64_MAX, 300000), 300000u);
+	// StakeRequester interval
+	EXPECT_EQ(subgraph_retry_delay(1, 60000), 15000u);
+	EXPECT_EQ(subgraph_retry_delay(2, 60000), 30000u);
+	EXPECT_EQ(subgraph_retry_delay(3, 60000), 60000u);
+	EXPECT_EQ(subgraph_retry_delay(1000, 60000), 60000u);
+	// Never longer than the interval
+	EXPECT_EQ(subgraph_retry_delay(0, 300000), 15000u);
+	EXPECT_EQ(subgraph_retry_delay(1, 1000), 1000u);
 }

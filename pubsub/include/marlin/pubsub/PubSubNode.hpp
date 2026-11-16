@@ -212,23 +212,42 @@ struct StakeRequester {
 	}
 
 private:
+	//! Keeps the stakes of the last good reply and queries again sooner than the normal interval
+	void did_fail() {
+		failures++;
+		auto delay = asyncio::subgraph_retry_delay(failures, interval);
+		SPDLOG_INFO("StakeRequester: keeping the stakes of {} clusters known so far, next query in {} s", stakes.size(), delay / 1000);
+		t.template start<StakeRequester, &StakeRequester::query_cb>(delay, interval);
+	}
+
 	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
 		if(!res.error.empty()) {
 			SPDLOG_ERROR("StakeRequester: subgraph query to {} failed: {}", asyncio::redact_url(url), res.error);
+			did_fail();
 			return;
 		}
 		if(res.status != 200) {
 			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned HTTP {}: {}", asyncio::redact_url(url), res.status, res.body.substr(0, 200));
+			did_fail();
 			return;
 		}
 
 		std::unordered_map<std::array<uint8_t, 20>, uint64_t> new_stakes;
 		if(!parse_stakes(res.body, new_stakes)) {
 			SPDLOG_ERROR("StakeRequester: unexpected subgraph response: {}", res.body.substr(0, 200));
+			did_fail();
 			return;
 		}
+		if(new_stakes.empty()) {
+			// An indexer which is syncing again or a wrong network id.
+			// With an empty table sample() returns nothing and no cluster would be sent to.
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned no cluster with at least 0.5 MPond", asyncio::redact_url(url));
+			did_fail();
+			return;
+		}
+		failures = 0;
 
-		// Reset stake data
+		// Replace stake data
 		stakes = std::move(new_stakes);
 		cumulative_weights.clear();
 
@@ -250,8 +269,13 @@ public:
 		if(this->staking_url.empty()) {
 			return;
 		}
-		t.template start<StakeRequester, &StakeRequester::query_cb>(0, 60000);
+		t.template start<StakeRequester, &StakeRequester::query_cb>(0, interval);
 	}
+
+	//! Time between queries in ms
+	static constexpr uint64_t interval = 60000;
+	//! Number of queries in a row which did not return any stake
+	uint64_t failures = 0;
 
 	std::unordered_map<std::array<uint8_t, 20>, uint64_t> stakes;
 	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> cumulative_weights;
