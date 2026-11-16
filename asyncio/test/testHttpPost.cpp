@@ -223,3 +223,63 @@ TEST(HttpPost, RejectsLargerResponseWithoutLength) {
 	EXPECT_NE(res.error.find("larger than"), std::string::npos) << res.error;
 	EXPECT_TRUE(res.body.empty());
 }
+
+TEST(HttpPost, CancelledRequestDoesNotCallBack) {
+	TestServer server("200 OK", 1000, true, 300);
+
+	// Stands for an object which is destroyed while its request is in flight
+	auto* calls = new int(0);
+	auto handle = http_post(server.url(), "{}", [calls](HttpResponse&&) {
+		(*calls)++;
+	});
+
+	// Let the request reach the server, which holds its reply back
+	while(server.num_requests == 0) {
+		uv_run(uv_default_loop(), UV_RUN_NOWAIT);
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	EXPECT_EQ(*calls, 0);
+
+	handle.cancel();
+	int* freed = calls;
+	calls = nullptr;
+
+	auto start = std::chrono::steady_clock::now();
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	auto elapsed = std::chrono::steady_clock::now() - start;
+
+	EXPECT_EQ(*freed, 0);
+	delete freed;
+	// The transfer is aborted instead of running into its 30 s timeout
+	EXPECT_LT(elapsed, std::chrono::seconds(5));
+}
+
+TEST(HttpPost, CancelBeforeTheRequestStarts) {
+	TestServer server("200 OK", 1000);
+
+	int calls = 0;
+	auto handle = http_post(server.url(), "{}", [&](HttpResponse&&) {
+		calls++;
+	});
+	handle.cancel();
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+	EXPECT_EQ(calls, 0);
+}
+
+TEST(HttpPost, CancelAfterCompletionDoesNothing) {
+	TestServer server("200 OK", 1000);
+
+	int calls = 0;
+	auto handle = http_post(server.url(), "{}", [&](HttpResponse&&) {
+		calls++;
+	});
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	EXPECT_EQ(calls, 1);
+
+	handle.cancel();
+	handle.cancel();
+	HttpPostHandle().cancel();
+	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+	EXPECT_EQ(calls, 1);
+}
