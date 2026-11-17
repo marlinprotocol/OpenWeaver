@@ -218,10 +218,11 @@ struct CliOptions {
 	std::optional<std::string> listen_addr;
 	std::optional<std::string> keystore_path;
 	std::optional<std::string> keystore_pass_path;
-	enum class Contracts { mainnet, kovan };
+	enum class Contracts { arb1, mainnet, kovan };
 	std::optional<Contracts> contracts;
+	std::optional<std::string> subgraph_url;
 };
-STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts);
+STRUCTOPT(CliOptions, discovery_addr, pubsub_addr, beacon_addr, listen_addr, keystore_path, keystore_pass_path, contracts, subgraph_url);
 
 
 int main(int argc, char** argv) {
@@ -254,7 +255,10 @@ int main(int argc, char** argv) {
 		);
 
 		std::string staking_url;
-		switch(options.contracts.value_or(CliOptions::Contracts::mainnet)) {
+		switch(options.contracts.value_or(CliOptions::Contracts::arb1)) {
+		case CliOptions::Contracts::arb1:
+			staking_url = "/subgraphs/name/marlinprotocol/staking-arb1";
+			break;
 		case CliOptions::Contracts::mainnet:
 			staking_url = "/subgraphs/name/marlinprotocol/staking";
 			break;
@@ -263,12 +267,19 @@ int main(int argc, char** argv) {
 			break;
 		};
 
+		// --subgraph-url overrides --contracts
+		if(options.subgraph_url.has_value()) {
+			marlin::asyncio::set_subgraph_url(options.subgraph_url.value());
+		}
+		staking_url = marlin::asyncio::resolve_subgraph_url(staking_url);
+
 		SPDLOG_INFO(
-			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}",
+			"Starting bridge with discovery: {}, pubsub: {}, listen: {}, beacon: {}, subgraph: {}",
 			discovery_addr.to_string(),
 			pubsub_addr.to_string(),
 			listen_addr.to_string(),
-			beacon_addr.to_string()
+			beacon_addr.to_string(),
+			marlin::asyncio::redact_url(staking_url)
 		);
 
 		{

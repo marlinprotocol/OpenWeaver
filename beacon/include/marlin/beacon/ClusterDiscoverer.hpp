@@ -18,11 +18,11 @@
 
 
 template<size_t size>
-static std::array<uint8_t, size> hextoint(std::string s){
+static std::array<uint8_t, size> hextoint(std::string const& s){
 	//hex strings starting with 0x//
-	assert(size >= (s.length()-2)/2);
-	std::array<uint8_t, size> res;
-	for(size_t i = 2; i < s.length(); i += 2){
+	//never writes more than size bytes, longer strings are cut and shorter ones are zero padded//
+	std::array<uint8_t, size> res = {};
+	for(size_t i = 2; i + 1 < s.length() && (i-2)/2 < size; i += 2){
 		char tmp[3] = {s[i], s[i+1], '\0'};
 		res[(i-2)/2] = (uint8_t)strtol(tmp, NULL, 16);
 	}
@@ -65,6 +65,7 @@ private:
 
 	FiberType fiber;
 	Grapher grapher;
+	bool grapher_ready = false;
 
 	// Transport delegate
 	int did_dial(FiberType& fiber, core::SocketAddress addr, size_t type = 0);
@@ -185,7 +186,7 @@ void CLUSTERDISCOVERER::did_recv_LISTPROTO(
 		auto found = clientkey_id_map.find(hexstring);
 		if(found == clientkey_id_map.end()){
 			SPDLOG_INFO(
-			"not found: {}", hexstring
+			"Cluster {} not found in the staking subgraph, skipping", hexstring
 			);
 		}else{
 			std::array<uint8_t, 20> cluster_id = hextoint<20>(found->second);
@@ -492,6 +493,19 @@ CLUSTERDISCOVERER::ClusterDiscoverer(
 )), beacon_timer(this), heartbeat_timer(this) {
 	(void)fiber.template outer_call<"bind"_tag>(*this, addr);
 	(void)fiber.template outer_call<"listen"_tag>(*this);
+
+	// Discovery replies are dropped for clusters missing from the subgraph,
+	// so discover again as soon as the first subgraph reply arrives instead
+	// of waiting for the next beacon timer tick
+	grapher.on_update = [this]() {
+		if(grapher_ready) {
+			return;
+		}
+		grapher_ready = true;
+		if(!discovery_addrs.empty()) {
+			beacon_timer_cb();
+		}
+	};
 
 	if(sodium_init() == -1) {
 		throw;

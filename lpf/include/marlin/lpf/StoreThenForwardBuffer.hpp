@@ -39,6 +39,9 @@ public:
 
 				if(length > 5000000) { // Abort on big message, DoS prevention
 					SPDLOG_ERROR("Message too big: {}", length);
+					// Start from a clean state if the buffer is used again
+					size = 0;
+					length = 0;
 					return -1;
 				}
 
@@ -61,6 +64,10 @@ public:
 				buf = nullptr;
 				auto res = delegate.did_recv_stf_message(id, core::Buffer(tbuf, length));
 				if(res < 0) {
+					// Start from a clean state if the buffer is used again.
+					// With the old size left in place, 8 - size above wraps around for a size over 8.
+					size = 0;
+					length = 0;
 					return -2;
 				}
 

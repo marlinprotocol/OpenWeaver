@@ -35,6 +35,9 @@ public:
 
 				if(length > 5000000) { // Abort on big message, DoS prevention
 					SPDLOG_ERROR("Message too big: {}", length);
+					// Start from a clean state if the buffer is used again
+					size = 0;
+					length = 0;
 					return -1;
 				}
 

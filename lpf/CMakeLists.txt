@@ -60,6 +60,7 @@ install(FILES
 enable_testing()
 
 set(TEST_SOURCES
+	test/testStoreThenForwardBuffer.cpp
 )
 
 add_custom_target(lpf_tests)
