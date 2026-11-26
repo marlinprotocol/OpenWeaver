@@ -5,6 +5,7 @@
 #ifndef MARLIN_PUBSUB_PUBSUBNODE_HPP
 #define MARLIN_PUBSUB_PUBSUBNODE_HPP
 
+#include <marlin/asyncio/http/HttpPost.hpp>
 #include <marlin/asyncio/core/Timer.hpp>
 #include <marlin/asyncio/tcp/TcpOutFiber.hpp>
 #include <marlin/core/fibers/DynamicFramingFiber.hpp>
@@ -70,242 +71,211 @@ namespace pubsub {
 
 int status;
 
-template<typename X>
-using SentinelFramingFiberHelper = core::SentinelFramingFiber<X, '\n'>;
-
+//! Periodically fetches the stake of every cluster from the staking subgraph.
+//! Only clusters with at least 0.5 MPond delegated are counted.
+//! Nodes which never weight clusters by stake, like the relay, pass an empty URL to turn it off.
 struct StakeRequester {
-	using FiberType = core::Fabric<
-		StakeRequester&,
-		asyncio::TcpOutFiber,
-		core::DynamicFramingFiberHelper<
-			core::FabricF<SentinelFramingFiberHelper, core::SentinelBufferFiber>::type,
-			core::FabricF<core::LengthFramingFiber, core::LengthBufferFiber>::type
-		>::type
-	>;
-
 	std::string staking_url;
 	std::string network_id;
 
 	asyncio::Timer t;
-	asyncio::Timer dns_timer;
-	core::SocketAddress dst;
+	//! Request in flight, if any
+	asyncio::HttpPostHandle req;
+
+	StakeRequester(StakeRequester const&) = delete;
+	StakeRequester& operator=(StakeRequester const&) = delete;
+
+	~StakeRequester() {
+		req.cancel();
+	}
 
 	void query_cb() {
-		SPDLOG_DEBUG("Timer hit: {}", dst.to_string());
-		if(dst == core::SocketAddress()) {
+		using namespace std::string_literals;
+		if(staking_url.empty()) {
 			return;
 		}
-		auto& fiber = *new FiberType(std::forward_as_tuple(
-			*this,
-			std::make_tuple(),
-			std::make_tuple(std::make_tuple(
-				std::make_tuple(),
-				std::make_tuple()
-			))
-		));
-		(void)fiber.template outer_call<"dial"_tag>(*this, dst);
+		auto url = asyncio::resolve_subgraph_url(staking_url);
+		SPDLOG_DEBUG("StakeRequester: querying {}", asyncio::redact_url(url));
+		auto query_str = "{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\""s;
+		query_str += network_id;
+		query_str += "\\\"}){id, totalDelegations{token{tokenId} amount}}}\"}"s;
+		// The callback captures this, the request is cancelled in the destructor
+		req.cancel();
+		req = asyncio::http_post(url, std::move(query_str), [this, url](asyncio::HttpResponse&& res) {
+			did_query(url, std::move(res));
+		});
 	}
 
-	void dns_cb() {
-		SPDLOG_DEBUG("DNS timer hit: {}", dst.to_string());
-		uv_getaddrinfo_t* req = new uv_getaddrinfo_t();
-		req->data = this;
-		auto res = uv_getaddrinfo(uv_default_loop(), req, [](uv_getaddrinfo_t* req, int, addrinfo* res) {
-			auto& sr = *(StakeRequester*)req->data;
-			if(res != nullptr) {
-				auto addr = core::SocketAddress(*res->ai_addr);
+	//! Reads a decimal token amount from the subgraph and drops its last `decimals` digits.
+	//! Returns false if the amount is not a decimal number or the result does not fit in 64 bits.
+	//! Amounts with `decimals` digits or less are read as 0.
+	static bool parse_amount(std::string const& amount, size_t decimals, uint64_t& out) {
+		if(amount.empty()) {
+			return false;
+		}
+		for(auto c : amount) {
+			if(c < '0' || c > '9') {
+				return false;
+			}
+		}
+		out = 0;
+		if(amount.size() <= decimals) {
+			return true;
+		}
+		// 19 digits always fit in a uint64_t, 20 may not
+		auto len = amount.size() - decimals;
+		if(len > 19) {
+			return false;
+		}
+		for(size_t i = 0; i < len; i++) {
+			out = out * 10 + (uint64_t)(amount[i] - '0');
+		}
+		return true;
+	}
 
-				SPDLOG_DEBUG("DNS result: {}", addr.to_string());
+	//! Reads the stake of every cluster with at least 0.5 MPond delegated from a subgraph reply into out.
+	//! Clusters and delegations that are not well formed are skipped.
+	//! Returns false if the reply does not have a clusters array.
+	static bool parse_stakes(std::string const& body, std::unordered_map<std::array<uint8_t, 20>, uint64_t>& out) {
+		rapidjson::Document d;
+		d.Parse(body.data(), body.size());
+		if(d.HasParseError() || !d.IsObject() || !d.HasMember("data") || !d["data"].IsObject()
+			|| !d["data"].HasMember("clusters") || !d["data"]["clusters"].IsArray()) {
+			return false;
+		}
 
-				sr.dst = addr;
+		// Iterate through clusters
+		auto& clusters = d["data"]["clusters"];
+		for(rapidjson::SizeType i = 0; i < clusters.Size(); i++) {
+			auto& cluster = clusters[i];
+			if(!cluster.IsObject() || !cluster.HasMember("id") || !cluster["id"].IsString()
+				|| !cluster.HasMember("totalDelegations") || !cluster["totalDelegations"].IsArray()) {
+				continue;
+			}
+			uint64_t total_amount = 0;
+			bool mpondThreshold = false;
+			// Iterate through tokens
+			auto& tokens = cluster["totalDelegations"];
+			for(rapidjson::SizeType j = 0; j < tokens.Size(); j++) {
+				auto& delegation = tokens[j];
+				if(!delegation.IsObject() || !delegation.HasMember("amount") || !delegation["amount"].IsString()
+					|| !delegation.HasMember("token") || !delegation["token"].IsObject()
+					|| !delegation["token"].HasMember("tokenId") || !delegation["token"]["tokenId"].IsString()) {
+					continue;
+				}
+				std::string amount(delegation["amount"].GetString(), delegation["amount"].GetStringLength());
+				std::string token_id = delegation["token"]["tokenId"].GetString();
+				uint64_t am = 0;
+				if(token_id == "0x1635815984abab0dbb9afd77984dad69c24bf3d711bc0ddb1e2d53ef2d523e5e") {
+					if(!parse_amount(amount, 12, am)) {
+						SPDLOG_WARN("StakeRequester: skipping malformed MPond amount: {}", amount.substr(0, 50));
+						continue;
+					}
+					if(am >= 500000) {
+						mpondThreshold = true;
+					}
+				} else if(token_id == "0x5802add45f8ec0a524470683e7295faacc853f97cf4a8d3ffbaaf25ce0fd87c4") {
+					if(!parse_amount(amount, 18, am)) {
+						SPDLOG_WARN("StakeRequester: skipping malformed POND amount: {}", amount.substr(0, 50));
+						continue;
+					}
+				}
+				// Saturate instead of wrapping around
+				total_amount = am > UINT64_MAX - total_amount ? UINT64_MAX : total_amount + am;
 			}
 
-			uv_freeaddrinfo(res);
-			delete req;
-		}, "graph.marlin.pro", "http", nullptr);
-		if(res != 0) {
-			SPDLOG_ERROR("DNS lookup error: {}", res);
-		}
-	}
+			std::string client_key_str(cluster["id"].GetString(), cluster["id"].GetStringLength());
+			if(mpondThreshold && client_key_str.size() == 42) {
+				std::array<uint8_t, 20> addr;
+				for(uint i = 0; i < 20; i++) {
+					uint8_t b = 0;
+					auto byte = client_key_str[2*i+2];
+					if(byte >= '0' && byte <= '9') b += byte - '0';
+					else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
+					else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
+					b <<= 4;
 
-	size_t state = 0;
-	size_t length = 0;
+					byte = client_key_str[2*i+3];
+					if(byte >= '0' && byte <= '9') b += byte - '0';
+					else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
+					else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
 
-	template<uint32_t tag>
-	auto outer_call(auto&&... args) {
-		if constexpr (tag == "did_recv"_tag) {
-			return did_recv(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_dial"_tag) {
-			return did_dial(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_send"_tag) {
-			return did_send(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_close"_tag) {
-			return did_close(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_recv"_tag) {
-			return did_recv(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_recv_skip_stream"_tag) {
-			return did_recv_skip_stream(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_recv_flush_stream"_tag) {
-			return did_recv_flush_stream(std::forward<decltype(args)>(args)...);
-		} else if constexpr (tag == "did_recv_flush_conf"_tag) {
-			return did_recv_flush_conf(std::forward<decltype(args)>(args)...);
-		} else {
-			static_assert(tag < 0);
+					addr.data()[i] = b;
+				}
+
+				SPDLOG_DEBUG("Client key: 0x{:spn}, Stake: {}", spdlog::to_hex(addr.data(), addr.data()+addr.size()), total_amount);
+				out[addr] = total_amount;
+			}
 		}
+
+		return true;
 	}
 
 private:
-	int did_recv(auto&& fiber, core::Buffer&& buf, core::SocketAddress addr [[maybe_unused]]) {
-		SPDLOG_DEBUG("StakeRequester: Did recv: {} bytes from {}: {}", buf.size(), addr.to_string(), std::string((char*)buf.data(), buf.size()));
+	//! Keeps the stakes of the last good reply and queries again sooner than the normal interval
+	void did_fail() {
+		failures++;
+		auto delay = asyncio::subgraph_retry_delay(failures, interval);
+		SPDLOG_INFO("StakeRequester: keeping the stakes of {} clusters known so far, next query in {} s", stakes.size(), delay / 1000);
+		t.template start<StakeRequester, &StakeRequester::query_cb>(delay, interval);
+	}
 
-		if(state == 0) {
-			// headers
-			if(buf.size() == 2) {
-				// empty
-				if(length == 0) {
-					// still do not have length
-					fiber.template inner_call<"close"_tag>(*this);
-					return -1;
-				}
-
-				// go to next phase
-				state = 1;
-				fiber.template inner_call<"transform"_tag>(*this, std::integral_constant<size_t, 1>{}, std::make_tuple(), std::make_tuple());
-				fiber.template inner_call<"reset"_tag>(*this, length);
-				return 0;
-			} else if(std::memcmp(buf.data(), u8"content-length: ", 16) == 0) {
-				// parse length
-				auto length_str = std::string((char*)buf.data()+16, buf.size() - 18);
-				length = std::stol(length_str);
-			}
-			fiber.template inner_call<"reset"_tag>(*this, 1000);
-		} else {
-			// body
-			SPDLOG_DEBUG("{}", std::string((char*)buf.data(), buf.size()));
-			state = 0;
-			length = 0;
-			{
-			rapidjson::Document d;
-			d.Parse((char*)buf.data(), buf.size());
-
-			if(!d.HasParseError()) {
-				SPDLOG_DEBUG("Parsed");
-				// TODO: Better validation
-
-				// Reset stake data
-				stakes.clear();
-				cumulative_weights.clear();
-
-				// Iterate through clusters
-				auto& clusters = d["data"]["clusters"];
-				for(rapidjson::SizeType i = 0; i < clusters.Size(); i++) {
-					SPDLOG_DEBUG("Cluster {}", i);
-					auto& cluster = clusters[i];
-					uint64_t total_amount = 0;
-					bool mpondThreshold = false;
-					// Iterate through tokens
-					auto& tokens = cluster["totalDelegations"];
-					for(rapidjson::SizeType j = 0; j < tokens.Size(); j++) {
-						SPDLOG_DEBUG("Delegation {}", j);
-						auto& delegation = tokens[j];
-						std::string amount = delegation["amount"].GetString();
-						std::string token_id = delegation["token"]["tokenId"].GetString();
-						if(token_id == "0x1635815984abab0dbb9afd77984dad69c24bf3d711bc0ddb1e2d53ef2d523e5e") {
-							if(amount.size() > 12) {
-								auto am = std::stoi(amount.substr(0, amount.size() - 12));
-								total_amount += am;
-								if(am >= 500000) {
-									mpondThreshold = true;
-								}
-							}
-						} else if(token_id == "0x5802add45f8ec0a524470683e7295faacc853f97cf4a8d3ffbaaf25ce0fd87c4") {
-							if(amount.size() > 18) {
-								auto am = std::stoi(amount.substr(0, amount.size() - 18));
-								total_amount += am;
-							}
-						}
-					}
-
-					if(mpondThreshold) {
-						std::string client_key_str = cluster["id"].GetString();
-						std::array<uint8_t, 20> addr;
-						for(uint i = 0; i < 20; i++) {
-							uint8_t b = 0;
-							auto byte = client_key_str[2*i+2];
-							if(byte >= '0' && byte <= '9') b += byte - '0';
-							else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
-							else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
-							b <<= 4;
-
-							byte = client_key_str[2*i+3];
-							if(byte >= '0' && byte <= '9') b += byte - '0';
-							else if (byte >= 'a' && byte <='f') b += byte - 'a' + 10;
-							else if (byte >= 'A' && byte <='F') b += byte - 'A' + 10;
-
-							addr.data()[i] = b;
-						}
-
-						SPDLOG_DEBUG("Client key: 0x{:spn}, Stake: {}", spdlog::to_hex(addr.data(), addr.data()+addr.size()), total_amount);
-						stakes[addr] = total_amount;
-					}
-				}
-
-				uint64_t total = 0;
-				cumulative_weights.reserve(stakes.size());
-				for(auto iter = stakes.begin(); iter != stakes.end(); iter++) {
-					total += (uint64_t)std::sqrt(iter->second);
-					cumulative_weights.push_back(std::make_pair(total, iter->first));
-					SPDLOG_DEBUG("Cumulative: {}", total);
-				}
-			}
-			}
+	void did_query(std::string const& url, asyncio::HttpResponse&& res) {
+		if(!res.error.empty()) {
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} failed: {}", asyncio::redact_url(url), res.error);
+			did_fail();
+			return;
+		}
+		if(res.status != 200) {
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned HTTP {}: {}", asyncio::redact_url(url), res.status, res.body.substr(0, 200));
+			did_fail();
+			return;
 		}
 
-		return 0;
-	}
+		std::unordered_map<std::array<uint8_t, 20>, uint64_t> new_stakes;
+		if(!parse_stakes(res.body, new_stakes)) {
+			SPDLOG_ERROR("StakeRequester: unexpected subgraph response: {}", res.body.substr(0, 200));
+			did_fail();
+			return;
+		}
+		if(new_stakes.empty()) {
+			// An indexer which is syncing again or a wrong network id.
+			// With an empty table sample() returns nothing and no cluster would be sent to.
+			SPDLOG_ERROR("StakeRequester: subgraph query to {} returned no cluster with at least 0.5 MPond", asyncio::redact_url(url));
+			did_fail();
+			return;
+		}
+		failures = 0;
 
-	template<typename FiberType>
-	int did_dial(FiberType& fiber, core::SocketAddress addr [[maybe_unused]]) {
-		using namespace std::string_literals;
-		SPDLOG_DEBUG("StakeRequester: Did dial: {}", addr.to_string());
-		fiber.template inner_call<"reset"_tag>(*this, 1000);
-		auto query_str = "POST "s;
-		query_str += staking_url;
-		query_str += " HTTP/1.0\r\n"
-			"Content-Type: application/json\r\n"
-			"Content-Length: 180\r\n"
-			"\r\n"
-			"{\"query\": \"query { clusters(first: 1000, where: {networkId: \\\"";
-		query_str += network_id;
-		query_str += "\\\"}){id, totalDelegations{token{tokenId} amount}}}\"}"s;
-		auto query = core::Buffer(query_str.size()).write_unsafe(
-			0,
-			(uint8_t*)query_str.c_str(),
-			query_str.size()
-		);
-		fiber.template inner_call<"send"_tag>(*this, std::move(query));
-		return 0;
-	}
+		// Replace stake data
+		stakes = std::move(new_stakes);
+		cumulative_weights.clear();
 
-	template<typename FiberType>
-	int did_send(FiberType&, core::Buffer&& buf [[maybe_unused]]) {
-		SPDLOG_DEBUG("StakeRequester: Did send: {} bytes", buf.size());
-		return 0;
-	}
-
-	int did_close(auto& fiber) {
-		SPDLOG_DEBUG("Did close");
-		delete &fiber;
-		return 0;
+		uint64_t total = 0;
+		cumulative_weights.reserve(stakes.size());
+		for(auto iter = stakes.begin(); iter != stakes.end(); iter++) {
+			total += (uint64_t)std::sqrt(iter->second);
+			cumulative_weights.push_back(std::make_pair(total, iter->first));
+			SPDLOG_DEBUG("Cumulative: {}", total);
+		}
+		SPDLOG_INFO("StakeRequester: {} clusters with at least 0.5 MPond in the staking subgraph", stakes.size());
 	}
 
 public:
 	StakeRequester(std::tuple<std::string, std::string> args) : StakeRequester(std::get<0>(args), std::get<1>(args)) {}
 
-	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), t(this), dns_timer(this) {
-		t.template start<StakeRequester, &StakeRequester::query_cb>(2000, 60000);
-		dns_timer.template start<StakeRequester, &StakeRequester::dns_cb>(0, 60000);
+	//! An empty staking_url means the stakes are not needed: nothing is queried and the stake table stays empty
+	StakeRequester(std::string staking_url, std::string network_id) : staking_url(staking_url), network_id(network_id), t(this) {
+		if(this->staking_url.empty()) {
+			return;
+		}
+		t.template start<StakeRequester, &StakeRequester::query_cb>(0, interval);
 	}
+
+	//! Time between queries in ms
+	static constexpr uint64_t interval = 60000;
+	//! Number of queries in a row which did not return any stake
+	uint64_t failures = 0;
 
 	std::unordered_map<std::array<uint8_t, 20>, uint64_t> stakes;
 	std::vector<std::pair<uint64_t, std::array<uint8_t, 20>>> cumulative_weights;
@@ -519,8 +489,8 @@ private:
 	);
 
 	int did_recv_SUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-	void did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
-	void did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
+	int did_recv_UNSUBSCRIBE(BaseTransport &transport, core::Buffer &&message);
+	int did_recv_RESPONSE(BaseTransport &transport, core::Buffer &&message);
 	void send_RESPONSE(
 		BaseTransport &transport,
 		bool success,
@@ -844,14 +814,15 @@ void PUBSUBNODETYPE::send_SUBSCRIBE(
 	\param bytes Buffer containing the channel name to remove the subscriber from
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
+int PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
 	// Bounds check
 	if(bytes.size() < 2) {
+		// close frees the streams of the transport, a negative value tells it to stop using them
 		transport.close();
-		return;
+		return -1;
 	}
 
 	uint16_t channel [[maybe_unused]] = bytes.read_uint16_be_unsafe(0);
@@ -864,6 +835,8 @@ void PUBSUBNODETYPE::did_recv_UNSUBSCRIBE(
 
 	// TODO
 	remove_conn(unsol_conns, transport);
+
+	return 0;
 }
 
 /*!
@@ -901,17 +874,18 @@ void PUBSUBNODETYPE::send_UNSUBSCRIBE(
     Callback on receipt of response
 */
 template<PUBSUBNODE_TEMPLATE>
-void PUBSUBNODETYPE::did_recv_RESPONSE(
+int PUBSUBNODETYPE::did_recv_RESPONSE(
 	BaseTransport &transport,
 	core::Buffer &&bytes
 ) {
-	bool success [[maybe_unused]] = bytes.data()[0];
-
 	// Bounds check on header
 	if(bytes.size() < 1) {
+		// close frees the streams of the transport, a negative value tells it to stop using them
 		transport.close();
-		return;
+		return -1;
 	}
+
+	bool success [[maybe_unused]] = bytes.data()[0];
 
 	// Hide success
 	bytes.cover_unsafe(1);
@@ -931,6 +905,8 @@ void PUBSUBNODETYPE::did_recv_RESPONSE(
 		success == 0 ? "ERROR" : "OK",
 		spdlog::to_hex(message.data(), message.data() + message.size())
 	);
+
+	return 0;
 }
 
 
@@ -1327,10 +1303,10 @@ int PUBSUBNODETYPE::did_recv(
 		case 0: return this->did_recv_SUBSCRIBE(transport, std::move(bytes));
 		break;
 		// UNSUBSCRIBE
-		case 1: this->did_recv_UNSUBSCRIBE(transport, std::move(bytes));
+		case 1: return this->did_recv_UNSUBSCRIBE(transport, std::move(bytes));
 		break;
 		// RESPONSE
-		case 2: this->did_recv_RESPONSE(transport, std::move(bytes));
+		case 2: return this->did_recv_RESPONSE(transport, std::move(bytes));
 		break;
 		// MESSAGE
 		case 3: return this->did_recv_MESSAGE(transport, std::move(bytes));

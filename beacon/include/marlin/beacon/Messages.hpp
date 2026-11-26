@@ -2,6 +2,13 @@
 #define MARLIN_BEACON_MESSAGES_HPP
 
 #include <marlin/core/Buffer.hpp>
+#include <marlin/core/SocketAddress.hpp>
+
+#include <sodium.h>
+
+#include <algorithm>
+#include <array>
+#include <tuple>
 
 
 namespace marlin {
@@ -152,7 +159,13 @@ struct LISTPROTOWrapper {
 	}
 
 	iterator protocols_end() const {
-		uint8_t num_proto = base.payload_buffer().read_uint8_unsafe(1);
+		// Never past the last whole entry in the buffer, even if validate was not called
+		auto size = base.payload_buffer().size();
+		if(size < 2) {
+			return protocols_begin();
+		}
+		size_t num_proto = base.payload_buffer().read_uint8_unsafe(1);
+		num_proto = std::min(num_proto, (size - 2) / 8);
 		return iterator(base.payload_buffer(), 2 + num_proto*8);
 	}
 };
@@ -220,6 +233,10 @@ struct LISTPEERWrapper {
 		return std::move(base);
 	}
 
+	//! Size of an entry: address (8 bytes) and static public key
+	static constexpr size_t entry_size = 8 + crypto_box_PUBLICKEYBYTES;
+
+	//! Note that the message is sized for 8 bytes per peer, set_peers stops when it is full
 	LISTPEERWrapper(size_t num_peer = 0) : base(1+8*num_peer) {
 		base.set_payload({3});
 	}
@@ -229,10 +246,10 @@ struct LISTPEERWrapper {
 	template<typename It>
 	LISTPEERWrapper& set_peers(It& begin, It end) & {
 		size_t idx = 1;
-		while(begin != end && idx + 8 + crypto_box_PUBLICKEYBYTES <= base.payload_buffer().size()) {
+		while(begin != end && idx + entry_size <= base.payload_buffer().size()) {
 			begin->first.serialize(base.payload()+idx, 8);
 			base.payload_buffer().write_unsafe(idx+8, begin->second.data(), crypto_box_PUBLICKEYBYTES);
-			idx += 8 + crypto_box_PUBLICKEYBYTES;
+			idx += entry_size;
 
 			++begin;
 		}
@@ -246,8 +263,9 @@ struct LISTPEERWrapper {
 		return std::move(set_peers(begin, end));
 	}
 
+	//! The type byte followed by whole entries only
 	[[nodiscard]] bool validate() const {
-		if(base.payload_buffer().size() < 1 || base.payload_buffer().size() % 8 != 1) {
+		if(base.payload_buffer().size() < 1 || (base.payload_buffer().size() - 1) % entry_size != 0) {
 			return false;
 		}
 		return true;
@@ -276,7 +294,7 @@ struct LISTPEERWrapper {
 		}
 
 		iterator& operator++() {
-			offset += 8 + crypto_box_PUBLICKEYBYTES;
+			offset += entry_size;
 
 			return *this;
 		}
@@ -295,9 +313,11 @@ struct LISTPEERWrapper {
 	}
 
 	iterator peers_end() const {
-		// Relies on validation ensuring correct size i.e. size % 8 = 1
-		// Otherwise, need to modify size below
-		return iterator(base.payload_buffer(), base.payload_buffer().size());
+		// End of the last whole entry. An iterator which starts at peers_begin
+		// always reaches it and never reads past the buffer, even if validate was not called
+		auto size = base.payload_buffer().size();
+		auto num_peer = size < 1 ? 0 : (size - 1) / entry_size;
+		return iterator(base.payload_buffer(), 1 + num_peer*entry_size);
 	}
 };
 
@@ -445,9 +465,11 @@ struct LISTCLUSTERWrapper {
 	}
 
 	iterator clusters_end() const {
-		// Relies on validation ensuring correct size i.e. size % 8 = 1
-		// Otherwise, need to modify size below
-		return iterator(base.payload_buffer(), base.payload_buffer().size());
+		// End of the last whole entry. An iterator which starts at clusters_begin
+		// always reaches it and never reads past the buffer, even if validate was not called
+		auto size = base.payload_buffer().size();
+		auto num_cluster = size < 1 ? 0 : (size - 1) / 8;
+		return iterator(base.payload_buffer(), 1 + num_cluster*8);
 	}
 };
 
@@ -552,9 +574,11 @@ struct LISTCLUSTER2Wrapper {
 	}
 
 	iterator clusters_end() const {
-		// Relies on validation ensuring correct size i.e. size % entry_size = 1
-		// Otherwise, need to modify size below
-		return iterator(base.payload_buffer(), base.payload_buffer().size());
+		// End of the last whole entry. An iterator which starts at clusters_begin
+		// always reaches it and never reads past the buffer, even if validate was not called
+		auto size = base.payload_buffer().size();
+		auto num_cluster = size < 1 ? 0 : (size - 1) / entry_size;
+		return iterator(base.payload_buffer(), 1 + num_cluster*entry_size);
 	}
 };
 
